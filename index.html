@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>GIS 查詢升級版（穩定匯出版）</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<!-- ⭐ 強制下載 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<style>
+body { margin:0; font-family: Arial; }
+#map { height: 100vh; }
+
+#panel {
+    position:absolute;
+    top:10px; left:10px;
+    width:240px;
+    background:white;
+    padding:12px;
+    z-index:1000;
+    border-radius:10px;
+    box-shadow:0 0 12px rgba(0,0,0,0.3);
+}
+
+table {
+    width:100%;
+    margin-top:10px;
+    border-collapse: collapse;
+    font-size:13px;
+}
+td,th {
+    border:1px solid #ccc;
+    padding:5px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="panel">
+<h3>GIS 查詢</h3>
+
+緯度:<input id="lat" value="25.04024"><br>
+經度:<input id="lon" value="121.43148"><br>
+半徑(km):<input id="radius" value="2"><br>
+
+<h4>類型</h4>
+<label><input type="checkbox" value="school" checked>學校</label><br>
+<label><input type="checkbox" value="hospital" checked>醫院</label><br>
+<label><input type="checkbox" value="marketplace">市場</label><br>
+<label><input type="checkbox" value="park">公園</label><br>
+<label><input type="checkbox" value="parking">停車場</label><br>
+<label><input type="checkbox" value="bank">銀行</label><br>
+
+<button onclick="runQuery()">查詢</button>
+<button onclick="exportData()">匯出</button>
+
+<table>
+<thead>
+<tr><th>名稱</th><th>類型</th><th>距離</th></tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+
+<div id="map"></div>
+
+<script>
+
+// ===== DOM =====
+const latInput = document.getElementById("lat");
+const lonInput = document.getElementById("lon");
+const radiusInput = document.getElementById("radius");
+const tbody = document.getElementById("tbody");
+
+// ===== 地圖 =====
+let map = L.map('map').setView([25.04024,121.43148],15);
+
+L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}', {
+    maxZoom:19
+}).addTo(map);
+
+let markerLayer = L.markerClusterGroup().addTo(map);
+let circleLayer;
+let results = [];
+
+// ===== 類型 =====
+const typeMap = {
+    school:"學校",
+    hospital:"醫院",
+    marketplace:"市場",
+    park:"公園",
+    parking:"停車場",
+    bank:"銀行"
+};
+
+// ===== 距離 =====
+function haversine(lat1, lon1, lat2, lon2){
+    const R=6371000;
+    const toRad=x=>x*Math.PI/180;
+    const dLat=toRad(lat2-lat1);
+    const dLon=toRad(lon2-lon1);
+    const a=Math.sin(dLat/2)**2 +
+        Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*
+        Math.sin(dLon/2)**2;
+    return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+}
+
+// ===== 查詢 =====
+async function runQuery(){
+
+    const lat=parseFloat(latInput.value);
+    const lon=parseFloat(lonInput.value);
+    const radius=parseFloat(radiusInput.value)*1000;
+
+    if(circleLayer) map.removeLayer(circleLayer);
+    markerLayer.clearLayers();
+
+    circleLayer=L.circle([lat,lon],{radius}).addTo(map);
+
+    let parts=[];
+
+    document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
+        let t=e.value;
+
+        if(t==="park"){
+            parts.push(`
+            node["leisure"="park"](around:${radius},${lat},${lon});
+            way["leisure"="park"](around:${radius},${lat},${lon});
+            relation["leisure"="park"](around:${radius},${lat},${lon});
+            `);
+        }else{
+            parts.push(`
+            node["amenity"="${t}"](around:${radius},${lat},${lon});
+            way["amenity"="${t}"](around:${radius},${lat},${lon});
+            relation["amenity"="${t}"](around:${radius},${lat},${lon});
+            `);
+        }
+    });
+
+    const query=`[out:json][timeout:25];(${parts.join("")});out center;`;
+
+    const res=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query));
+    const data=await res.json();
+
+    results=[];
+
+    data.elements.forEach(e=>{
+        const lat2=e.lat||e.center?.lat;
+        const lon2=e.lon||e.center?.lon;
+        if(!lat2) return;
+
+        const dist=haversine(lat,lon,lat2,lon2);
+        if(dist>radius) return;
+
+        const raw=e.tags?.amenity||e.tags?.leisure;
+
+        results.push({
+            名稱:e.tags?.name||"未命名",
+            類型:typeMap[raw]||raw,
+            距離:Math.round(dist),
+            緯度:lat2,
+            經度:lon2
+        });
+    });
+
+    results.sort((a,b)=>a.距離-b.距離);
+
+    render();
+}
+
+// ===== render =====
+function render(){
+
+    tbody.innerHTML="";
+    markerLayer.clearLayers();
+
+    results.forEach(r=>{
+        tbody.innerHTML+=`
+        <tr onclick="map.setView([${r.緯度},${r.經度}],18)">
+            <td>${r.名稱}</td>
+            <td>${r.類型}</td>
+            <td>${r.距離}</td>
+        </tr>`;
+
+        L.marker([r.緯度,r.經度])
+        .bindPopup(r.名稱)
+        .addTo(markerLayer);
+    });
+}
+
+// ===== 匯出（三重保險）=====
+function exportData(){
+
+    if(results.length===0){
+        alert("無資料");
+        return;
+    }
+
+    // ===== Excel =====
+    try{
+        const ws = XLSX.utils.json_to_sheet(results);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "結果");
+
+        const wbout = XLSX.write(wb,{bookType:'xlsx',type:'array'});
+        const blob = new Blob([wbout],{
+            type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        });
+
+        saveAs(blob,"GIS結果.xlsx");
+        return;
+
+    }catch(e){ console.warn("Excel失敗"); }
+
+    // ===== CSV =====
+    try{
+        let csv="名稱,類型,距離,緯度,經度\n";
+        results.forEach(r=>{
+            csv+=`${r.名稱},${r.類型},${r.距離},${r.緯度},${r.經度}\n`;
+        });
+
+        const blob=new Blob(["\uFEFF"+csv],{type:"text/csv"});
+        saveAs(blob,"GIS結果.csv");
+        return;
+
+    }catch(e){ console.warn("CSV失敗"); }
+
+    // ===== JSON =====
+    const blob=new Blob(
+        [JSON.stringify(results,null,2)],
+        {type:"application/json"}
+    );
+
+    saveAs(blob,"GIS結果.json");
+}
+
+// ===== 點地圖 =====
+map.on('click',e=>{
+    latInput.value=e.latlng.lat.toFixed(6);
+    lonInput.value=e.latlng.lng.toFixed(6);
+});
+
+</script>
+
+</body>
+</html>
