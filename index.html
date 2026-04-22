@@ -10,8 +10,6 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-
-<!-- ⭐ 強制下載 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <style>
@@ -39,6 +37,12 @@ td,th {
     border:1px solid #ccc;
     padding:5px;
 }
+
+/* zoom 位置 */
+.leaflet-top.leaflet-right {
+    top: 10px;
+    right: 10px;
+}
 </style>
 </head>
 
@@ -49,9 +53,14 @@ td,th {
 
 緯度:<input id="lat" value="25.04024"><br>
 經度:<input id="lon" value="121.43148"><br>
-半徑(km):<input id="radius" value="2"><br>
+半徑(m):<input id="radius" value="2000"><br>
 
 <h4>類型</h4>
+
+<label><input type="checkbox" value="station">大型車站</label><br>
+<label><input type="checkbox" value="bus_stop">公車站牌</label><br>
+<label><input type="checkbox" value="motorway_junction">交流道</label><br>
+
 <label><input type="checkbox" value="school" checked>學校</label><br>
 <label><input type="checkbox" value="hospital" checked>醫院</label><br>
 <label><input type="checkbox" value="marketplace">市場</label><br>
@@ -64,7 +73,7 @@ td,th {
 
 <table>
 <thead>
-<tr><th>名稱</th><th>類型</th><th>距離</th></tr>
+<tr><th>名稱</th><th>類型</th><th>距離(m)</th></tr>
 </thead>
 <tbody id="tbody"></tbody>
 </table>
@@ -74,14 +83,17 @@ td,th {
 
 <script>
 
-// ===== DOM =====
+// DOM
 const latInput = document.getElementById("lat");
 const lonInput = document.getElementById("lon");
 const radiusInput = document.getElementById("radius");
 const tbody = document.getElementById("tbody");
 
-// ===== 地圖 =====
-let map = L.map('map').setView([25.04024,121.43148],15);
+// 地圖
+let map = L.map('map', { zoomControl:false }).setView([25.04024,121.43148],15);
+
+L.control.zoom({ position:'topright' }).addTo(map);
+L.control.scale({ position:'bottomright', imperial:false }).addTo(map);
 
 L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}', {
     maxZoom:19
@@ -89,19 +101,32 @@ L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}', 
 
 let markerLayer = L.markerClusterGroup().addTo(map);
 let circleLayer;
+let userMarker;
 let results = [];
 
-// ===== 類型 =====
+// ⭐ 強制紅色 icon
+const redIcon = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25,41],
+    iconAnchor: [12,41],
+    popupAnchor: [1,-34]
+});
+
+// 類型
 const typeMap = {
     school:"學校",
     hospital:"醫院",
     marketplace:"市場",
     park:"公園",
     parking:"停車場",
-    bank:"銀行"
+    bank:"銀行",
+    station:"大型車站",
+    bus_stop:"公車站牌",
+    motorway_junction:"交流道"
 };
 
-// ===== 距離 =====
+// 距離
 function haversine(lat1, lon1, lat2, lon2){
     const R=6371000;
     const toRad=x=>x*Math.PI/180;
@@ -113,15 +138,19 @@ function haversine(lat1, lon1, lat2, lon2){
     return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-// ===== 查詢 =====
+// 查詢
 async function runQuery(){
 
     const lat=parseFloat(latInput.value);
     const lon=parseFloat(lonInput.value);
-    const radius=parseFloat(radiusInput.value)*1000;
+    const radius=parseFloat(radiusInput.value); // ⭐ 已是公尺
 
     if(circleLayer) map.removeLayer(circleLayer);
     markerLayer.clearLayers();
+
+    if(userMarker) map.removeLayer(userMarker);
+    userMarker = L.marker([lat,lon],{icon:redIcon}).addTo(map)
+        .bindPopup("查詢中心").openPopup();
 
     circleLayer=L.circle([lat,lon],{radius}).addTo(map);
 
@@ -136,7 +165,21 @@ async function runQuery(){
             way["leisure"="park"](around:${radius},${lat},${lon});
             relation["leisure"="park"](around:${radius},${lat},${lon});
             `);
-        }else{
+        }
+        else if(t==="station"){
+            parts.push(`
+            node["railway"="station"](around:${radius},${lat},${lon});
+            way["railway"="station"](around:${radius},${lat},${lon});
+            relation["railway"="station"](around:${radius},${lat},${lon});
+            `);
+        }
+        else if(t==="bus_stop"){
+            parts.push(`node["highway"="bus_stop"](around:${radius},${lat},${lon});`);
+        }
+        else if(t==="motorway_junction"){
+            parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
+        }
+        else{
             parts.push(`
             node["amenity"="${t}"](around:${radius},${lat},${lon});
             way["amenity"="${t}"](around:${radius},${lat},${lon});
@@ -160,7 +203,7 @@ async function runQuery(){
         const dist=haversine(lat,lon,lat2,lon2);
         if(dist>radius) return;
 
-        const raw=e.tags?.amenity||e.tags?.leisure;
+        let raw = e.tags?.amenity || e.tags?.leisure || e.tags?.railway || e.tags?.highway;
 
         results.push({
             名稱:e.tags?.name||"未命名",
@@ -176,9 +219,8 @@ async function runQuery(){
     render();
 }
 
-// ===== render =====
+// render
 function render(){
-
     tbody.innerHTML="";
     markerLayer.clearLayers();
 
@@ -190,13 +232,25 @@ function render(){
             <td>${r.距離}</td>
         </tr>`;
 
-        L.marker([r.緯度,r.經度])
-        .bindPopup(r.名稱)
-        .addTo(markerLayer);
+        L.marker([r.緯度,r.經度]).bindPopup(r.名稱).addTo(markerLayer);
     });
 }
 
-// ===== 匯出（三重保險）=====
+// 下載
+function downloadFile(blob, filename){
+    if(typeof saveAs !== "undefined"){
+        saveAs(blob, filename);
+        return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// 匯出
 function exportData(){
 
     if(results.length===0){
@@ -204,45 +258,19 @@ function exportData(){
         return;
     }
 
-    // ===== Excel =====
-    try{
-        const ws = XLSX.utils.json_to_sheet(results);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "結果");
+    const ws = XLSX.utils.json_to_sheet(results);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "結果");
 
-        const wbout = XLSX.write(wb,{bookType:'xlsx',type:'array'});
-        const blob = new Blob([wbout],{
-            type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        });
+    const wbout = XLSX.write(wb,{bookType:'xlsx',type:'array'});
+    const blob = new Blob([wbout],{
+        type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
 
-        saveAs(blob,"GIS結果.xlsx");
-        return;
-
-    }catch(e){ console.warn("Excel失敗"); }
-
-    // ===== CSV =====
-    try{
-        let csv="名稱,類型,距離,緯度,經度\n";
-        results.forEach(r=>{
-            csv+=`${r.名稱},${r.類型},${r.距離},${r.緯度},${r.經度}\n`;
-        });
-
-        const blob=new Blob(["\uFEFF"+csv],{type:"text/csv"});
-        saveAs(blob,"GIS結果.csv");
-        return;
-
-    }catch(e){ console.warn("CSV失敗"); }
-
-    // ===== JSON =====
-    const blob=new Blob(
-        [JSON.stringify(results,null,2)],
-        {type:"application/json"}
-    );
-
-    saveAs(blob,"GIS結果.json");
+    downloadFile(blob,"GIS結果.xlsx");
 }
 
-// ===== 點地圖 =====
+// 點地圖
 map.on('click',e=>{
     latInput.value=e.latlng.lat.toFixed(6);
     lonInput.value=e.latlng.lng.toFixed(6);
