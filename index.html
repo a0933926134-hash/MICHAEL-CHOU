@@ -2,42 +2,40 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>GIS 查詢升級版（距離排序版）</title>
+<title>GIS 查詢升級版（紅色定位點）</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
-
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <style>
 body { margin:0; font-family: Arial; }
-#map { height: 100vh; }
+#map { height:100vh; }
 
-#panel {
-    position:absolute;
-    top:10px;
-    right:10px;
-    width:280px;
-    background:white;
-    padding:12px;
-    z-index:1000;
-    border-radius:10px;
-    box-shadow:0 0 12px rgba(0,0,0,0.3);
-    font-size:13px;
+#panel{
+position:absolute;
+top:10px;
+right:10px;
+width:280px;
+background:white;
+padding:12px;
+z-index:1000;
+border-radius:10px;
+box-shadow:0 0 12px rgba(0,0,0,0.3);
+font-size:13px;
 }
 
-table {
-    width:100%;
-    margin-top:10px;
-    border-collapse: collapse;
-    font-size:12px;
+table{
+width:100%;
+margin-top:10px;
+border-collapse: collapse;
+font-size:12px;
 }
-td,th {
-    border:1px solid #ccc;
-    padding:4px;
+td,th{
+border:1px solid #ccc;
+padding:4px;
 }
 </style>
 </head>
@@ -45,6 +43,7 @@ td,th {
 <body>
 
 <div id="panel">
+
 <h3>GIS 查詢</h3>
 
 緯度:<input id="lat" value="25.04024"><br>
@@ -70,7 +69,6 @@ td,th {
 <hr>
 
 <div id="distanceLabel">路線距離: 0 m</div>
-
 <button onclick="clearRoute()">清除量取路線</button>
 
 <table>
@@ -86,200 +84,204 @@ td,th {
 
 <script>
 
-// ===== map =====
-let map=L.map('map',{zoomControl:false}).setView([25.04024,121.43148],15);
-L.control.zoom({position:'topright'}).addTo(map);
-L.control.scale({position:'bottomright',imperial:false}).addTo(map);
+// ===== 地圖 =====
+let map=L.map('map').setView([25.04024,121.43148],15);
 
 L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
-    maxZoom:19
+maxZoom:19
 }).addTo(map);
 
-// ===== UI =====
+// ===== DOM =====
 const latInput=document.getElementById("lat");
 const lonInput=document.getElementById("lon");
 const radiusInput=document.getElementById("radius");
 const tbody=document.getElementById("tbody");
 const distanceLabel=document.getElementById("distanceLabel");
 
-// ===== data =====
+// ===== layer =====
 let markerLayer=L.layerGroup().addTo(map);
-let circleLayer,userMarker,routeLayer;
-let results=[];
+let routeLayer=null;
+let userMarker=null;
 let origin=null;
+let results=[];
 
-// ===== icon =====
+// ===== ⭐ 紅色 icon =====
 const redIcon = new L.Icon({
-    iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-    shadowUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize:[25,41],
-    iconAnchor:[12,41]
+iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+shadowUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+iconSize:[25,41],
+iconAnchor:[12,41]
 });
 
 // ===== Haversine =====
 function haversine(lat1, lon1, lat2, lon2){
-    const R=6371000;
-    const toRad=x=>x*Math.PI/180;
-    const dLat=toRad(lat2-lat1);
-    const dLon=toRad(lon2-lon1);
-    const a=Math.sin(dLat/2)**2 +
-        Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*
-        Math.sin(dLon/2)**2;
-    return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+const R=6371000;
+const toRad=x=>x*Math.PI/180;
+const dLat=toRad(lat2-lat1);
+const dLon=toRad(lon2-lon1);
+const a=Math.sin(dLat/2)**2 +
+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*
+Math.sin(dLon/2)**2;
+return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-// ===== update =====
-function updateLatLng(lat,lng){
+// ===== 點地圖（⭐ 修正重點）=====
+map.on('click',e=>{
 
-    const fixLat=parseFloat(lat.toFixed(6));
-    const fixLng=parseFloat(lng.toFixed(6));
+const lat=e.latlng.lat.toFixed(6);
+const lon=e.latlng.lng.toFixed(6);
 
-    latInput.value=fixLat;
-    lonInput.value=fixLng;
+latInput.value=lat;
+lonInput.value=lon;
 
-    origin=[fixLat,fixLng];
+origin=[parseFloat(lat),parseFloat(lon)];
 
-    return [fixLat,fixLng];
-}
+// 移除舊 marker
+if(userMarker) map.removeLayer(userMarker);
 
-// ===== route =====
+// 加入紅色定位點
+userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
+
+});
+
+// ===== 路線 =====
 async function drawRoute(dest){
 
-    if(!origin || !dest) return;
+if(!origin){
+origin=[parseFloat(latInput.value),parseFloat(lonInput.value)];
+}
 
-    const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
+const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
 
-    const res=await fetch(url);
-    const data=await res.json();
+const res=await fetch(url);
+const data=await res.json();
 
-    if(!data.routes?.[0]) return;
+if(!data.routes || !data.routes.length) return;
 
-    const route=data.routes[0];
+const route=data.routes[0];
 
-    if(routeLayer) map.removeLayer(routeLayer);
+if(routeLayer) map.removeLayer(routeLayer);
 
-    routeLayer=L.geoJSON(route.geometry,{
-        style:{color:'blue',weight:5}
-    }).addTo(map);
+routeLayer=L.geoJSON(route.geometry,{
+style:{color:'blue',weight:5}
+}).addTo(map);
 
-    distanceLabel.innerText="路線距離: "+Math.round(route.distance)+" m";
+distanceLabel.innerText="路線距離: "+Math.round(route.distance)+" m";
 }
 
 // ===== 清除 =====
 function clearRoute(){
-
-    if(routeLayer){
-        map.removeLayer(routeLayer);
-        routeLayer=null;
-    }
-
-    distanceLabel.innerText="路線距離: 0 m";
-    origin=null;
+if(routeLayer){
+map.removeLayer(routeLayer);
+routeLayer=null;
+}
+distanceLabel.innerText="路線距離: 0 m";
 }
 
-// ===== click =====
-map.on('click',function(e){
-    updateLatLng(e.latlng.lat,e.latlng.lng);
-});
-
-// ===== query =====
+// ===== 查詢 =====
 async function runQuery(){
 
-    let lat=parseFloat(latInput.value);
-    let lon=parseFloat(lonInput.value);
-    const radius=parseFloat(radiusInput.value);
+const lat=parseFloat(latInput.value);
+const lon=parseFloat(lonInput.value);
+const radius=parseFloat(radiusInput.value);
 
-    [lat,lon]=updateLatLng(lat,lon);
+origin=[lat,lon];
 
-    if(circleLayer) map.removeLayer(circleLayer);
-    markerLayer.clearLayers();
+markerLayer.clearLayers();
+tbody.innerHTML="";
+results=[];
 
-    if(userMarker) map.removeLayer(userMarker);
-    userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
+let parts=[];
 
-    circleLayer=L.circle([lat,lon],{radius}).addTo(map);
+document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
 
-    let parts=[];
+let t=e.value;
 
-    document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
-        let t=e.value;
-
-        if(t==="park"){
-            parts.push(`node["leisure"="park"](around:${radius},${lat},${lon});
-            way["leisure"="park"](around:${radius},${lat},${lon});
-            relation["leisure"="park"](around:${radius},${lat},${lon});`);
-        }
-
-        else if(t==="station"){
-            parts.push(`
-            node["railway"="station"](around:${radius},${lat},${lon});
-            node["railway"="subway_entrance"](around:${radius},${lat},${lon});
-            node["amenity"="bus_station"](around:${radius},${lat},${lon});
-            `);
-        }
-
-        else{
-            parts.push(`node["amenity"="${t}"](around:${radius},${lat},${lon});
-            way["amenity"="${t}"](around:${radius},${lat},${lon});
-            relation["amenity"="${t}"](around:${radius},${lat},${lon});`);
-        }
-    });
-
-    const query=`[out:json][timeout:25];(${parts.join("")});out center;`;
-
-    const res=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query));
-    const data=await res.json();
-
-    results=[];
-
-    data.elements.forEach(e=>{
-        const lat2=e.lat||e.center?.lat;
-        const lon2=e.lon||e.center?.lon;
-        if(!lat2) return;
-
-        const dist=haversine(lat,lon,lat2,lon2);
-
-        results.push({
-            名稱:e.tags?.name||"未命名",
-            類型:e.tags?.railway||e.tags?.amenity||"",
-            距離:Math.round(dist),
-            緯度:parseFloat(lat2.toFixed(6)),
-            經度:parseFloat(lon2.toFixed(6))
-        });
-    });
-
-    // ⭐⭐⭐ 關鍵修正：距離排序 ⭐⭐⭐
-    results.sort((a,b)=>a.距離-b.距離);
-
-    render();
+if(t==="bus_stop"){
+parts.push(`
+node["highway"="bus_stop"](around:${radius},${lat},${lon});
+node["public_transport"="platform"](around:${radius},${lat},${lon});
+`);
+}
+else if(t==="motorway_junction"){
+parts.push(`
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+way["highway"="motorway_link"](around:${radius},${lat},${lon});
+node["junction"="yes"](around:${radius},${lat},${lon});
+`);
+}
+else if(t==="station"){
+parts.push(`
+node["railway"="station"](around:${radius},${lat},${lon});
+node["amenity"="bus_station"](around:${radius},${lat},${lon});
+`);
+}
+else if(t==="park"){
+parts.push(`
+node["leisure"="park"](around:${radius},${lat},${lon});
+`);
+}
+else{
+parts.push(`
+node["amenity"="${t}"](around:${radius},${lat},${lon});
+way["amenity"="${t}"](around:${radius},${lat},${lon});
+`);
 }
 
-// ===== render =====
-function render(){
+});
 
-    tbody.innerHTML="";
-    markerLayer.clearLayers();
+const query=`[out:json][timeout:25];(${parts.join("")});out center;`;
 
-    results.forEach(r=>{
+const res=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(query));
+const data=await res.json();
 
-        const marker=L.marker([r.緯度,r.經度]).addTo(markerLayer);
+data.elements.forEach(e=>{
 
-        marker.on("click",()=>{
-            drawRoute([r.緯度,r.經度]);
-        });
+const lat2=e.lat||e.center?.lat;
+const lon2=e.lon||e.center?.lon;
+if(!lat2) return;
 
-        tbody.innerHTML+=`
-        <tr onclick="drawRoute([${r.緯度},${r.經度}])">
-            <td style="cursor:pointer;color:blue">${r.名稱}</td>
-            <td>${r.類型}</td>
-            <td>${r.距離}</td>
-        </tr>`;
-    });
+const dist=Math.round(haversine(lat,lon,lat2,lon2));
+
+results.push({
+名稱:e.tags?.name||"未命名",
+類型:e.tags?.amenity||e.tags?.railway||e.tags?.highway||e.tags?.leisure||"",
+距離:dist,
+緯度:lat2,
+經度:lon2
+});
+
+});
+
+results.sort((a,b)=>a.距離-b.距離);
+
+// render
+results.forEach(r=>{
+
+const m=L.marker([r.緯度,r.經度]).addTo(markerLayer);
+m.bindPopup(r.名稱);
+
+m.on("click",()=>drawRoute([r.緯度,r.經度]));
+
+tbody.innerHTML+=`
+<tr onclick="drawRoute([${r.緯度},${r.經度}])">
+<td style="cursor:pointer;color:blue">${r.名稱}</td>
+<td>${r.類型}</td>
+<td>${r.距離}</td>
+</tr>
+`;
+
+});
+
 }
 
-// ===== export =====
+// ===== 匯出 =====
 function exportData(){
-    alert("維持原功能");
+if(results.length===0){ alert("無資料"); return; }
+const ws=XLSX.utils.json_to_sheet(results);
+const wb=XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb,ws,"GIS");
+XLSX.writeFile(wb,"GIS結果.xlsx");
 }
 
 </script>
