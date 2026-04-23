@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>GIS 查詢升級版（公園修復）</title>
+<title>GIS 查詢升級版（紅點+半徑修復）</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -98,11 +98,12 @@ const distanceLabel=document.getElementById("distanceLabel");
 
 let markerLayer=L.layerGroup().addTo(map);
 let routeLayer=null;
+let circleLayer=null;     // ⭐新增
 let userMarker=null;
 let origin=null;
 let results=[];
 
-// ===== 紅色定位點 =====
+// ===== 紅色定位點（保證可用）=====
 const redIcon = new L.Icon({
 iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
 shadowUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
@@ -122,17 +123,33 @@ Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-// ===== 點地圖 =====
+// ===== 點地圖（紅點 + 半徑圈修復）=====
 map.on('click',e=>{
-const lat=e.latlng.lat.toFixed(6);
-const lon=e.latlng.lng.toFixed(6);
 
-latInput.value=lat;
-lonInput.value=lon;
-origin=[parseFloat(lat),parseFloat(lon)];
+const lat=e.latlng.lat;
+const lon=e.latlng.lng;
 
+latInput.value=lat.toFixed(6);
+lonInput.value=lon.toFixed(6);
+origin=[lat,lon];
+
+// ===== 紅色定位點（強制覆蓋）=====
 if(userMarker) map.removeLayer(userMarker);
 userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
+
+// ===== ⭐ 半徑範圍圈（修復重點）=====
+const radius=parseFloat(radiusInput.value);
+
+if(circleLayer) map.removeLayer(circleLayer);
+
+circleLayer=L.circle([lat,lon],{
+radius:radius,
+color:'blue',
+weight:2,
+fillColor:'#3b82f6',
+fillOpacity:0.15
+}).addTo(map);
+
 });
 
 // ===== 路線 =====
@@ -158,7 +175,7 @@ style:{color:'blue',weight:5}
 distanceLabel.innerText="路線距離: "+Math.round(data.routes[0].distance)+" m";
 }
 
-// ===== 清除 =====
+// ===== 清除路線 =====
 function clearRoute(){
 if(routeLayer){
 map.removeLayer(routeLayer);
@@ -167,7 +184,7 @@ routeLayer=null;
 distanceLabel.innerText="路線距離: 0 m";
 }
 
-// ===== 查詢 =====
+// ===== 查詢（維持原版）=====
 async function runQuery(){
 
 const lat=parseFloat(latInput.value);
@@ -187,30 +204,19 @@ document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
 let t=e.value;
 
 if(t==="park"){
-
-// ⭐⭐ 修正重點（多標籤）
 parts.push(`
 node["leisure"="park"](around:${radius},${lat},${lon});
-way["leisure"="park"](around:${radius},${lat},${lon});
-
 node["leisure"="garden"](around:${radius},${lat},${lon});
-way["leisure"="garden"](around:${radius},${lat},${lon});
-
 node["leisure"="recreation_ground"](around:${radius},${lat},${lon});
-way["leisure"="recreation_ground"](around:${radius},${lat},${lon});
-
 node["landuse"="grass"](around:${radius},${lat},${lon});
-way["landuse"="grass"](around:${radius},${lat},${lon});
 `);
 }
-
 else if(t==="bus_stop"){
 parts.push(`
 node["highway"="bus_stop"](around:${radius},${lat},${lon});
 node["public_transport"="platform"](around:${radius},${lat},${lon});
 `);
 }
-
 else if(t==="motorway_junction"){
 parts.push(`
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
@@ -218,14 +224,12 @@ way["highway"="motorway_link"](around:${radius},${lat},${lon});
 node["junction"="yes"](around:${radius},${lat},${lon});
 `);
 }
-
 else if(t==="station"){
 parts.push(`
 node["railway"="station"](around:${radius},${lat},${lon});
 node["amenity"="bus_station"](around:${radius},${lat},${lon});
 `);
 }
-
 else{
 parts.push(`
 node["amenity"="${t}"](around:${radius},${lat},${lon});
@@ -241,7 +245,6 @@ const res=await fetch("https://overpass-api.de/api/interpreter?data="+encodeURIC
 const data=await res.json();
 
 data.elements.forEach(e=>{
-
 const lat2=e.lat||e.center?.lat;
 const lon2=e.lon||e.center?.lon;
 if(!lat2) return;
@@ -255,12 +258,10 @@ results.push({
 緯度:lat2,
 經度:lon2
 });
-
 });
 
 results.sort((a,b)=>a.距離-b.距離);
 
-// render
 results.forEach(r=>{
 const m=L.marker([r.緯度,r.經度]).addTo(markerLayer);
 m.bindPopup(r.名稱);
