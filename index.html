@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>GIS 查詢升級版（紅色定位點）</title>
+<title>GIS 查詢升級版（公園修復）</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -84,28 +84,25 @@ padding:4px;
 
 <script>
 
-// ===== 地圖 =====
 let map=L.map('map').setView([25.04024,121.43148],15);
 
 L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
 maxZoom:19
 }).addTo(map);
 
-// ===== DOM =====
 const latInput=document.getElementById("lat");
 const lonInput=document.getElementById("lon");
 const radiusInput=document.getElementById("radius");
 const tbody=document.getElementById("tbody");
 const distanceLabel=document.getElementById("distanceLabel");
 
-// ===== layer =====
 let markerLayer=L.layerGroup().addTo(map);
 let routeLayer=null;
 let userMarker=null;
 let origin=null;
 let results=[];
 
-// ===== ⭐ 紅色 icon =====
+// ===== 紅色定位點 =====
 const redIcon = new L.Icon({
 iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
 shadowUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
@@ -113,7 +110,7 @@ iconSize:[25,41],
 iconAnchor:[12,41]
 });
 
-// ===== Haversine =====
+// ===== 距離 =====
 function haversine(lat1, lon1, lat2, lon2){
 const R=6371000;
 const toRad=x=>x*Math.PI/180;
@@ -125,23 +122,17 @@ Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-// ===== 點地圖（⭐ 修正重點）=====
+// ===== 點地圖 =====
 map.on('click',e=>{
-
 const lat=e.latlng.lat.toFixed(6);
 const lon=e.latlng.lng.toFixed(6);
 
 latInput.value=lat;
 lonInput.value=lon;
-
 origin=[parseFloat(lat),parseFloat(lon)];
 
-// 移除舊 marker
 if(userMarker) map.removeLayer(userMarker);
-
-// 加入紅色定位點
 userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
-
 });
 
 // ===== 路線 =====
@@ -158,15 +149,13 @@ const data=await res.json();
 
 if(!data.routes || !data.routes.length) return;
 
-const route=data.routes[0];
-
 if(routeLayer) map.removeLayer(routeLayer);
 
-routeLayer=L.geoJSON(route.geometry,{
+routeLayer=L.geoJSON(data.routes[0].geometry,{
 style:{color:'blue',weight:5}
 }).addTo(map);
 
-distanceLabel.innerText="路線距離: "+Math.round(route.distance)+" m";
+distanceLabel.innerText="路線距離: "+Math.round(data.routes[0].distance)+" m";
 }
 
 // ===== 清除 =====
@@ -197,12 +186,31 @@ document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
 
 let t=e.value;
 
-if(t==="bus_stop"){
+if(t==="park"){
+
+// ⭐⭐ 修正重點（多標籤）
+parts.push(`
+node["leisure"="park"](around:${radius},${lat},${lon});
+way["leisure"="park"](around:${radius},${lat},${lon});
+
+node["leisure"="garden"](around:${radius},${lat},${lon});
+way["leisure"="garden"](around:${radius},${lat},${lon});
+
+node["leisure"="recreation_ground"](around:${radius},${lat},${lon});
+way["leisure"="recreation_ground"](around:${radius},${lat},${lon});
+
+node["landuse"="grass"](around:${radius},${lat},${lon});
+way["landuse"="grass"](around:${radius},${lat},${lon});
+`);
+}
+
+else if(t==="bus_stop"){
 parts.push(`
 node["highway"="bus_stop"](around:${radius},${lat},${lon});
 node["public_transport"="platform"](around:${radius},${lat},${lon});
 `);
 }
+
 else if(t==="motorway_junction"){
 parts.push(`
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
@@ -210,17 +218,14 @@ way["highway"="motorway_link"](around:${radius},${lat},${lon});
 node["junction"="yes"](around:${radius},${lat},${lon});
 `);
 }
+
 else if(t==="station"){
 parts.push(`
 node["railway"="station"](around:${radius},${lat},${lon});
 node["amenity"="bus_station"](around:${radius},${lat},${lon});
 `);
 }
-else if(t==="park"){
-parts.push(`
-node["leisure"="park"](around:${radius},${lat},${lon});
-`);
-}
+
 else{
 parts.push(`
 node["amenity"="${t}"](around:${radius},${lat},${lon});
@@ -245,7 +250,7 @@ const dist=Math.round(haversine(lat,lon,lat2,lon2));
 
 results.push({
 名稱:e.tags?.name||"未命名",
-類型:e.tags?.amenity||e.tags?.railway||e.tags?.highway||e.tags?.leisure||"",
+類型:e.tags?.leisure||e.tags?.amenity||"",
 距離:dist,
 緯度:lat2,
 經度:lon2
@@ -257,10 +262,8 @@ results.sort((a,b)=>a.距離-b.距離);
 
 // render
 results.forEach(r=>{
-
 const m=L.marker([r.緯度,r.經度]).addTo(markerLayer);
 m.bindPopup(r.名稱);
-
 m.on("click",()=>drawRoute([r.緯度,r.經度]));
 
 tbody.innerHTML+=`
@@ -270,7 +273,6 @@ tbody.innerHTML+=`
 <td>${r.距離}</td>
 </tr>
 `;
-
 });
 
 }
