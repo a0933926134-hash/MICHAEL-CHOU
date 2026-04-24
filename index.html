@@ -14,29 +14,146 @@
 body { margin:0; font-family: Arial; }
 #map { height:100vh; }
 
+/* =========================
+   🔷 右側 UI（優化對齊版）
+========================= */
+
 #panel{
 position:absolute;
-top:10px;
-right:10px;
-width:280px;
-background:white;
-padding:12px;
+top:12px;
+right:12px;
+width:320px;
+background: linear-gradient(135deg,#ffffff,#f3f7ff);
+padding:14px;
 z-index:1000;
-border-radius:10px;
-box-shadow:0 0 12px rgba(0,0,0,0.3);
+border-radius:16px;
+box-shadow:0 10px 25px rgba(0,0,0,0.25);
 font-size:13px;
+border:1px solid #e6e9ff;
 }
 
+#panel h3{
+margin:0 0 8px 0;
+color:#1e3a8a;
+}
+
+#panel h4{
+margin:10px 0 6px;
+color:#2563eb;
+border-left:4px solid #2563eb;
+padding-left:6px;
+}
+
+/* input */
+#panel input{
+width:95%;
+padding:6px;
+margin:3px 0;
+border-radius:8px;
+border:1px solid #cbd5e1;
+outline:none;
+transition:0.2s;
+}
+
+#panel input:focus{
+border-color:#3b82f6;
+box-shadow:0 0 6px rgba(59,130,246,0.3);
+}
+
+/* =========================
+   ⭐ 類型 UI（左對齊修正版）
+========================= */
+
+#panel label{
+display:grid;
+grid-template-columns: 18px 1fr; /* checkbox + 文字 */
+align-items:center;
+column-gap:8px;
+
+padding:4px 6px;
+border-radius:8px;
+cursor:pointer;
+transition:0.2s;
+
+text-align:left;
+}
+
+#panel label:hover{
+background:#e0ecff;
+}
+
+/* checkbox */
+#panel input[type="checkbox"]{
+width:16px;
+height:16px;
+margin:0;
+}
+
+/* 按鈕 */
+#panel button{
+width:100%;
+margin-top:6px;
+padding:8px;
+border:none;
+border-radius:10px;
+cursor:pointer;
+font-weight:bold;
+transition:0.2s;
+}
+
+#panel button:hover{
+transform:scale(1.03);
+}
+
+#panel button:nth-of-type(1){
+background:#2563eb;
+color:white;
+}
+
+#panel button:nth-of-type(2){
+background:#10b981;
+color:white;
+}
+
+#panel button:last-of-type{
+background:#ef4444;
+color:white;
+}
+
+/* 距離 */
+#distanceLabel{
+margin-top:8px;
+padding:6px;
+background:#eff6ff;
+border-radius:8px;
+font-weight:bold;
+color:#1d4ed8;
+}
+
+/* 表格 */
 table{
 width:100%;
 margin-top:10px;
 border-collapse: collapse;
 font-size:12px;
+background:white;
+border-radius:8px;
+overflow:hidden;
 }
+
 td,th{
-border:1px solid #ccc;
+border:1px solid #e5e7eb;
 padding:4px;
 }
+
+th{
+background:#dbeafe;
+}
+
+tr:hover{
+background:#f1f5f9;
+}
+
 </style>
 </head>
 
@@ -52,16 +169,16 @@ padding:4px;
 
 <h4>類型</h4>
 
-<label><input type="checkbox" value="station">大型車站</label><br>
-<label><input type="checkbox" value="bus_stop">公車站牌</label><br>
-<label><input type="checkbox" value="motorway_junction">交流道</label><br>
+<label><input type="checkbox" value="station">大型車站</label>
+<label><input type="checkbox" value="bus_stop">公車站牌</label>
+<label><input type="checkbox" value="motorway_junction">交流道</label>
 
-<label><input type="checkbox" value="school" checked>學校</label><br>
-<label><input type="checkbox" value="hospital" checked>醫院</label><br>
-<label><input type="checkbox" value="marketplace">市場</label><br>
-<label><input type="checkbox" value="park">公園</label><br>
-<label><input type="checkbox" value="parking">停車場</label><br>
-<label><input type="checkbox" value="bank">銀行</label><br>
+<label><input type="checkbox" value="school" checked>學校</label>
+<label><input type="checkbox" value="hospital" checked>醫院</label>
+<label><input type="checkbox" value="marketplace">市場</label>
+<label><input type="checkbox" value="park">公園</label>
+<label><input type="checkbox" value="parking">停車場</label>
+<label><input type="checkbox" value="bank">銀行</label>
 
 <button onclick="runQuery()">查詢</button>
 <button onclick="exportData()">匯出</button>
@@ -143,7 +260,7 @@ fillOpacity:0.15
 
 });
 
-// ===== 查詢（強化穩定版）=====
+// ===== 查詢（不變）=====
 async function runQuery(){
 
 const lat=parseFloat(latInput.value);
@@ -250,18 +367,13 @@ tbody.innerHTML+=`
 `;
 });
 
-if(results.length===0){
-alert("查詢完成，但無資料");
-}
-
 }catch(err){
-console.error(err);
 alert("查詢失敗");
+console.error(err);
 }
 }
 
 async function drawRoute(dest){
-
 if(!origin){
 origin=[parseFloat(latInput.value),parseFloat(lonInput.value)];
 }
