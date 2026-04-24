@@ -14,10 +14,6 @@
 body { margin:0; font-family: Arial; }
 #map { height:100vh; }
 
-/* =========================
-   🔷 右側 UI（優化對齊版）
-========================= */
-
 #panel{
 position:absolute;
 top:12px;
@@ -32,64 +28,29 @@ font-size:13px;
 border:1px solid #e6e9ff;
 }
 
-#panel h3{
-margin:0 0 8px 0;
-color:#1e3a8a;
-}
+#panel h3{margin:0 0 8px 0;color:#1e3a8a;}
+#panel h4{margin:10px 0 6px;color:#2563eb;border-left:4px solid #2563eb;padding-left:6px;}
 
-#panel h4{
-margin:10px 0 6px;
-color:#2563eb;
-border-left:4px solid #2563eb;
-padding-left:6px;
-}
-
-/* input */
 #panel input{
 width:95%;
 padding:6px;
 margin:3px 0;
 border-radius:8px;
 border:1px solid #cbd5e1;
-outline:none;
-transition:0.2s;
 }
-
-#panel input:focus{
-border-color:#3b82f6;
-box-shadow:0 0 6px rgba(59,130,246,0.3);
-}
-
-/* =========================
-   ⭐ 類型 UI（左對齊修正版）
-========================= */
 
 #panel label{
 display:grid;
-grid-template-columns: 18px 1fr; /* checkbox + 文字 */
+grid-template-columns: 18px 1fr;
 align-items:center;
 column-gap:8px;
-
 padding:4px 6px;
 border-radius:8px;
 cursor:pointer;
-transition:0.2s;
-
-text-align:left;
 }
 
-#panel label:hover{
-background:#e0ecff;
-}
+#panel label:hover{background:#e0ecff;}
 
-/* checkbox */
-#panel input[type="checkbox"]{
-width:16px;
-height:16px;
-margin:0;
-}
-
-/* 按鈕 */
 #panel button{
 width:100%;
 margin-top:6px;
@@ -98,29 +59,12 @@ border:none;
 border-radius:10px;
 cursor:pointer;
 font-weight:bold;
-transition:0.2s;
 }
 
-#panel button:hover{
-transform:scale(1.03);
-}
+#panel button:nth-of-type(1){background:#2563eb;color:white;}
+#panel button:nth-of-type(2){background:#10b981;color:white;}
+#panel button:last-of-type{background:#ef4444;color:white;}
 
-#panel button:nth-of-type(1){
-background:#2563eb;
-color:white;
-}
-
-#panel button:nth-of-type(2){
-background:#10b981;
-color:white;
-}
-
-#panel button:last-of-type{
-background:#ef4444;
-color:white;
-}
-
-/* 距離 */
 #distanceLabel{
 margin-top:8px;
 padding:6px;
@@ -130,7 +74,6 @@ font-weight:bold;
 color:#1d4ed8;
 }
 
-/* 表格 */
 table{
 width:100%;
 margin-top:10px;
@@ -146,14 +89,8 @@ border:1px solid #e5e7eb;
 padding:4px;
 }
 
-th{
-background:#dbeafe;
-}
-
-tr:hover{
-background:#f1f5f9;
-}
-
+th{background:#dbeafe;}
+tr:hover{background:#f1f5f9;}
 </style>
 </head>
 
@@ -175,7 +112,9 @@ background:#f1f5f9;
 
 <label><input type="checkbox" value="school" checked>學校</label>
 <label><input type="checkbox" value="hospital" checked>醫院</label>
-<label><input type="checkbox" value="marketplace">市場</label>
+
+<label><input type="checkbox" value="marketplace">市場 / 超市</label>
+
 <label><input type="checkbox" value="park">公園</label>
 <label><input type="checkbox" value="parking">停車場</label>
 <label><input type="checkbox" value="bank">銀行</label>
@@ -238,6 +177,19 @@ Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
+/* =========================
+   ⭐ 修正定位同步問題
+========================= */
+function updateCircle(lat,lon,radius){
+if(circleLayer) map.removeLayer(circleLayer);
+circleLayer=L.circle([lat,lon],{
+radius,
+color:'blue',
+fillColor:'#3b82f6',
+fillOpacity:0.15
+}).addTo(map);
+}
+
 map.on('click',e=>{
 const lat=e.latlng.lat;
 const lon=e.latlng.lng;
@@ -249,18 +201,10 @@ origin=[lat,lon];
 if(userMarker) map.removeLayer(userMarker);
 userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
 
-if(circleLayer) map.removeLayer(circleLayer);
-
-circleLayer=L.circle([lat,lon],{
-radius:parseFloat(radiusInput.value),
-color:'blue',
-fillColor:'#3b82f6',
-fillOpacity:0.15
-}).addTo(map);
-
+updateCircle(lat,lon,parseFloat(radiusInput.value));
 });
 
-// ===== 查詢（不變）=====
+// ===== 查詢 =====
 async function runQuery(){
 
 const lat=parseFloat(latInput.value);
@@ -273,11 +217,16 @@ markerLayer.clearLayers();
 tbody.innerHTML="";
 results=[];
 
+updateCircle(lat,lon,radius);
+
 let parts=[];
 
 document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
 let t=e.value;
 
+/* =========================
+   ⭐ 公園修正（完整 OSM）
+========================= */
 if(t==="park"){
 parts.push(`
 node["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
@@ -285,38 +234,35 @@ way["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
 relation["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
 `);
 }
-else if(t==="bus_stop"){
+
+else if(t==="marketplace"){
 parts.push(`
-node["highway"="bus_stop"](around:${radius},${lat},${lon});
-node["public_transport"="platform"](around:${radius},${lat},${lon});
+node["amenity"="marketplace"](around:${radius},${lat},${lon});
+way["amenity"="marketplace"](around:${radius},${lat},${lon});
+node["shop"~"supermarket|mall"](around:${radius},${lat},${lon});
+way["shop"~"supermarket|mall"](around:${radius},${lat},${lon});
+node["name"~"全聯|PX|PX Mart"](around:${radius},${lat},${lon});
+node["name"~"家樂福|Carrefour"](around:${radius},${lat},${lon});
+node["name"~"好市多|Costco"](around:${radius},${lat},${lon});
 `);
+}
+
+else if(t==="bus_stop"){
+parts.push(`node["highway"="bus_stop"](around:${radius},${lat},${lon});`);
 }
 else if(t==="motorway_junction"){
-parts.push(`
-node["highway"="motorway_junction"](around:${radius},${lat},${lon});
-`);
+parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
 }
 else if(t==="station"){
-parts.push(`
-node["railway"="station"](around:${radius},${lat},${lon});
-way["railway"="station"](around:${radius},${lat},${lon});
-relation["railway"="station"](around:${radius},${lat},${lon});
-node["public_transport"="station"](around:${radius},${lat},${lon});
-`);
+parts.push(`node["railway"="station"](around:${radius},${lat},${lon});`);
 }
 else{
 parts.push(`
 node["amenity"="${t}"](around:${radius},${lat},${lon});
 way["amenity"="${t}"](around:${radius},${lat},${lon});
-relation["amenity"="${t}"](around:${radius},${lat},${lon});
 `);
 }
 });
-
-if(parts.length===0){
-alert("請選擇查詢類型");
-return;
-}
 
 const query=`
 [out:json][timeout:25];
@@ -343,29 +289,29 @@ if(!lat2) return;
 
 const dist=Math.round(haversine(lat,lon,lat2,lon2));
 
-results.push({
+const item={
 名稱:e.tags?.name||"未命名",
-類型:e.tags?.amenity||e.tags?.leisure||e.tags?.railway||"",
+類型:e.tags?.amenity||e.tags?.shop||e.tags?.leisure||"",
 距離:dist,
 緯度:lat2,
 經度:lon2
-});
+};
+
+results.push(item);
+
+L.marker([lat2,lon2]).addTo(markerLayer)
+.bindPopup(item.名稱)
+.on('click',()=>drawRoute([lat2,lon2]));
+
+tbody.innerHTML+=`
+<tr onclick="drawRoute([${lat2},${lon2}])">
+<td style="cursor:pointer;color:blue">${item.名稱}</td>
+<td>${item.類型}</td>
+<td>${item.距離}</td>
+</tr>`;
 });
 
 results.sort((a,b)=>a.距離-b.距離);
-
-results.forEach(r=>{
-L.marker([r.緯度,r.經度]).addTo(markerLayer)
-.bindPopup(r.名稱);
-
-tbody.innerHTML+=`
-<tr onclick="drawRoute([${r.緯度},${r.經度}])">
-<td style="cursor:pointer;color:blue">${r.名稱}</td>
-<td>${r.類型}</td>
-<td>${r.距離}</td>
-</tr>
-`;
-});
 
 }catch(err){
 alert("查詢失敗");
@@ -373,7 +319,9 @@ console.error(err);
 }
 }
 
+// ===== 路線 =====
 async function drawRoute(dest){
+
 if(!origin){
 origin=[parseFloat(latInput.value),parseFloat(lonInput.value)];
 }
