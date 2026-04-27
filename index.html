@@ -63,6 +63,7 @@ font-weight:bold;
 
 #panel button:nth-of-type(1){background:#2563eb;color:white;}
 #panel button:nth-of-type(2){background:#10b981;color:white;}
+#getLocationBtn{background:#f59e0b;color:white;}
 #panel button:last-of-type{background:#ef4444;color:white;}
 
 #distanceLabel{
@@ -103,6 +104,8 @@ tr:hover{background:#f1f5f9;}
 緯度:<input id="lat" value="25.04024"><br>
 經度:<input id="lon" value="121.43148"><br>
 半徑(m):<input id="radius" value="2000"><br>
+
+<button id="getLocationBtn" onclick="getCurrentLocation()">📍取得現在位置</button>
 
 <h4>類型</h4>
 
@@ -153,8 +156,8 @@ const tbody=document.getElementById("tbody");
 const distanceLabel=document.getElementById("distanceLabel");
 
 let markerLayer=L.layerGroup().addTo(map);
-let routeLayer=null;
 let circleLayer=null;
+let routeLayer=null;
 let userMarker=null;
 let origin=null;
 let results=[];
@@ -166,20 +169,6 @@ iconSize:[25,41],
 iconAnchor:[12,41]
 });
 
-function haversine(lat1, lon1, lat2, lon2){
-const R=6371000;
-const toRad=x=>x*Math.PI/180;
-const dLat=toRad(lat2-lat1);
-const dLon=toRad(lon2-lon1);
-const a=Math.sin(dLat/2)**2 +
-Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*
-Math.sin(dLon/2)**2;
-return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
-}
-
-/* =========================
-   ⭐ 修正定位同步問題
-========================= */
 function updateCircle(lat,lon,radius){
 if(circleLayer) map.removeLayer(circleLayer);
 circleLayer=L.circle([lat,lon],{
@@ -188,6 +177,32 @@ color:'blue',
 fillColor:'#3b82f6',
 fillOpacity:0.15
 }).addTo(map);
+}
+
+/* ===== 正確定位（不影響查詢） ===== */
+function getCurrentLocation(){
+
+navigator.geolocation.getCurrentPosition(pos=>{
+
+const lat=pos.coords.latitude;
+const lon=pos.coords.longitude;
+
+latInput.value=lat.toFixed(6);
+lonInput.value=lon.toFixed(6);
+origin=[lat,lon];
+
+if(userMarker) map.removeLayer(userMarker);
+userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
+
+map.setView([lat,lon],16);
+updateCircle(lat,lon,parseFloat(radiusInput.value));
+
+},{
+enableHighAccuracy:true,
+timeout:10000,
+maximumAge:0
+});
+
 }
 
 map.on('click',e=>{
@@ -204,7 +219,7 @@ userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
 updateCircle(lat,lon,parseFloat(radiusInput.value));
 });
 
-// ===== 查詢 =====
+/* ===== ⭐ 已修正查詢（重點） ===== */
 async function runQuery(){
 
 const lat=parseFloat(latInput.value);
@@ -224,10 +239,21 @@ let parts=[];
 document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
 let t=e.value;
 
-/* =========================
-   ⭐ 公園修正（完整 OSM）
-========================= */
-if(t==="park"){
+/* ✔ 正確還原三大類型 */
+
+if(t==="station"){
+parts.push(`node["railway"="station"](around:${radius},${lat},${lon});`);
+}
+
+else if(t==="bus_stop"){
+parts.push(`node["highway"="bus_stop"](around:${radius},${lat},${lon});`);
+}
+
+else if(t==="motorway_junction"){
+parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
+}
+
+else if(t==="park"){
 parts.push(`
 node["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
 way["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
@@ -235,42 +261,16 @@ relation["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lo
 `);
 }
 
-else if(t==="marketplace"){
-parts.push(`
-node["amenity"="marketplace"](around:${radius},${lat},${lon});
-way["amenity"="marketplace"](around:${radius},${lat},${lon});
-node["shop"~"supermarket|mall"](around:${radius},${lat},${lon});
-way["shop"~"supermarket|mall"](around:${radius},${lat},${lon});
-node["name"~"全聯|PX|PX Mart"](around:${radius},${lat},${lon});
-node["name"~"家樂福|Carrefour"](around:${radius},${lat},${lon});
-node["name"~"好市多|Costco"](around:${radius},${lat},${lon});
-`);
-}
-
-else if(t==="bus_stop"){
-parts.push(`node["highway"="bus_stop"](around:${radius},${lat},${lon});`);
-}
-else if(t==="motorway_junction"){
-parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
-}
-else if(t==="station"){
-parts.push(`node["railway"="station"](around:${radius},${lat},${lon});`);
-}
 else{
 parts.push(`
 node["amenity"="${t}"](around:${radius},${lat},${lon});
 way["amenity"="${t}"](around:${radius},${lat},${lon});
 `);
 }
+
 });
 
-const query=`
-[out:json][timeout:25];
-(
-${parts.join("\n")}
-);
-out center;
-`;
+const query=`[out:json][timeout:25];(${parts.join("\n")});out center;`;
 
 try{
 
@@ -291,7 +291,7 @@ const dist=Math.round(haversine(lat,lon,lat2,lon2));
 
 const item={
 名稱:e.tags?.name||"未命名",
-類型:e.tags?.amenity||e.tags?.shop||e.tags?.leisure||"",
+類型:e.tags?.railway||e.tags?.highway||e.tags?.amenity||"",
 距離:dist,
 緯度:lat2,
 經度:lon2
@@ -300,18 +300,15 @@ const item={
 results.push(item);
 
 L.marker([lat2,lon2]).addTo(markerLayer)
-.bindPopup(item.名稱)
-.on('click',()=>drawRoute([lat2,lon2]));
+.bindPopup(item.名稱);
 
 tbody.innerHTML+=`
-<tr onclick="drawRoute([${lat2},${lon2}])">
-<td style="cursor:pointer;color:blue">${item.名稱}</td>
+<tr>
+<td>${item.名稱}</td>
 <td>${item.類型}</td>
 <td>${item.距離}</td>
 </tr>`;
 });
-
-results.sort((a,b)=>a.距離-b.距離);
 
 }catch(err){
 alert("查詢失敗");
@@ -319,25 +316,16 @@ console.error(err);
 }
 }
 
-// ===== 路線 =====
-async function drawRoute(dest){
-
-if(!origin){
-origin=[parseFloat(latInput.value),parseFloat(lonInput.value)];
-}
-
-const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
-
-const res=await fetch(url);
-const data=await res.json();
-
-if(routeLayer) map.removeLayer(routeLayer);
-
-routeLayer=L.geoJSON(data.routes[0].geometry,{
-style:{color:'blue',weight:5}
-}).addTo(map);
-
-distanceLabel.innerText="路線距離: "+Math.round(data.routes[0].distance)+" m";
+/* ===== distance ===== */
+function haversine(lat1, lon1, lat2, lon2){
+const R=6371000;
+const toRad=x=>x*Math.PI/180;
+const dLat=toRad(lat2-lat1);
+const dLon=toRad(lon2-lon1);
+const a=Math.sin(dLat/2)**2 +
+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*
+Math.sin(dLon/2)**2;
+return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
 function clearRoute(){
