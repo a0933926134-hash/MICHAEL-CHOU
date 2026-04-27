@@ -31,7 +31,7 @@ border:1px solid #e6e9ff;
 #panel h3{margin:0 0 8px 0;color:#1e3a8a;}
 #panel h4{margin:10px 0 6px;color:#2563eb;border-left:4px solid #2563eb;padding-left:6px;}
 
-#panel input{
+#panel input, #panel select{
 width:95%;
 padding:6px;
 margin:3px 0;
@@ -104,20 +104,30 @@ tr:hover{background:#f1f5f9;}
 經度:<input id="lon" value="121.43148"><br>
 半徑(m):<input id="radius" value="2000"><br>
 
+<h4>移動模式</h4>
+<select id="travelMode">
+  <option value="driving">開車</option>
+  <option value="walking">步行</option>
+  <option value="straight">直線距離（查估用）</option>
+</select>
+
 <h4>類型</h4>
 
-<label><input type="checkbox" value="station">大型車站</label>
-<label><input type="checkbox" value="bus_stop">公車站牌</label>
-<label><input type="checkbox" value="motorway_junction">交流道</label>
+<label><input type="checkbox" value="station">交通運輸-接近大型車站之程度</label>
+<label><input type="checkbox" value="bus_stop">交通運輸-站牌之接近程度或密集程度</label>
+<label><input type="checkbox" value="motorway_junction">交通運輸-交流道之有無及接近交流道之程度</label>
 
-<label><input type="checkbox" value="school" checked>學校</label>
+<label><input type="checkbox" value="school" checked>公共建設-接近學校之程度</label>
 <label><input type="checkbox" value="hospital" checked>醫院</label>
 
-<label><input type="checkbox" value="marketplace">市場 / 超市</label>
+<label><input type="checkbox" value="marketplace">公共建設-接近市場之程度</label>
 
-<label><input type="checkbox" value="park">公園</label>
+<label><input type="checkbox" value="park">公共建設-接近公園、廣場、徒步區之程度</label>
+
 <label><input type="checkbox" value="parking">停車場</label>
 <label><input type="checkbox" value="bank">銀行</label>
+
+<label><input type="checkbox" value="tourism">公共建設-接近觀光遊憩之程度</label>
 
 <button onclick="runQuery()">查詢</button>
 <button onclick="exportData()">匯出</button>
@@ -151,6 +161,7 @@ const lonInput=document.getElementById("lon");
 const radiusInput=document.getElementById("radius");
 const tbody=document.getElementById("tbody");
 const distanceLabel=document.getElementById("distanceLabel");
+const travelMode=document.getElementById("travelMode");
 
 let markerLayer=L.layerGroup().addTo(map);
 let routeLayer=null;
@@ -158,13 +169,6 @@ let circleLayer=null;
 let userMarker=null;
 let origin=null;
 let results=[];
-
-const redIcon = new L.Icon({
-iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-shadowUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-iconSize:[25,41],
-iconAnchor:[12,41]
-});
 
 function haversine(lat1, lon1, lat2, lon2){
 const R=6371000;
@@ -177,9 +181,6 @@ Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-/* =========================
-   ⭐ 修正定位同步問題
-========================= */
 function updateCircle(lat,lon,radius){
 if(circleLayer) map.removeLayer(circleLayer);
 circleLayer=L.circle([lat,lon],{
@@ -199,12 +200,12 @@ lonInput.value=lon.toFixed(6);
 origin=[lat,lon];
 
 if(userMarker) map.removeLayer(userMarker);
-userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
+userMarker=L.marker([lat,lon]).addTo(map);
 
 updateCircle(lat,lon,parseFloat(radiusInput.value));
 });
 
-// ===== 查詢 =====
+/* ===== 查詢 ===== */
 async function runQuery(){
 
 const lat=parseFloat(latInput.value);
@@ -224,9 +225,6 @@ let parts=[];
 document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
 let t=e.value;
 
-/* =========================
-   ⭐ 公園修正（完整 OSM）
-========================= */
 if(t==="park"){
 parts.push(`
 node["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
@@ -234,19 +232,18 @@ way["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
 relation["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
 `);
 }
-
+else if(t==="tourism"){
+parts.push(`
+node["tourism"~"attraction|museum|viewpoint|theme_park"](around:${radius},${lat},${lon});
+way["tourism"~"attraction|museum|viewpoint|theme_park"](around:${radius},${lat},${lon});
+`);
+}
 else if(t==="marketplace"){
 parts.push(`
 node["amenity"="marketplace"](around:${radius},${lat},${lon});
-way["amenity"="marketplace"](around:${radius},${lat},${lon});
 node["shop"~"supermarket|mall"](around:${radius},${lat},${lon});
-way["shop"~"supermarket|mall"](around:${radius},${lat},${lon});
-node["name"~"全聯|PX|PX Mart"](around:${radius},${lat},${lon});
-node["name"~"家樂福|Carrefour"](around:${radius},${lat},${lon});
-node["name"~"好市多|Costco"](around:${radius},${lat},${lon});
 `);
 }
-
 else if(t==="bus_stop"){
 parts.push(`node["highway"="bus_stop"](around:${radius},${lat},${lon});`);
 }
@@ -272,8 +269,6 @@ ${parts.join("\n")}
 out center;
 `;
 
-try{
-
 const res=await fetch("https://overpass-api.de/api/interpreter",{
 method:"POST",
 body:"data="+encodeURIComponent(query),
@@ -287,11 +282,17 @@ const lat2=e.lat||e.center?.lat;
 const lon2=e.lon||e.center?.lon;
 if(!lat2) return;
 
-const dist=Math.round(haversine(lat,lon,lat2,lon2));
+let dist;
+
+if(travelMode.value==="straight"){
+dist=Math.round(haversine(lat,lon,lat2,lon2));
+}else{
+dist=Math.round(haversine(lat,lon,lat2,lon2));
+}
 
 const item={
 名稱:e.tags?.name||"未命名",
-類型:e.tags?.amenity||e.tags?.shop||e.tags?.leisure||"",
+類型:Object.keys(e.tags||{})[0]||"",
 距離:dist,
 緯度:lat2,
 經度:lon2
@@ -299,34 +300,37 @@ const item={
 
 results.push(item);
 
-L.marker([lat2,lon2]).addTo(markerLayer)
-.bindPopup(item.名稱)
-.on('click',()=>drawRoute([lat2,lon2]));
+let m=L.marker([lat2,lon2]).addTo(markerLayer)
+.bindPopup(item.名稱);
+
+m.on('click',()=>drawRoute([lat2,lon2]));
 
 tbody.innerHTML+=`
 <tr onclick="drawRoute([${lat2},${lon2}])">
-<td style="cursor:pointer;color:blue">${item.名稱}</td>
+<td>${item.名稱}</td>
 <td>${item.類型}</td>
 <td>${item.距離}</td>
 </tr>`;
 });
 
-results.sort((a,b)=>a.距離-b.距離);
-
-}catch(err){
-alert("查詢失敗");
-console.error(err);
-}
 }
 
-// ===== 路線 =====
+/* ===== 路線功能（完整保留） ===== */
 async function drawRoute(dest){
 
 if(!origin){
 origin=[parseFloat(latInput.value),parseFloat(lonInput.value)];
 }
 
-const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
+if(travelMode.value==="straight"){
+if(routeLayer) map.removeLayer(routeLayer);
+distanceLabel.innerText="直線距離: "+Math.round(haversine(origin[0],origin[1],dest[0],dest[1]))+" m";
+return;
+}
+
+const profile=travelMode.value;
+
+const url=`https://router.project-osrm.org/route/v1/${profile}/${origin[1]},${origin[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
 
 const res=await fetch(url);
 const data=await res.json();
@@ -334,10 +338,11 @@ const data=await res.json();
 if(routeLayer) map.removeLayer(routeLayer);
 
 routeLayer=L.geoJSON(data.routes[0].geometry,{
-style:{color:'blue',weight:5}
+style:{color:profile==="walking"?"green":"blue",weight:5}
 }).addTo(map);
 
-distanceLabel.innerText="路線距離: "+Math.round(data.routes[0].distance)+" m";
+distanceLabel.innerText=(profile==="walking"?"步行距離: ":"開車距離: ")
++ Math.round(data.routes[0].distance)+" m";
 }
 
 function clearRoute(){
