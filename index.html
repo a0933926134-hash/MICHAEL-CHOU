@@ -121,12 +121,9 @@ tr:hover{background:#f1f5f9;}
 <label><input type="checkbox" value="hospital" checked>醫院</label>
 
 <label><input type="checkbox" value="marketplace">公共建設-接近市場之程度</label>
-
 <label><input type="checkbox" value="park">公共建設-接近公園、廣場、徒步區之程度</label>
-
 <label><input type="checkbox" value="parking">停車場</label>
 <label><input type="checkbox" value="bank">銀行</label>
-
 <label><input type="checkbox" value="tourism">公共建設-接近觀光遊憩之程度</label>
 
 <button onclick="runQuery()">查詢</button>
@@ -156,22 +153,19 @@ L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
 maxZoom:19
 }).addTo(map);
 
-/* 紅色定位點 */
 const redIcon = new L.Icon({
-iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-shadowUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png',
-iconSize: [25,41],
-iconAnchor: [12,41],
-popupAnchor: [1,-34],
-shadowSize: [41,41]
+iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+shadowUrl:'https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png',
+iconSize:[25,41],
+iconAnchor:[12,41]
 });
 
 const latInput=document.getElementById("lat");
 const lonInput=document.getElementById("lon");
 const radiusInput=document.getElementById("radius");
 const tbody=document.getElementById("tbody");
-const distanceLabel=document.getElementById("distanceLabel");
 const travelMode=document.getElementById("travelMode");
+const distanceLabel=document.getElementById("distanceLabel");
 
 let markerLayer=L.layerGroup().addTo(map);
 let routeLayer=null;
@@ -180,24 +174,20 @@ let userMarker=null;
 let origin=null;
 let results=[];
 
-function haversine(lat1, lon1, lat2, lon2){
+function haversine(lat1,lon1,lat2,lon2){
 const R=6371000;
 const toRad=x=>x*Math.PI/180;
 const dLat=toRad(lat2-lat1);
 const dLon=toRad(lon2-lon1);
-const a=Math.sin(dLat/2)**2 +
-Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*
-Math.sin(dLon/2)**2;
+const a=Math.sin(dLat/2)**2+
+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
 function updateCircle(lat,lon,radius){
 if(circleLayer) map.removeLayer(circleLayer);
 circleLayer=L.circle([lat,lon],{
-radius,
-color:'blue',
-fillColor:'#3b82f6',
-fillOpacity:0.15
+radius,color:'blue',fillOpacity:0.15
 }).addTo(map);
 }
 
@@ -210,13 +200,12 @@ lonInput.value=lon.toFixed(6);
 origin=[lat,lon];
 
 if(userMarker) map.removeLayer(userMarker);
-
-/* 使用紅色 */
 userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
 
 updateCircle(lat,lon,parseFloat(radiusInput.value));
 });
 
+/* ====== 修正重點：交流道查詢 ====== */
 async function runQuery(){
 
 const lat=parseFloat(latInput.value);
@@ -224,11 +213,9 @@ const lon=parseFloat(lonInput.value);
 const radius=parseFloat(radiusInput.value);
 
 origin=[lat,lon];
-
 markerLayer.clearLayers();
 tbody.innerHTML="";
 results=[];
-
 updateCircle(lat,lon,radius);
 
 let parts=[];
@@ -236,49 +223,25 @@ let parts=[];
 document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
 let t=e.value;
 
-if(t==="park"){
+if(t==="motorway_junction"){
 parts.push(`
-node["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
-way["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
-relation["leisure"~"park|garden|recreation_ground"](around:${radius},${lat},${lon});
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+node["highway"="motorway_link"](around:${radius},${lat},${lon});
+way["highway"="motorway_link"](around:${radius},${lat},${lon});
 `);
 }
-else if(t==="tourism"){
-parts.push(`
-node["tourism"~"attraction|museum|viewpoint|theme_park"](around:${radius},${lat},${lon});
-way["tourism"~"attraction|museum|viewpoint|theme_park"](around:${radius},${lat},${lon});
-`);
+else if(t==="park"){
+parts.push(`node["leisure"~"park|garden"](around:${radius},${lat},${lon});`);
 }
-else if(t==="marketplace"){
-parts.push(`
-node["amenity"="marketplace"](around:${radius},${lat},${lon});
-node["shop"~"supermarket|mall"](around:${radius},${lat},${lon});
-`);
+else if(t==="school"){
+parts.push(`node["amenity"="school"](around:${radius},${lat},${lon});`);
 }
-else if(t==="bus_stop"){
-parts.push(`node["highway"="bus_stop"](around:${radius},${lat},${lon});`);
-}
-else if(t==="motorway_junction"){
-parts.push(`node["highway"="motorway_link"](around:${radius},${lat},${lon});`);
-}
-else if(t==="station"){
-parts.push(`node["railway"="station"](around:${radius},${lat},${lon});`);
-}
-else{
-parts.push(`
-node["amenity"="${t}"](around:${radius},${lat},${lon});
-way["amenity"="${t}"](around:${radius},${lat},${lon});
-`);
+else if(t==="hospital"){
+parts.push(`node["amenity"="hospital"](around:${radius},${lat},${lon});`);
 }
 });
 
-const query=`
-[out:json][timeout:25];
-(
-${parts.join("\n")}
-);
-out center;
-`;
+const query=`[out:json][timeout:25];(${parts.join("\n")});out center;`;
 
 const res=await fetch("https://overpass-api.de/api/interpreter",{
 method:"POST",
@@ -293,34 +256,23 @@ const lat2=e.lat||e.center?.lat;
 const lon2=e.lon||e.center?.lon;
 if(!lat2) return;
 
-let dist=Math.round(haversine(lat,lon,lat2,lon2));
+const dist=Math.round(haversine(lat,lon,lat2,lon2));
 
-const item={
-名稱:e.tags?.name||"未命名",
-類型:Object.keys(e.tags||{})[0]||"",
-距離:dist,
-緯度:lat2,
-經度:lon2
-};
-
-results.push(item);
-
-/* 查詢點恢復藍色 */
 let m=L.marker([lat2,lon2]).addTo(markerLayer)
-.bindPopup(item.名稱);
+.bindPopup(e.tags?.name||"未命名");
 
 m.on('click',()=>drawRoute([lat2,lon2]));
 
 tbody.innerHTML+=`
 <tr onclick="drawRoute([${lat2},${lon2}])">
-<td>${item.名稱}</td>
-<td>${item.類型}</td>
-<td>${item.距離}</td>
+<td>${e.tags?.name||"未命名"}</td>
+<td>${Object.keys(e.tags||{})[0]||""}</td>
+<td>${dist}</td>
 </tr>`;
 });
-
 }
 
+/* ====== 修正重點：OSRM snapping ====== */
 async function drawRoute(dest){
 
 if(!origin){
@@ -328,14 +280,15 @@ origin=[parseFloat(latInput.value),parseFloat(lonInput.value)];
 }
 
 if(travelMode.value==="straight"){
-if(routeLayer) map.removeLayer(routeLayer);
-distanceLabel.innerText="直線距離: "+Math.round(haversine(origin[0],origin[1],dest[0],dest[1]))+" m";
+distanceLabel.innerText="直線距離:"+Math.round(haversine(origin[0],origin[1],dest[0],dest[1]))+" m";
 return;
 }
 
 const profile=travelMode.value;
 
-const url=`https://router.project-osrm.org/route/v1/${profile}/${origin[1]},${origin[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
+const url=`https://router.project-osrm.org/route/v1/${profile}/`+
+`${origin[1]},${origin[0]};${dest[1]},${dest[0]}`+
+`?overview=full&geometries=geojson&steps=true&radiuses=30;30`;
 
 const res=await fetch(url);
 const data=await res.json();
@@ -343,23 +296,19 @@ const data=await res.json();
 if(routeLayer) map.removeLayer(routeLayer);
 
 routeLayer=L.geoJSON(data.routes[0].geometry,{
-style:{color:profile==="walking"?"green":"blue",weight:5}
+style:{color:'blue',weight:5}
 }).addTo(map);
 
-distanceLabel.innerText=(profile==="walking"?"步行距離: ":"開車距離: ")
-+ Math.round(data.routes[0].distance)+" m";
+distanceLabel.innerText="路線距離:"+Math.round(data.routes[0].distance)+" m";
 }
 
 function clearRoute(){
-if(routeLayer){
-map.removeLayer(routeLayer);
-routeLayer=null;
-}
-distanceLabel.innerText="路線距離: 0 m";
+if(routeLayer) map.removeLayer(routeLayer);
+distanceLabel.innerText="路線距離:0 m";
 }
 
 function exportData(){
-if(results.length===0){ alert("無資料"); return; }
+if(results.length===0){alert("無資料");return;}
 const ws=XLSX.utils.json_to_sheet(results);
 const wb=XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb,ws,"GIS");
