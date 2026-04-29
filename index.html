@@ -12,6 +12,7 @@
 body { margin:0; font-family: Arial; }
 #map { height:100vh; }
 
+/* UI 完全不動 */
 #panel{
 position:absolute;
 top:12px;
@@ -208,23 +209,16 @@ let results=[];
 let routeLayer=null;
 let circleLayer=null;
 
-/* =========================
-   ⭐ FIX: 定位鎖定機制
-========================= */
 let lockOrigin = false;
 
-/* =========================
-   點擊地圖（只在未鎖定或重新點擊時更新）
-========================= */
+/* 點擊定位 */
 map.on('click',e=>{
+if(lockOrigin && origin){
+lockOrigin=false;
+}
 
 const lat=e.latlng.lat;
 const lon=e.latlng.lng;
-
-/* 如果已鎖定 → 第二次點擊才更新 */
-if(lockOrigin && origin){
-lockOrigin = false; // 解鎖再更新
-}
 
 latInput.value=lat.toFixed(6);
 lonInput.value=lon.toFixed(6);
@@ -233,7 +227,13 @@ origin=[lat,lon];
 lockOrigin=true;
 
 if(userMarker) map.removeLayer(userMarker);
-userMarker=L.marker([lat,lon]).addTo(map);
+
+userMarker=L.marker([lat,lon],{
+icon: L.icon({
+iconUrl:"https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+shadowUrl:"https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png"
+})
+}).addTo(map);
 
 if(circleLayer) map.removeLayer(circleLayer);
 
@@ -244,9 +244,7 @@ fillOpacity:0.15
 }).addTo(map);
 });
 
-/* =========================
-   距離
-========================= */
+/* 距離 */
 function haversine(lat1, lon1, lat2, lon2){
 const R=6371000;
 const toRad=x=>x*Math.PI/180;
@@ -257,9 +255,7 @@ Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-/* =========================
-   路線
-========================= */
+/* 路線 */
 async function drawRoute(to){
 if(!origin) return;
 
@@ -279,9 +275,7 @@ style:{color:"blue",weight:5}
 }).addTo(map);
 }
 
-/* =========================
-   點地標
-========================= */
+/* ⭐ 核心修正：統一選取 */
 function selectItem(item){
 drawRoute(item.座標);
 
@@ -296,9 +290,7 @@ row.scrollIntoView({behavior:"smooth",block:"center"});
 }
 }
 
-/* =========================
-   查詢（維持原）
-========================= */
+/* 查詢 */
 async function runQuery(){
 
 const lat=parseFloat(latInput.value);
@@ -377,9 +369,16 @@ id:idx,
 
 results.push(item);
 
-L.marker(item.座標).addTo(markerLayer);
+/* ⭐ 核心修正：marker 行為 */
+const m=L.marker(item.座標)
+.addTo(markerLayer)
+.bindTooltip(item.名稱,{direction:"top"});
+
+m.on("click",()=>selectItem(item));
+
 });
 
+/* 表格 */
 results.forEach(item=>{
 const tr=document.createElement("tr");
 tr.dataset.id=item.id;
@@ -393,25 +392,27 @@ tbody.appendChild(tr);
 
 }
 
+/* 清除路線 */
+function clearRoute(){
+if(routeLayer) map.removeLayer(routeLayer);
+routeInfo.innerText="路線距離：尚未計算";
+}
+
 /* Excel */
 function exportExcel(){
-
 if(!results.length){
 alert("無資料");
 return;
 }
 
-const exportData = results.map(r => ({
-名稱: r.名稱,
-類型: r.類型,
-直線距離: r.距離,
-緯度: r.座標[0],
-經度: r.座標[1]
-}));
+const ws = XLSX.utils.json_to_sheet(results.map(r=>({
+名稱:r.名稱,
+類型:r.類型,
+距離:r.距離
+})));
 
-const ws = XLSX.utils.json_to_sheet(exportData);
 const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, "GIS查詢結果");
+XLSX.utils.book_append_sheet(wb, ws, "GIS");
 XLSX.writeFile(wb, "GIS查詢結果.xlsx");
 }
 
