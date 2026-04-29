@@ -152,10 +152,7 @@ font-weight:bold;
 <h3>類型</h3>
 
 <label><input type="checkbox" value="station">大型車站</label>
-
-<!-- ⭐ FIX HERE (bus stop restored) -->
 <label><input type="checkbox" value="bus_stop">公車站牌</label>
-
 <label><input type="checkbox" value="motorway_junction">交流道</label>
 <label><input type="checkbox" value="school" checked>學校</label>
 <label><input type="checkbox" value="hospital" checked>醫院</label>
@@ -247,11 +244,7 @@ routeInfo.innerText="路線距離：尚未計算";
 
 function selectItem(item){
 drawRoute(item.座標);
-
-document.querySelectorAll("#tbody tr").forEach(r=>{
-r.classList.remove("highlight");
-});
-
+document.querySelectorAll("#tbody tr").forEach(r=>r.classList.remove("highlight"));
 const row=document.querySelector(`#tbody tr[data-id="${item.id}"]`);
 if(row){
 row.classList.add("highlight");
@@ -272,7 +265,6 @@ if(userMarker) map.removeLayer(userMarker);
 userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
 
 if(circleLayer) map.removeLayer(circleLayer);
-
 circleLayer=L.circle([lat,lon],{
 radius:parseFloat(radiusInput.value),
 color:'blue',
@@ -293,10 +285,7 @@ const route=data.routes[0];
 routeInfo.innerText="路線距離：" + Math.round(route.distance) + " m";
 
 if(routeLayer) map.removeLayer(routeLayer);
-
-routeLayer=L.geoJSON(route.geometry,{
-style:{color:"blue",weight:5}
-}).addTo(map);
+routeLayer=L.geoJSON(route.geometry,{style:{color:"blue",weight:5}}).addTo(map);
 }
 
 async function runQuery(){
@@ -304,6 +293,18 @@ async function runQuery(){
 const lat=parseFloat(latInput.value);
 const lon=parseFloat(lonInput.value);
 const radius=parseFloat(radiusInput.value);
+
+origin=[lat,lon];
+
+if(userMarker) map.removeLayer(userMarker);
+userMarker=L.marker([lat,lon],{icon:redIcon}).addTo(map);
+
+if(circleLayer) map.removeLayer(circleLayer);
+circleLayer=L.circle([lat,lon],{
+radius:radius,color:'blue',fillOpacity:0.15
+}).addTo(map);
+
+map.setView([lat,lon],15);
 
 markerLayer.clearLayers();
 tbody.innerHTML="";
@@ -314,29 +315,43 @@ let parts=[];
 document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
 let t=e.value;
 
-if(t==="bus_stop"){
+if(t==="station"){
+parts.push(`
+node["railway"="station"](around:${radius},${lat},${lon});
+node["railway"="subway_station"](around:${radius},${lat},${lon});
+node["amenity"="bus_station"](around:${radius},${lat},${lon});
+node["public_transport"="station"](around:${radius},${lat},${lon});
+`);
+}
+else if(t==="bus_stop"){
 parts.push(`node["highway"="bus_stop"](around:${radius},${lat},${lon});`);
 }
+else if(t==="motorway_junction"){
+parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
+}
+else if(t==="marketplace"){
+parts.push(`
+node["amenity"="marketplace"](around:${radius},${lat},${lon});
+node["shop"="supermarket"]["name"~"全聯|PX|Carrefour|家樂福"](around:${radius},${lat},${lon});
+`);
+}
 else if(t==="park"){
-parts.push(`node["leisure"="park"](around:${radius},${lat},${lon});
+parts.push(`
+node["leisure"="park"](around:${radius},${lat},${lon});
 way["leisure"="park"](around:${radius},${lat},${lon});
-relation["leisure"="park"](around:${radius},${lat},${lon});`);
+relation["leisure"="park"](around:${radius},${lat},${lon});
+`);
 }
 else{
-parts.push(`node["amenity"="${t}"](around:${radius},${lat},${lon});
+parts.push(`
+node["amenity"="${t}"](around:${radius},${lat},${lon});
 way["amenity"="${t}"](around:${radius},${lat},${lon});
-relation["amenity"="${t}"](around:${radius},${lat},${lon});`);
+relation["amenity"="${t}"](around:${radius},${lat},${lon});
+`);
 }
-
 });
 
-const query=`
-[out:json][timeout:25];
-(
-${parts.join("\n")}
-);
-out center;
-`;
+const query=`[out:json][timeout:25];(${parts.join("\n")});out center;`;
 
 const res=await fetch("https://overpass-api.de/api/interpreter",{
 method:"POST",
@@ -358,7 +373,13 @@ const idx=results.length;
 const item={
 id:idx,
 名稱:e.tags?.name||"未命名",
-類型:Object.keys(e.tags||{})[0]||"",
+類型:
+e.tags?.amenity ||
+e.tags?.highway ||
+e.tags?.railway ||
+e.tags?.leisure ||
+e.tags?.shop ||
+"",
 座標:[lat2,lon2],
 距離:Math.round(haversine(lat,lon,lat2,lon2))
 };
@@ -370,6 +391,10 @@ L.marker(item.座標,{icon:blueIcon})
 .on('click',()=>selectItem(item));
 });
 
+if(results.length===0){
+alert("查詢範圍內無資料");
+}
+
 results.forEach(item=>{
 const tr=document.createElement("tr");
 tr.dataset.id=item.id;
@@ -380,32 +405,36 @@ tr.innerHTML=`
 `;
 tbody.appendChild(tr);
 });
-
 }
 
-/* Excel unchanged */
+/* 🔥 Excel 已修正為穩定版 */
 function exportExcel(){
 
-if(!results.length){
+if(results.length===0){
 alert("無資料");
 return;
 }
 
-const exportData = results.map(r => ({
-名稱: r.名稱,
-類型: r.類型,
-直線距離: r.距離,
-緯度: r.座標[0],
-經度: r.座標[1]
-}));
+let data = [
+["名稱","類型","直線距離(m)","緯度","經度"]
+];
 
-const ws = XLSX.utils.json_to_sheet(exportData);
+results.forEach(r=>{
+data.push([
+r.名稱 || "",
+r.類型 || "",
+r.距離 || 0,
+r.座標[0],
+r.座標[1]
+]);
+});
+
+const ws = XLSX.utils.aoa_to_sheet(data);
 const wb = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb, ws, "GIS查詢結果");
 XLSX.writeFile(wb, "GIS查詢結果.xlsx");
 }
 
-/* drag unchanged */
 const panel=document.getElementById("resultPanel");
 const header=document.getElementById("resultHeader");
 
