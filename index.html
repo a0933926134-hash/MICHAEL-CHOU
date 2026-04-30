@@ -169,6 +169,32 @@ font-weight:bold;
 <div id="resultHeader">
 查詢結果（可下載EXCEL）
 <button onclick="exportExcel()">Excel</button>
+/* ⭐ 新增：結果面板拖曳功能 */
+const resultPanel = document.getElementById("resultPanel");
+const resultHeader = document.getElementById("resultHeader");
+
+let isDragging = false;
+let offsetX = 0;
+let offsetY = 0;
+
+resultHeader.addEventListener("mousedown", (e) => {
+isDragging = true;
+offsetX = e.clientX - resultPanel.offsetLeft;
+offsetY = e.clientY - resultPanel.offsetTop;
+resultHeader.style.cursor = "grabbing";
+});
+
+document.addEventListener("mousemove", (e) => {
+if (!isDragging) return;
+
+resultPanel.style.left = (e.clientX - offsetX) + "px";
+resultPanel.style.top = (e.clientY - offsetY) + "px";
+});
+
+document.addEventListener("mouseup", () => {
+isDragging = false;
+resultHeader.style.cursor = "grab";
+}); 
 </div>
 
 <div id="resultTableWrapper">
