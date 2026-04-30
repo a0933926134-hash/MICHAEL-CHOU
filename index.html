@@ -229,10 +229,22 @@ lockOrigin=true;
 if(userMarker) map.removeLayer(userMarker);
 
 userMarker=L.marker([lat,lon],{
-icon: L.icon({
-iconUrl:"https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-shadowUrl:"https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png"
-})
+icon: L.divIcon({
+className: '',
+html: `
+<div style="
+width:18px;
+height:18px;
+background:#ef4444;
+border:3px solid #ffffff;
+border-radius:50%;
+box-shadow:0 0 0 2px rgba(239,68,68,0.35);
+"></div>
+`,
+iconSize:[18,18],
+iconAnchor:[9,9]
+}),
+interactive:false
 }).addTo(map);
 
 if(circleLayer) map.removeLayer(circleLayer);
