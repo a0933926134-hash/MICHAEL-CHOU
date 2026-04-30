@@ -441,7 +441,36 @@ const wb = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb, ws, "GIS");
 XLSX.writeFile(wb, "GIS查詢結果.xlsx");
 }
+let isDragging = false;
+let offsetX = 0;
+let offsetY = 0;
 
+const panel = document.getElementById("resultPanel");
+const header = document.getElementById("resultHeader");
+
+header.addEventListener("mousedown", function(e){
+isDragging = true;
+
+const rect = panel.getBoundingClientRect();
+
+offsetX = e.clientX - rect.left;
+offsetY = e.clientY - rect.top;
+
+panel.style.position = "absolute";
+panel.style.zIndex = 9999;
+});
+
+document.addEventListener("mousemove", function(e){
+if(!isDragging) return;
+
+panel.style.left = (e.clientX - offsetX) + "px";
+panel.style.top = (e.clientY - offsetY) + "px";
+panel.style.right = "auto";
+});
+
+document.addEventListener("mouseup", function(){
+isDragging = false;
+});
 </script>
 
 </body>
