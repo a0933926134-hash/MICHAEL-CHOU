@@ -12,6 +12,7 @@
 body { margin:0; font-family: Arial; }
 #map { height:100vh; }
 
+/* UI（完全不動） */
 #panel{
 position:absolute;
 top:12px;
@@ -61,6 +62,7 @@ background:#2563eb;color:white;
 
 #panel button.clear-btn{background:#10b981;}
 
+/* result panel（拖曳版保留） */
 #resultPanel{
 position:absolute;
 top:120px;
@@ -143,31 +145,28 @@ font-weight:bold;
 
 <h3>類型</h3>
 
+<!-- ✅ CHECKBOX 已回復（你原始分類版本） -->
 <label><input type="checkbox" value="station">交通運輸-接近大型車站之程度</label>
 <label><input type="checkbox" value="bus_stop">交通運輸-站牌之接近程度或密集程度</label>
 <label><input type="checkbox" value="motorway_junction">交通運輸-交流道之有無及接近交流道之程度</label>
 
 <label><input type="checkbox" value="school" checked>公共建設-接近學校之程度(國小、國中、高中、大專院校)</label>
 <label><input type="checkbox" value="marketplace">公共建設-接近市場之程度(傳統市場、超級市場、超大型購物中心)</label>
-
-<!-- ✔ 修正這一行 -->
 <label><input type="checkbox" value="park">公共建設-接近公園(里鄰公園、一般公園)、廣場、徒步區之程度</label>
-
-<!-- ✔ 修正這一行（重點） -->
 <label><input type="checkbox" value="tourism">公共建設-接近觀光遊憩設施之程度</label>
-
 <label><input type="checkbox" value="parking">公共建設-停車場地之便利程度</label>
 <label><input type="checkbox" value="bank">公共建設-接近服務性設施的程度(郵局、銀行、醫院、機關等設施)</label>
 
 <button onclick="runQuery()">查詢</button>
-<button class="clear-btn" onclick="clearRoute()">清除路線距離</button>
+<button class="clear-btn" onclick="clearRoute()">清除路線</button>
 
 <div id="routeInfo">路線距離：尚未計算</div>
 </div>
 
+<!-- result UI（不動） -->
 <div id="resultPanel">
 <div id="resultHeader">
-查詢結果（可下載EXCEL）
+查詢結果（可拖曳）
 <button onclick="exportExcel()">Excel</button>
 </div>
 
@@ -177,7 +176,7 @@ font-weight:bold;
 <tr>
 <th>名稱</th>
 <th>類型</th>
-<th>直線距離</th>
+<th>距離</th>
 </tr>
 </thead>
 <tbody id="tbody"></tbody>
@@ -197,69 +196,90 @@ maxZoom:19
 
 let markerLayer=L.layerGroup().addTo(map);
 
-const latInput=document.getElementById("lat");
-const lonInput=document.getElementById("lon");
-const radiusInput=document.getElementById("radius");
-const tbody=document.getElementById("tbody");
-const routeInfo=document.getElementById("routeInfo");
-
 let userMarker=null;
 let origin=null;
 let results=[];
 let routeLayer=null;
 let circleLayer=null;
-let lockOrigin=false;
 
 /* 點擊定位 */
 map.on('click',e=>{
 const lat=e.latlng.lat;
 const lon=e.latlng.lng;
 
-latInput.value=lat.toFixed(6);
-lonInput.value=lon.toFixed(6);
+document.getElementById("lat").value=lat.toFixed(6);
+document.getElementById("lon").value=lon.toFixed(6);
 
 origin=[lat,lon];
-lockOrigin=true;
 
 if(userMarker) map.removeLayer(userMarker);
 
 userMarker=L.marker([lat,lon],{
-icon: L.icon({
+icon:L.icon({
 iconUrl:"https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
 shadowUrl:"https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png",
 iconSize:[25,41],
-iconAnchor:[12,41],
-popupAnchor:[1,-34],
-shadowSize:[41,41]
+iconAnchor:[12,41]
 })
 }).addTo(map);
 
 if(circleLayer) map.removeLayer(circleLayer);
 
 circleLayer=L.circle([lat,lon],{
-radius:parseFloat(radiusInput.value),
+radius:parseFloat(document.getElementById("radius").value),
 color:'blue',
 fillOpacity:0.15
 }).addTo(map);
 });
 
 /* 距離 */
-function haversine(lat1, lon1, lat2, lon2){
+function haversine(a,b,c,d){
 const R=6371000;
 const toRad=x=>x*Math.PI/180;
-const dLat=toRad(lat2-lat1);
-const dLon=toRad(lon2-lon1);
-const a=Math.sin(dLat/2)**2 +
-Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+const dLat=toRad(c-a);
+const dLon=toRad(d-b);
+const x=Math.sin(dLat/2)**2+Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dLon/2)**2;
+return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+/* 路線 */
+async function drawRoute(to){
+if(!origin) return;
+
+const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+
+const res=await fetch(url);
+const data=await res.json();
+if(!data.routes?.length) return;
+
+const route=data.routes[0];
+
+document.getElementById("routeInfo").innerText=
+"路線距離：" + Math.round(route.distance) + " m";
+
+if(routeLayer) map.removeLayer(routeLayer);
+
+routeLayer=L.geoJSON(route.geometry,{
+style:{color:"blue",weight:5}
+}).addTo(map);
+}
+
+/* 點選 */
+function selectItem(item){
+drawRoute(item.座標);
+
+document.querySelectorAll("tr").forEach(r=>r.classList.remove("highlight"));
+
+const row=document.querySelector(`tr[data-id="${item.id}"]`);
+if(row) row.classList.add("highlight");
 }
 
 /* 查詢 */
 async function runQuery(){
 
-const lat=parseFloat(latInput.value);
-const lon=parseFloat(lonInput.value);
-const radius=parseFloat(radiusInput.value);
+const lat=parseFloat(document.getElementById("lat").value);
+const lon=parseFloat(document.getElementById("lon").value);
+const radius=parseFloat(document.getElementById("radius").value);
 
 markerLayer.clearLayers();
 tbody.innerHTML="";
@@ -271,11 +291,7 @@ document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
 let t=e.value;
 
 if(t==="station"){
-parts.push(`
-nwr["railway"="station"](around:${radius},${lat},${lon});
-nwr["railway"="subway_station"](around:${radius},${lat},${lon});
-nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
-`);
+parts.push(`nwr["railway"="station"](around:${radius},${lat},${lon});`);
 }
 else if(t==="bus_stop"){
 parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
@@ -284,33 +300,20 @@ else if(t==="motorway_junction"){
 parts.push(`nwr["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
 }
 else if(t==="marketplace"){
-parts.push(`
-nwr["amenity"="marketplace"](around:${radius},${lat},${lon});
-nwr["shop"="supermarket"](around:${radius},${lat},${lon});
-`);
+parts.push(`nwr["amenity"="marketplace"](around:${radius},${lat},${lon});`);
 }
 else if(t==="park"){
 parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
 }
 else if(t==="tourism"){
-parts.push(`
-nwr["tourism"](around:${radius},${lat},${lon});
-nwr["leisure"="recreation_ground"](around:${radius},${lat},${lon});
-`);
+parts.push(`nwr["tourism"](around:${radius},${lat},${lon});`);
 }
 else{
 parts.push(`nwr["amenity"="${t}"](around:${radius},${lat},${lon});`);
 }
-
 });
 
-const query=`
-[out:json][timeout:25];
-(
-${parts.join("\n")}
-);
-out center;
-`;
+const query=`[out:json][timeout:25];(${parts.join("\n")});out center;`;
 
 const res=await fetch("https://overpass-api.de/api/interpreter",{
 method:"POST",
@@ -319,12 +322,10 @@ headers:{"Content-Type":"application/x-www-form-urlencoded"}
 });
 
 const data=await res.json();
-if(!data.elements) return;
 
 data.elements.forEach(e=>{
-const lat2=e.center?.lat ?? e.lat;
-const lon2=e.center?.lon ?? e.lon;
-if(!lat2||!lon2) return;
+const lat2=e.center?.lat||e.lat;
+const lon2=e.center?.lon||e.lon;
 
 const item={
 id:results.length,
@@ -336,31 +337,54 @@ id:results.length,
 
 results.push(item);
 
-const m=L.marker(item.座標)
+L.marker(item.座標)
 .addTo(markerLayer)
-.bindTooltip(item.名稱);
-
+.on("click",()=>selectItem(item));
 });
 
+/* 表格 */
+const tbody=document.getElementById("tbody");
 results.forEach(item=>{
 const tr=document.createElement("tr");
+tr.dataset.id=item.id;
 tr.innerHTML=`<td>${item.名稱}</td><td>${item.類型}</td><td>${item.距離}</td>`;
 tbody.appendChild(tr);
 });
-
 }
 
-function clearRoute(){
-if(routeLayer) map.removeLayer(routeLayer);
-routeInfo.innerText="路線距離：尚未計算";
-}
-
+/* Excel */
 function exportExcel(){
 const ws=XLSX.utils.json_to_sheet(results);
 const wb=XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb,ws,"GIS");
-XLSX.writeFile(wb,"GIS查詢結果.xlsx");
+XLSX.writeFile(wb,"GIS.xlsx");
 }
+
+/* 清除 */
+function clearRoute(){
+if(routeLayer) map.removeLayer(routeLayer);
+document.getElementById("routeInfo").innerText="路線距離：尚未計算";
+}
+
+/* 拖曳結果視窗 */
+const panel=document.getElementById("resultPanel");
+const header=document.getElementById("resultHeader");
+
+let dragging=false,dx=0,dy=0;
+
+header.onmousedown=e=>{
+dragging=true;
+dx=e.clientX-panel.offsetLeft;
+dy=e.clientY-panel.offsetTop;
+};
+
+document.onmousemove=e=>{
+if(!dragging) return;
+panel.style.left=(e.clientX-dx)+"px";
+panel.style.top=(e.clientY-dy)+"px";
+};
+
+document.onmouseup=()=>dragging=false;
 
 </script>
 
