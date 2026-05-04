@@ -340,6 +340,20 @@ nwr["amenity"="marketplace"](around:${radius},${lat},${lon});
 nwr["shop"="supermarket"](around:${radius},${lat},${lon});
 `);
 }
+else if(t==="waste_disposal"){
+parts.push(`
+nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
+nwr["amenity"="waste_disposal"](around:${radius},${lat},${lon});
+nwr["amenity"="recycling"](around:${radius},${lat},${lon});
+
+nwr["man_made"="wastewater_plant"](around:${radius},${lat},${lon});
+nwr["man_made"="waste_incinerator"](around:${radius},${lat},${lon});
+
+nwr["landuse"="landfill"](around:${radius},${lat},${lon});
+
+nwr["power"="plant"](around:${radius},${lat},${lon})["plant:source"="waste"];
+`);
+}  
 else if(t==="park"){
 parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
 }
