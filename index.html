@@ -343,17 +343,15 @@ nwr["shop"="supermarket"](around:${radius},${lat},${lon});
 else if(t==="waste_disposal"){
 parts.push(`
 nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
-nwr["amenity"="waste_disposal"](around:${radius},${lat},${lon});
 nwr["amenity"="recycling"](around:${radius},${lat},${lon});
-
-nwr["man_made"="wastewater_plant"](around:${radius},${lat},${lon});
-nwr["man_made"="waste_incinerator"](around:${radius},${lat},${lon});
-
 nwr["landuse"="landfill"](around:${radius},${lat},${lon});
 
-nwr["power"="plant"](around:${radius},${lat},${lon})["plant:source"="waste"];
+nwr["man_made"="waste_incinerator"](around:${radius},${lat},${lon});
+nwr["power"="plant"]["plant:source"="waste"](around:${radius},${lat},${lon});
+
+nwr["name"~"焚化|垃圾|廢棄物|資源回收|處理場"](around:${radius},${lat},${lon});
 `);
-}  
+}
 else if(t==="park"){
 parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
 }
