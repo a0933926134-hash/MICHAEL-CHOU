@@ -333,24 +333,16 @@ parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
 }
 else if(t==="motorway_junction"){
 parts.push(`
-// ① 交流道核心節點
+// ① 交流道核心（最準）
 nwr["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
-// ② 交流道匝道（關鍵）
-nwr["highway"="motorway_link"](around:${radius},${lat},${lon});
-nwr["highway"="trunk_link"](around:${radius},${lat},${lon});
-nwr["highway"="primary_link"](around:${radius},${lat},${lon});
+// ② 匝道（輔助判斷）
+nwr["highway"~"motorway_link|trunk_link|primary_link"](around:${radius},${lat},${lon});
 
-// ③ 高速公路主線
-nwr["highway"="motorway"](around:${radius},${lat},${lon});
+// ③ 名稱補抓（非常重要）
+nwr["name"~"交流道|匝道|interchange",i](around:${radius},${lat},${lon});
 
-// ④ 快速道路系統
-nwr["highway"="trunk"](around:${radius},${lat},${lon});
-
-// ⑤ 交流道名稱補抓（超重要）
-nwr["name"~"交流道|匝道|交流|interchange"](around:${radius},${lat},${lon});
-
-// ⑥ junction 類型補抓
+// ④ junction 補強
 nwr["junction"="yes"](around:${radius},${lat},${lon});
 `);
 }
