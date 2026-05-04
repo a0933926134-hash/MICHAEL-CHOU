@@ -359,7 +359,18 @@ nwr["office"="government"](around:${radius},${lat},${lon});
 nwr["amenity"="public_building"](around:${radius},${lat},${lon});
 nwr["amenity"="townhall"](around:${radius},${lat},${lon});
 `);
-}  
+}
+
+/* ⭐ 正確位置：一定要在這裡 */
+else if(t==="school"){
+parts.push(`
+nwr["amenity"="school"](around:${radius},${lat},${lon});
+nwr["amenity"="college"](around:${radius},${lat},${lon});
+nwr["amenity"="university"](around:${radius},${lat},${lon});
+nwr["amenity"="school"]["isced:level"~"5|6|7|8"](around:${radius},${lat},${lon});
+`);
+}
+
 else{
 parts.push(`nwr["amenity"="${t}"](around:${radius},${lat},${lon});`);
 }
