@@ -483,21 +483,36 @@ routeInfo.innerText="路線距離：尚未計算";
 
 /* Excel */
 function exportExcel(){
+
 if(!results.length){
 alert("無資料");
 return;
 }
 
-const ws = XLSX.utils.json_to_sheet(results.map(r=>({
+const ws = XLSX.utils.json_to_sheet(
+
+results.map(r=>({
+
 名稱:r.名稱,
+
 類型:r.類型,
-距離:r.距離
-})));
+
+距離:r.距離,
+
+緯度:r.座標[0],
+
+經度:r.座標[1]
+
+}))
+
+);
 
 const wb = XLSX.utils.book_new();
+
 XLSX.utils.book_append_sheet(wb, ws, "GIS");
+
 XLSX.writeFile(wb, "GIS查詢結果.xlsx");
-}
+
 let isDragging = false;
 let offsetX = 0;
 let offsetY = 0;
