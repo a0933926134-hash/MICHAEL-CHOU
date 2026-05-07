@@ -336,6 +336,10 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
 /* 路線 */
+<script>
+
+/* === ROUTE UPGRADE START === */
+
 let routeMarkers = [];
 let routeCoords = [];
 
@@ -345,7 +349,7 @@ try{
 
 if(!origin) return;
 
-/* 初始化 waypoints */
+/* 初始起訖點 */
 routeCoords = [
 [origin[1], origin[0]],
 [to[1], to[0]]
@@ -354,15 +358,12 @@ routeCoords = [
 await renderRoute();
 
 }catch(err){
-
 console.error(err);
 routeInfo.innerText="路線服務異常";
-
 }
 
 }
 
-/* 🚀 reroute 核心 */
 async function renderRoute(){
 
 const coordStr = routeCoords.map(p=>p.join(",")).join(";");
@@ -388,21 +389,21 @@ routeLayer=L.geoJSON(route.geometry,{
 style:{color:"blue",weight:5}
 }).addTo(map);
 
-/* 🔵 建立可拖曳節點 */
+/* 建立 draggable nodes */
 routeCoords.forEach((p,idx)=>{
 
-const m = L.marker([p[1],p[0]],{
+const m=L.marker([p[1],p[0]],{
 draggable:true
 }).addTo(map);
 
-m.on("dragend", async (e)=>{
+m.on("dragend",async(e)=>{
 
-const pos = e.target.getLatLng();
+const pos=e.target.getLatLng();
 
-/* 更新座標 */
-routeCoords[idx] = [pos.lng, pos.lat];
+/* 更新節點 */
+routeCoords[idx]=[pos.lng,pos.lat];
 
-/* 重新計算路線 */
+/* reroute */
 await renderRoute();
 
 });
@@ -412,6 +413,10 @@ routeMarkers.push(m);
 });
 
 }
+
+/* === ROUTE UPGRADE END === */
+
+</script>
 
 /* 選取 */
 function selectItem(item){
