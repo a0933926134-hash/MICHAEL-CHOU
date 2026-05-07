@@ -12,7 +12,7 @@
 body { margin:0; font-family: Arial; }
 #map { height:100vh; }
 
-/* UI 完全不動 */function exportExcel(){
+/* UI 完全不動 */
 #panel{
 position:absolute;
 top:12px;
@@ -216,9 +216,6 @@ let lockOrigin = false;
 
 /* 點擊定位 */
 map.on('click',e=>{
-if(lockOrigin && origin){
-lockOrigin=false;
-}
 
 const lat=e.latlng.lat;
 const lon=e.latlng.lng;
@@ -227,7 +224,6 @@ latInput.value=lat.toFixed(6);
 lonInput.value=lon.toFixed(6);
 
 origin=[lat,lon];
-lockOrigin=true;
 
 if(userMarker) map.removeLayer(userMarker);
 
@@ -257,30 +253,45 @@ radius:parseFloat(radiusInput.value),
 color:'blue',
 fillOpacity:0.15
 }).addTo(map);
+
 });
 
 /* 距離 */
 function haversine(lat1, lon1, lat2, lon2){
+
 const R=6371000;
 const toRad=x=>x*Math.PI/180;
+
 const dLat=toRad(lat2-lat1);
 const dLon=toRad(lon2-lon1);
-const a=Math.sin(dLat/2)**2 +
-Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+
+const a=
+Math.sin(dLat/2)**2 +
+Math.cos(toRad(lat1)) *
+Math.cos(toRad(lat2)) *
+Math.sin(dLon/2)**2;
+
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+
 }
 
 /* 路線 */
 async function drawRoute(to){
+
+try{
+
 if(!origin) return;
 
 const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
 const res=await fetch(url);
+
 const data=await res.json();
+
 if(!data.routes?.length) return;
 
 const route=data.routes[0];
+
 routeInfo.innerText="路線距離：" + Math.round(route.distance) + " m";
 
 if(routeLayer) map.removeLayer(routeLayer);
@@ -288,10 +299,20 @@ if(routeLayer) map.removeLayer(routeLayer);
 routeLayer=L.geoJSON(route.geometry,{
 style:{color:"blue",weight:5}
 }).addTo(map);
+
+}catch(err){
+
+console.error(err);
+
+routeInfo.innerText="路線服務異常";
+
 }
 
-/* ⭐ 核心修正：統一選取 */
+}
+
+/* 選取 */
 function selectItem(item){
+
 drawRoute(item.座標);
 
 document.querySelectorAll("#tbody tr").forEach(r=>{
@@ -299,10 +320,18 @@ r.classList.remove("highlight");
 });
 
 const row=document.querySelector(`#tbody tr[data-id="${item.id}"]`);
+
 if(row){
+
 row.classList.add("highlight");
-row.scrollIntoView({behavior:"smooth",block:"center"});
+
+row.scrollIntoView({
+behavior:"smooth",
+block:"center"
+});
+
 }
+
 }
 
 /* 查詢 */
@@ -312,48 +341,73 @@ const lat=parseFloat(latInput.value);
 const lon=parseFloat(lonInput.value);
 const radius=parseFloat(radiusInput.value);
 
+if(radius > 3000){
+
+alert("半徑超過3000m可能造成系統過慢");
+
+return;
+
+}
+
 markerLayer.clearLayers();
+
+if(routeLayer){
+map.removeLayer(routeLayer);
+routeLayer=null;
+}
+
+routeInfo.innerText="路線距離：尚未計算";
+
 tbody.innerHTML="";
 results=[];
 
 let parts=[];
 
 document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
+
 let t=e.value;
 
 if(t==="station"){
+
 parts.push(`
 nwr["railway"="station"](around:${radius},${lat},${lon});
 nwr["railway"="subway_entrance"](around:${radius},${lat},${lon});
 nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
 `);
+
 }
 else if(t==="bus_stop"){
+
 parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
+
 }
 else if(t==="motorway_junction"){
+
 parts.push(`
-// ① 交流道核心（最準）
+
 nwr["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
-// ② 匝道（輔助判斷）
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
+
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
 
-// ③ 名稱補抓（非常重要）
 nwr["name"~"交流道|匝道|interchange",i](around:${radius},${lat},${lon});
 
-// ④ junction 補強
 nwr["junction"="yes"](around:${radius},${lat},${lon});
+
 `);
+
 }
 else if(t==="marketplace"){
+
 parts.push(`
 nwr["amenity"="marketplace"](around:${radius},${lat},${lon});
 nwr["shop"="supermarket"](around:${radius},${lat},${lon});
 `);
+
 }
 else if(t==="waste_disposal"){
+
 parts.push(`
 nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
 nwr["amenity"="recycling"](around:${radius},${lat},${lon});
@@ -364,19 +418,27 @@ nwr["power"="plant"]["plant:source"="waste"](around:${radius},${lat},${lon});
 
 nwr["name"~"焚化|垃圾|廢棄物|資源回收|處理場"](around:${radius},${lat},${lon});
 `);
+
 }
 else if(t==="park"){
-parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
+
+parts.push(`
+nwr["leisure"="park"](around:${radius},${lat},${lon});
+`);
+
 }
 else if(t==="tourism"){
+
 parts.push(`
 nwr["tourism"](around:${radius},${lat},${lon})
 ["leisure"!="park"]
 ["boundary"!="national_park"]
 ["tourism"!="picnic_site"];
 `);
+
 }
 else if(t==="bank"){
+
 parts.push(`
 nwr["amenity"="bank"](around:${radius},${lat},${lon});
 nwr["amenity"="post_office"](around:${radius},${lat},${lon});
@@ -385,8 +447,10 @@ nwr["office"="government"](around:${radius},${lat},${lon});
 nwr["amenity"="public_building"](around:${radius},${lat},${lon});
 nwr["amenity"="townhall"](around:${radius},${lat},${lon});
 `);
+
 }
 else if(t==="cemetery"){
+
 parts.push(`
 nwr["amenity"="funeral_hall"](around:${radius},${lat},${lon});
 nwr["amenity"="crematorium"](around:${radius},${lat},${lon});
@@ -395,26 +459,42 @@ nwr["landuse"="cemetery"](around:${radius},${lat},${lon});
 
 nwr["name"~"殯儀|生命紀念|納骨|火化"](around:${radius},${lat},${lon});
 `);
+
 }
-/* ⭐ 正確位置：一定要在這裡 */
 else if(t==="school"){
+
 parts.push(`
+nwr["amenity"="kindergarten"](around:${radius},${lat},${lon});
+
 nwr["amenity"="school"](around:${radius},${lat},${lon});
+
 nwr["amenity"="college"](around:${radius},${lat},${lon});
+
 nwr["amenity"="university"](around:${radius},${lat},${lon});
-nwr["amenity"="school"]["isced:level"~"5|6|7|8"](around:${radius},${lat},${lon});
+
+nwr["school"](around:${radius},${lat},${lon});
+
+nwr["amenity"="school"]["isced:level"~"0|1|2|3|4|5|6|7|8"](around:${radius},${lat},${lon});
 `);
+
 }
 else if(t==="gas"){
+
 parts.push(`
 nwr["man_made"="gasometer"](around:${radius},${lat},${lon});
 nwr["power"="substation"](around:${radius},${lat},${lon});
 nwr["power"="plant"](around:${radius},${lat},${lon});
 `);
+
 }
 else{
-parts.push(`nwr["amenity"="${t}"](around:${radius},${lat},${lon});`);
+
+parts.push(`
+nwr["amenity"="${t}"](around:${radius},${lat},${lon});
+`);
+
 }
+
 });
 
 const query=`
@@ -425,68 +505,131 @@ ${parts.join("\n")}
 out center;
 `;
 
-const res=await fetch("https://overpass-api.de/api/interpreter",{
+const res=await fetch(
+"https://overpass-api.de/api/interpreter",
+{
 method:"POST",
 body:"data="+encodeURIComponent(query),
-headers:{"Content-Type":"application/x-www-form-urlencoded"}
-});
+headers:{
+"Content-Type":"application/x-www-form-urlencoded"
+}
+}
+);
 
 const data=await res.json();
+
 if(!data.elements) return;
+
+const dedup = new Set();
 
 data.elements.forEach(e=>{
 
 const lat2=e.center?.lat ?? e.lat;
 const lon2=e.center?.lon ?? e.lon;
+
 if(!lat2||!lon2) return;
+
+const key = `${e.type}-${e.id}`;
+
+if(dedup.has(key)) return;
+
+dedup.add(key);
 
 const idx=results.length;
 
 const item={
+
 id:idx,
-名稱:e.tags?.name||"未命名",
-類型:Object.keys(e.tags||{})[0]||"",
+
+名稱:e.tags?.name || "未命名",
+
+類型:
+e.tags?.amenity ||
+e.tags?.tourism ||
+e.tags?.shop ||
+e.tags?.railway ||
+e.tags?.highway ||
+e.tags?.office ||
+e.tags?.power ||
+e.tags?.landuse ||
+e.tags?.man_made ||
+"未知",
+
 座標:[lat2,lon2],
-距離:Math.round(haversine(lat,lon,lat2,lon2))
+
+距離:Math.round(
+haversine(lat,lon,lat2,lon2)
+)
+
 };
 
 results.push(item);
 
-/* ⭐ 核心修正：marker 行為 */
 const m=L.marker(item.座標)
 .addTo(markerLayer)
-.bindTooltip(item.名稱,{direction:"top"});
+.bindTooltip(item.名稱,{
+direction:"top"
+});
 
-m.on("click",()=>selectItem(item));
+m.on("click",()=>{
+
+map.flyTo(item.座標,17,{
+duration:0.8
+});
+
+selectItem(item);
 
 });
 
+});
+
+results.sort((a,b)=>a.距離-b.距離);
+
 /* 表格 */
 results.forEach(item=>{
+
 const tr=document.createElement("tr");
+
 tr.dataset.id=item.id;
+
 tr.innerHTML=`
-<td onclick='selectItem(results[${item.id}])' style="cursor:pointer;color:blue">${item.名稱}</td>
+<td onclick='selectItem(results[${item.id}])'
+style="cursor:pointer;color:blue">
+${item.名稱}
+</td>
+
 <td>${item.類型}</td>
+
 <td>${item.距離}</td>
 `;
+
 tbody.appendChild(tr);
+
 });
 
 }
 
 /* 清除路線 */
 function clearRoute(){
-if(routeLayer) map.removeLayer(routeLayer);
+
+if(routeLayer){
+map.removeLayer(routeLayer);
+routeLayer=null;
+}
+
 routeInfo.innerText="路線距離：尚未計算";
+
 }
 
 /* Excel */
 function exportExcel(){
 
 if(!results.length){
+
 alert("無資料");
+
 return;
+
 }
 
 const ws = XLSX.utils.json_to_sheet(
@@ -515,36 +658,51 @@ XLSX.writeFile(wb, "GIS查詢結果.xlsx");
 
 }
 
+/* 拖曳結果視窗 */
+
 let isDragging = false;
+
 let offsetX = 0;
 let offsetY = 0;
 
 const panel = document.getElementById("resultPanel");
+
 const header = document.getElementById("resultHeader");
 
 header.addEventListener("mousedown", function(e){
+
 isDragging = true;
 
 const rect = panel.getBoundingClientRect();
 
 offsetX = e.clientX - rect.left;
+
 offsetY = e.clientY - rect.top;
 
 panel.style.position = "absolute";
+
 panel.style.zIndex = 9999;
+
 });
 
 document.addEventListener("mousemove", function(e){
+
 if(!isDragging) return;
 
 panel.style.left = (e.clientX - offsetX) + "px";
+
 panel.style.top = (e.clientY - offsetY) + "px";
+
 panel.style.right = "auto";
+
 });
 
 document.addEventListener("mouseup", function(){
+
 isDragging = false;
+
 });
+
 </script>
 
 </body>
