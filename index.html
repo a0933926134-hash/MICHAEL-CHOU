@@ -199,11 +199,55 @@ maxZoom:19
 }).addTo(map);
 
 /* 比例尺 */
-L.control.scale({
-position:'bottomleft',
-metric:true,
-imperial:false
-}).addTo(map);
+/* 分母比例尺 */
+const scaleControl = L.control({ position: 'bottomleft' });
+
+scaleControl.onAdd = function () {
+
+this._div = L.DomUtil.create('div', 'scale-denominator');
+
+this._div.style.background = 'rgba(255,255,255,0.9)';
+this._div.style.padding = '4px 8px';
+this._div.style.borderRadius = '6px';
+this._div.style.boxShadow = '0 1px 5px rgba(0,0,0,0.3)';
+this._div.style.fontSize = '12px';
+this._div.style.fontWeight = 'bold';
+
+this.update();
+
+return this._div;
+
+};
+
+scaleControl.update = function () {
+
+const center = map.getCenter();
+const zoom = map.getZoom();
+
+/* 取得目前緯度每像素實際距離 */
+const metersPerPixel =
+40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180))
+/ Math.pow(2, zoom + 8);
+
+/* 假設螢幕 DPI=96 */
+const dpi = 96;
+
+/* 1 inch = 0.0254 m */
+const scale =
+metersPerPixel * dpi / 0.0254;
+
+/* 取整 */
+const rounded = Math.round(scale / 100) * 100;
+
+this._div.innerHTML = `比例尺 1:${rounded.toLocaleString()}`;
+
+};
+
+scaleControl.addTo(map);
+
+map.on('zoomend moveend', () => {
+scaleControl.update();
+});
 
 let markerLayer=L.layerGroup().addTo(map);
 /* 地籍圖 */
