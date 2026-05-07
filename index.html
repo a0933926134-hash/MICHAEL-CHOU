@@ -337,7 +337,8 @@ parts.push(`
 nwr["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
 // ② 匝道（輔助判斷）
-nwr["highway"~"motorway_link|trunk_link|primary_link"](around:${radius},${lat},${lon});
+way["highway"="motorway_link"](around:${radius},${lat},${lon});
+way["highway"="trunk_link"](around:${radius},${lat},${lon});
 
 // ③ 名稱補抓（非常重要）
 nwr["name"~"交流道|匝道|interchange",i](around:${radius},${lat},${lon});
@@ -369,7 +370,10 @@ parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
 }
 else if(t==="tourism"){
 parts.push(`
-nwr["tourism"](around:${radius},${lat},${lon})["leisure"!="park"];
+nwr["tourism"](around:${radius},${lat},${lon})
+["leisure"!="park"]
+["boundary"!="national_park"]
+["tourism"!="picnic_site"];
 `);
 }
 else if(t==="bank"){
