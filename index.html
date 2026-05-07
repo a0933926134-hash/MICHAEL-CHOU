@@ -270,6 +270,12 @@ let userMarker=null;
 let origin=null;
 let results=[];
 let routeLayer=null;
+let destinationMarker=null;  // 新增：終點可拖曳 marker
+
+/* ✅ 🔥 新增這段（路線拖曳 reroute 用） */
+let routePoints = [];   // 路線節點
+let routeMarkers = [];  // 可拖曳 marker
+let routingLine = null;  
 let circleLayer=null;
 
 let lockOrigin = false;
@@ -345,7 +351,6 @@ if(!origin) return;
 const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
 const res=await fetch(url);
-
 const data=await res.json();
 
 if(!data.routes?.length) return;
@@ -359,6 +364,21 @@ if(routeLayer) map.removeLayer(routeLayer);
 routeLayer=L.geoJSON(route.geometry,{
 style:{color:"blue",weight:5}
 }).addTo(map);
+
+/* ⭐ 新增：終點 marker（可拖曳 reroute） */
+if(destinationMarker){
+map.removeLayer(destinationMarker);
+}
+
+destinationMarker=L.marker(to,{
+draggable:true
+}).addTo(map);
+
+/* ⭐ 核心：拖曳後 reroute */
+destinationMarker.on("dragend",function(e){
+const pos=e.target.getLatLng();
+drawRoute([pos.lat,pos.lng]);
+});
 
 }catch(err){
 
@@ -674,6 +694,16 @@ function clearRoute(){
 if(routeLayer){
 map.removeLayer(routeLayer);
 routeLayer=null;
+}
+
+/* ⭐ 新增：清掉終點 marker */
+if(destinationMarker){
+map.removeLayer(destinationMarker);
+destinationMarker=null;
+}
+
+routeInfo.innerText="路線距離：尚未計算";
+
 }
 
 routeInfo.innerText="路線距離：尚未計算";
