@@ -272,6 +272,9 @@ let results=[];
 let routeLayer=null;
 let circleLayer=null;
 
+/* reroute */
+let destinationMarker = null;
+let routeDragging = false;  
 let lockOrigin = false;
 
 /* 點擊定位 */
@@ -336,8 +339,105 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
 /* 路線 */
+/* 路線 + 拖曳 reroute */
 async function drawRoute(to){
 
+try{
+
+if(!origin) return;
+
+/* 終點 */
+if(destinationMarker){
+map.removeLayer(destinationMarker);
+}
+
+destinationMarker = L.marker(to,{
+draggable:true
+}).addTo(map);
+
+destinationMarker.on("dragend",function(e){
+
+const newPos = e.target.getLatLng();
+
+drawRoute([newPos.lat,newPos.lng]);
+
+});
+
+/* OSRM */
+const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+
+const res=await fetch(url);
+
+const data=await res.json();
+
+if(!data.routes?.length) return;
+
+const route=data.routes[0];
+
+routeInfo.innerText =
+"路線距離：" +
+Math.round(route.distance) +
+" m";
+
+/* 清除舊路線 */
+if(routeLayer){
+map.removeLayer(routeLayer);
+}
+
+/* 新路線 */
+routeLayer=L.geoJSON(route.geometry,{
+style:{
+color:"blue",
+weight:5
+}
+}).addTo(map);
+
+/* 可拖曳 reroute */
+routeLayer.eachLayer(layer=>{
+
+layer.on("mousedown",()=>{
+
+routeDragging = true;
+
+});
+
+});
+
+map.on("mousemove", async function(e){
+
+if(!routeDragging) return;
+
+const latlng = e.latlng;
+
+if(destinationMarker){
+
+destinationMarker.setLatLng(latlng);
+
+}
+
+});
+
+map.on("mouseup", async function(e){
+
+if(!routeDragging) return;
+
+routeDragging = false;
+
+const latlng = e.latlng;
+
+drawRoute([latlng.lat,latlng.lng]);
+
+});
+
+}catch(err){
+
+console.error(err);
+
+routeInfo.innerText="路線服務異常";
+
+}
+
+}
 try{
 
 if(!origin) return;
@@ -671,6 +771,20 @@ tbody.appendChild(tr);
 
 /* 清除路線 */
 function clearRoute(){
+
+if(routeLayer){
+map.removeLayer(routeLayer);
+routeLayer=null;
+}
+
+if(destinationMarker){
+map.removeLayer(destinationMarker);
+destinationMarker=null;
+}
+
+routeInfo.innerText="路線距離：尚未計算";
+
+}
 
 if(routeLayer){
 map.removeLayer(routeLayer);
