@@ -159,7 +159,7 @@ font-weight:bold;
 <label><input type="checkbox" value="parking">公共建設-停車場地之便利程度</label>
 <label><input type="checkbox" value="bank">公共建設-接近服務性設施的程度(郵局、銀行、醫院、機關等設施)</label>
 <label><input type="checkbox" value="gas">特殊設施-電業設施及公用氣體燃料設施之有無極接近程度</label>
-<label><input type="checkbox" value="cemetery">特殊建設-殯葬設施之有無及接近程度</label>  
+<label><input type="checkbox" value="cemetery">特殊建設-殯葬設施之有無及接近程度</label>
 <label><input type="checkbox" value="waste_disposal">特殊建設-廢棄物處理設施之有無及接近程度</label>
 
 <button onclick="runQuery()">查詢</button>
@@ -194,12 +194,14 @@ font-weight:bold;
 
 let map=L.map('map').setView([25.04024,121.43148],15);
 
-L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
+L.tileLayer(
+'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
+{
 maxZoom:19
-}).addTo(map);
+}
+).addTo(map);
 
 /* 比例尺 */
-/* 分母比例尺 */
 const scaleControl = L.control({ position: 'bottomleft' });
 
 scaleControl.onAdd = function () {
@@ -224,19 +226,15 @@ scaleControl.update = function () {
 const center = map.getCenter();
 const zoom = map.getZoom();
 
-/* 取得目前緯度每像素實際距離 */
 const metersPerPixel =
 40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180))
 / Math.pow(2, zoom + 8);
 
-/* 假設螢幕 DPI=96 */
 const dpi = 96;
 
-/* 1 inch = 0.0254 m */
 const scale =
 metersPerPixel * dpi / 0.0254;
 
-/* 取整 */
 const rounded = Math.round(scale / 100) * 100;
 
 this._div.innerHTML = `比例尺 1:${rounded.toLocaleString()}`;
@@ -250,16 +248,18 @@ scaleControl.update();
 });
 
 let markerLayer=L.layerGroup().addTo(map);
+
 /* 地籍圖 */
 const cadastralLayer = L.tileLayer(
-'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/EPSG:3857/{z}/{y}/{x}',{
+'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/EPSG:3857/{z}/{y}/{x}',
+{
 maxZoom:22,
 opacity:0.75
 }
 );
 
 cadastralLayer.addTo(map);
-  
+
 const latInput=document.getElementById("lat");
 const lonInput=document.getElementById("lon");
 const radiusInput=document.getElementById("radius");
@@ -274,8 +274,7 @@ let circleLayer=null;
 
 /* reroute */
 let destinationMarker = null;
-let routeDragging = false;  
-let lockOrigin = false;
+let routeDragging = false;
 
 /* 點擊定位 */
 map.on('click',e=>{
@@ -338,7 +337,32 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 
 }
 
-/* 路線 */
+/* route dragging */
+
+map.on("mousemove", function(e){
+
+if(!routeDragging) return;
+
+const latlng = e.latlng;
+
+if(destinationMarker){
+destinationMarker.setLatLng(latlng);
+}
+
+});
+
+map.on("mouseup", function(e){
+
+if(!routeDragging) return;
+
+routeDragging = false;
+
+const latlng = e.latlng;
+
+drawRoute([latlng.lat,latlng.lng]);
+
+});
+
 /* 路線 + 拖曳 reroute */
 async function drawRoute(to){
 
@@ -392,7 +416,7 @@ weight:5
 }
 }).addTo(map);
 
-/* 可拖曳 reroute */
+/* 藍線拖曳 */
 routeLayer.eachLayer(layer=>{
 
 layer.on("mousedown",()=>{
@@ -402,58 +426,6 @@ routeDragging = true;
 });
 
 });
-
-map.on("mousemove", async function(e){
-
-if(!routeDragging) return;
-
-const latlng = e.latlng;
-
-if(destinationMarker){
-
-destinationMarker.setLatLng(latlng);
-
-}
-
-});
-
-map.on("mouseup", async function(e){
-
-if(!routeDragging) return;
-
-routeDragging = false;
-
-const latlng = e.latlng;
-
-drawRoute([latlng.lat,latlng.lng]);
-
-});
-
-}catch(err){
-
-console.error(err);
-
-routeInfo.innerText="路線服務異常";
-
-}
-
-}
-
-const res=await fetch(url);
-
-const data=await res.json();
-
-if(!data.routes?.length) return;
-
-const route=data.routes[0];
-
-routeInfo.innerText="路線距離：" + Math.round(route.distance) + " m";
-
-if(routeLayer) map.removeLayer(routeLayer);
-
-routeLayer=L.geoJSON(route.geometry,{
-style:{color:"blue",weight:5}
-}).addTo(map);
 
 }catch(err){
 
@@ -511,6 +483,11 @@ map.removeLayer(routeLayer);
 routeLayer=null;
 }
 
+if(destinationMarker){
+map.removeLayer(destinationMarker);
+destinationMarker=null;
+}
+
 routeInfo.innerText="路線距離：尚未計算";
 
 tbody.innerHTML="";
@@ -533,23 +510,19 @@ nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
 }
 else if(t==="bus_stop"){
 
-parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
+parts.push(`
+nwr["highway"="bus_stop"](around:${radius},${lat},${lon});
+`);
 
 }
 else if(t==="motorway_junction"){
 
 parts.push(`
-
 nwr["highway"="motorway_junction"](around:${radius},${lat},${lon});
-
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
-
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
-
 nwr["name"~"交流道|匝道|interchange",i](around:${radius},${lat},${lon});
-
 nwr["junction"="yes"](around:${radius},${lat},${lon});
-
 `);
 
 }
@@ -567,10 +540,8 @@ parts.push(`
 nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
 nwr["amenity"="recycling"](around:${radius},${lat},${lon});
 nwr["landuse"="landfill"](around:${radius},${lat},${lon});
-
 nwr["man_made"="waste_incinerator"](around:${radius},${lat},${lon});
 nwr["power"="plant"]["plant:source"="waste"](around:${radius},${lat},${lon});
-
 nwr["name"~"焚化|垃圾|廢棄物|資源回收|處理場"](around:${radius},${lat},${lon});
 `);
 
@@ -609,9 +580,7 @@ else if(t==="cemetery"){
 parts.push(`
 nwr["amenity"="funeral_hall"](around:${radius},${lat},${lon});
 nwr["amenity"="crematorium"](around:${radius},${lat},${lon});
-
 nwr["landuse"="cemetery"](around:${radius},${lat},${lon});
-
 nwr["name"~"殯儀|生命紀念|納骨|火化"](around:${radius},${lat},${lon});
 `);
 
@@ -620,15 +589,10 @@ else if(t==="school"){
 
 parts.push(`
 nwr["amenity"="kindergarten"](around:${radius},${lat},${lon});
-
 nwr["amenity"="school"](around:${radius},${lat},${lon});
-
 nwr["amenity"="college"](around:${radius},${lat},${lon});
-
 nwr["amenity"="university"](around:${radius},${lat},${lon});
-
 nwr["school"](around:${radius},${lat},${lon});
-
 nwr["amenity"="school"]["isced:level"~"0|1|2|3|4|5|6|7|8"](around:${radius},${lat},${lon});
 `);
 
@@ -781,15 +745,6 @@ routeInfo.innerText="路線距離：尚未計算";
 
 }
 
-if(routeLayer){
-map.removeLayer(routeLayer);
-routeLayer=null;
-}
-
-routeInfo.innerText="路線距離：尚未計算";
-
-}
-
 /* Excel */
 function exportExcel(){
 
@@ -806,13 +761,9 @@ const ws = XLSX.utils.json_to_sheet(
 results.map(r=>({
 
 名稱:r.名稱,
-
 類型:r.類型,
-
 距離:r.距離,
-
 緯度:r.座標[0],
-
 經度:r.座標[1]
 
 }))
@@ -845,11 +796,9 @@ isDragging = true;
 const rect = panel.getBoundingClientRect();
 
 offsetX = e.clientX - rect.left;
-
 offsetY = e.clientY - rect.top;
 
 panel.style.position = "absolute";
-
 panel.style.zIndex = 9999;
 
 });
@@ -859,9 +808,7 @@ document.addEventListener("mousemove", function(e){
 if(!isDragging) return;
 
 panel.style.left = (e.clientX - offsetX) + "px";
-
 panel.style.top = (e.clientY - offsetY) + "px";
-
 panel.style.right = "auto";
 
 });
