@@ -308,6 +308,12 @@ lonInput.value=lon.toFixed(6);
 
 origin=[lat,lon];
 
+/* 若已有路線 → 自動重算 */
+if(currentDestination){
+
+drawRoute(currentDestination);
+
+}  
 if(userMarker) map.removeLayer(userMarker);
 
 userMarker=L.marker([lat,lon],{
@@ -485,14 +491,13 @@ map.dragging.enable();
 
 const latlng = e.target.getLatLng();
 
-/* 更新最終點 */
-currentDestination = [
-latlng.lat,
-latlng.lng
-];
+/* 只更新顯示，不重新計算路線 */
+endpointMarker.setLatLng(latlng);
 
-/* 重新 route */
-drawRoute(currentDestination);
+destinationMarker.setLatLng(latlng);
+
+/* ❌ 不再 reroute */
+/* drawRoute(currentDestination); */
 
 });
 
@@ -795,12 +800,22 @@ const lat=parseFloat(latInput.value);
 const lon=parseFloat(lonInput.value);
 const radius=parseFloat(radiusInput.value);
 
+  
 if(radius > 3000){
 
 alert("半徑超過3000m可能造成系統過慢");
 
 return;
+if(origin && results.length){
 
+/* 若已有 destination → 自動重算路線 */
+if(currentDestination){
+
+drawRoute(currentDestination);
+
+}
+
+}
 }
 
 markerLayer.clearLayers();
