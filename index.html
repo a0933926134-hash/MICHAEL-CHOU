@@ -281,8 +281,21 @@ let dragViaPoint = null;
 
 let currentDestination = null;
 
+/* 多節點 */
+let routeWaypoints = [];
+
+/* waypoint markers */
+let waypointMarkers = [];
+
 /* 點擊定位 */
 map.on('click',e=>{
+
+/* 有路線時禁止改定位 */
+if(routeLayer){
+
+return;
+
+}
 
 const lat=e.latlng.lat;
 const lon=e.latlng.lng;
@@ -370,14 +383,13 @@ return;
 
 }
 
-/* 以拖曳點 reroute */
-drawRoute(
-currentDestination,
-[
+/* 新增 waypoint */
+routeWaypoints.push([
 dragViaPoint.lat,
 dragViaPoint.lng
-]
-);
+]);
+
+drawRoute(currentDestination);
 
 dragViaPoint = null;
 
