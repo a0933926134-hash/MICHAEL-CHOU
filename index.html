@@ -159,7 +159,7 @@ font-weight:bold;
 <label><input type="checkbox" value="parking">公共建設-停車場地之便利程度</label>
 <label><input type="checkbox" value="bank">公共建設-接近服務性設施的程度(郵局、銀行、醫院、機關等設施)</label>
 <label><input type="checkbox" value="gas">特殊設施-電業設施及公用氣體燃料設施之有無極接近程度</label>
-<label><input type="checkbox" value="cemetery">特殊建設-殯葬設施之有無及接近程度</label>
+<label><input type="checkbox" value="cemetery">特殊建設-殯葬設施之有無及接近程度</label>  
 <label><input type="checkbox" value="waste_disposal">特殊建設-廢棄物處理設施之有無及接近程度</label>
 
 <button onclick="runQuery()">查詢</button>
@@ -194,14 +194,12 @@ font-weight:bold;
 
 let map=L.map('map').setView([25.04024,121.43148],15);
 
-L.tileLayer(
-'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
-{
+L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
 maxZoom:19
-}
-).addTo(map);
+}).addTo(map);
 
 /* 比例尺 */
+/* 分母比例尺 */
 const scaleControl = L.control({ position: 'bottomleft' });
 
 scaleControl.onAdd = function () {
@@ -226,15 +224,19 @@ scaleControl.update = function () {
 const center = map.getCenter();
 const zoom = map.getZoom();
 
+/* 取得目前緯度每像素實際距離 */
 const metersPerPixel =
 40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180))
 / Math.pow(2, zoom + 8);
 
+/* 假設螢幕 DPI=96 */
 const dpi = 96;
 
+/* 1 inch = 0.0254 m */
 const scale =
 metersPerPixel * dpi / 0.0254;
 
+/* 取整 */
 const rounded = Math.round(scale / 100) * 100;
 
 this._div.innerHTML = `比例尺 1:${rounded.toLocaleString()}`;
@@ -248,18 +250,16 @@ scaleControl.update();
 });
 
 let markerLayer=L.layerGroup().addTo(map);
-
 /* 地籍圖 */
 const cadastralLayer = L.tileLayer(
-'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/EPSG:3857/{z}/{y}/{x}',
-{
+'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/EPSG:3857/{z}/{y}/{x}',{
 maxZoom:22,
 opacity:0.75
 }
 );
 
 cadastralLayer.addTo(map);
-
+  
 const latInput=document.getElementById("lat");
 const lonInput=document.getElementById("lon");
 const radiusInput=document.getElementById("radius");
@@ -272,33 +272,10 @@ let results=[];
 let routeLayer=null;
 let circleLayer=null;
 
-/* reroute */
-let destinationMarker = null;
-
-/* 路線最後點控制 */
-let endpointMarker = null;
-
-let routeDragging = false;
-
-let dragViaPoint = null;
-
-let currentDestination = null;
-
-/* 多節點 */
-let routeWaypoints = [];
-
-/* waypoint markers */
-let waypointMarkers = [];
+let lockOrigin = false;
 
 /* 點擊定位 */
 map.on('click',e=>{
-
-/* 有路線時禁止改定位 */
-if(routeLayer){
-
-return;
-
-}
 
 const lat=e.latlng.lat;
 const lon=e.latlng.lng;
@@ -308,12 +285,6 @@ lonInput.value=lon.toFixed(6);
 
 origin=[lat,lon];
 
-/* 若已有路線 → 自動重算 */
-if(currentDestination){
-
-drawRoute(currentDestination);
-
-}  
 if(userMarker) map.removeLayer(userMarker);
 
 userMarker=L.marker([lat,lon],{
@@ -364,346 +335,30 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 
 }
 
-/* route dragging */
-
-map.on("mousemove", function(e){
-
-if(!routeDragging) return;
-
-dragViaPoint = e.latlng;
-
-});
-
-map.on("mouseup", function(e){
-
-if(!routeDragging) return;
-
-routeDragging = false;
-
-map.dragging.enable();
-
-if(!currentDestination) return;
-
-if(!dragViaPoint){
-
-drawRoute(currentDestination);
-
-return;
-
-}
-
-/* 新增 waypoint */
-routeWaypoints.push([
-dragViaPoint.lat,
-dragViaPoint.lng
-]);
-
-drawRoute(currentDestination);
-
-dragViaPoint = null;
-
-});
-
-map.on("mouseup", function(e){
-
-if(!routeDragging) return;
-
-routeDragging = false;
-
-const latlng = e.latlng;
-
-drawRoute([latlng.lat,latlng.lng]);
-
-});
-
-/* 路線 + 拖曳 reroute */
+/* 路線 */
 async function drawRoute(to){
 
 try{
 
 if(!origin) return;
 
-currentDestination = to;
+const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
-/* 終點 marker */
-if(destinationMarker){
+const res=await fetch(url);
 
-map.removeLayer(destinationMarker);
-
-}
-
-if(endpointMarker){
-
-map.removeLayer(endpointMarker);
-
-}
-
-/* 隱藏 destination */
-destinationMarker = L.marker(to,{
-opacity:0
-}).addTo(map);
-
-/* 真正 endpoint */
-endpointMarker = L.marker(to,{
-
-draggable:true,
-
-icon:L.divIcon({
-
-className:'',
-
-html:`
-<div style="
-width:18px;
-height:18px;
-background:#ffffff;
-border:4px solid #dc2626;
-border-radius:50%;
-box-shadow:0 0 0 2px rgba(220,38,38,0.25);
-"></div>
-`,
-
-iconSize:[18,18],
-iconAnchor:[9,9]
-
-})
-
-}).addTo(map);
-
-endpointMarker.bindTooltip(
-"終點控制點<br>拖曳後重新規劃",
-{
-direction:"top"
-}
-);
-
-/* 拖曳開始 */
-endpointMarker.on("dragstart",function(){
-
-map.dragging.disable();
-
-});
-
-/* 拖曳結束 */
-endpointMarker.on("dragend",function(e){
-
-map.dragging.enable();
-
-const latlng = e.target.getLatLng();
-
-/* 只更新顯示，不重新計算路線 */
-endpointMarker.setLatLng(latlng);
-
-destinationMarker.setLatLng(latlng);
-
-/* ❌ 不再 reroute */
-/* drawRoute(currentDestination); */
-
-});
-
-/* 路線 + 拖曳 reroute */
-async function drawRoute(to){
-
-try{
-
-if(!origin) return;
-
-currentDestination = to;
-
-/* 清除舊 endpoint */
-if(destinationMarker){
-map.removeLayer(destinationMarker);
-}
-
-if(endpointMarker){
-map.removeLayer(endpointMarker);
-}
-
-/* 清 waypoint markers */
-waypointMarkers.forEach(m=>{
-map.removeLayer(m);
-});
-
-waypointMarkers = [];
-/* 建立 waypoint marker */
-routeWaypoints.forEach((p,index)=>{
-
-const wm = L.marker(p,{
-
-draggable:true,
-
-icon:L.divIcon({
-
-className:'',
-
-html:`
-<div style="
-width:14px;
-height:14px;
-background:#2563eb;
-border:3px solid white;
-border-radius:50%;
-"></div>
-`,
-
-iconSize:[14,14],
-iconAnchor:[7,7]
-
-})
-
-}).addTo(map);
-
-/* waypoint 拖曳 */
-wm.on("dragend",function(e){
-
-const latlng = e.target.getLatLng();
-
-routeWaypoints[index] = [
-latlng.lat,
-latlng.lng
-];
-
-drawRoute(currentDestination);
-
-});
-
-/* waypoint 雙擊刪除 */
-wm.on("dblclick",function(){
-
-map.removeLayer(wm);
-
-routeWaypoints.splice(index,1);
-
-drawRoute(currentDestination);
-
-});
-
-waypointMarkers.push(wm);
-
-});
-
-/* OSRM coords */
-let coords = `${origin[1]},${origin[0]};`;
-
-/* waypoints */
-routeWaypoints.forEach(p=>{
-
-coords += `${p[1]},${p[0]};`;
-
-});
-
-/* destination */
-coords += `${to[1]},${to[0]}`;
-
-/* OSRM */
-const url =
-`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
-
-/* fetch */
-const res = await fetch(url);
-
-const data = await res.json();
+const data=await res.json();
 
 if(!data.routes?.length) return;
 
-const route = data.routes[0];
-/* route 成功後才建立 endpoint */
+const route=data.routes[0];
 
-/* 隱藏 destination */
-destinationMarker = L.marker(to,{
-opacity:0
+routeInfo.innerText="路線距離：" + Math.round(route.distance) + " m";
+
+if(routeLayer) map.removeLayer(routeLayer);
+
+routeLayer=L.geoJSON(route.geometry,{
+style:{color:"blue",weight:5}
 }).addTo(map);
-
-/* endpoint */
-endpointMarker = L.marker(to,{
-
-draggable:true,
-
-icon:L.divIcon({
-
-className:'',
-
-html:`
-<div style="
-width:18px;
-height:18px;
-background:#ffffff;
-border:4px solid #dc2626;
-border-radius:50%;
-box-shadow:0 0 0 2px rgba(220,38,38,0.25);
-"></div>
-`,
-
-iconSize:[18,18],
-iconAnchor:[9,9]
-
-})
-
-}).addTo(map);
-
-endpointMarker.bindTooltip(
-"終點控制點<br>拖曳後重新規劃",
-{
-direction:"top"
-}
-);
-
-/* endpoint drag */
-endpointMarker.on("dragstart",function(){
-
-map.dragging.disable();
-
-});
-
-endpointMarker.on("dragend",function(e){
-
-map.dragging.enable();
-
-const latlng = e.target.getLatLng();
-
-currentDestination = [
-latlng.lat,
-latlng.lng
-];
-
-drawRoute(currentDestination);
-
-});
-/* route distance */
-routeInfo.innerText =
-"路線距離：" +
-Math.round(route.distance) +
-" m";
-
-/* remove old */
-if(routeLayer){
-
-map.removeLayer(routeLayer);
-
-}
-
-/* route layer */
-routeLayer = L.geoJSON(route.geometry,{
-style:{
-color:"blue",
-weight:5
-}
-}).addTo(map);
-
-/* route dragging */
-routeLayer.eachLayer(layer=>{
-
-layer.on("mousedown",function(e){
-
-routeDragging = true;
-
-dragViaPoint = e.latlng;
-
-map.dragging.disable();
-
-});
-
-});
 
 }catch(err){
 
@@ -712,63 +367,9 @@ console.error(err);
 routeInfo.innerText="路線服務異常";
 
 }
-}
-/* OSRM */
-const url =
-`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
-
-const res = await fetch(url);
-
-const data = await res.json();
-
-if(!data.routes?.length) return;
-
-const route = data.routes[0];
-
-/* 距離 */
-routeInfo.innerText =
-"路線距離：" +
-Math.round(route.distance) +
-" m";
-
-/* 清除舊 route */
-if(routeLayer){
-
-map.removeLayer(routeLayer);
 
 }
 
-/* route */
-routeLayer = L.geoJSON(route.geometry,{
-style:{
-color:"blue",
-weight:5
-}
-}).addTo(map);
-
-/* 拖曳 reroute */
-routeLayer.eachLayer(layer=>{
-
-layer.on("mousedown",function(e){
-
-routeDragging = true;
-
-dragViaPoint = e.latlng;
-
-map.dragging.disable();
-
-});
-
-});
-
-}catch(err){
-
-console.error(err);
-
-routeInfo.innerText="路線服務異常";
-
-}
-}
 /* 選取 */
 function selectItem(item){
 
@@ -800,22 +401,12 @@ const lat=parseFloat(latInput.value);
 const lon=parseFloat(lonInput.value);
 const radius=parseFloat(radiusInput.value);
 
-  
 if(radius > 3000){
 
 alert("半徑超過3000m可能造成系統過慢");
 
 return;
-if(origin && results.length){
 
-/* 若已有 destination → 自動重算路線 */
-if(currentDestination){
-
-drawRoute(currentDestination);
-
-}
-
-}
 }
 
 markerLayer.clearLayers();
@@ -823,11 +414,6 @@ markerLayer.clearLayers();
 if(routeLayer){
 map.removeLayer(routeLayer);
 routeLayer=null;
-}
-
-if(destinationMarker){
-map.removeLayer(destinationMarker);
-destinationMarker=null;
 }
 
 routeInfo.innerText="路線距離：尚未計算";
@@ -852,19 +438,23 @@ nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
 }
 else if(t==="bus_stop"){
 
-parts.push(`
-nwr["highway"="bus_stop"](around:${radius},${lat},${lon});
-`);
+parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
 
 }
 else if(t==="motorway_junction"){
 
 parts.push(`
+
 nwr["highway"="motorway_junction"](around:${radius},${lat},${lon});
+
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
+
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
+
 nwr["name"~"交流道|匝道|interchange",i](around:${radius},${lat},${lon});
+
 nwr["junction"="yes"](around:${radius},${lat},${lon});
+
 `);
 
 }
@@ -882,8 +472,10 @@ parts.push(`
 nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
 nwr["amenity"="recycling"](around:${radius},${lat},${lon});
 nwr["landuse"="landfill"](around:${radius},${lat},${lon});
+
 nwr["man_made"="waste_incinerator"](around:${radius},${lat},${lon});
 nwr["power"="plant"]["plant:source"="waste"](around:${radius},${lat},${lon});
+
 nwr["name"~"焚化|垃圾|廢棄物|資源回收|處理場"](around:${radius},${lat},${lon});
 `);
 
@@ -922,7 +514,9 @@ else if(t==="cemetery"){
 parts.push(`
 nwr["amenity"="funeral_hall"](around:${radius},${lat},${lon});
 nwr["amenity"="crematorium"](around:${radius},${lat},${lon});
+
 nwr["landuse"="cemetery"](around:${radius},${lat},${lon});
+
 nwr["name"~"殯儀|生命紀念|納骨|火化"](around:${radius},${lat},${lon});
 `);
 
@@ -931,10 +525,15 @@ else if(t==="school"){
 
 parts.push(`
 nwr["amenity"="kindergarten"](around:${radius},${lat},${lon});
+
 nwr["amenity"="school"](around:${radius},${lat},${lon});
+
 nwr["amenity"="college"](around:${radius},${lat},${lon});
+
 nwr["amenity"="university"](around:${radius},${lat},${lon});
+
 nwr["school"](around:${radius},${lat},${lon});
+
 nwr["amenity"="school"]["isced:level"~"0|1|2|3|4|5|6|7|8"](around:${radius},${lat},${lon});
 `);
 
@@ -1078,11 +677,6 @@ map.removeLayer(routeLayer);
 routeLayer=null;
 }
 
-if(destinationMarker){
-map.removeLayer(destinationMarker);
-destinationMarker=null;
-}
-
 routeInfo.innerText="路線距離：尚未計算";
 
 }
@@ -1103,9 +697,13 @@ const ws = XLSX.utils.json_to_sheet(
 results.map(r=>({
 
 名稱:r.名稱,
+
 類型:r.類型,
+
 距離:r.距離,
+
 緯度:r.座標[0],
+
 經度:r.座標[1]
 
 }))
@@ -1138,9 +736,11 @@ isDragging = true;
 const rect = panel.getBoundingClientRect();
 
 offsetX = e.clientX - rect.left;
+
 offsetY = e.clientY - rect.top;
 
 panel.style.position = "absolute";
+
 panel.style.zIndex = 9999;
 
 });
@@ -1150,7 +750,9 @@ document.addEventListener("mousemove", function(e){
 if(!isDragging) return;
 
 panel.style.left = (e.clientX - offsetX) + "px";
+
 panel.style.top = (e.clientY - offsetY) + "px";
+
 panel.style.right = "auto";
 
 });
