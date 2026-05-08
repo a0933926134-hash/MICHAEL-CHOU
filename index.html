@@ -449,6 +449,7 @@ waypointMarkers = [];
 let coords = `${origin[1]},${origin[0]};`;
 
 /* waypoint */
+/* waypoint */
 routeWaypoints.forEach((p,index)=>{
 
 coords += `${p[1]},${p[0]};`;
@@ -459,11 +460,32 @@ radius:6,
 color:"#f59e0b",
 fillColor:"#f59e0b",
 fillOpacity:1,
-weight:2,
-draggable:false
+weight:2
 }).addTo(map);
 
-wm.bindTooltip("途經點 " + (index+1));
+wm.bindTooltip(
+"途經點 " + (index + 1) +
+"<br>雙擊可刪除",
+{
+direction:"top"
+}
+);
+
+/* 雙擊刪除 waypoint */
+wm.on("dblclick",function(e){
+
+L.DomEvent.stopPropagation(e);
+
+/* 刪除 waypoint */
+routeWaypoints.splice(index,1);
+
+/* 移除 marker */
+map.removeLayer(wm);
+
+/* 重新 routing */
+drawRoute(currentDestination);
+
+});
 
 waypointMarkers.push(wm);
 
