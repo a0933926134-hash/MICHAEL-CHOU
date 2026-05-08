@@ -551,19 +551,26 @@ else if(t==="pollution"){
 
 parts.push(`
 nwr["man_made"="wastewater_plant"](around:${radius},${lat},${lon});
+
 nwr["waterway"="outfall"](around:${radius},${lat},${lon});
 nwr["man_made"="outfall"](around:${radius},${lat},${lon});
 
 nwr["landuse"="industrial"](around:${radius},${lat},${lon});
+nwr["landuse"="quarry"](around:${radius},${lat},${lon});
 
 nwr["power"="plant"](around:${radius},${lat},${lon});
+nwr["power"="substation"](around:${radius},${lat},${lon});
+
 nwr["man_made"="chimney"](around:${radius},${lat},${lon});
 nwr["man_made"="flare"](around:${radius},${lat},${lon});
 
-nwr["name"~"焚化|垃圾|廢棄物|資源回收|處理場",i](around:${radius},${lat},${lon});
-`);
+nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
+nwr["amenity"="recycling"](around:${radius},${lat},${lon});
 
-}  
+nwr["landuse"="landfill"](around:${radius},${lat},${lon});
+
+nwr["name"~"焚化|垃圾|廢棄物|資源回收|污水|處理場",i](around:${radius},${lat},${lon});
+`);
 else{
 
 parts.push(`
