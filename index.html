@@ -275,6 +275,9 @@ let circleLayer=null;
 /* reroute */
 let destinationMarker = null;
 
+/* 路線最後點控制 */
+let endpointMarker = null;
+
 let routeDragging = false;
 
 let dragViaPoint = null;
@@ -423,22 +426,85 @@ map.removeLayer(destinationMarker);
 
 }
 
+if(endpointMarker){
+
+map.removeLayer(endpointMarker);
+
+}
+
+/* 隱藏式 destination */
 destinationMarker = L.marker(to,{
-draggable:true
+opacity:0
 }).addTo(map);
 
-destinationMarker.on("dragend",function(e){
+/* 真正可編輯 endpoint */
+endpointMarker = L.circleMarker(to,{
 
-const newPos = e.target.getLatLng();
+radius:10,
+color:"#dc2626",
+fillColor:"#ffffff",
+fillOpacity:1,
+weight:4
 
-currentDestination = [
-newPos.lat,
-newPos.lng
-];
+}).addTo(map);
 
-drawRoute(currentDestination);
+endpointMarker.bindTooltip(
+"終點控制點<br>可拖曳修改路線",
+{
+direction:"top"
+}
+);
+
+/* draggable endpoint */
+endpointMarker.on("mousedown",function(e){
+
+routeDragging = true;
+
+dragViaPoint = null;
+
+map.dragging.disable();
 
 });
+
+map.on("mousemove", endpointDragMove);
+
+map.on("mouseup", endpointDragEnd);
+
+function endpointDragMove(e){
+
+if(!routeDragging) return;
+
+const latlng = e.latlng;
+
+/* 即時移動 endpoint */
+endpointMarker.setLatLng(latlng);
+
+}
+
+function endpointDragEnd(e){
+
+if(!routeDragging) return;
+
+routeDragging = false;
+
+map.dragging.enable();
+
+const latlng = endpointMarker.getLatLng();
+
+currentDestination = [
+latlng.lat,
+latlng.lng
+];
+
+/* 解除事件 */
+map.off("mousemove", endpointDragMove);
+
+map.off("mouseup", endpointDragEnd);
+
+/* reroute */
+drawRoute(currentDestination);
+
+}
 
 /* 清除 waypoint marker */
 waypointMarkers.forEach(m=>map.removeLayer(m));
