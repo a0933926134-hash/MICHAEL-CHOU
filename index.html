@@ -396,13 +396,15 @@ drawRoute([latlng.lat,latlng.lng]);
 });
 
 /* 路線 + 拖曳 reroute */
-async function drawRoute(to){
+async function drawRoute(to, via=null){
 
 try{
 
 if(!origin) return;
 
-/* 終點 */
+currentDestination = to;
+
+/* 終點 marker */
 if(destinationMarker){
 map.removeLayer(destinationMarker);
 }
@@ -419,17 +421,30 @@ drawRoute([newPos.lat,newPos.lng]);
 
 });
 
+/* waypoint */
+let coords = `${origin[1]},${origin[0]};`;
+
+if(via){
+
+coords += `${via[1]},${via[0]};`;
+
+}
+
+coords += `${to[1]},${to[0]}`;
+
 /* OSRM */
-const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+const url =
+`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
 
-const res=await fetch(url);
+const res = await fetch(url);
 
-const data=await res.json();
+const data = await res.json();
 
 if(!data.routes?.length) return;
 
-const route=data.routes[0];
+const route = data.routes[0];
 
+/* 顯示距離 */
 routeInfo.innerText =
 "路線距離：" +
 Math.round(route.distance) +
@@ -437,23 +452,32 @@ Math.round(route.distance) +
 
 /* 清除舊路線 */
 if(routeLayer){
+
 map.removeLayer(routeLayer);
+
 }
 
 /* 新路線 */
-routeLayer=L.geoJSON(route.geometry,{
+routeLayer = L.geoJSON(route.geometry,{
+
 style:{
 color:"blue",
 weight:5
 }
+
 }).addTo(map);
 
-/* 藍線拖曳 */
+/* 路線拖曳 */
 routeLayer.eachLayer(layer=>{
 
-layer.on("mousedown",()=>{
+layer.on("mousedown",function(e){
 
 routeDragging = true;
+
+dragViaPoint = e.latlng;
+
+/* 暫停地圖拖曳 */
+map.dragging.disable();
 
 });
 
@@ -466,9 +490,7 @@ console.error(err);
 routeInfo.innerText="路線服務異常";
 
 }
-
 }
-
 /* 選取 */
 function selectItem(item){
 
