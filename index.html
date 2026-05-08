@@ -160,7 +160,7 @@ font-weight:bold;
 <label><input type="checkbox" value="gas">特殊設施-電業設施及公用氣體燃料設施之有無極接近程度</label>
 <label><input type="checkbox" value="cemetery">特殊建設-殯葬設施之有無及接近程度</label>  
 <label><input type="checkbox" value="waste_disposal">特殊建設-廢棄物處理設施之有無及接近程度</label>
-<label><input type="checkbox" value="pollution">水汙染、噪音汙染、廢氣汙染、廢棄物汙染等之有無及接近程度</label>
+<label><input type="checkbox" value="pollution_waste">水汙染、噪音汙染、廢氣汙染、廢棄物汙染等之有無及接近程度</label>
 <button onclick="runQuery()">查詢</button>
 <button class="clear-btn" onclick="clearRoute()">清除路線距離</button>
 
@@ -546,6 +546,50 @@ nwr["power"="plant"](around:${radius},${lat},${lon});
 }
 else{
 
+else if(t==="pollution_water"){
+
+parts.push(`
+nwr["man_made"="wastewater_plant"](around:${radius},${lat},${lon});
+nwr["waterway"="outfall"](around:${radius},${lat},${lon});
+nwr["man_made"="outfall"](around:${radius},${lat},${lon});
+nwr["landuse"="industrial"](around:${radius},${lat},${lon});
+`);
+
+}
+else if(t==="pollution_noise"){
+
+parts.push(`
+way["railway"](around:${radius},${lat},${lon});
+way["highway"~"motorway|trunk"](around:${radius},${lat},${lon});
+nwr["aeroway"="aerodrome"](around:${radius},${lat},${lon});
+nwr["landuse"="industrial"](around:${radius},${lat},${lon});
+`);
+
+}
+else if(t==="pollution_air"){
+
+parts.push(`
+nwr["power"="plant"](around:${radius},${lat},${lon});
+nwr["man_made"="chimney"](around:${radius},${lat},${lon});
+nwr["man_made"="flare"](around:${radius},${lat},${lon});
+nwr["landuse"="industrial"](around:${radius},${lat},${lon});
+`);
+
+}
+else if(t==="pollution_waste"){
+
+parts.push(`
+nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
+nwr["amenity"="recycling"](around:${radius},${lat},${lon});
+nwr["landuse"="landfill"](around:${radius},${lat},${lon});
+
+nwr["man_made"="waste_incinerator"](around:${radius},${lat},${lon});
+nwr["power"="plant"]["plant:source"="waste"](around:${radius},${lat},${lon});
+
+nwr["name"~"焚化|垃圾|廢棄物|資源回收|處理場"](around:${radius},${lat},${lon});
+`);
+
+}  
 parts.push(`
 nwr["amenity"="${t}"](around:${radius},${lat},${lon});
 `);
