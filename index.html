@@ -408,7 +408,7 @@ drawRoute([latlng.lat,latlng.lng]);
 });
 
 /* 路線 + 拖曳 reroute */
-async function drawRoute(to, via=null){
+async function drawRoute(to){
 
 try{
 
@@ -418,7 +418,9 @@ currentDestination = to;
 
 /* 終點 marker */
 if(destinationMarker){
+
 map.removeLayer(destinationMarker);
+
 }
 
 destinationMarker = L.marker(to,{
@@ -429,18 +431,43 @@ destinationMarker.on("dragend",function(e){
 
 const newPos = e.target.getLatLng();
 
-drawRoute([newPos.lat,newPos.lng]);
+currentDestination = [
+newPos.lat,
+newPos.lng
+];
+
+drawRoute(currentDestination);
 
 });
 
-/* waypoint */
+/* 清除 waypoint marker */
+waypointMarkers.forEach(m=>map.removeLayer(m));
+
+waypointMarkers = [];
+
+/* 組 route coords */
 let coords = `${origin[1]},${origin[0]};`;
 
-if(via){
+/* waypoint */
+routeWaypoints.forEach((p,index)=>{
 
-coords += `${via[1]},${via[0]};`;
+coords += `${p[1]},${p[0]};`;
 
-}
+/* waypoint marker */
+const wm = L.circleMarker(p,{
+radius:6,
+color:"#f59e0b",
+fillColor:"#f59e0b",
+fillOpacity:1,
+weight:2,
+draggable:false
+}).addTo(map);
+
+wm.bindTooltip("途經點 " + (index+1));
+
+waypointMarkers.push(wm);
+
+});
 
 coords += `${to[1]},${to[0]}`;
 
@@ -456,30 +483,28 @@ if(!data.routes?.length) return;
 
 const route = data.routes[0];
 
-/* 顯示距離 */
+/* 距離 */
 routeInfo.innerText =
 "路線距離：" +
 Math.round(route.distance) +
 " m";
 
-/* 清除舊路線 */
+/* 清除舊 route */
 if(routeLayer){
 
 map.removeLayer(routeLayer);
 
 }
 
-/* 新路線 */
+/* route */
 routeLayer = L.geoJSON(route.geometry,{
-
 style:{
 color:"blue",
 weight:5
 }
-
 }).addTo(map);
 
-/* 路線拖曳 */
+/* 拖曳 reroute */
 routeLayer.eachLayer(layer=>{
 
 layer.on("mousedown",function(e){
@@ -488,7 +513,6 @@ routeDragging = true;
 
 dragViaPoint = e.latlng;
 
-/* 暫停地圖拖曳 */
 map.dragging.disable();
 
 });
