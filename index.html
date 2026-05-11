@@ -211,9 +211,27 @@ cursor:pointer;
 
 let map=L.map('map').setView([25.012098,121.465675],15);
 
-L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
-maxZoom:19
-}).addTo(map);
+/* 原始圖層 */
+const nlscLayer = L.tileLayer(
+'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
+{
+maxZoom:19,
+attribution:'NLSC'
+}
+);
+
+/* Google Maps */
+const googleLayer = L.tileLayer(
+'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+{
+maxZoom:20,
+subdomains:['mt0','mt1','mt2','mt3'],
+attribution:'Google'
+}
+);
+
+/* 預設載入 */
+nlscLayer.addTo(map);
 
 /* 比例尺 */
 /* 分母比例尺 */
@@ -276,6 +294,18 @@ opacity:0.75
 );
 
 cadastralLayer.addTo(map);
+/* 底圖切換 */
+const baseMaps = {
+"原始地圖": nlscLayer,
+"Google Maps": googleLayer
+};
+
+L.control.layers(baseMaps,{
+"地籍圖": cadastralLayer
+},{
+position:'topleft',
+collapsed:false
+}).addTo(map);  
   
 const latInput=document.getElementById("lat");
 const lonInput=document.getElementById("lon");
