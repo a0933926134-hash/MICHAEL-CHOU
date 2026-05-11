@@ -6,6 +6,8 @@
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script src="https://unpkg.com/leaflet.gridlayer.googlemutant/Leaflet.GoogleMutant.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -135,6 +137,9 @@ color:#1d4ed8;
 font-weight:bold;
 }
 </style>
+<script async
+src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY">
+</script>  
 </head>
 
 <body>
@@ -221,14 +226,9 @@ attribution:'NLSC'
 );
 
 /* Google Maps */
-const googleLayer = L.tileLayer(
-'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-{
-maxZoom:20,
-subdomains:['mt0','mt1','mt2','mt3'],
-attribution:'Google'
-}
-);
+const googleLayer = L.gridLayer.googleMutant({
+type:'roadmap'
+});
 
 /* 預設載入 */
 nlscLayer.addTo(map);
