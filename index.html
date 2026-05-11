@@ -7,8 +7,6 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<script src="https://unpkg.com/leaflet.gridlayer.googlemutant/Leaflet.GoogleMutant.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
 body { margin:0; font-family: Arial; }
@@ -139,7 +137,11 @@ font-weight:bold;
 </style>
 <script async
 src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY">
-</script>  
+</script>
+
+<script src="https://unpkg.com/leaflet.gridlayer.googlemutant/Leaflet.GoogleMutant.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -221,13 +223,14 @@ const nlscLayer = L.tileLayer(
 'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
 {
 maxZoom:19,
-attribution:'NLSC'
+attribution:'© 國土測繪中心 NLSC'
 }
 );
 
 /* Google Maps */
 const googleLayer = L.gridLayer.googleMutant({
-type:'roadmap'
+type:'roadmap',
+maxZoom:21
 });
 
 /* 預設載入 */
