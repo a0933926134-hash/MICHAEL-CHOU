@@ -273,7 +273,34 @@ let routeLayer=null;
 let circleLayer=null;
 
 let lockOrigin = false;
+/* 初始定位 */
 
+origin=[25.036728,121.451704];
+
+userMarker=L.marker(origin,{
+icon:L.divIcon({
+className:'',
+html:`
+<div style="
+width:18px;
+height:18px;
+background:#ef4444;
+border:3px solid #ffffff;
+border-radius:50%;
+box-shadow:0 0 0 2px rgba(239,68,68,0.35);
+"></div>
+`,
+iconSize:[18,18],
+iconAnchor:[9,9]
+}),
+interactive:false
+}).addTo(map);
+
+circleLayer=L.circle(origin,{
+radius:parseFloat(radiusInput.value),
+color:'blue',
+fillOpacity:0.15
+}).addTo(map);
 /* 點擊定位 */
 map.on('click',e=>{
 
