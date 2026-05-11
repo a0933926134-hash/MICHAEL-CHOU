@@ -6,7 +6,7 @@
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
 body { margin:0; font-family: Arial; }
@@ -135,13 +135,6 @@ color:#1d4ed8;
 font-weight:bold;
 }
 </style>
-<script async
-src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY">
-</script>
-
-<script src="https://unpkg.com/leaflet.gridlayer.googlemutant/Leaflet.GoogleMutant.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -218,23 +211,9 @@ cursor:pointer;
 
 let map=L.map('map').setView([25.012098,121.465675],15);
 
-/* 原始圖層 */
-const nlscLayer = L.tileLayer(
-'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
-{
-maxZoom:19,
-attribution:'© 國土測繪中心 NLSC'
-}
-);
-
-/* Google Maps */
-const googleLayer = L.gridLayer.googleMutant({
-type:'roadmap',
-maxZoom:21
-});
-
-/* 預設載入 */
-nlscLayer.addTo(map);
+L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
+maxZoom:19
+}).addTo(map);
 
 /* 比例尺 */
 /* 分母比例尺 */
@@ -297,18 +276,6 @@ opacity:0.75
 );
 
 cadastralLayer.addTo(map);
-/* 底圖切換 */
-const baseMaps = {
-"原始地圖": nlscLayer,
-"Google Maps": googleLayer
-};
-
-L.control.layers(baseMaps,{
-"地籍圖": cadastralLayer
-},{
-position:'topleft',
-collapsed:false
-}).addTo(map);  
   
 const latInput=document.getElementById("lat");
 const lonInput=document.getElementById("lon");
