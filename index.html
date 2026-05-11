@@ -348,8 +348,18 @@ const res=await fetch(url);
 
 const data=await res.json();
 
-if(!data.routes?.length) return;
+if(!data.routes?.length){
 
+routeInfo.innerText="查無可通行路線";
+
+if(routeLayer){
+map.removeLayer(routeLayer);
+routeLayer=null;
+}
+
+return;
+
+}
 const route=data.routes[0];
 
 routeInfo.innerText="路線距離：" + Math.round(route.distance) + " m";
@@ -585,7 +595,7 @@ nwr["amenity"="${t}"](around:${radius},${lat},${lon});
 });
 
 const query=`
-[out:json][timeout:25];
+[out:json][timeout:60];
 (
 ${parts.join("\n")}
 );
