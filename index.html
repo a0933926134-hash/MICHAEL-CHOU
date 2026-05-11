@@ -163,6 +163,24 @@ font-weight:bold;
 <label><input type="checkbox" value="waste_disposal">特殊建設-廢棄物處理設施之有無及接近程度</label>
 <label><input type="checkbox" value="pollution">環境汙染-水汙染、噪音汙染、廢氣汙染、廢棄物汙染等之有無及接近程度</label>
 <button onclick="runQuery()">查詢</button>
+<div style="display:flex;gap:6px;margin-top:6px;">
+<button onclick="runQuery()" style="flex:1;">查詢</button>
+
+<button type="button"
+onclick="getCurrentLocation()"
+style="
+flex:1;
+background:#0ea5e9;
+color:white;
+border:none;
+border-radius:10px;
+font-weight:bold;
+cursor:pointer;
+">
+取得現在位置
+</button>
+</div>
+
 <button class="clear-btn" onclick="clearRoute()">清除路線距離</button>
 
 <div id="routeInfo">路線距離：尚未計算</div>
@@ -342,7 +360,88 @@ fillOpacity:0.15
 }).addTo(map);
 
 });
+/* 取得現在位置 */
+function getCurrentLocation(){
 
+if(!navigator.geolocation){
+
+alert("瀏覽器不支援 GPS 定位");
+
+return;
+
+}
+
+navigator.geolocation.getCurrentPosition(
+
+(pos)=>{
+
+const lat = pos.coords.latitude;
+const lon = pos.coords.longitude;
+
+latInput.value = lat.toFixed(6);
+lonInput.value = lon.toFixed(6);
+
+origin=[lat,lon];
+
+/* 地圖移動 */
+map.flyTo([lat,lon],17,{
+duration:1.2
+});
+
+/* 更新定位點 */
+if(userMarker){
+map.removeLayer(userMarker);
+}
+
+userMarker=L.marker([lat,lon],{
+icon:L.divIcon({
+className:'',
+html:`
+<div style="
+width:18px;
+height:18px;
+background:#ef4444;
+border:3px solid #ffffff;
+border-radius:50%;
+box-shadow:0 0 0 2px rgba(239,68,68,0.35);
+"></div>
+`,
+iconSize:[18,18],
+iconAnchor:[9,9]
+}),
+interactive:false
+}).addTo(map);
+
+/* 更新半徑圈 */
+if(circleLayer){
+map.removeLayer(circleLayer);
+}
+
+circleLayer=L.circle([lat,lon],{
+radius:parseFloat(radiusInput.value),
+color:'blue',
+fillOpacity:0.15
+}).addTo(map);
+
+},
+
+(err)=>{
+
+console.error(err);
+
+alert("定位失敗，請確認已允許定位權限");
+
+},
+
+{
+enableHighAccuracy:true,
+timeout:10000,
+maximumAge:0
+}
+
+);
+
+}
 /* 距離 */
 function haversine(lat1, lon1, lat2, lon2){
 
