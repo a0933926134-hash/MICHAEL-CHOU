@@ -568,9 +568,26 @@ let t=e.value;
 if(t==="station"){
 
 parts.push(`
+
+/* 一般車站 */
 nwr["railway"="station"](around:${radius},${lat},${lon});
+
+/* 火車站 */
+nwr["railway"="station"]["station"="train"](around:${radius},${lat},${lon});
+nwr["railway"="station"]["train"="yes"](around:${radius},${lat},${lon});
+
+/* 小型火車站 */
+nwr["railway"="halt"](around:${radius},${lat},${lon});
+
+/* 月台 */
+nwr["railway"="platform"](around:${radius},${lat},${lon});
+
+/* 捷運出入口 */
 nwr["railway"="subway_entrance"](around:${radius},${lat},${lon});
+
+/* 客運轉運站 */
 nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
+
 `);
 
 }
