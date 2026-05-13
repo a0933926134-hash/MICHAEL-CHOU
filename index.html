@@ -671,60 +671,44 @@ else if(t==="motorway_junction"){
 parts.push(`
 
 /* =====================================================
-✔ 交流道入口（嚴格：只保留可進入高速道路）
+✔ 交流道純淨模式（只抓高速公路系統）
 ===================================================== */
 
-/* ① 核心交流道節點 */
+/* ① 交流道節點 */
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
-/* ② 高速入口匝道 */
+/* ② 高速匝道（只限 motorway） */
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
 
-/* ③ 快速道路入口補強 */
+/* ③ 快速道路入口（trunk） */
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
 
-/* ④ 交流道語意（限制 highway 類型） */
-nwr["highway"~"motorway|trunk"]["name"~"交流道|匝道|interchange|IC|JCT|入口"](around:${radius},${lat},${lon});
+/* ④ 明確高速道路節點 */
+nwr["highway"="motorway"](around:${radius},${lat},${lon});
 
 /* =====================================================
-❌ 絕對排除：停車場入口（完整封鎖版）
+❌ 排除：非高速道路入口（關鍵修正）
 ===================================================== */
 
-/* =====================================================
-✔ 交流道入口（乾淨版本）
-===================================================== */
-
-/* ① 真正交流道節點 */
-node["highway"="motorway_junction"](around:${radius},${lat},${lon});
-
-/* ② 高速匝道 */
-way["highway"="motorway_link"](around:${radius},${lat},${lon});
-way["highway"="trunk_link"](around:${radius},${lat},${lon});
-
-/* ③ 名稱型交流道 */
-nwr["highway"~"motorway|trunk"]
-["name"~"交流道|匝道|interchange|IC|JCT|入口"](around:${radius},${lat},${lon});
-
-/* =====================================================
-❌ 強制排除：停車場入口（關鍵修正）
-===================================================== */
-
-/* 🚫 停車場入口（最重要） */
+/* 🚫 停車場入口 */
 nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
-nwr["entrance"="yes"]["amenity"="parking"](around:${radius},${lat},${lon});
-nwr["entrance"="yes"]["building"="parking"](around:${radius},${lat},${lon});
-
-/* 🚫 停車場本體（避免污染） */
 nwr["amenity"="parking"](around:${radius},${lat},${lon});
-nwr["building"="parking"](around:${radius},${lat},${lon});
 
-/* 🚫 service road（關鍵修正：禁止） */
+/* 🚫 service road（完全禁止） */
 nwr["highway"="service"](around:${radius},${lat},${lon});
 
-/* 🚫 name 過濾（移除 Parking 類語意） */
-nwr["name"~"交流道|匝道|interchange|IC|JCT|入口",i]
-(!~"停車場|Parking|地下停車|立體停車|車場|Parking Lot");
+/* 🚫 商場/建築入口 */
+nwr["entrance"](around:${radius},${lat},${lon});
 
+/* =====================================================
+✔ 語意補強（只保留高速語意）
+===================================================== */
+
+nwr["highway"~"motorway|trunk"]
+["name"~"交流道|匝道|interchange|IC|JCT|交流道出口",i](around:${radius},${lat},${lon});
+
+`);
+}
 else if(t==="waste_disposal"){
 
 parts.push(`
