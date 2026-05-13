@@ -204,6 +204,7 @@ cursor:pointer;
 <th>名稱</th>
 <th>類型</th>
 <th>直線距離</th>
+<th>路線距離</th>
 </tr>
 </thead>
 <tbody id="tbody"></tbody>
@@ -468,6 +469,39 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
 /* 路線 */
+async function getRouteDistance(to){
+
+try{
+
+if(!origin) return null;
+
+const url=
+`https://router.project-osrm.org/route/v1/driving/
+${origin[1]},${origin[0]};
+${to[1]},${to[0]}
+?overview=false`;
+
+const res = await fetch(url);
+
+const data = await res.json();
+
+if(!data.routes?.length){
+
+return null;
+
+}
+
+return Math.round(data.routes[0].distance);
+
+}catch(err){
+
+console.error(err);
+
+return null;
+
+}
+
+}  
 async function drawRoute(to){
 
 try{
@@ -828,7 +862,9 @@ e.tags?.man_made ||
 
 距離:Math.round(
 haversine(lat,lon,lat2,lon2)
-)
+),
+
+路線距離:"計算中..."
 
 };
 
@@ -870,9 +906,31 @@ ${item.名稱}
 <td>${item.類型}</td>
 
 <td>${item.距離}</td>
+
+<td id="route-${item.id}">
+${item.路線距離}
+</td>
 `;
 
 tbody.appendChild(tr);
+getRouteDistance(item.座標)
+.then(routeDistance=>{
+
+item.路線距離 =
+routeDistance != null
+? routeDistance + " m"
+: "無法到達";
+
+const cell =
+document.getElementById(`route-${item.id}`);
+
+if(cell){
+
+cell.innerText = item.路線距離;
+
+}
+
+});  
 
 });
 
