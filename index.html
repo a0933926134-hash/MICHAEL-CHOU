@@ -671,46 +671,41 @@ else if(t==="motorway_junction"){
 parts.push(`
 
 /* =====================================================
-✔ 交流道入口（僅保留可進入高速道路的節點/匝道）
+✔ 交流道入口（嚴格限定可通行高速道路入口）
 ===================================================== */
 
-/* 🔹 主要交流道節點（真正 junction） */
+/* ① 交流道節點（核心） */
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
-/* 🔹 進入高速道路的匝道（入口方向） */
+/* ② 高速入口匝道（主入口方向） */
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
 
-/* 🔹 國道/快速道路入口補強 */
+/* ③ 快速道路入口補強 */
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
 
-/* 🔹 強化語意：入口型交流道名稱 */
-nwr["name"~"交流道|匝道|interchange|入口|交流道入口",i](around:${radius},${lat},${lon});
+/* ④ 語意型入口（限制 highway context） */
+nwr["highway"]["name"~"交流道|匝道|interchange|IC|JCT|入口"](around:${radius},${lat},${lon});
 
 /* =====================================================
-❌ 明確排除（避免誤抓非入口）
+❌ 完整排除停車場入口（強化版）
 ===================================================== */
 
-/* ① OSM 標準停車場入口 */
+/* A. 所有 parking entrance 類型 */
 nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
+nwr["entrance"]["amenity"="parking"](around:${radius},${lat},${lon});
+nwr["entrance"]["building"="parking"](around:${radius},${lat},${lon});
 
-/* ② 停車場 + 入口標記（最常漏抓） */
-nwr["amenity"="parking"]["entrance"="yes"](around:${radius},${lat},${lon});
+/* B. 停車場所有入口型態（OSM 常見漏抓） */
+nwr["amenity"="parking"]["entrance"](around:${radius},${lat},${lon});
+nwr["parking"="surface"]["entrance"](around:${radius},${lat},${lon});
 
-/* ③ 任何帶 parking + entrance 語意 */
-nwr["entrance"="yes"]["amenity"="parking"](around:${radius},${lat},${lon});
+/* C. 語意排除（最關鍵） */
+nwr["name"~"停車場|Parking|立體停車|地下停車|車場入口|parking",i](around:${radius},${lat},${lon});
 
-/* ④ 建築型停車場入口 */
-nwr["building"="parking"]["entrance"](around:${radius},${lat},${lon});
+/* D. 強制排除（反向語意） */
+nwr["highway"]["name"~"停車場|Parking",i](around:${radius},${lat},${lon});
 
-/* ⑤ 語意型補強（避免殘留） */
-nwr["name"~"停車場|Parking|立體停車|地下停車",i](around:${radius},${lat},${lon});
-else if(t==="marketplace"){
-
-parts.push(`
-nwr["amenity"="marketplace"](around:${radius},${lat},${lon});
-nwr["shop"="supermarket"](around:${radius},${lat},${lon});
 `);
-
 }
 else if(t==="waste_disposal"){
 
