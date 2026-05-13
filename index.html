@@ -672,27 +672,33 @@ else if(t==="motorway_junction"){
 parts.push(`
 
 /* =========================
-✔ 交流道入口（真正可進入）
+✔ 只保留「入口型交流道」
 ========================= */
 
-/* 入口節點（優先） */
-node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+/* 入口型 junction（保留） */
+node["highway"="motorway_junction"]["access"!="no"](around:${radius},${lat},${lon});
 
-/* 匝道入口道路（關鍵） */
-way["highway"="motorway_link"](around:${radius},${lat},${lon});
+/* 匝道入口（關鍵） */
+way["highway"="motorway_link"]["oneway"!="-1"](around:${radius},${lat},${lon});
 
-/* 匝道出口/入口混合（補強） */
-way["highway"="trunk_link"](around:${radius},${lat},${lon});
-
-/* 名稱補強（入口語意） */
-nwr["name"~"交流道|匝道|interchange|入口|出口",i](around:${radius},${lat},${lon});
+/* trunk_link（部分入口會用） */
+way["highway"="trunk_link"]["oneway"!="-1"](around:${radius},${lat},${lon});
 
 /* =========================
-✔ 避免抓錯（重要修正）
+❌ 排除出口（重要）
 ========================= */
 
-/* ❌ 不再直接用 motorway 主線 */
-/* way["highway"="motorway"](around:${radius},${lat},${lon}); */
+/* ❌ 排除明確出口 */
+nwr["name"~"出口|Exit|off ramp|下匝道",i](around:${radius},${lat},${lon});
+
+/* ❌ 排除 exit tag */
+nwr["junction"="roundabout"]["exit"](around:${radius},${lat},${lon});
+
+/* =========================
+✔ 補強入口語意
+========================= */
+
+nwr["name"~"交流道|匝道|interchange|入口|交流道入口",i](around:${radius},${lat},${lon});
 
 `);
 }
