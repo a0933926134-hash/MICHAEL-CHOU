@@ -642,32 +642,35 @@ parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
 
 }
 /* =====================================================
-🚀 GIS 高速道路純淨引擎 v3.2（穩定查詢版）
+🚀 GIS 高速道路純淨引擎 v3.3（停車場完全排除版）
 ===================================================== */
 
 /* =========================
-✔ ① 核心交流道（絕不過濾）
+✔ ① 核心交流道
 ========================= */
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 node["junction"="yes"](around:${radius},${lat},${lon});
 
 /* =========================
-✔ ② 高速道路結構（必要）
+✔ ② 高速道路結構
 ========================= */
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
 
 /* =========================
-✔ ③ 交流道語意（改成輔助，不主導）
+✔ ③ 交流道語意補強（不依賴 name）
 ========================= */
 nwr["highway"~"motorway|trunk"](around:${radius},${lat},${lon});
 
 /* =========================
-🟡 ④ 停車場：只「查」，不污染交流道邏輯
+❌ ④ 停車場：完全移除（不再查詢）
 ========================= */
-nwr["amenity"="parking"](around:${radius},${lat},${lon});
-nwr["building"="parking"](around:${radius},${lat},${lon});
-nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
+
+/* 🚫 已移除：
+nwr["amenity"="parking"]
+nwr["building"="parking"]
+nwr["highway"="parking_entrance"]
+*/
 }else if(t==="marketplace"){
 
 parts.push(`
