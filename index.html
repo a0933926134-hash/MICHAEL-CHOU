@@ -645,19 +645,31 @@ else if(t==="motorway_junction"){
 
 parts.push(`
 
-/* 高速公路交流道入口 */
+/* 國道交流道入口 */
 node["highway"="motorway_junction"]
 ["name"]
 (around:${radius},${lat},${lon});
 
-/* 有編號之交流道入口 */
+/* 有編號交流道 */
 node["highway"="motorway_junction"]
 ["ref"]
 (around:${radius},${lat},${lon});
 
-/* 有出口方向資訊 */
+/* 有出口資訊 */
 node["highway"="motorway_junction"]
 ["exit_to"]
+(around:${radius},${lat},${lon});
+
+/* 匝道入口 */
+node["highway"="motorway_link"]
+(around:${radius},${lat},${lon});
+
+/* 快速道路匝道入口 */
+node["highway"="trunk_link"]
+(around:${radius},${lat},${lon});
+
+/* 名稱含交流道或匝道 */
+node["name"~"交流道|匝道|interchange",i]
 (around:${radius},${lat},${lon});
 
 `);
