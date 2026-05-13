@@ -475,72 +475,45 @@ try{
 
 if(!origin) return null;
 
-/* ✔ 只對交流道做入口 snap */
-const snappedTo = await snapToRoad(to[0], to[1]);
-
 const url =
-`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${snappedTo[1]},${snappedTo[0]}?overview=false`;
+`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 
 const res = await fetch(url);
+
 const data = await res.json();
 
-if(!data.routes?.length) return null;
+if(!data.routes?.length){
+
+return null;
+
+}
 
 return Math.round(data.routes[0].distance);
 
 }catch(err){
+
 console.error(err);
+
 return null;
-}
 
 }
-async function snapToRoad(lat, lon){
 
-try{
-
-const url =
-`https://router.project-osrm.org/nearest/v1/driving/${lon},${lat}?number=3`;
-
-const res = await fetch(url);
-const data = await res.json();
-
-if(!data.waypoints?.length) return [lat, lon];
-
-/* ✔ 過濾：優先選 road class（避免出口匝道終點） */
-const best = data.waypoints.find(w =>
-!w.name?.toLowerCase().includes("exit") &&
-!w.name?.includes("出口")
-) || data.waypoints[0];
-
-const p = best.location;
-
-/* OSRM: [lon, lat] */
-return [p[1], p[0]];
-
-}catch(e){
-console.error(e);
-return [lat, lon];
-}
-
-}
+}  
 async function drawRoute(to){
 
 try{
 
 if(!origin) return;
 
-/* ✔ 入口 snap */
-const snappedTo = await snapToRoad(to[0], to[1]);
+const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
-const url =
-`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${snappedTo[1]},${snappedTo[0]}?overview=full&geometries=geojson`;
+const res=await fetch(url);
 
-const res = await fetch(url);
-const data = await res.json();
+const data=await res.json();
 
 if(!data.routes?.length){
 
-routeInfo.innerText="查無可通行入口路線";
+routeInfo.innerText="查無可通行路線";
 
 if(routeLayer){
 map.removeLayer(routeLayer);
@@ -548,22 +521,24 @@ routeLayer=null;
 }
 
 return;
+
 }
+const route=data.routes[0];
 
-const route = data.routes[0];
-
-routeInfo.innerText =
-"入口路線距離：" + Math.round(route.distance) + " m";
+routeInfo.innerText="路線距離：" + Math.round(route.distance) + " m";
 
 if(routeLayer) map.removeLayer(routeLayer);
 
-routeLayer = L.geoJSON(route.geometry,{
+routeLayer=L.geoJSON(route.geometry,{
 style:{color:"blue",weight:5}
 }).addTo(map);
 
 }catch(err){
+
 console.error(err);
+
 routeInfo.innerText="路線服務異常";
+
 }
 
 }
@@ -719,6 +694,13 @@ nwr["entrance"="yes"]["building"="parking"](around:${radius},${lat},${lon});
 nwr["name"~"停車場|Parking|Parking Lot|地下停車|立體停車|車場|停車塔",i];
 
 `);
+}else if(t==="marketplace"){
+
+parts.push(`
+nwr["amenity"="marketplace"](around:${radius},${lat},${lon});
+nwr["shop"="supermarket"](around:${radius},${lat},${lon});
+`);
+
 }
 else if(t==="waste_disposal"){
 
