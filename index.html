@@ -671,39 +671,40 @@ else if(t==="motorway_junction"){
 parts.push(`
 
 /* =====================================================
-✔ 交流道入口（嚴格限定可通行高速道路入口）
+✔ 交流道入口（嚴格：只保留可進入高速道路）
 ===================================================== */
 
-/* ① 交流道節點（核心） */
+/* ① 核心交流道節點 */
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
-/* ② 高速入口匝道（主入口方向） */
+/* ② 高速入口匝道 */
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
 
 /* ③ 快速道路入口補強 */
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
 
-/* ④ 語意型入口（限制 highway context） */
-nwr["highway"]["name"~"交流道|匝道|interchange|IC|JCT|入口"](around:${radius},${lat},${lon});
+/* ④ 交流道語意（限制 highway 類型） */
+nwr["highway"~"motorway|trunk"]["name"~"交流道|匝道|interchange|IC|JCT|入口"](around:${radius},${lat},${lon});
 
 /* =====================================================
-❌ 完整排除停車場入口（強化版）
+❌ 絕對排除：停車場入口（完整封鎖版）
 ===================================================== */
 
-/* A. 所有 parking entrance 類型 */
-nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
-nwr["entrance"]["amenity"="parking"](around:${radius},${lat},${lon});
-nwr["entrance"]["building"="parking"](around:${radius},${lat},${lon});
+/* A. 停車場本體 + 出入口 */
+nwr["amenity"="parking"](around:${radius},${lat},${lon});
+nwr["building"="parking"](around:${radius},${lat},${lon});
+nwr["leisure"="parking"](around:${radius},${lat},${lon});
 
-/* B. 停車場所有入口型態（OSM 常見漏抓） */
-nwr["amenity"="parking"]["entrance"](around:${radius},${lat},${lon});
-nwr["parking"="surface"]["entrance"](around:${radius},${lat},${lon});
+/* B. 停車場入口（最關鍵漏抓來源） */
+nwr["entrance"="yes"]["amenity"="parking"](around:${radius},${lat},${lon});
+nwr["entrance"="yes"]["building"="parking"](around:${radius},${lat},${lon});
+nwr["highway"="service"]["service"="parking_aisle"](around:${radius},${lat},${lon});
 
-/* C. 語意排除（最關鍵） */
-nwr["name"~"停車場|Parking|立體停車|地下停車|車場入口|parking",i](around:${radius},${lat},${lon});
+/* C. 停車場語意名稱（最後防線） */
+nwr["name"~"停車場|Parking|地下停車|立體停車|車場入口|停車塔",i](around:${radius},${lat},${lon});
 
-/* D. 強制排除（反向語意） */
-nwr["highway"]["name"~"停車場|Parking",i](around:${radius},${lat},${lon});
+/* D. service road 入口（關鍵修正） */
+nwr["highway"="service"](around:${radius},${lat},${lon});
 
 `);
 }
