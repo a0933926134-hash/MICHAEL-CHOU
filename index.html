@@ -475,18 +475,11 @@ try{
 
 if(!origin) return null;
 
-/* ✔ 交流道點先 snap */
-let target = to;
-
-/* 判斷是否為交流道類型（避免全部 snap） */
-const isMotorway = true; // 你這裡可加 tag 判斷
-
-if(isMotorway){
-target = await snapToRoad(to[0], to[1]);
-}
+/* ✔ 只對交流道做入口 snap */
+const snappedTo = await snapToRoad(to[0], to[1]);
 
 const url =
-`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${target[1]},${target[0]}?overview=false`;
+`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${snappedTo[1]},${snappedTo[0]}?overview=false`;
 
 const res = await fetch(url);
 const data = await res.json();
@@ -506,14 +499,20 @@ async function snapToRoad(lat, lon){
 try{
 
 const url =
-`https://router.project-osrm.org/nearest/v1/driving/${lon},${lat}?number=1`;
+`https://router.project-osrm.org/nearest/v1/driving/${lon},${lat}?number=3`;
 
 const res = await fetch(url);
 const data = await res.json();
 
 if(!data.waypoints?.length) return [lat, lon];
 
-const p = data.waypoints[0].location;
+/* ✔ 過濾：優先選 road class（避免出口匝道終點） */
+const best = data.waypoints.find(w =>
+!w.name?.toLowerCase().includes("exit") &&
+!w.name?.includes("出口")
+) || data.waypoints[0];
+
+const p = best.location;
 
 /* OSRM: [lon, lat] */
 return [p[1], p[0]];
@@ -523,14 +522,14 @@ console.error(e);
 return [lat, lon];
 }
 
-}  
+}
 async function drawRoute(to){
 
 try{
 
 if(!origin) return;
 
-/* ✔ snap 到可行駛道路 */
+/* ✔ 入口 snap */
 const snappedTo = await snapToRoad(to[0], to[1]);
 
 const url =
@@ -541,7 +540,7 @@ const data = await res.json();
 
 if(!data.routes?.length){
 
-routeInfo.innerText="查無可通行路線";
+routeInfo.innerText="查無可通行入口路線";
 
 if(routeLayer){
 map.removeLayer(routeLayer);
@@ -554,7 +553,7 @@ return;
 const route = data.routes[0];
 
 routeInfo.innerText =
-"路線距離：" + Math.round(route.distance) + " m";
+"入口路線距離：" + Math.round(route.distance) + " m";
 
 if(routeLayer) map.removeLayer(routeLayer);
 
