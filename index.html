@@ -646,54 +646,57 @@ else if(t==="motorway_junction"){
 parts.push(`
 
 /* =====================================================
-🚀 GIS 高速道路純淨引擎 v3（Clean Routing Core）
+🚀 GIS 高速道路純淨引擎 v3.1（修復查詢漏失）
 ===================================================== */
 
 /* =========================
-✔ ① 核心交流道（唯一可信來源）
+✔ ① 核心交流道（最可信）
 ========================= */
-
-/* 真正交流道節點 */
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
-/* 高速/快速道路入口匝道 */
+
+/* =========================
+✔ ② 高速道路入口結構（必要保留）
+========================= */
+
+/* 高速主線入口 */
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
+
+/* 快速道路入口 */
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
 
-/* 名稱型交流道（限制 highway 層級） */
-nwr["highway"~"motorway|trunk"]
-["name"~"交流道|匝道|interchange|IC|JCT|交流道入口|入口",i]
+
+/* =========================
+✔ ③ 交流道語意（放寬版本，避免漏抓）
+========================= */
+
+/* 👉 關鍵修正：不限制 highway 層級 */
+nwr["name"~"交流道|匝道|interchange|IC|JCT|Interchange|Exit|出口",i]
 (around:${radius},${lat},${lon});
 
 
 /* =========================
-❌ ② 停車場污染源（完整隔離）
+🟡 ④ 補強來源（重新加入，但降權）
 ========================= */
 
-/* 停車場本體（不加入主結果，只作排除用） */
-nwr["amenity"="parking"](around:${radius},${lat},${lon});
-nwr["building"="parking"](around:${radius},${lat},${lon});
-nwr["leisure"="parking"](around:${radius},${lat},${lon});
-
-/* 停車場入口（最常誤判來源） */
-nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
-nwr["entrance"="yes"]["amenity"="parking"](around:${radius},${lat},${lon});
-nwr["entrance"="yes"]["building"="parking"](around:${radius},${lat},${lon});
+/* ⚠️ service road：只作補充，不當核心 */
+way["highway"="service"](around:${radius},${lat},${lon});
 
 
 /* =========================
-❌ ③ 關鍵污染來源修正（v3核心）
+❌ ⑤ 停車場排除（保留但不影響交流道）
 ========================= */
 
-/* 🚫 service road 不再納入（重要修正） */
-/* 原本這行是最大污染源 → 已移除：
-   nwr["highway"="service"]
-*/
+/* 停車場入口 */
+nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
+nwr["entrance"="yes"]["amenity"="parking"](around:${radius},${lat},${lon});
 
-/* 🚫 停車語意名稱過濾（正確 Overpass 寫法） */
-nwr["name"~"停車場|Parking|Parking Lot|地下停車|立體停車|車場|停車塔",i];
+/* 停車場本體 */
+nwr["amenity"="parking"](around:${radius},${lat},${lon});
+nwr["building"="parking"](around:${radius},${lat},${lon});
 
 `);
+}
 }else if(t==="marketplace"){
 
 parts.push(`
