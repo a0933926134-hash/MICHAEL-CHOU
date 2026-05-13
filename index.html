@@ -671,41 +671,52 @@ else if(t==="motorway_junction"){
 parts.push(`
 
 /* =====================================================
-✔ 交流道純淨模式（只抓高速公路系統）
+🚀 GIS 高速道路純淨引擎 v3（Clean Routing Core）
 ===================================================== */
 
-/* ① 交流道節點 */
+/* =========================
+✔ ① 核心交流道（唯一可信來源）
+========================= */
+
+/* 真正交流道節點 */
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
-/* ② 高速匝道（只限 motorway） */
+/* 高速/快速道路入口匝道 */
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
-
-/* ③ 快速道路入口（trunk） */
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
 
-/* ④ 明確高速道路節點 */
-nwr["highway"="motorway"](around:${radius},${lat},${lon});
-
-/* =====================================================
-❌ 排除：非高速道路入口（關鍵修正）
-===================================================== */
-
-/* 🚫 停車場入口 */
-nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
-nwr["amenity"="parking"](around:${radius},${lat},${lon});
-
-/* 🚫 service road（完全禁止） */
-nwr["highway"="service"](around:${radius},${lat},${lon});
-
-/* 🚫 商場/建築入口 */
-nwr["entrance"](around:${radius},${lat},${lon});
-
-/* =====================================================
-✔ 語意補強（只保留高速語意）
-===================================================== */
-
+/* 名稱型交流道（限制 highway 層級） */
 nwr["highway"~"motorway|trunk"]
-["name"~"交流道|匝道|interchange|IC|JCT|交流道出口",i](around:${radius},${lat},${lon});
+["name"~"交流道|匝道|interchange|IC|JCT|交流道入口|入口",i]
+(around:${radius},${lat},${lon});
+
+
+/* =========================
+❌ ② 停車場污染源（完整隔離）
+========================= */
+
+/* 停車場本體（不加入主結果，只作排除用） */
+nwr["amenity"="parking"](around:${radius},${lat},${lon});
+nwr["building"="parking"](around:${radius},${lat},${lon});
+nwr["leisure"="parking"](around:${radius},${lat},${lon});
+
+/* 停車場入口（最常誤判來源） */
+nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
+nwr["entrance"="yes"]["amenity"="parking"](around:${radius},${lat},${lon});
+nwr["entrance"="yes"]["building"="parking"](around:${radius},${lat},${lon});
+
+
+/* =========================
+❌ ③ 關鍵污染來源修正（v3核心）
+========================= */
+
+/* 🚫 service road 不再納入（重要修正） */
+/* 原本這行是最大污染源 → 已移除：
+   nwr["highway"="service"]
+*/
+
+/* 🚫 停車語意名稱過濾（正確 Overpass 寫法） */
+nwr["name"~"停車場|Parking|Parking Lot|地下停車|立體停車|車場|停車塔",i];
 
 `);
 }
