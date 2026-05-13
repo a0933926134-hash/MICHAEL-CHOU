@@ -475,27 +475,52 @@ try{
 
 if(!origin) return null;
 
+/* ✔ 交流道點先 snap */
+let target = to;
+
+/* 判斷是否為交流道類型（避免全部 snap） */
+const isMotorway = true; // 你這裡可加 tag 判斷
+
+if(isMotorway){
+target = await snapToRoad(to[0], to[1]);
+}
+
 const url =
-`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${target[1]},${target[0]}?overview=false`;
 
 const res = await fetch(url);
-
 const data = await res.json();
 
-if(!data.routes?.length){
-
-return null;
-
-}
+if(!data.routes?.length) return null;
 
 return Math.round(data.routes[0].distance);
 
 }catch(err){
-
 console.error(err);
-
 return null;
+}
 
+}
+async function snapToRoad(lat, lon){
+
+try{
+
+const url =
+`https://router.project-osrm.org/nearest/v1/driving/${lon},${lat}?number=1`;
+
+const res = await fetch(url);
+const data = await res.json();
+
+if(!data.waypoints?.length) return [lat, lon];
+
+const p = data.waypoints[0].location;
+
+/* OSRM: [lon, lat] */
+return [p[1], p[0]];
+
+}catch(e){
+console.error(e);
+return [lat, lon];
 }
 
 }  
@@ -505,11 +530,14 @@ try{
 
 if(!origin) return;
 
-const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+/* ✔ snap 到可行駛道路 */
+const snappedTo = await snapToRoad(to[0], to[1]);
 
-const res=await fetch(url);
+const url =
+`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${snappedTo[1]},${snappedTo[0]}?overview=full&geometries=geojson`;
 
-const data=await res.json();
+const res = await fetch(url);
+const data = await res.json();
 
 if(!data.routes?.length){
 
@@ -521,24 +549,22 @@ routeLayer=null;
 }
 
 return;
-
 }
-const route=data.routes[0];
 
-routeInfo.innerText="路線距離：" + Math.round(route.distance) + " m";
+const route = data.routes[0];
+
+routeInfo.innerText =
+"路線距離：" + Math.round(route.distance) + " m";
 
 if(routeLayer) map.removeLayer(routeLayer);
 
-routeLayer=L.geoJSON(route.geometry,{
+routeLayer = L.geoJSON(route.geometry,{
 style:{color:"blue",weight:5}
 }).addTo(map);
 
 }catch(err){
-
 console.error(err);
-
 routeInfo.innerText="路線服務異常";
-
 }
 
 }
@@ -645,21 +671,30 @@ else if(t==="motorway_junction"){
 
 parts.push(`
 
-/* 國道匝道（真正入口道路） */
-way["highway"="motorway_link"]
-(around:${radius},${lat},${lon});
+/* =========================
+✔ 交流道入口（真正可進入）
+========================= */
 
-/* 快速道路匝道 */
-way["highway"="trunk_link"]
-(around:${radius},${lat},${lon});
+/* 入口節點（優先） */
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
-/* 有交流道名稱 */
-way["highway"~"motorway_link|trunk_link"]
-["name"~"交流道|匝道|interchange",i]
-(around:${radius},${lat},${lon});
+/* 匝道入口道路（關鍵） */
+way["highway"="motorway_link"](around:${radius},${lat},${lon});
+
+/* 匝道出口/入口混合（補強） */
+way["highway"="trunk_link"](around:${radius},${lat},${lon});
+
+/* 名稱補強（入口語意） */
+nwr["name"~"交流道|匝道|interchange|入口|出口",i](around:${radius},${lat},${lon});
+
+/* =========================
+✔ 避免抓錯（重要修正）
+========================= */
+
+/* ❌ 不再直接用 motorway 主線 */
+/* way["highway"="motorway"](around:${radius},${lat},${lon}); */
 
 `);
-
 }
 else if(t==="marketplace"){
 
