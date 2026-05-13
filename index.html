@@ -645,15 +645,20 @@ else if(t==="motorway_junction"){
 
 parts.push(`
 
-nwr["highway"="motorway_junction"](around:${radius},${lat},${lon});
+/* 高速公路交流道入口 */
+node["highway"="motorway_junction"]
+["name"]
+(around:${radius},${lat},${lon});
 
-way["highway"="motorway_link"](around:${radius},${lat},${lon});
+/* 有編號之交流道入口 */
+node["highway"="motorway_junction"]
+["ref"]
+(around:${radius},${lat},${lon});
 
-way["highway"="trunk_link"](around:${radius},${lat},${lon});
-
-nwr["name"~"交流道|匝道|interchange",i](around:${radius},${lat},${lon});
-
-nwr["junction"="yes"](around:${radius},${lat},${lon});
+/* 有出口方向資訊 */
+node["highway"="motorway_junction"]
+["exit_to"]
+(around:${radius},${lat},${lon});
 
 `);
 
