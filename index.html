@@ -641,62 +641,33 @@ else if(t==="bus_stop"){
 parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
 
 }
-else if(t==="motorway_junction"){
-
-parts.push(`
-
 /* =====================================================
-🚀 GIS 高速道路純淨引擎 v3.1（修復查詢漏失）
+🚀 GIS 高速道路純淨引擎 v3.2（穩定查詢版）
 ===================================================== */
 
 /* =========================
-✔ ① 核心交流道（最可信）
+✔ ① 核心交流道（絕不過濾）
 ========================= */
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
-
+node["junction"="yes"](around:${radius},${lat},${lon});
 
 /* =========================
-✔ ② 高速道路入口結構（必要保留）
+✔ ② 高速道路結構（必要）
 ========================= */
-
-/* 高速主線入口 */
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
-
-/* 快速道路入口 */
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
 
+/* =========================
+✔ ③ 交流道語意（改成輔助，不主導）
+========================= */
+nwr["highway"~"motorway|trunk"](around:${radius},${lat},${lon});
 
 /* =========================
-✔ ③ 交流道語意（放寬版本，避免漏抓）
+🟡 ④ 停車場：只「查」，不污染交流道邏輯
 ========================= */
-
-/* 👉 關鍵修正：不限制 highway 層級 */
-nwr["name"~"交流道|匝道|interchange|IC|JCT|Interchange|Exit|出口",i]
-(around:${radius},${lat},${lon});
-
-
-/* =========================
-🟡 ④ 補強來源（重新加入，但降權）
-========================= */
-
-/* ⚠️ service road：只作補充，不當核心 */
-way["highway"="service"](around:${radius},${lat},${lon});
-
-
-/* =========================
-❌ ⑤ 停車場排除（保留但不影響交流道）
-========================= */
-
-/* 停車場入口 */
-nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
-nwr["entrance"="yes"]["amenity"="parking"](around:${radius},${lat},${lon});
-
-/* 停車場本體 */
 nwr["amenity"="parking"](around:${radius},${lat},${lon});
 nwr["building"="parking"](around:${radius},${lat},${lon});
-
-`);
-}
+nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
 }else if(t==="marketplace"){
 
 parts.push(`
