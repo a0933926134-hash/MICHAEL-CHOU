@@ -645,18 +645,58 @@ else if(t==="motorway_junction"){
 
 parts.push(`
 
-nwr["highway"="motorway_junction"](around:${radius},${lat},${lon});
+/* =====================================================
+🚀 GIS 高速道路純淨引擎 v3.5（入口優先版）
+✔ 僅計入「進入高速公路」節點
+❌ 排除出口導向結構
+===================================================== */
 
+/* =========================
+✔ ① 核心交流道節點
+========================= */
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+
+
+/* =========================
+✔ ② 入口導向匝道（重點）
+========================= */
+
+/* 🚗 進入高速公路常見：motorway_link */
 way["highway"="motorway_link"](around:${radius},${lat},${lon});
 
+/* 🚗 trunk 入口匝道 */
 way["highway"="trunk_link"](around:${radius},${lat},${lon});
 
-nwr["name"~"交流道|匝道|interchange",i](around:${radius},${lat},${lon});
 
-nwr["junction"="yes"](around:${radius},${lat},${lon});
+/* =========================
+🟡 ③ 入口語意補強（低權重）
+========================= */
+
+/* ⚠️ 只保留「入口」語意，避免 Exit 污染 */
+nwr["name"~"入口|匝道|交流道|IC|JCT|Interchange",i]
+(around:${radius},${lat},${lon});
+
+
+/* =========================
+❌ ④ 明確排除「出口語意」
+========================= */
+
+/* 🚫 明確排除 Exit / 出口（語意層） */
+nwr["name"~"出口|Exit|出口匝道",i]
+(around:${radius},${lat},${lon});
+
+
+/* =========================
+❌ ⑤ 移除非高速路雜訊
+========================= */
+
+/* 🚫 社區/一般 junction（避免污染） */
+/* ❌ 不使用 junction=yes */
+
+/* 🚫 停車場完全不納入 */
+/* ❌ 不查 parking */
 
 `);
-
 }
 else if(t==="marketplace"){
 
