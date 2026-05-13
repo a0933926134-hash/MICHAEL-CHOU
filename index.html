@@ -690,17 +690,20 @@ nwr["name"~"交流道|匝道|interchange|入口|交流道入口",i](around:${rad
 ❌ 明確排除（避免誤抓非入口）
 ===================================================== */
 
-/* ❌ 停車場入口（完全排除） */
+/* ① OSM 標準停車場入口 */
 nwr["highway"="parking_entrance"](around:${radius},${lat},${lon});
 
-/* ❌ 停車相關名稱 */
-nwr["name"~"停車場|Parking|parking|地下停車|立體停車",i](around:${radius},${lat},${lon});
+/* ② 停車場 + 入口標記（最常漏抓） */
+nwr["amenity"="parking"]["entrance"="yes"](around:${radius},${lat},${lon});
 
-/* ❌ 出口（避免抓到離開高速道路方向） */
-nwr["name"~"出口|Exit|下匝道|離場",i](around:${radius},${lat},${lon});
+/* ③ 任何帶 parking + entrance 語意 */
+nwr["entrance"="yes"]["amenity"="parking"](around:${radius},${lat},${lon});
 
-`);
-}
+/* ④ 建築型停車場入口 */
+nwr["building"="parking"]["entrance"](around:${radius},${lat},${lon});
+
+/* ⑤ 語意型補強（避免殘留） */
+nwr["name"~"停車場|Parking|立體停車|地下停車",i](around:${radius},${lat},${lon});
 else if(t==="marketplace"){
 
 parts.push(`
