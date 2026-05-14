@@ -202,9 +202,25 @@ cursor:pointer;
 <thead>
 <tr>
 <th>名稱</th>
+
 <th>類型</th>
-<th>直線距離</th>
-<th>路線距離</th>
+
+<th
+onclick="sortResults('distance')"
+style="cursor:pointer;"
+title="點擊排序"
+>
+直線距離 ↕
+</th>
+
+<th
+onclick="sortResults('route')"
+style="cursor:pointer;"
+title="點擊排序"
+>
+路線距離 ↕
+</th>
+
 </tr>
 </thead>
 <tbody id="tbody"></tbody>
@@ -294,6 +310,12 @@ const routeInfo=document.getElementById("routeInfo");
 let userMarker=null;
 let origin=null;
 let results=[];
+
+/* 排序狀態 */
+let sortState = {
+distance:true,
+route:true
+};
 let routeLayer=null;
 let circleLayer=null;
 
@@ -893,7 +915,83 @@ selectItem(item);
 
 results.sort((a,b)=>a.距離-b.距離);
 
-/* 表格 */
+/* 初始依直線距離排序 */
+results.sort((a,b)=>a.距離-b.距離);
+
+/* render table */
+renderTable();
+
+/* 計算路線距離 */
+for (const item of results.slice(0,20)) {
+
+const routeDistance =
+await getRouteDistance(item.座標);
+
+item.路線距離 =
+routeDistance != null
+? routeDistance + " m"
+: "無法到達";
+
+/* 更新畫面 */
+const cell =
+document.getElementById(`route-${item.id}`);
+
+if(cell){
+
+cell.innerText = item.路線距離;
+
+}
+
+}
+
+}
+
+/* 排序結果 */
+function sortResults(type){
+
+if(type==="distance"){
+
+results.sort((a,b)=>{
+
+return sortState.distance
+? a.距離 - b.距離
+: b.距離 - a.距離;
+
+});
+
+sortState.distance = !sortState.distance;
+
+}
+
+else if(type==="route"){
+
+results.sort((a,b)=>{
+
+const ra =
+parseInt(a.路線距離) || 99999999;
+
+const rb =
+parseInt(b.路線距離) || 99999999;
+
+return sortState.route
+? ra - rb
+: rb - ra;
+
+});
+
+sortState.route = !sortState.route;
+
+}
+
+renderTable();
+
+}
+
+/* 重新渲染表格 */
+function renderTable(){
+
+tbody.innerHTML="";
+
 results.forEach(item=>{
 
 const tr=document.createElement("tr");
@@ -916,29 +1014,10 @@ ${item.路線距離}
 `;
 
 tbody.appendChild(tr);
-getRouteDistance(item.座標)
-.then(routeDistance=>{
-
-item.路線距離 =
-routeDistance != null
-? routeDistance + " m"
-: "無法到達";
-
-const cell =
-document.getElementById(`route-${item.id}`);
-
-if(cell){
-
-cell.innerText = item.路線距離;
-
-}
-
-});  
 
 });
 
-}
-
+}  
 /* 清除路線 */
 function clearRoute(){
 
