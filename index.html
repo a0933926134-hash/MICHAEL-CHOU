@@ -12,62 +12,6 @@
 body { margin:0; font-family: Arial; }
 #map { height:100vh; }
 
-/* 左上角地址搜尋 */
-
-#searchBox{
-
-position:absolute;
-
-top:12px;
-left:12px;
-
-z-index:2000;
-
-display:flex;
-gap:6px;
-
-background:white;
-
-padding:10px;
-
-border-radius:12px;
-
-box-shadow:0 4px 12px rgba(0,0,0,0.25);
-
-}
-
-#searchBox input{
-
-width:240px;
-
-padding:6px 10px;
-
-border-radius:8px;
-
-border:1px solid #cbd5e1;
-
-font-size:13px;
-
-}
-
-#searchBox button{
-
-padding:6px 12px;
-
-border:none;
-
-border-radius:8px;
-
-background:#2563eb;
-
-color:white;
-
-font-weight:bold;
-
-cursor:pointer;
-
-}
-
 /* UI 完全不動 */
 #panel{
 position:absolute;
@@ -282,21 +226,6 @@ title="點擊排序"
 <tbody id="tbody"></tbody>
 </table>
 </div>
-</div>
-
-<!-- 左上角門牌定位 -->
-<div id="searchBox">
-
-<input
-type="text"
-id="addressInput"
-placeholder="輸入門牌地址"
->
-
-<button onclick="searchAddress()">
-定位
-</button>
-
 </div>
 
 <div id="map"></div>
@@ -542,121 +471,6 @@ maximumAge:0
 );
 
 }
-/* 門牌定位 */
-async function searchAddress(){
-
-const address =
-document.getElementById("addressInput")
-.value
-.trim();
-
-if(!address){
-
-alert("請輸入地址");
-
-return;
-
-}
-
-try{
-
-/* 使用 Nominatim */
-const url =
-`https://nominatim.openstreetmap.org/search?format=json&countrycodes=tw&limit=1&q=${encodeURIComponent(address)}`;
-
-const res = await fetch(url,{
-
-headers:{
-'Accept-Language':'zh-TW'
-}
-
-});
-
-const data = await res.json();
-
-if(!data.length){
-
-alert("查無地址");
-
-return;
-
-}
-
-const lat = parseFloat(data[0].lat);
-
-const lon = parseFloat(data[0].lon);
-
-/* 更新輸入框 */
-latInput.value = lat.toFixed(6);
-
-lonInput.value = lon.toFixed(6);
-
-origin=[lat,lon];
-
-/* 地圖移動 */
-map.flyTo([lat,lon],18,{
-duration:1.2
-});
-
-/* 更新定位點 */
-if(userMarker){
-
-map.removeLayer(userMarker);
-
-}
-
-userMarker=L.marker([lat,lon],{
-
-icon:L.divIcon({
-
-className:'',
-
-html:`
-<div style="
-width:18px;
-height:18px;
-background:#ef4444;
-border:3px solid #ffffff;
-border-radius:50%;
-box-shadow:0 0 0 2px rgba(239,68,68,0.35);
-"></div>
-`,
-
-iconSize:[18,18],
-iconAnchor:[9,9]
-
-}),
-
-interactive:false
-
-}).addTo(map);
-
-/* 更新半徑圈 */
-if(circleLayer){
-
-map.removeLayer(circleLayer);
-
-}
-
-circleLayer=L.circle([lat,lon],{
-
-radius:parseFloat(radiusInput.value),
-
-color:'blue',
-
-fillOpacity:0.15
-
-}).addTo(map);
-
-}catch(err){
-
-console.error(err);
-
-alert("地址定位失敗");
-
-}
-
-}  
 /* 距離 */
 function haversine(lat1, lon1, lat2, lon2){
 
