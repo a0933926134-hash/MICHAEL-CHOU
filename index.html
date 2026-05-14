@@ -136,6 +136,39 @@ border-radius:10px;
 color:#1d4ed8;
 font-weight:bold;
 }
+#tgosBox{
+position:absolute;
+top:12px;
+left:12px;
+width:260px;
+background:#ffffff;
+z-index:1001;
+padding:10px;
+border-radius:12px;
+box-shadow:0 8px 20px rgba(0,0,0,0.2);
+font-size:13px;
+border:1px solid #cbd5e1;
+}
+
+#tgosBox input{
+width:95%;
+padding:6px;
+margin-top:4px;
+border-radius:8px;
+border:1px solid #cbd5e1;
+}
+
+#tgosBox button{
+width:100%;
+margin-top:6px;
+padding:6px;
+border:none;
+border-radius:8px;
+background:#0ea5e9;
+color:white;
+font-weight:bold;
+cursor:pointer;
+}  
 </style>
 </head>
 <div style="position:absolute;bottom:8px;left:12px;font-size:11px;color:#666;background:rgba(255,255,255,0.8);padding:4px 8px;border-radius:6px;z-index:1000;">
@@ -143,6 +176,14 @@ font-weight:bold;
 路網分析：OSRM Demo Server
 POI查詢：Overpass API
 </div>
+<!-- 🆕 TGOS 門牌定位工具（左上角） -->
+<div id="tgosBox">
+<b>門牌定位（TGOS）</b>
+
+<input id="addr" placeholder="輸入地址（例：板橋區中山路一段1號）">
+
+<button onclick="geocodeTGOS()">定位</button>
+</div>  
 <body>
 
 <div id="panel">
@@ -231,7 +272,71 @@ title="點擊排序"
 <div id="map"></div>
 
 <script>
+async function geocodeTGOS(){
 
+const addr = document.getElementById("addr").value;
+
+if(!addr){
+alert("請輸入地址");
+return;
+}
+
+/*
+⚠️ TGOS 通常需 API Key
+這裡先用「示意 REST 架構」
+實務上你只要替換 endpoint
+*/
+
+try{
+
+const url =
+`https://api.tgos.tw/addr/locate?address=${encodeURIComponent(addr)}`;
+
+const res = await fetch(url);
+const data = await res.json();
+
+if(!data || !data.lat || !data.lon){
+alert("查無結果");
+return;
+}
+
+const lat = data.lat;
+const lon = data.lon;
+
+/* 更新主輸入框（不破壞你原系統） */
+document.getElementById("lat").value = lat;
+document.getElementById("lon").value = lon;
+
+/* 更新 origin */
+origin = [lat, lon];
+
+/* 移動地圖 */
+map.flyTo([lat,lon],17);
+
+/* 更新 marker */
+if(userMarker) map.removeLayer(userMarker);
+
+userMarker = L.marker([lat,lon]).addTo(map);
+
+/* 更新 circle */
+if(circleLayer) map.removeLayer(circleLayer);
+
+circleLayer = L.circle([lat,lon],{
+radius:parseFloat(radiusInput.value),
+color:'blue',
+fillOpacity:0.15
+}).addTo(map);
+
+alert("定位成功");
+
+}catch(err){
+
+console.error(err);
+alert("TGOS 定位失敗（請確認 API endpoint / key）");
+
+}
+
+}
 let map=L.map('map').setView([25.012098,121.465675],15);
 
 L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
