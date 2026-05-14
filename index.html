@@ -14,10 +14,17 @@ body { margin:0; font-family: Arial; }
 
 /* UI 完全不動 */
 #panel{
+#panel{
 position:absolute;
 top:12px;
 right:12px;
 width:340px;
+max-height:85vh;
+display:flex;
+flex-direction:column;
+overflow:hidden;
+z-index:1000;
+}
 max-height:85vh;
 background: linear-gradient(135deg,#fffdf5,#fef3c7);
 padding:14px;
@@ -60,6 +67,14 @@ cursor:pointer;
 
 #panel label:hover{background:#e0ecff;}
 
+#panel-header{
+padding:8px;
+font-weight:bold;
+cursor:grab;
+background:#fef3c7;
+border-bottom:1px solid #fcd34d;
+}  
+  
 #panel button{
 width:100%;
 margin-top:6px;
@@ -162,30 +177,29 @@ POI查詢：Overpass API
 影響地價區域因素分析明細表(住宅用地)
 </div>
 
-<div id="panel-content">
+<div id="panel">
 
-緯度:<input id="lat" value="25.012098"><br>
-經度:<input id="lon" value="121.465675"><br>
-半徑(m):<input id="radius" value="1000"><br>
+  <div id="panel-header">
+    影響地價區域因素分析明細表(住宅用地)
+  </div>
 
-<h3>類型</h3>
+  <div id="panel-content">
 
-<!-- 下面全部原封不動搬進來 -->
-<label><input type="checkbox" value="station">交通運輸-接近大型車站之程度</label>
-<label><input type="checkbox" value="bus_stop">交通運輸-站牌之接近程度或密集程度</label>
-<label><input type="checkbox" value="motorway_junction">交通運輸-交流道之有無及接近交流道之程度</label>
+    緯度:<input id="lat" value="25.012098"><br>
+    經度:<input id="lon" value="121.465675"><br>
+    半徑(m):<input id="radius" value="1000"><br>
 
-<label><input type="checkbox" value="school" checked>公共建設-接近學校之程度</label>
+    <h3>類型</h3>
 
-<button onclick="runQuery()">查詢</button>
+    <label><input type="checkbox" value="station">交通運輸-接近大型車站之程度</label>
 
-<button onclick="getCurrentLocation()">取得現在位置</button>
+    <button onclick="runQuery()">查詢</button>
+    <button onclick="getCurrentLocation()">取得現在位置</button>
+    <button class="clear-btn" onclick="clearRoute()">清除路線距離</button>
 
-<button class="clear-btn" onclick="clearRoute()">清除路線距離</button>
+    <div id="routeInfo">路線距離：尚未計算</div>
 
-<div id="routeInfo">路線距離：尚未計算</div>
-
-</div>
+  </div>
 </div>
 
 <button class="clear-btn" onclick="clearRoute()">清除路線距離</button>
