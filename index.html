@@ -685,10 +685,23 @@ way["highway"="motorway_link"]
 else if(t==="marketplace"){
 
 parts.push(`
-nwr["amenity"="marketplace"](around:${radius},${lat},${lon});
-nwr["shop"="supermarket"](around:${radius},${lat},${lon});
-`);
 
+/* 傳統市場 */
+nwr["amenity"="marketplace"](around:${radius},${lat},${lon});
+
+/* 超市 */
+nwr["shop"="supermarket"](around:${radius},${lat},${lon});
+
+/* 大賣場 / 量販 */
+nwr["shop"="wholesale"](around:${radius},${lat},${lon});
+
+/* COSTCO / 家樂福 / 大潤發 */
+nwr["name"~"costco|好市多|家樂福|大潤發|愛買",i](around:${radius},${lat},${lon});
+
+/* 品牌 */
+nwr["brand"~"costco|carrefour|rt-mart|fe-amart",i](around:${radius},${lat},${lon});
+
+`);
 }
 else if(t==="waste_disposal"){
 
