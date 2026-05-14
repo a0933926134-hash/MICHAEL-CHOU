@@ -14,16 +14,21 @@ body { margin:0; font-family: Arial; }
 
 /* UI 完全不動 */
 #panel{
-#panel{
 position:absolute;
 top:12px;
 right:12px;
 width:340px;
 max-height:85vh;
+background: linear-gradient(135deg,#fffdf5,#fef3c7);
+padding:14px;
+z-index:1000;
+border-radius:16px;
+box-shadow:0 10px 25px rgba(0,0,0,0.25);
+font-size:13px;
+border:1px solid #fcd34d;
 display:flex;
 flex-direction:column;
 overflow:hidden;
-z-index:1000;
 }
 max-height:85vh;
 background: linear-gradient(135deg,#fffdf5,#fef3c7);
@@ -173,13 +178,28 @@ POI查詢：Overpass API
 
 <div id="panel">
 
-<div id="panel-header">
-影響地價區域因素分析明細表(住宅用地)
-</div>
-
-<div id="panel">
-
   <div id="panel-header">
+    影響地價區域因素分析明細表(住宅用地)
+  </div>
+
+  <div id="panel-content">
+
+    緯度:<input id="lat"><br>
+    經度:<input id="lon"><br>
+    半徑(m):<input id="radius"><br>
+
+    <h3>類型</h3>
+
+    <label><input type="checkbox" value="station">車站</label>
+
+    <button onclick="runQuery()">查詢</button>
+    <button onclick="getCurrentLocation()">定位</button>
+    <button class="clear-btn" onclick="clearRoute()">清除路線</button>
+
+    <div id="routeInfo">路線距離：尚未計算</div>
+
+  </div>
+</div>
     影響地價區域因素分析明細表(住宅用地)
   </div>
 
