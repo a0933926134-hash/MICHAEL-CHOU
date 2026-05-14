@@ -276,56 +276,38 @@ async function geocodeTGOS(){
 
 const addr = document.getElementById("addr").value;
 
-if(!addr){
-alert("請輸入地址");
-return;
-}
-
-/*
-⚠️ TGOS 通常需 API Key
-這裡先用「示意 REST 架構」
-實務上你只要替換 endpoint
-*/
-
-try{
-
 const url =
-`https://api.tgos.tw/addr/locate?address=${encodeURIComponent(addr)}`;
+`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`;
 
 const res = await fetch(url);
 const data = await res.json();
 
-if(!data || !data.lat || !data.lon){
+if(!data.length){
 alert("查無結果");
 return;
 }
 
-const lat = data.lat;
-const lon = data.lon;
+const lat = parseFloat(data[0].lat);
+const lon = parseFloat(data[0].lon);
 
-/* 更新主輸入框（不破壞你原系統） */
 document.getElementById("lat").value = lat;
 document.getElementById("lon").value = lon;
 
-/* 更新 origin */
-origin = [lat, lon];
+origin = [lat,lon];
 
-/* 移動地圖 */
 map.flyTo([lat,lon],17);
 
-/* 更新 marker */
 if(userMarker) map.removeLayer(userMarker);
-
 userMarker = L.marker([lat,lon]).addTo(map);
 
-/* 更新 circle */
 if(circleLayer) map.removeLayer(circleLayer);
-
 circleLayer = L.circle([lat,lon],{
 radius:parseFloat(radiusInput.value),
 color:'blue',
 fillOpacity:0.15
 }).addTo(map);
+
+}
 
 alert("定位成功");
 
