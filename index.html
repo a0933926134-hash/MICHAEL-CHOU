@@ -498,7 +498,7 @@ try{
 if(!origin) return null;
 
 const url =
-`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+`https://router.project-osrm.org/route/v1/car/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 
 /* timeout 保護 */
 const controller = new AbortController();
@@ -552,7 +552,7 @@ try{
 
 if(!origin) return;
 
-const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+const url=`https://router.project-osrm.org/route/v1/car/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
 const res=await fetch(url);
 
@@ -697,9 +697,11 @@ node["highway"="motorway_junction"]
 (around:${radius},${lat},${lon});
 
 /* 國道入口匝道 */
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+
 way["highway"="motorway_link"]
 ["oneway"="yes"]
-["destination"!~".*"]
+["name"~"交流道|interchange|匝道",i]
 (around:${radius},${lat},${lon});
 
 /* 名稱含交流道入口 */
