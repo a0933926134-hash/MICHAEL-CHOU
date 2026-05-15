@@ -991,43 +991,58 @@ let routeDistance = null;
 /* =========================
    🛣️ 交流道特殊處理
 ========================= */
-if(isMotorway(item)){
+for (const item of results.slice(0,20)) {
 
-/* 🚗 找最近交流道入口（以 origin 為基準） */
+let routeDistance = null;
+
+/* =========================
+🚗 一般 POI
+========================= */
+if(!isMotorway(item)){
+
+routeDistance = await getRouteDistance(item.座標);
+
+/* =========================
+🛣️ 交流道：雙段 routing engine
+========================= */
+}else{
+
 const candidates = results.filter(r =>
   isMotorway(r) &&
   r.id !== item.id
 );
 
-/* 如果沒有交流道 → fallback */
-if(!candidates.length){
-routeDistance = await getRouteDistance(item.座標);
-}else{
+/* STEP 1️⃣：過濾方向（避免走錯交流道） */
+const filtered = candidates.filter(r =>
+  isCorrectDirection(origin, r.座標, item.座標)
+);
 
-const nearestEntrance = candidates.sort(
-  (a,b)=> a.距離 - b.距離
-)[0];
+/* STEP 2️⃣：找前 N 個候選（避免 OSRM 過載） */
+const topN = filtered
+  .sort((a,b)=>a.距離 - b.距離)
+  .slice(0,5);
 
-/* =========================
-   🟦 STEP 1：origin → 交流道（平面道路）
-========================= */
-const leg1 = await getRouteDistance(nearestEntrance.座標);
+/* STEP 3️⃣：工程級雙段最短路徑搜尋 */
+let best = null;
 
-/* =========================
-   🟦 STEP 2：交流道 → 目的地（高速）
-========================= */
+for(const entrance of topN){
+
+/* leg1：origin → entrance（平面） */
+const leg1 = await getRouteDistance(entrance.座標);
+
+/* leg2：entrance → target（高速） */
 const leg2 = await getRouteDistance(item.座標);
 
-/* =========================
-   🟩 STEP 3：總距離
-========================= */
-routeDistance = (leg1 ?? 0) + (leg2 ?? 0);
+/* total */
+const total = (leg1 ?? 1e9) + (leg2 ?? 1e9);
+
+if(!best || total < best.total){
+best = { total, leg1, leg2, entrance };
 }
 
-}else{
+}
 
-/* 一般 POI（單段） */
-routeDistance = await getRouteDistance(item.座標);
+routeDistance = best?.total ?? null;
 }
 
 }else{
@@ -1229,6 +1244,28 @@ isDragging = false;
 });
 
 </script>
+function bearing(from, to){
 
+const lat1 = from[0] * Math.PI/180;
+const lat2 = to[0] * Math.PI/180;
+const dLon = (to[1]-from[1]) * Math.PI/180;
+
+const y = Math.sin(dLon) * Math.cos(lat2);
+const x =
+Math.cos(lat1)*Math.sin(lat2) -
+Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+
+return (Math.atan2(y,x) * 180/Math.PI + 360) % 360;
+}
+
+/* 判斷是否合理方向 */
+function isCorrectDirection(origin, entrance, target){
+
+const b1 = bearing(origin, entrance);
+const b2 = bearing(entrance, target);
+
+/* 同方向誤差容許 ±120°（工程寬鬆模型） */
+return Math.abs(b1 - b2) < 120;
+}
 </body>
 </html>
