@@ -520,29 +520,9 @@ return null;
 
 }
 
-} 
-  
+}  
 async function drawRoute(to){
-function getNearestMotorwayEntrance(){
 
-if(!motorwayEntrances.length) return null;
-
-let best = null;
-let min = Infinity;
-
-for(const p of motorwayEntrances){
-
-const d = haversine(origin[0], origin[1], p.lat, p.lon);
-
-if(d < min){
-min = d;
-best = p;
-}
-
-}
-
-return { point: best, distance: min };
-}
 try{
 
 if(!origin) return;
@@ -625,13 +605,14 @@ const lat=parseFloat(latInput.value);
 const lon=parseFloat(lonInput.value);
 const radius=parseFloat(radiusInput.value);
 
-/* 🚗 Step 1：交流道入口暫存（放這裡） */
-let motorwayEntrances = [];
-
 if(radius > 3000){
+
 alert("半徑超過3000m可能造成系統過慢");
+
 return;
+
 }
+
 markerLayer.clearLayers();
 
 if(routeLayer){
@@ -686,16 +667,24 @@ else if(t==="motorway_junction"){
 
 parts.push(`
 
-/* 🚗 只抓交流道入口節點 */
-node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+/* 國道交流道節點 */
+node["highway"="motorway_junction"]
+(around:${radius},${lat},${lon});
 
-/* 🚗 入口型匝道（排除出口） */
+/* 國道入口匝道 */
 way["highway"="motorway_link"]
 ["oneway"="yes"]
-["ramp"="entry"]
+["destination"!~".*"]
+(around:${radius},${lat},${lon});
+
+/* 名稱含交流道入口 */
+way["highway"="motorway_link"]
+["name"~"交流道|匝道|interchange",i]
+["destination"!~".*"]
 (around:${radius},${lat},${lon});
 
 `);
+
 }
 else if(t==="marketplace"){
 
@@ -885,19 +874,6 @@ const lon2=e.center?.lon ?? e.lon;
 
 if(lat2 == null || lon2 == null) return;
 
-/* 🚗 Step 3：收集交流道入口候選點 */
-if(
-e.tags?.highway === "motorway_junction" ||
-e.tags?.highway === "motorway_link"
-){
-
-motorwayEntrances.push({
-lat: lat2,
-lon: lon2
-});
-
-}  
-
 const key = `${e.type}-${e.id}`;
 
 if(dedup.has(key)) return;
@@ -963,30 +939,10 @@ results.sort((a,b)=>a.距離-b.距離);
 renderTable();
 
 /* 計算路線距離 */
-for (const item of results.slice(0,80)) {
+for (const item of results.slice(0,20)) {
 
-let routeDistance = null;
-
-/* 🚗 交流道特殊處理：改用平面道路邏輯 */
-if(item.類型 === "motorway_junction"){
-
-const nearest = getNearestMotorwayEntrance();
-
-if(nearest){
-routeDistance = Math.round(nearest.distance);
-}
-
-}else{
-
-routeDistance = await getRouteDistance(item.座標);
-
-if(routeDistance == null){
-item.路線距離 = "無法判定入口";
-}else{
-item.路線距離 = routeDistance + " m";
-item.路線距離數值 = routeDistance;
-}  
-}
+const routeDistance =
+await getRouteDistance(item.座標);
 
 item.路線距離數值 = routeDistance;
 
