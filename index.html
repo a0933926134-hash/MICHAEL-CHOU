@@ -938,11 +938,28 @@ results.sort((a,b)=>a.距離-b.距離);
 /* render table */
 renderTable();
 
-/* 計算路線距離 */
+/* 計算路線距離（交流道改為：先到最近交流道入口） */
 for (const item of results.slice(0,20)) {
 
-const routeDistance =
-await getRouteDistance(item.座標);
+let routeDistance = null;
+
+if(isMotorway(item)){
+
+/* 🚗 先找最近交流道入口（同類型中距離 origin 最近） */
+const nearestEntrance = results
+.filter(r => isMotorway(r))
+.sort((a,b)=> a.距離 - b.距離)[0];
+
+/* 🚗 平面道路 → 最近交流道入口 */
+if(nearestEntrance){
+routeDistance = await getRouteDistance(nearestEntrance.座標);
+}
+
+}else{
+
+/* 一般點：直接導航 */
+routeDistance = await getRouteDistance(item.座標);
+}
 
 item.路線距離數值 = routeDistance;
 
@@ -950,14 +967,13 @@ item.路線距離 =
 routeDistance != null
 ? routeDistance + " m"
 : "無法到達";
+
 /* 更新畫面 */
 const cell =
 document.getElementById(`route-${item.id}`);
 
 if(cell){
-
 cell.innerText = item.路線距離;
-
 }
 
 }
