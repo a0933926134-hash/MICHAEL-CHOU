@@ -624,6 +624,9 @@ block:"center"
 }
 
 /* 查詢 */
+if(markerLayer){
+markerLayer.clearLayers();
+}  
 async function runQuery(){
 
 const lat=parseFloat(latInput.value);
@@ -692,7 +695,7 @@ else if(t==="motorway_junction"){
 
 parts.push(`
 
-/* 交流道節點（只保留入口 node） */
+/* 交流道節點（只保留 node） */
 node["highway"="motorway_junction"]
 (around:${radius},${lat},${lon});
 
