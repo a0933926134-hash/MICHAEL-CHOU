@@ -950,10 +950,13 @@ item.類型 === "motorway_link"
 ){
 
 /* 找最近交流道入口 */
-const nearestEntrance = results.find(r =>
+const nearestEntrance =
+results
+.filter(r =>
 r.類型 === "motorway_junction" ||
 r.類型 === "motorway_link"
-);
+)
+.sort((a,b)=>a.距離-b.距離)[0];
 
 if(nearestEntrance){
 
