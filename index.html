@@ -595,52 +595,7 @@ block:"center"
 });
 
 }
-async function getDualRouteDistance(origin, target){
 
-/* =========================
-   STEP 1：找最近交流道入口
-========================= */
-const entranceCandidates = results.filter(r =>
-  isMotorway(r)
-);
-
-if(!entranceCandidates.length){
-return await getRouteDistance(target);
-}
-
-const nearestEntrance = entranceCandidates.sort(
-  (a,b)=> a.距離 - b.距離
-)[0];
-
-/* =========================
-   STEP 2：origin → 交流道入口（平面）
-========================= */
-const leg1 = await getRouteDistance(nearestEntrance.座標);
-
-/* =========================
-   STEP 3：交流道入口 → target（高速）
-========================= */
-const leg2 = await getRouteDistance(target);
-
-/* =========================
-   STEP 4：總距離
-========================= */
-const total =
-(leg1 ?? 0) + (leg2 ?? 0);
-
-/* =========================
-   STEP 5：方向判斷（簡化）
-========================= */
-const direction = getDirection(nearestEntrance.座標, target);
-
-return {
-total,
-leg1,
-leg2,
-direction
-};
-
-}
 }
 
 /* 查詢 */
@@ -983,116 +938,11 @@ results.sort((a,b)=>a.距離-b.距離);
 /* render table */
 renderTable();
 
-/* 計算路線距離（交流道：先找最近交流道路口） */
+/* 計算路線距離 */
 for (const item of results.slice(0,20)) {
 
-let routeDistance = null;
-
-/* =========================
-   🛣️ 交流道特殊處理
-========================= */
-for (const item of results.slice(0,20)) {
-
-let routeDistance = null;
-
-/* =========================
-🚗 一般 POI
-========================= */
-if(!isMotorway(item)){
-
-routeDistance = await getRouteDistance(item.座標);
-
-/* =========================
-🛣️ 交流道：雙段 routing engine
-========================= */
-}else{
-
-
-/* =========================
-🛣️ STEP 1：只用 origin 找最近交流道入口
-========================= */
-
-const entrances = results.filter(r => isMotorway(r));
-
-const nearestEntrance = entrances.sort(
-  (a,b) =>
-    haversine(
-      origin[0], origin[1],
-      a.座標[0], a.座標[1]
-    ) -
-    haversine(
-      origin[0], origin[1],
-      b.座標[0], b.座標[1]
-    )
-)[0];
-
-function isEntranceRamp(item){
-
-if(item.類型 !== "motorway_link") return false;
-
-const name = (item.名稱 || "").toLowerCase();
-
-/* 🚫 排除出口 */
-if(
-name.includes("出口") ||
-name.includes("exit") ||
-name.includes("off-ramp")
-){
-return false;
-}
-
-/* 距離限制（避免遠端 link） */
-return item.距離 < 5000;
-}
-function getBestEntrance(origin, entrances){
-
-let best = null;
-
-for(const e of entrances){
-
-/* 只做 cost estimate，不拆 routing */
-const d = haversine(
-origin[0], origin[1],
-e.座標[0], e.座標[1]
-);
-
-if(!best || d < best.d){
-best = { e, d };
-}
-
-}
-
-return best?.e;
-}
-
-for (const item of results.slice(0,20)) {
-
-let routeDistance = null;
-
-/* =========================
-🟢 一般 POI（不動）
-========================= */
-if(!isMotorway(item)){
-
-routeDistance = await getRouteDistance(item.座標);
-
-/* =========================
-🛣️ 交流道（修正核心）
-========================= */
-}else{
-
-/* STEP 1：只找入口（不做 routing） */
-const entrances = results.filter(r =>
-  isEntranceRamp(r)
-);
-
-/* STEP 2：選最佳入口（純 cost） */
-const bestEntrance = getBestEntrance(origin, entrances);
-
-/* STEP 3：只做一次 OSRM（關鍵修正） */
-routeDistance = await getRouteDistance(item.座標);
-
-}
+const routeDistance =
+await getRouteDistance(item.座標);
 
 item.路線距離數值 = routeDistance;
 
@@ -1100,22 +950,14 @@ item.路線距離 =
 routeDistance != null
 ? routeDistance + " m"
 : "無法到達";
-
-}  
-/* ========================= */
-
-item.路線距離數值 = routeDistance;
-
-item.路線距離 =
-routeDistance != null
-? routeDistance + " m"
-: "無法到達";
-
 /* 更新畫面 */
-const cell = document.getElementById(`route-${item.id}`);
+const cell =
+document.getElementById(`route-${item.id}`);
 
 if(cell){
+
 cell.innerText = item.路線距離;
+
 }
 
 }
@@ -1202,15 +1044,7 @@ routeLayer=null;
 routeInfo.innerText="路線距離：尚未計算";
 
 }
-function isMotorway(item){
-return item.類型 === "motorway_junction" ||
-       item.類型 === "motorway_link";
-}
 
-/* 🧭 判斷方向（簡化版：北/南） */
-function getDirection(from, to){
-return to[0] > from[0] ? "北上" : "南下";
-}
 /* Excel */
 function exportExcel(){
 
@@ -1295,28 +1129,6 @@ isDragging = false;
 });
 
 </script>
-function bearing(from, to){
 
-const lat1 = from[0] * Math.PI/180;
-const lat2 = to[0] * Math.PI/180;
-const dLon = (to[1]-from[1]) * Math.PI/180;
-
-const y = Math.sin(dLon) * Math.cos(lat2);
-const x =
-Math.cos(lat1)*Math.sin(lat2) -
-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
-
-return (Math.atan2(y,x) * 180/Math.PI + 360) % 360;
-}
-
-/* 判斷是否合理方向 */
-function isCorrectDirection(origin, entrance, target){
-
-const b1 = bearing(origin, entrance);
-const b2 = bearing(entrance, target);
-
-/* 同方向誤差容許 ±120°（工程寬鬆模型） */
-return Math.abs(b1 - b2) < 120;
-}
 </body>
 </html>
