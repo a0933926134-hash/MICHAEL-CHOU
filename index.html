@@ -1007,34 +1007,48 @@ routeDistance = await getRouteDistance(item.座標);
 ========================= */
 }else{
 
-const candidates = results.filter(r =>
-  isMotorway(r) &&
-  r.id !== item.id
-);
 
-/* STEP 1️⃣：過濾方向（避免走錯交流道） */
-const filtered = candidates.filter(r =>
-  isCorrectDirection(origin, r.座標, item.座標)
-);
+/* =========================
+🛣️ STEP 1：只用 origin 找最近交流道入口
+========================= */
 
-/* STEP 2️⃣：找前 N 個候選（避免 OSRM 過載） */
-const topN = filtered
-  .sort((a,b)=>a.距離 - b.距離)
-  .slice(0,5);
+const entrances = results.filter(r => isMotorway(r));
 
-/* STEP 3️⃣：工程級雙段最短路徑搜尋 */
-let best = null;
+const nearestEntrance = entrances.sort(
+  (a,b) =>
+    haversine(
+      origin[0], origin[1],
+      a.座標[0], a.座標[1]
+    ) -
+    haversine(
+      origin[0], origin[1],
+      b.座標[0], b.座標[1]
+    )
+)[0];
 
-for(const entrance of topN){
+/* 防呆 */
+if(!nearestEntrance){
+return await getRouteDistance(item.座標);
+}
 
-/* leg1：origin → entrance（平面） */
-const leg1 = await getRouteDistance(entrance.座標);
+/* =========================
+🚗 STEP 2：origin → 交流道入口（平面道路）
+========================= */
 
-/* leg2：entrance → target（高速） */
+const leg1 = await getRouteDistance(nearestEntrance.座標);
+
+/* =========================
+🚀 STEP 3：交流道入口 → target（高速/一般路網）
+========================= */
+
 const leg2 = await getRouteDistance(item.座標);
 
-/* total */
-const total = (leg1 ?? 1e9) + (leg2 ?? 1e9);
+/* =========================
+📏 合併距離
+========================= */
+
+const total =
+(leg1 ?? 0) + (leg2 ?? 0);
 
 if(!best || total < best.total){
 best = { total, leg1, leg2, entrance };
