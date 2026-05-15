@@ -993,25 +993,40 @@ let routeDistance = null;
 ========================= */
 if(isMotorway(item)){
 
-/* 🚫 排除自己 + 只選真正交流道點 */
+/* 🚗 找最近交流道入口（以 origin 為基準） */
 const candidates = results.filter(r =>
   isMotorway(r) &&
   r.id !== item.id
 );
 
-/* 🔍 找「距離 origin 最近的交流道入口」 */
+/* 如果沒有交流道 → fallback */
+if(!candidates.length){
+routeDistance = await getRouteDistance(item.座標);
+}else{
+
 const nearestEntrance = candidates.sort(
-  (a,b) => a.距離 - b.距離
+  (a,b)=> a.距離 - b.距離
 )[0];
 
-if(nearestEntrance){
+/* =========================
+   🟦 STEP 1：origin → 交流道（平面道路）
+========================= */
+const leg1 = await getRouteDistance(nearestEntrance.座標);
 
-/* 👉 origin → 最近交流道入口（平面道路） */
-routeDistance = await getRouteDistance(nearestEntrance.座標);
+/* =========================
+   🟦 STEP 2：交流道 → 目的地（高速）
+========================= */
+const leg2 = await getRouteDistance(item.座標);
+
+/* =========================
+   🟩 STEP 3：總距離
+========================= */
+routeDistance = (leg1 ?? 0) + (leg2 ?? 0);
+}
 
 }else{
 
-/* fallback */
+/* 一般 POI（單段） */
 routeDistance = await getRouteDistance(item.座標);
 }
 
