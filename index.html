@@ -1026,45 +1026,82 @@ const nearestEntrance = entrances.sort(
     )
 )[0];
 
-/* 防呆 */
-if(!nearestEntrance){
-return await getRouteDistance(item.座標);
+function isEntranceRamp(item){
+
+if(item.類型 !== "motorway_link") return false;
+
+const name = (item.名稱 || "").toLowerCase();
+
+/* 🚫 排除出口 */
+if(
+name.includes("出口") ||
+name.includes("exit") ||
+name.includes("off-ramp")
+){
+return false;
 }
+
+/* 距離限制（避免遠端 link） */
+return item.距離 < 5000;
+}
+function getBestEntrance(origin, entrances){
+
+let best = null;
+
+for(const e of entrances){
+
+/* 只做 cost estimate，不拆 routing */
+const d = haversine(
+origin[0], origin[1],
+e.座標[0], e.座標[1]
+);
+
+if(!best || d < best.d){
+best = { e, d };
+}
+
+}
+
+return best?.e;
+}
+
+for (const item of results.slice(0,20)) {
+
+let routeDistance = null;
 
 /* =========================
-🚗 STEP 2：origin → 交流道入口（平面道路）
+🟢 一般 POI（不動）
 ========================= */
+if(!isMotorway(item)){
 
-const leg1 = await getRouteDistance(nearestEntrance.座標);
+routeDistance = await getRouteDistance(item.座標);
 
 /* =========================
-🚀 STEP 3：交流道入口 → target（高速/一般路網）
+🛣️ 交流道（修正核心）
 ========================= */
-
-const leg2 = await getRouteDistance(item.座標);
-
-/* =========================
-📏 合併距離
-========================= */
-
-const total =
-(leg1 ?? 0) + (leg2 ?? 0);
-
-if(!best || total < best.total){
-best = { total, leg1, leg2, entrance };
-}
-
-}
-
-routeDistance = best?.total ?? null;
-}
-
 }else{
 
-/* 一般 POI */
+/* STEP 1：只找入口（不做 routing） */
+const entrances = results.filter(r =>
+  isEntranceRamp(r)
+);
+
+/* STEP 2：選最佳入口（純 cost） */
+const bestEntrance = getBestEntrance(origin, entrances);
+
+/* STEP 3：只做一次 OSRM（關鍵修正） */
 routeDistance = await getRouteDistance(item.座標);
+
 }
 
+item.路線距離數值 = routeDistance;
+
+item.路線距離 =
+routeDistance != null
+? routeDistance + " m"
+: "無法到達";
+
+}  
 /* ========================= */
 
 item.路線距離數值 = routeDistance;
