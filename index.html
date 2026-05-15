@@ -667,12 +667,21 @@ else if(t==="motorway_junction"){
 
 parts.push(`
 
-/* 交流道節點（主定位） */
-nwr["highway"="motorway_junction"](around:${radius},${lat},${lon});
+/* 交流道節點（入口/出口共同節點） */
+node["highway"="motorway_junction"]
+(around:${radius},${lat},${lon});
 
-/* 只取入口導向匝道（避免出口干擾） */
-nwr["highway"="motorway_link"]
+/* 🚗 只保留入口型匝道（on-ramp） */
+way["highway"="motorway_link"]
 ["oneway"="yes"]
+["ramp"="entry"]
+(around:${radius},${lat},${lon});
+
+/* 補強：未標 ramp，但仍可能是入口的匝道 */
+way["highway"="motorway_link"]
+["oneway"="yes"]
+["name"~"交流道|匝道|交流道入口|interchange",i]
+["destination"!~"出口|exit",i]
 (around:${radius},${lat},${lon});
 
 `);
