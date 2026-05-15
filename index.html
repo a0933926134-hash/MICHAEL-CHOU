@@ -963,8 +963,13 @@ results.sort((a,b)=>a.距離-b.距離);
 /* render table */
 renderTable();
 
-/* 計算路線距離 */
-for (const item of results.slice(0,20)) {
+/* 計算路線距離（並行加速版） */
+
+await Promise.all(
+
+results.slice(0,20).map(async item=>{
+
+try{
 
 const routeDistance =
 await getRouteDistance(item.座標);
@@ -975,6 +980,15 @@ item.路線距離 =
 routeDistance != null
 ? routeDistance + " m"
 : "無法到達";
+
+}catch(err){
+
+console.error(err);
+
+item.路線距離 = "計算失敗";
+
+}
+
 /* 更新畫面 */
 const cell =
 document.getElementById(`route-${item.id}`);
@@ -985,7 +999,9 @@ cell.innerText = item.路線距離;
 
 }
 
-}
+})
+
+);
 
 }
 
