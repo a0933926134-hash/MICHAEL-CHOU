@@ -229,7 +229,37 @@ title="點擊排序"
 </div>
 
 <div id="map"></div>
+let panel = document.getElementById("panel");
+let header = document.getElementById("panelHeader");
 
+let isDragging = false;
+let offsetX = 0;
+let offsetY = 0;
+
+header.addEventListener("mousedown", function(e){
+isDragging = true;
+
+const rect = panel.getBoundingClientRect();
+
+offsetX = e.clientX - rect.left;
+offsetY = e.clientY - rect.top;
+
+panel.style.position = "absolute";
+panel.style.zIndex = 9999;
+});
+
+document.addEventListener("mousemove", function(e){
+if(!isDragging) return;
+
+panel.style.left = (e.clientX - offsetX) + "px";
+panel.style.top = (e.clientY - offsetY) + "px";
+panel.style.right = "auto";
+panel.style.bottom = "auto";
+});
+
+document.addEventListener("mouseup", function(){
+isDragging = false;
+});
 <script>
 
 let map=L.map('map').setView([25.012098,121.465675],15);
