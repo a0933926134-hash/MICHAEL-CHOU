@@ -26,15 +26,7 @@ box-shadow:0 10px 25px rgba(0,0,0,0.25);
 font-size:13px;
 border:1px solid #fcd34d;
 }  
-#panelHeader{
-cursor:grab;
-font-weight:bold;
-padding:6px 8px;
-margin:-14px -14px 10px -14px;
-border-radius:16px 16px 0 0;
-background:#fde68a;
-user-select:none;
-}
+
 #panel h3{margin:0 0 8px 0;color:#1e3a8a;}
 
 #panel input{
@@ -154,7 +146,6 @@ POI查詢：Overpass API
 <body>
 
 <div id="panel">
-<div id="panelHeader">☰ 查詢控制面板</div>  
 <h3>影響地價區域因素分析明細表(住宅用地)</h3>
 
 緯度:<input id="lat" value="25.012098"><br>
@@ -327,37 +318,7 @@ route:true
 };
 let routeLayer=null;
 let circleLayer=null;
-let panel = document.getElementById("panel");
-let header = document.getElementById("panelHeader");
 
-let isDragging = false;
-let offsetX = 0;
-let offsetY = 0;
-
-header.addEventListener("mousedown", function(e){
-isDragging = true;
-
-const rect = panel.getBoundingClientRect();
-
-offsetX = e.clientX - rect.left;
-offsetY = e.clientY - rect.top;
-
-panel.style.position = "absolute";
-panel.style.zIndex = 9999;
-});
-
-document.addEventListener("mousemove", function(e){
-if(!isDragging) return;
-
-panel.style.left = (e.clientX - offsetX) + "px";
-panel.style.top = (e.clientY - offsetY) + "px";
-panel.style.right = "auto";
-panel.style.bottom = "auto";
-});
-
-document.addEventListener("mouseup", function(){
-isDragging = false;
-});
 let lockOrigin = false;
 /* 初始定位 */
 
@@ -710,36 +671,20 @@ parts.push(`
 node["highway"="motorway_junction"]
 (around:${radius},${lat},${lon});
 
-/* ✅ 入口匝道（已排除出口） */
+/* 國道入口匝道 */
 way["highway"="motorway_link"]
 ["oneway"="yes"]
-["destination"!~".+"]
-["exit"!~".+"]
-["junction"!~"exit"]
+["destination"!~".*"]
 (around:${radius},${lat},${lon});
 
-/* ✅ 名稱型入口匝道（排除出口語意） */
+/* 名稱含交流道入口 */
 way["highway"="motorway_link"]
-["name"~"交流道|匝道|interchange|入口",i]
-["destination"!~".+"]
-["exit"!~".+"]
-["junction"!~"exit"]
-(around:${radius},${lat},${lon});
-
-/* ❌ 明確排除所有出口匝道（強制過濾） */
-way["highway"="motorway_link"]
-["destination"~".+"]
-(around:${radius},${lat},${lon});
-
-way["highway"="motorway_link"]
-["exit"~".+"]
-(around:${radius},${lat},${lon});
-
-way["highway"="motorway_link"]
-["junction"="exit"]
+["name"~"交流道|匝道|interchange",i]
+["destination"!~".*"]
 (around:${radius},${lat},${lon});
 
 `);
+
 }
 else if(t==="marketplace"){
 
