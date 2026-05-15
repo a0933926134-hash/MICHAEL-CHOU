@@ -595,7 +595,52 @@ block:"center"
 });
 
 }
+async function getDualRouteDistance(origin, target){
 
+/* =========================
+   STEP 1：找最近交流道入口
+========================= */
+const entranceCandidates = results.filter(r =>
+  isMotorway(r)
+);
+
+if(!entranceCandidates.length){
+return await getRouteDistance(target);
+}
+
+const nearestEntrance = entranceCandidates.sort(
+  (a,b)=> a.距離 - b.距離
+)[0];
+
+/* =========================
+   STEP 2：origin → 交流道入口（平面）
+========================= */
+const leg1 = await getRouteDistance(nearestEntrance.座標);
+
+/* =========================
+   STEP 3：交流道入口 → target（高速）
+========================= */
+const leg2 = await getRouteDistance(target);
+
+/* =========================
+   STEP 4：總距離
+========================= */
+const total =
+(leg1 ?? 0) + (leg2 ?? 0);
+
+/* =========================
+   STEP 5：方向判斷（簡化）
+========================= */
+const direction = getDirection(nearestEntrance.座標, target);
+
+return {
+total,
+leg1,
+leg2,
+direction
+};
+
+}
 }
 
 /* 查詢 */
@@ -1076,7 +1121,15 @@ routeLayer=null;
 routeInfo.innerText="路線距離：尚未計算";
 
 }
+function isMotorway(item){
+return item.類型 === "motorway_junction" ||
+       item.類型 === "motorway_link";
+}
 
+/* 🧭 判斷方向（簡化版：北/南） */
+function getDirection(from, to){
+return to[0] > from[0] ? "北上" : "南下";
+}
 /* Excel */
 function exportExcel(){
 
