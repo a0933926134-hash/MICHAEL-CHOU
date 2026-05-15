@@ -938,28 +938,45 @@ results.sort((a,b)=>a.距離-b.距離);
 /* render table */
 renderTable();
 
-/* 計算路線距離（交流道改為：先到最近交流道入口） */
+/* 計算路線距離（交流道：先找最近交流道路口） */
 for (const item of results.slice(0,20)) {
 
 let routeDistance = null;
 
+/* =========================
+   🛣️ 交流道特殊處理
+========================= */
 if(isMotorway(item)){
 
-/* 🚗 先找最近交流道入口（同類型中距離 origin 最近） */
-const nearestEntrance = results
-.filter(r => isMotorway(r))
-.sort((a,b)=> a.距離 - b.距離)[0];
+/* 🚫 排除自己 + 只選真正交流道點 */
+const candidates = results.filter(r =>
+  isMotorway(r) &&
+  r.id !== item.id
+);
 
-/* 🚗 平面道路 → 最近交流道入口 */
+/* 🔍 找「距離 origin 最近的交流道入口」 */
+const nearestEntrance = candidates.sort(
+  (a,b) => a.距離 - b.距離
+)[0];
+
 if(nearestEntrance){
+
+/* 👉 origin → 最近交流道入口（平面道路） */
 routeDistance = await getRouteDistance(nearestEntrance.座標);
+
+}else{
+
+/* fallback */
+routeDistance = await getRouteDistance(item.座標);
 }
 
 }else{
 
-/* 一般點：直接導航 */
+/* 一般 POI */
 routeDistance = await getRouteDistance(item.座標);
 }
+
+/* ========================= */
 
 item.路線距離數值 = routeDistance;
 
@@ -969,8 +986,7 @@ routeDistance != null
 : "無法到達";
 
 /* 更新畫面 */
-const cell =
-document.getElementById(`route-${item.id}`);
+const cell = document.getElementById(`route-${item.id}`);
 
 if(cell){
 cell.innerText = item.路線距離;
