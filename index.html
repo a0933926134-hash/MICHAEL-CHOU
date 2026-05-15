@@ -965,8 +965,28 @@ renderTable();
 /* 計算路線距離 */
 for (const item of results.slice(0,80)) {
 
-const routeDistance =
-await getRouteDistance(item.座標);
+let routeDistance = null;
+
+/* 🚗 交流道特殊處理：改用平面道路邏輯 */
+if(item.類型 === "motorway_junction"){
+
+const nearest = getNearestMotorwayEntrance();
+
+if(nearest){
+routeDistance = Math.round(nearest.distance);
+}
+
+}else{
+
+routeDistance = await getRouteDistance(item.座標);
+
+if(routeDistance == null){
+item.路線距離 = "無法判定入口";
+}else{
+item.路線距離 = routeDistance + " m";
+item.路線距離數值 = routeDistance;
+}  
+}
 
 item.路線距離數值 = routeDistance;
 
