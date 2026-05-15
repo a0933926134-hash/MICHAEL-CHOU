@@ -666,21 +666,13 @@ else if(t==="motorway_junction"){
 
 parts.push(`
 
-/* 交流道節點（入口/出口共同節點） */
-node["highway"="motorway_junction"]
-(around:${radius},${lat},${lon});
+/* 🚗 只抓交流道入口節點 */
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
-/* 🚗 只保留入口型匝道（on-ramp） */
+/* 🚗 入口型匝道（排除出口） */
 way["highway"="motorway_link"]
 ["oneway"="yes"]
 ["ramp"="entry"]
-(around:${radius},${lat},${lon});
-
-/* 補強：未標 ramp，但仍可能是入口的匝道 */
-way["highway"="motorway_link"]
-["oneway"="yes"]
-["name"~"交流道|匝道|交流道入口|interchange",i]
-["destination"!~"出口|exit",i]
 (around:${radius},${lat},${lon});
 
 `);
@@ -872,6 +864,19 @@ const lat2=e.center?.lat ?? e.lat;
 const lon2=e.center?.lon ?? e.lon;
 
 if(lat2 == null || lon2 == null) return;
+
+/* 🚗 Step 3：收集交流道入口候選點 */
+if(
+e.tags?.highway === "motorway_junction" ||
+e.tags?.highway === "motorway_link"
+){
+
+motorwayEntrances.push({
+lat: lat2,
+lon: lon2
+});
+
+}  
 
 const key = `${e.type}-${e.id}`;
 
