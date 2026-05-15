@@ -863,7 +863,32 @@ headers:{
 
 const data=await res.json();
 
-if(!data.elements) return;
+/* 查無資料 */
+if(
+!data.elements ||
+data.elements.length===0
+){
+
+tbody.innerHTML=`
+<tr>
+<td colspan="4"
+style="
+padding:18px;
+text-align:center;
+color:#ef4444;
+font-weight:bold;
+background:#fff7f7;
+">
+查無資料
+</td>
+</tr>
+`;
+
+routeInfo.innerText="路線距離：查無資料";
+
+return;
+
+}
 
 const dedup = new Set();
 
