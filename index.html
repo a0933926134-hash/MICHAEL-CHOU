@@ -520,9 +520,29 @@ return null;
 
 }
 
-}  
+} 
+  
 async function drawRoute(to){
+function getNearestMotorwayEntrance(){
 
+if(!motorwayEntrances.length) return null;
+
+let best = null;
+let min = Infinity;
+
+for(const p of motorwayEntrances){
+
+const d = haversine(origin[0], origin[1], p.lat, p.lon);
+
+if(d < min){
+min = d;
+best = p;
+}
+
+}
+
+return { point: best, distance: min };
+}
 try{
 
 if(!origin) return;
