@@ -500,27 +500,52 @@ if(!origin) return null;
 const url =
 `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 
-const res = await fetch(url);
+/* timeout 保護 */
+const controller = new AbortController();
+
+const timeout = setTimeout(()=>{
+
+controller.abort();
+
+},8000);
+
+const res = await fetch(url,{
+signal:controller.signal
+});
+
+clearTimeout(timeout);
+
+if(!res.ok){
+
+return null;
+
+}
 
 const data = await res.json();
 
-if(!data.routes?.length){
+if(
+!data ||
+!data.routes ||
+!data.routes.length
+){
 
 return null;
 
 }
 
-return Math.round(data.routes[0].distance);
+return Math.round(
+data.routes[0].distance
+);
 
 }catch(err){
 
-console.error(err);
+console.error("route error:",err);
 
 return null;
 
 }
 
-}  
+}
 async function drawRoute(to){
 
 try{
@@ -967,7 +992,7 @@ renderTable();
 
 await Promise.all(
 
-results.slice(0,20).map(async item=>{
+results.slice(0,50).map(async item=>{
 
 try{
 
@@ -976,10 +1001,22 @@ await getRouteDistance(item.座標);
 
 item.路線距離數值 = routeDistance;
 
+if(routeDistance === null){
+
+item.路線距離 = "無法到達";
+
+}else if(
+typeof routeDistance === "number"
+){
+
 item.路線距離 =
-routeDistance != null
-? routeDistance + " m"
-: "無法到達";
+routeDistance + " m";
+
+}else{
+
+item.路線距離 = "計算失敗";
+
+}
 
 }catch(err){
 
