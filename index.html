@@ -673,6 +673,14 @@ node["highway"="motorway_junction"]
 
 /* 國道入口匝道 */
 way["highway"="motorway_link"]
+["oneway"="yes"]
+["destination"!~".*"]
+(around:${radius},${lat},${lon});
+
+/* 名稱含交流道入口 */
+way["highway"="motorway_link"]
+["name"~"交流道|匝道|interchange",i]
+["destination"!~".*"]
 (around:${radius},${lat},${lon});
 
 `);
@@ -839,7 +847,7 @@ const query=`
 (
 ${parts.join("\n")}
 );
-out geom;
+out center;
 `;
 
 const res=await fetch(
@@ -861,26 +869,8 @@ const dedup = new Set();
 
 data.elements.forEach(e=>{
 
-let lat2, lon2;
-
-/* 交流道入口特殊處理 */
-if(
-e.tags?.highway === "motorway_link"
-&& e.geometry
-&& e.geometry.length
-){
-
-/* 取 motorway_link 起點 */
-lat2 = e.geometry[0].lat;
-lon2 = e.geometry[0].lon;
-
-}
-else{
-
-lat2 = e.center?.lat ?? e.lat;
-lon2 = e.center?.lon ?? e.lon;
-
-}
+const lat2=e.center?.lat ?? e.lat;
+const lon2=e.center?.lon ?? e.lon;
 
 if(lat2 == null || lon2 == null) return;
 
