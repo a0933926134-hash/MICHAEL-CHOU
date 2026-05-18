@@ -673,14 +673,6 @@ node["highway"="motorway_junction"]
 
 /* 國道入口匝道 */
 way["highway"="motorway_link"]
-["oneway"="yes"]
-["destination"!~".*"]
-(around:${radius},${lat},${lon});
-
-/* 名稱含交流道入口 */
-way["highway"="motorway_link"]
-["name"~"交流道|匝道|interchange",i]
-["destination"!~".*"]
 (around:${radius},${lat},${lon});
 
 `);
@@ -869,8 +861,47 @@ const dedup = new Set();
 
 data.elements.forEach(e=>{
 
-const lat2=e.center?.lat ?? e.lat;
-const lon2=e.center?.lon ?? e.lon;
+let lat2=e.center?.lat ?? e.lat;
+let lon2=e.center?.lon ?? e.lon;
+
+/* 🚨 交流道入口修正（只影響 motorway_link） */
+if(
+e.tags?.highway === "motorway_link"
+&& e.bounds
+){
+
+const candidates = [
+
+[e.bounds.minlat, e.bounds.minlon],
+[e.bounds.minlat, e.bounds.maxlon],
+[e.bounds.maxlat, e.bounds.minlon],
+[e.bounds.maxlat, e.bounds.maxlon]
+
+];
+
+let bestPoint = candidates[0];
+let bestDistance = Infinity;
+
+for(const p of candidates){
+
+const d = haversine(
+lat,
+lon,
+p[0],
+p[1]
+);
+
+if(d < bestDistance){
+bestDistance = d;
+bestPoint = p;
+}
+
+}
+
+lat2 = bestPoint[0];
+lon2 = bestPoint[1];
+
+}
 
 if(lat2 == null || lon2 == null) return;
 
