@@ -667,23 +667,12 @@ else if(t==="motorway_junction"){
 
 parts.push(`
 
-/* 僅抓交流道入口路口 */
-
 /* 國道交流道節點 */
 node["highway"="motorway_junction"]
 (around:${radius},${lat},${lon});
 
-/* motorway_link 與平面道路交會入口 */
-node(w)
-["highway"]
-(bn)
-->.linkNodes;
-
+/* 國道入口匝道 */
 way["highway"="motorway_link"]
-(around:${radius},${lat},${lon});
-
-node(w)
-["highway"]
 (around:${radius},${lat},${lon});
 
 `);
