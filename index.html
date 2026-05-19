@@ -10,7 +10,66 @@
 
 <style>
 body { margin:0; font-family: Arial; }
-#map { height:100vh; }
+#map{
+height:100vh;
+}
+
+/* 上方工具列 */
+#topToolbar{
+
+position:absolute;
+
+top:10px;
+left:50%;
+
+transform:translateX(-50%);
+
+z-index:2000;
+
+display:flex;
+gap:10px;
+
+background:rgba(255,255,255,0.95);
+
+padding:10px 14px;
+
+border-radius:14px;
+
+box-shadow:0 4px 12px rgba(0,0,0,0.25);
+
+border:1px solid #dbeafe;
+
+backdrop-filter: blur(6px);
+
+}
+
+#topToolbar button{
+
+padding:8px 14px;
+
+border:none;
+
+border-radius:10px;
+
+background:#2563eb;
+
+color:white;
+
+font-weight:bold;
+
+cursor:pointer;
+
+transition:0.2s;
+
+}
+
+#topToolbar button:hover{
+
+background:#1d4ed8;
+
+transform:translateY(-1px);
+
+}
 
 /* UI 完全不動 */
 #panel{
@@ -228,6 +287,19 @@ title="點擊排序"
 </div>
 </div>
 
+<!-- 上方工具列 -->
+<div id="topToolbar">
+
+<button id="drawRectBtn">
+🟦 繪製範圍
+</button>
+
+<button id="clearDrawBtn">
+🧹 清除範圍
+</button>
+
+</div>
+
 <div id="map"></div>
 
 <script>
@@ -291,6 +363,15 @@ scaleControl.update();
 });
 
 let markerLayer=L.layerGroup().addTo(map);
+
+/* 繪圖圖層 */
+let drawLayer = L.layerGroup().addTo(map);
+
+let drawRectangle = null;
+
+let isDrawing = false;
+
+let drawStart = null;
 /* 地籍圖 */
 const cadastralLayer = L.tileLayer(
 'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/EPSG:3857/{z}/{y}/{x}',{
@@ -351,6 +432,7 @@ fillOpacity:0.15
 /* 點擊定位 */
 map.on('click',e=>{
 
+if(isDrawing) return;
 const lat=e.latlng.lat;
 const lon=e.latlng.lng;
 
@@ -1160,6 +1242,106 @@ isDragging = false;
 });
 
 </script>
+/* =========================
+   繪製範圍功能
+========================= */
 
+const drawBtn =
+document.getElementById("drawRectBtn");
+
+const clearDrawBtn =
+document.getElementById("clearDrawBtn");
+
+/* 啟動繪圖 */
+drawBtn.onclick = ()=>{
+
+isDrawing = !isDrawing;
+
+if(isDrawing){
+
+drawBtn.innerText = "✏️ 繪製中...";
+
+map.dragging.disable();
+
+}else{
+
+drawBtn.innerText = "🟦 繪製範圍";
+
+map.dragging.enable();
+
+}
+
+};
+
+/* 清除 */
+clearDrawBtn.onclick = ()=>{
+
+drawLayer.clearLayers();
+
+drawRectangle = null;
+
+};
+
+/* 滑鼠按下 */
+map.on("mousedown",function(e){
+
+if(!isDrawing) return;
+
+drawStart = e.latlng;
+
+});
+
+/* 滑鼠移動 */
+map.on("mousemove",function(e){
+
+if(!isDrawing || !drawStart) return;
+
+if(drawRectangle){
+
+drawLayer.removeLayer(drawRectangle);
+
+}
+
+drawRectangle = L.rectangle(
+
+[drawStart,e.latlng],
+
+{
+color:"#2563eb",
+weight:2,
+fillOpacity:0.15
+}
+
+).addTo(drawLayer);
+
+});
+
+/* 滑鼠放開 */
+map.on("mouseup",function(e){
+
+if(!isDrawing || !drawStart) return;
+
+drawRectangle = L.rectangle(
+
+[drawStart,e.latlng],
+
+{
+color:"#2563eb",
+weight:2,
+fillOpacity:0.15
+}
+
+).addTo(drawLayer);
+
+/* 完成後關閉繪圖模式 */
+isDrawing = false;
+
+drawBtn.innerText = "🟦 繪製範圍";
+
+map.dragging.enable();
+
+drawStart = null;
+
+});
 </body>
 </html>
