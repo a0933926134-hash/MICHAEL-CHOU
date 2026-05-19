@@ -4,8 +4,15 @@
 <meta charset="UTF-8">
 <title>市價徵收查估作業-影響地價區域因素分析明細表(住宅用地)</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -363,7 +370,9 @@ scaleControl.update();
 });
 
 let markerLayer=L.layerGroup().addTo(map);
+const drawnItems = new L.FeatureGroup();
 
+map.addLayer(drawnItems);
 /* 繪圖圖層 */
 let drawLayer = L.layerGroup().addTo(map);
 
@@ -431,6 +440,11 @@ fillOpacity:0.15
 }).addTo(map);
 /* 點擊定位 */
 map.on('click',e=>{
+
+/* 繪圖模式中不觸發定位 */
+if(rectangleDrawer._enabled){
+return;
+}
 
 if(isDrawing) return;
 const lat=e.latlng.lat;
@@ -1246,78 +1260,6 @@ isDragging = false;
    繪製範圍功能
 ========================= */
 
-const drawBtn =
-document.getElementById("drawRectBtn");
-
-const clearDrawBtn =
-document.getElementById("clearDrawBtn");
-
-/* 啟動繪圖 */
-drawBtn.onclick = ()=>{
-
-isDrawing = !isDrawing;
-
-if(isDrawing){
-
-drawBtn.innerText = "✏️ 繪製中...";
-
-map.dragging.disable();
-
-}else{
-
-drawBtn.innerText = "🟦 繪製範圍";
-
-map.dragging.enable();
-
-}
-
-};
-
-/* 清除 */
-clearDrawBtn.onclick = ()=>{
-
-drawLayer.clearLayers();
-
-drawRectangle = null;
-
-};
-
-/* 滑鼠按下 */
-map.on("mousedown",function(e){
-
-if(!isDrawing) return;
-
-drawStart = e.latlng;
-
-});
-
-/* 滑鼠移動 */
-map.on("mousemove",function(e){
-
-if(!isDrawing || !drawStart) return;
-
-if(drawRectangle){
-
-drawLayer.removeLayer(drawRectangle);
-
-}
-
-drawRectangle = L.rectangle(
-
-[drawStart,e.latlng],
-
-{
-color:"#2563eb",
-weight:2,
-fillOpacity:0.15
-}
-
-).addTo(drawLayer);
-
-});
-
-/* 滑鼠放開 */
-map.on("mouseup",function(e){
 
 if(!isDrawing || !drawStart) return;
 
@@ -1343,5 +1285,66 @@ map.dragging.enable();
 drawStart = null;
 
 });
+/* =========================
+   Rectangle Draw
+========================= */
+
+let rectangleDrawer = new L.Draw.Rectangle(map, {
+
+shapeOptions: {
+color: '#2563eb',
+weight: 2,
+fillOpacity: 0.15
+}
+
+});
+
+/* 啟動繪圖 */
+document
+.getElementById("drawRectBtn")
+.onclick = function(){
+
+rectangleDrawer.enable();
+
+};
+
+/* 完成繪圖 */
+map.on(L.Draw.Event.CREATED, function (e) {
+
+const layer = e.layer;
+
+/* 清除舊範圍 */
+drawnItems.clearLayers();
+
+/* 加入新範圍 */
+drawnItems.addLayer(layer);
+
+/* 取得 bounds */
+const bounds = layer.getBounds();
+
+console.log("範圍:", bounds);
+
+/* 可取得 bbox */
+const bbox = {
+
+south: bounds.getSouth(),
+west: bounds.getWest(),
+north: bounds.getNorth(),
+east: bounds.getEast()
+
+};
+
+console.log("BBOX:", bbox);
+
+});
+
+/* 清除 */
+document
+.getElementById("clearDrawBtn")
+.onclick = function(){
+
+drawnItems.clearLayers();
+
+};  
 </body>
 </html>
