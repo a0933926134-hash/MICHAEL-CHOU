@@ -4,73 +4,13 @@
 <meta charset="UTF-8">
 <title>市價徵收查估作業-影響地價區域因素分析明細表(住宅用地)</title>
 
-<!-- ❌ 刪除這兩行 -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
-<script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
 body { margin:0; font-family: Arial; }
-#map{
-height:100vh;
-}
-
-/* 上方工具列 */
-#topToolbar{
-
-position:absolute;
-
-top:10px;
-left:50%;
-
-transform:translateX(-50%);
-
-z-index:2000;
-
-display:flex;
-gap:10px;
-
-background:rgba(255,255,255,0.95);
-
-padding:10px 14px;
-
-border-radius:14px;
-
-box-shadow:0 4px 12px rgba(0,0,0,0.25);
-
-border:1px solid #dbeafe;
-
-backdrop-filter: blur(6px);
-
-}
-
-#topToolbar button{
-
-padding:8px 14px;
-
-border:none;
-
-border-radius:10px;
-
-background:#2563eb;
-
-color:white;
-
-font-weight:bold;
-
-cursor:pointer;
-
-transition:0.2s;
-
-}
-
-#topToolbar button:hover{
-
-background:#1d4ed8;
-
-transform:translateY(-1px);
-
-}
+#map { height:100vh; }
 
 /* UI 完全不動 */
 #panel{
@@ -288,19 +228,6 @@ title="點擊排序"
 </div>
 </div>
 
-<!-- 上方工具列 -->
-<div id="topToolbar">
-
-<button id="drawRectBtn">
-🟦 繪製範圍
-</button>
-
-<button id="clearDrawBtn">
-🧹 清除範圍
-</button>
-
-</div>
-
 <div id="map"></div>
 
 <script>
@@ -364,11 +291,6 @@ scaleControl.update();
 });
 
 let markerLayer=L.layerGroup().addTo(map);
-const drawnItems = new L.FeatureGroup();
-
-map.addLayer(drawnItems);
-/* 繪圖圖層 */
-
 /* 地籍圖 */
 const cadastralLayer = L.tileLayer(
 'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/EPSG:3857/{z}/{y}/{x}',{
@@ -427,63 +349,7 @@ color:'blue',
 fillOpacity:0.15
 }).addTo(map);
 /* 點擊定位 */
-map.on('click', e => {
-
-/* === 範圍繪製模式 === */
-if (drawMode) {
-
-if (!startPoint) {
-
-startPoint = e.latlng;
-return;
-
-}
-
-/* 第二點 */
-const endPoint = e.latlng;
-
-const bounds = L.latLngBounds(startPoint, endPoint);
-
-/* 清除舊圖 */
-if (tempRect) {
-map.removeLayer(tempRect);
-}
-
-/* 畫矩形（只是顯示用） */
-tempRect = L.rectangle(bounds, {
-color: "#2563eb",
-weight: 2,
-fillOpacity: 0.15
-}).addTo(map);
-
-/* 存 BBOX */
-const bbox = {
-south: bounds.getSouth(),
-west: bounds.getWest(),
-north: bounds.getNorth(),
-east: bounds.getEast()
-};
-
-console.log("BBOX:", bbox);
-
-/* 結束繪圖模式 */
-drawMode = false;
-startPoint = null;
-map.getContainer().style.cursor = "";
-
-/* 👉 這裡你之後可以直接用 bbox 做 Overpass 查詢 */
-return;
-}
-
-/* ===== 原本定位功能（保持不動） ===== */
-const lat = e.latlng.lat;
-const lon = e.latlng.lng;
-...
-});
-/* 繪圖模式中不觸發定位 */
-if (rectangleDrawer && rectangleDrawer.enabled()) {
-    return;
-}
+map.on('click',e=>{
 
 const lat=e.latlng.lat;
 const lon=e.latlng.lng;
@@ -1292,81 +1158,6 @@ document.addEventListener("mouseup", function(){
 isDragging = false;
 
 });
-
-/* =========================
-   Rectangle Draw
-========================= */
-
-let rectangleDrawer = new L.Draw.Rectangle(map, {
-
-shapeOptions: {
-color: '#2563eb',
-weight: 2,
-fillOpacity: 0.15
-}
-
-});
-
-/* 啟動繪圖 */
-document
-.getElementById("drawRectBtn")
-.onclick = function(){
-
-rectangleDrawer.enable();
-
-};
-
-/* 完成繪圖 */
-map.on(L.Draw.Event.CREATED, function (e) {
-
-const layer = e.layer;
-
-/* 清除舊範圍 */
-drawnItems.clearLayers();
-
-/* 加入新範圍 */
-drawnItems.addLayer(layer);
-
-/* 取得 bounds */
-const bounds = layer.getBounds();
-
-console.log("範圍:", bounds);
-
-/* bbox */
-const bbox = {
-
-south: bounds.getSouth(),
-west: bounds.getWest(),
-north: bounds.getNorth(),
-east: bounds.getEast()
-
-};
-
-console.log("BBOX:", bbox);
-
-});
-
-/* 清除 */
-document
-.getElementById("clearDrawBtn")
-.onclick = function(){
-
-drawnItems.clearLayers();
-
-};
-let drawMode = false;
-let startPoint = null;
-let tempRect = null;
-document.getElementById("drawRectBtn").onclick = function () {
-
-drawMode = true;
-startPoint = null;
-
-map.getContainer().style.cursor = "crosshair";
-
-alert("請點選第一個點，再點第二個點建立範圍");
-
-};
 
 </script>
 
