@@ -374,13 +374,7 @@ const drawnItems = new L.FeatureGroup();
 
 map.addLayer(drawnItems);
 /* 繪圖圖層 */
-let drawLayer = L.layerGroup().addTo(map);
 
-let drawRectangle = null;
-
-let isDrawing = false;
-
-let drawStart = null;
 /* 地籍圖 */
 const cadastralLayer = L.tileLayer(
 'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/EPSG:3857/{z}/{y}/{x}',{
@@ -442,11 +436,10 @@ fillOpacity:0.15
 map.on('click',e=>{
 
 /* 繪圖模式中不觸發定位 */
-if(rectangleDrawer._enabled){
-return;
+if (rectangleDrawer && rectangleDrawer.enabled()) {
+    return;
 }
 
-if(isDrawing) return;
 const lat=e.latlng.lat;
 const lon=e.latlng.lng;
 
@@ -1254,35 +1247,7 @@ document.addEventListener("mouseup", function(){
 isDragging = false;
 
 });
-/* =========================
-   繪製範圍功能
-========================= */
 
-
-if(!isDrawing || !drawStart) return;
-
-drawRectangle = L.rectangle(
-
-[drawStart,e.latlng],
-
-{
-color:"#2563eb",
-weight:2,
-fillOpacity:0.15
-}
-
-).addTo(drawLayer);
-
-/* 完成後關閉繪圖模式 */
-isDrawing = false;
-
-drawBtn.innerText = "🟦 繪製範圍";
-
-map.dragging.enable();
-
-drawStart = null;
-
-});
 /* =========================
    Rectangle Draw
 ========================= */
@@ -1322,7 +1287,7 @@ const bounds = layer.getBounds();
 
 console.log("範圍:", bounds);
 
-/* 可取得 bbox */
+/* bbox */
 const bbox = {
 
 south: bounds.getSouth(),
@@ -1343,7 +1308,8 @@ document
 
 drawnItems.clearLayers();
 
-};  
+};
+
 </script>
 
 </body>
