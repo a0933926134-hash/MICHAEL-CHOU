@@ -484,7 +484,7 @@ function updateCentroidByPoints(pts) {
 }
 
 /* ====================================================================
-    ★ Bug 修正核心：完善 GeoJSON 結構，徹底解決 SHP 匯出錯誤問題
+    ★ Bug 終極修正：改用 shp-write 底層最穩定的原始 Feature 數組結構傳參
    ==================================================================== */
 function exportPolygonSHP() {
     if (!drawPoints || drawPoints.length < 3) {
@@ -492,47 +492,44 @@ function exportPolygonSHP() {
         return;
     }
     try {
-        // 1. 嚴格執行座標深拷貝與點位轉換：將 Leaflet [Lat, Lng] 改為 GIS 標準的 [Lng, Lat]
-        let coordinates = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
+        // 1. 嚴格執行點位經緯度拆解與深拷貝轉換 (SHP 規範：[Lng, Lat])
+        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
         
-        // 2. 確保首尾點位完全一致（閉合曲線）
-        coordinates.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
+        // 2. 終點必須與起點完全一致，形成一個嚴格閉合的幾何環
+        ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
         
-        // 3. 利用 Turf 計算準確面積
-        let tempPoly = turf.polygon([coordinates]);
+        // 3. 計算多邊形面積
+        let tempPoly = turf.polygon([ring]);
         let areaSqm = Math.round(turf.area(tempPoly));
 
-        // 4. 建置符合 shp-write 規範的標準 FeatureCollection GeoJSON
-        let geojson = {
-            type: 'FeatureCollection',
-            features: [
-                {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Polygon',
-                        coordinates: [coordinates] // 必須由外雙層中括號包裹
-                    },
-                    properties: {
-                        Name: "Cadastral",
-                        Area_sqm: areaSqm
-                    }
+        // 4. 改用 shp-write 底層原生最穩定的封裝格式
+        // 不包外層的 FeatureCollection，直接傳送純幾何與屬性分離的要素陣列
+        let featureLayer = [
+            {
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [ring] // 必須為外雙層中括號結構
+                },
+                properties: {
+                    Name: "Zone_Area",
+                    Area_Sqm: areaSqm
                 }
-            ]
-        };
+            }
+        ];
 
-        // 5. 設定 shp-write 壓縮包內部屬性與資料庫表單結構
+        // 5. 設定壓縮打包選項，指定資料集名稱
         let options = {
             folder: 'Cadastral_Shapefile',
             types: { 
-                polygon: 'Estimated_Area' 
+                polygon: 'Estimated_Boundary' 
             }
         };
         
-        // 觸發前端下載封裝
-        shpwrite.download(geojson, options);
+        // 6. 觸發下載
+        shpwrite.download(featureLayer, options);
     } catch (err) {
-        alert("SHP 匯出失敗，請確認圖形結構是否正確。");
-        console.error("SHP Export Error Log:", err);
+        alert("SHP 匯出失敗，請確認瀏覽器支援快取並已正確繪製封閉多邊形。");
+        console.error("SHP Export Final Error Log:", err);
     }
 }
 
@@ -655,7 +652,7 @@ const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * M
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-/* OSRM 路線分析距離與繪製 */
+/* OSRM 路線 analysis 距離與繪製 */
 async function getRouteDistance(to){
 try{
 if(!origin) return null;
