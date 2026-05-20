@@ -12,7 +12,7 @@
 body { margin:0; font-family: Arial; }
 #map { height:100vh; }
 
-/* UI 完全不動 */
+/* UI 面板維持原有樣式 */
 #panel{
 position:absolute;
 top:12px;
@@ -137,7 +137,7 @@ color:#1d4ed8;
 font-weight:bold;
 }
 
-/* 新增：多邊形繪製工具列樣式 */
+/* 繪製控制項工具列 */
 .draw-control-bar {
     background: white;
     padding: 5px;
@@ -264,7 +264,6 @@ maxZoom:19
 }).addTo(map);
 
 /* 比例尺 */
-/* 分母比例尺 */
 const scaleControl = L.control({ position: 'bottomleft' });
 
 scaleControl.onAdd = function () {
@@ -290,19 +289,15 @@ scaleControl.update = function () {
 const center = map.getCenter();
 const zoom = map.getZoom();
 
-/* 取得目前緯度每像素實際距離 */
 const metersPerPixel =
 40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180))
 / Math.pow(2, zoom + 8);
 
-/* 假設螢幕 DPI=96 */
 const dpi = 96;
 
-/* 1 inch = 0.0254 m */
 const scale =
 metersPerPixel * dpi / 0.0254;
 
-/* 取整 */
 const rounded = Math.round(scale / 100) * 100;
 
 this._div.innerHTML = `比例尺 1:${rounded.toLocaleString()}`;
@@ -336,16 +331,13 @@ let userMarker=null;
 let origin=null;
 let results=[];
 
-/* 排序狀態 */
 let sortState = {
 distance:true,
 route:true
 };
 let routeLayer=null;
-let circleLayer=null;
 
-let lockOrigin = false;
-/* 初始定位 */
+// 移除原有的 circleLayer 變數定義，完全不使用環域藍圈
 
 origin=[25.012098,121.465675];
 
@@ -368,23 +360,17 @@ iconAnchor:[9,9]
 interactive:false
 }).addTo(map);
 
-circleLayer=L.circle(origin,{
-radius:parseFloat(radiusInput.value),
-color:'blue',
-fillOpacity:0.15
-}).addTo(map);
 
-
-/* ==========================================
-   新增功能：多邊形滑鼠點選建構與量測功能
-   ========================================== */
+/* ===================================================
+   功能：1. 繪製改為紅色顯示 / 2. 閉合後算形心作為中心點
+   =================================================== */
 let isDrawingPolygon = false;
 let drawPoints = [];
 let previewPolyline = null;
 let finalPolygon = null;
 let drawMarkers = L.layerGroup().addTo(map);
 
-// 建立自訂地圖控制項工具列
+// 建立左上角多邊形工具列
 const drawControl = L.control({ position: 'topleft' });
 drawControl.onAdd = function() {
     const div = L.DomUtil.create('div', 'draw-control-bar');
@@ -393,7 +379,6 @@ drawControl.onAdd = function() {
         <button id="btn-end-draw" class="draw-btn" onclick="finishPolygon()" style="display:none; background:#10b981; color:white;">✓ 完成閉合</button>
         <button id="btn-clear-draw" class="draw-btn" onclick="clearPolygon()" style="display:none; background:#6b7280; color:white;">✕ 清除範圍</button>
     `;
-    // 防止點擊工具列時觸發地圖點擊事件
     L.DomEvent.disableClickPropagation(div);
     return div;
 };
@@ -406,7 +391,6 @@ function toggleDrawMode(btn) {
         btn.innerText = "🛑 停止點選";
         document.getElementById('btn-end-draw').style.display = 'block';
         document.getElementById('btn-clear-draw').style.display = 'block';
-        // 暫時重置點位陣列
         clearPolygonData();
     } else {
         btn.classList.remove('active');
@@ -437,39 +421,50 @@ function clearPolygon() {
 
 function finishPolygon() {
     if (drawPoints.length < 3) {
-        alert("請至少點選 3 個以上的頂點才能組成本地籍範圍多邊形！");
+        alert("請至少點選 3 個以上的頂點才能閉合範圍！");
         return;
     }
     
-    // 移除輔助線
     if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
     
-    // 繪製最終封閉多邊形
+    // 繪製完成的多邊形改以全紅色(#dc2626)呈現
     finalPolygon = L.polygon(drawPoints, {
         color: '#dc2626',
         weight: 3,
-        fillColor: '#fca5a5',
-        fillOpacity: 0.4
+        fillColor: '#dc2626',
+        fillOpacity: 0.3
     }).addTo(map);
 
-    // 計算面積 (簡化版球面多邊形面積演算法)與周長
-    const areaM2 = Math.abs(getPolygonArea(drawPoints));
-    const areaPing = areaM2 * 0.3025;
-    const perimeter = getPolygonPerimeter(drawPoints);
+    // 計算精準幾何形心點 (Centroid)
+    const centroid = getPolygonCentroid(drawPoints);
+    const cLat = centroid[0];
+    const cLon = centroid[1];
 
-    // 在多邊形中心跳出報表 Popup
-    const center = finalPolygon.getBounds().getCenter();
+    // 將計算出來的「形心」自動代入為中心點，同步更新左側經緯度數值
+    latInput.value = cLat.toFixed(6);
+    lonInput.value = cLon.toFixed(6);
+    origin = [cLat, cLon];
+
+    // 精準移動紅色中心定位標記到形心點
+    if (userMarker) map.removeLayer(userMarker);
+    userMarker = L.marker([cLat, cLon], {
+        icon: L.divIcon({
+            className: '',
+            html: `<div style="width:18px; height:18px; background:#ef4444; border:3px solid #ffffff; border-radius:50%; box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
+            iconSize: [18, 18],
+            iconAnchor: [9, 9]
+        }),
+        interactive: false
+    }).addTo(map);
+
+    // 在形心點顯示提示泡泡說明
     finalPolygon.bindPopup(`
-        <div style="font-size:13px; line-height:1.5;">
-            <b style="color:#dc2626;">📐 估價街廓範圍量測</b><br>
-            <hr style="margin:4px 0; border:0; border-top:1px solid #eee;">
-            <b>實體面積：</b>${areaM2.toFixed(2)} ㎡<br>
-            <b>換算坪數：</b>${areaPing.toFixed(2)} 坪<br>
-            <b>總周長：</b>${perimeter.toFixed(2)} m
+        <div style="font-size:12px; line-height:1.4;">
+            <b style="color:#dc2626;">📐 繪製範圍完成</b><br>
+            已將「幾何形心點」設為分析中心點。請直接點選右側面板「查詢」按鈕，即可自動量取指定範圍內的距離。
         </div>
-    `).openPopup(center);
+    `).openPopup([cLat, cLon]);
 
-    // 關閉繪製模式，保留清除按鈕
     isDrawingPolygon = false;
     const btn = document.getElementById('btn-start-draw');
     btn.classList.remove('active');
@@ -477,43 +472,39 @@ function finishPolygon() {
     document.getElementById('btn-end-draw').style.display = 'none';
 }
 
-// 球面多邊形面積估算公式 (不需額外載入 turf.js 保持流暢)
-function getPolygonArea(coords) {
-    const RADIUS = 6378137;
-    let Area = 0;
-    if (coords.length > 2) {
-        for (let i = 0; i < coords.length; i++) {
-            let p1 = coords[i];
-            let p2 = coords[(i + 1) % coords.length];
-            Area += ((p2[1] - p1[1]) * Math.PI / 180) * (2 + Math.sin(p1[0] * Math.PI / 180) + Math.sin(p2[0] * Math.PI / 180));
-        }
-        Area = Area * RADIUS * RADIUS / 2;
+// 多邊形形心幾何運算核心
+function getPolygonCentroid(pts) {
+    let ptsCopy = pts.slice();
+    let first = ptsCopy[0], last = ptsCopy[ptsCopy.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1]) ptsCopy.push(first);
+    
+    let l = ptsCopy.length;
+    let area = 0, cx = 0, cy = 0;
+    
+    for (let i = 0; i < l - 1; i++) {
+        let p1 = ptsCopy[i];
+        let p2 = ptsCopy[i + 1];
+        let f = p1[0] * p2[1] - p2[0] * p1[1];
+        area += f;
+        cx += (p1[0] + p2[0]) * f;
+        cy += (p1[1] + p2[1]) * f;
     }
-    return Area;
-}
-
-// 多邊形總周長計算
-function getPolygonPerimeter(coords) {
-    let length = 0;
-    for (let i = 0; i < coords.length; i++) {
-        let p1 = coords[i];
-        let p2 = coords[(i + 1) % coords.length];
-        length += haversine(p1[0], p1[1], p2[0], p2[1]);
-    }
-    return length;
+    
+    area *= 3;
+    if (area === 0) return pts[0]; 
+    return [cx / area, cy / area];
 }
 
 
-/* 點擊定位（整合多邊形繪製判斷邏輯） */
+/* 地圖點擊事件（整合繪製與點選定位） */
 map.on('click', e => {
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
 
-    // 如果當前正在進行「多邊形繪製」，優先處理多邊形節點
     if (isDrawingPolygon) {
         drawPoints.push([lat, lon]);
         
-        // 繪製頂點小標記
+        // 繪製頂點改以紅色小圓點標示
         L.circleMarker([lat, lon], {
             radius: 5,
             color: '#dc2626',
@@ -522,395 +513,198 @@ map.on('click', e => {
             weight: 2
         }).addTo(drawMarkers);
 
-        // 即時繪製折線
+        // 繪製過程的輔助虛線改為紅色
         if (previewPolyline) {
             previewPolyline.setLatLngs(drawPoints);
         } else {
             previewPolyline = L.polyline(drawPoints, { color: '#dc2626', weight: 2, dashArray: '5, 8' }).addTo(map);
         }
-        return; // 跳出，不影響原本的環域中心點點選功能
+        return; 
     }
 
-    // 以下為您原本的點擊環域中心邏輯
+    // 原有地圖點選手動定位功能（未在繪製狀態時）
     latInput.value = lat.toFixed(6);
     lonInput.value = lon.toFixed(6);
-
     origin = [lat, lon];
 
     if (userMarker) map.removeLayer(userMarker);
-
     userMarker = L.marker([lat, lon], {
         icon: L.divIcon({
             className: '',
             html: `
-            <div style="
-            width:18px;
-            height:18px;
-            background:#ef4444;
-            border:3px solid #ffffff;
-            border-radius:50%;
-            box-shadow:0 0 0 2px rgba(239,68,68,0.35);
-            "></div>
+            <div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>
             `,
             iconSize: [18, 18],
             iconAnchor: [9, 9]
         }),
         interactive: false
     }).addTo(map);
-
-    if (circleLayer) map.removeLayer(circleLayer);
-
-    circleLayer = L.circle([lat, lon], {
-        radius: parseFloat(radiusInput.value),
-        color: 'blue',
-        fillOpacity: 0.15
-    }).addTo(map);
 });
 
 
-/* 取得現在位置 */
+/* 取得現在位置（原有功能，移除半徑圈邏輯） */
 function getCurrentLocation(){
-
 if(!navigator.geolocation){
-
 alert("瀏覽器不支援 GPS 定位");
-
 return;
-
 }
-
 navigator.geolocation.getCurrentPosition(
-
 (pos)=>{
-
 const lat = pos.coords.latitude;
 const lon = pos.coords.longitude;
-
 latInput.value = lat.toFixed(6);
 lonInput.value = lon.toFixed(6);
-
 origin=[lat,lon];
 
-/* 地圖移動 */
-map.flyTo([lat,lon],17,{
-duration:1.2
-});
+map.flyTo([lat,lon],17,{ duration:1.2 });
 
-/* 更新定位點 */
-if(userMarker){
-map.removeLayer(userMarker);
-}
-
+if(userMarker) map.removeLayer(userMarker);
 userMarker=L.marker([lat,lon],{
 icon:L.divIcon({
 className:'',
-html:`
-<div style="
-width:18px;
-height:18px;
-background:#ef4444;
-border:3px solid #ffffff;
-border-radius:50%;
-box-shadow:0 0 0 2px rgba(239,68,68,0.35);
-"></div>
-`,
+html: `<div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
 iconSize:[18,18],
 iconAnchor:[9,9]
 }),
 interactive:false
 }).addTo(map);
-
-/* 更新半徑圈 */
-if(circleLayer){
-map.removeLayer(circleLayer);
-}
-
-circleLayer=L.circle([lat,lon],{
-radius:parseFloat(radiusInput.value),
-color:'blue',
-fillOpacity:0.15
-}).addTo(map);
-
 },
-
 (err)=>{
-
-console.error(err);
-
 alert("定位失敗，請確認已允許定位權限");
-
 },
-
-{
-enableHighAccuracy:true,
-timeout:10000,
-maximumAge:0
-}
-
+{ enableHighAccuracy:true, timeout:10000, maximumAge:0 }
 );
-
 }
-/* 距離 */
-function haversine(lat1, lon1, lat2, lon2){
 
+/* 哈弗辛直線距離（原有功能） */
+function haversine(lat1, lon1, lat2, lon2){
 const R=6371000;
 const toRad=x=>x*Math.PI/180;
-
 const dLat=toRad(lat2-lat1);
 const dLon=toRad(lon2-lon1);
-
-const a=
-Math.sin(dLat/2)**2 +
-Math.cos(toRad(lat1)) *
-Math.cos(toRad(lat2)) *
-Math.sin(dLon/2)**2;
-
+const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
-
 }
 
-/* 路線 */
+/* OSRM 路線分析距離與繪製（原有功能） */
 async function getRouteDistance(to){
-
 try{
-
 if(!origin) return null;
-
-const url =
-`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
-
+const url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 const res = await fetch(url);
-
 const data = await res.json();
-
-if(!data.routes?.length){
-
-return null;
-
-}
-
+if(!data.routes?.length) return null;
 return Math.round(data.routes[0].distance);
-
 }catch(err){
-
 console.error(err);
-
 return null;
-
 }
-
 }  
+
 async function drawRoute(to){
-
 try{
-
 if(!origin) return;
-
 const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
-
 const res=await fetch(url);
-
 const data=await res.json();
-
 if(!data.routes?.length){
-
 routeInfo.innerText="查無可通行路線";
-
-if(routeLayer){
-map.removeLayer(routeLayer);
-routeLayer=null;
-}
-
+if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
 return;
-
 }
 const route=data.routes[0];
-
 routeInfo.innerText="路線距離：" + Math.round(route.distance) + " m";
-
 if(routeLayer) map.removeLayer(routeLayer);
-
-routeLayer=L.geoJSON(route.geometry,{
-style:{color:"blue",weight:5}
-}).addTo(map);
-
+routeLayer=L.geoJSON(route.geometry,{ style:{color:"blue",weight:5} }).addTo(map);
 }catch(err){
-
-console.error(err);
-
 routeInfo.innerText="路線服務異常";
-
+}
 }
 
-}
-
-/* 選取 */
+/* 表格選取連動（原有功能） */
 function selectItemById(id){
-
 const item = results.find(r => r.id === id);
-
 if(!item) return;
-
 selectItem(item);
-
 }  
+
 function selectItem(item){
-
 drawRoute(item.座標);
-
-document.querySelectorAll("#tbody tr").forEach(r=>{
-r.classList.remove("highlight");
-});
-
+document.querySelectorAll("#tbody tr").forEach(r=>{ r.classList.remove("highlight"); });
 const row=document.querySelector(`#tbody tr[data-id="${item.id}"]`);
-
 if(row){
-
 row.classList.add("highlight");
-
-row.scrollIntoView({
-behavior:"smooth",
-block:"center"
-});
-
+row.scrollIntoView({ behavior:"smooth", block:"center" });
+}
 }
 
-}
-
-/* 查詢 */
+/* Overpass API 查詢核心（原有功能） */
 async function runQuery(){
-
 const lat=parseFloat(latInput.value);
 const lon=parseFloat(lonInput.value);
 const radius=parseFloat(radiusInput.value);
 
 if(radius > 3000){
-
 alert("半徑超過3000m可能造成系統過慢");
-
 return;
-
 }
 
 markerLayer.clearLayers();
-
-if(routeLayer){
-map.removeLayer(routeLayer);
-routeLayer=null;
-}
-
+if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
 routeInfo.innerText="路線距離：尚未計算";
-
 tbody.innerHTML="";
 results=[];
-
 let parts=[];
 
 document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
-
 let t=e.value;
-
 if(t==="station"){
-
 parts.push(`
-
-/* 一般車站 */
 nwr["railway"="station"](around:${radius},${lat},${lon});
 nwr["railway"="station"]["station"="train"](around:${radius},${lat},${lon});
-
-/* 火車站 */
 nwr["railway"="station"]["station"="train"](around:${radius},${lat},${lon});
 nwr["railway"="station"]["train"="yes"](around:${radius},${lat},${lon});
-
-/* 小型火車站 */
 nwr["railway"="halt"](around:${radius},${lat},${lon});
-
-/* 月台 */
 nwr["railway"="platform"](around:${radius},${lat},${lon});
-
-/* 捷運出入口 */
 nwr["railway"="subway_entrance"](around:${radius},${lat},${lon});
-
-/* 客運轉運站 */
 nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
-
 `);
-
 }
 else if(t==="bus_stop"){
-
 parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
-
 }
 else if(t==="motorway_junction"){
-
 parts.push(`
-
-/* 國道交流道節點 */
-node["highway"="motorway_junction"]
-(around:${radius},${lat},${lon});
-
-/* 國道入口匝道 */
-way["highway"="motorway_link"]
-(around:${radius},${lat},${lon});
-
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+way["highway"="motorway_link"](around:${radius},${lat},${lon});
 `);
-
 }
 else if(t==="marketplace"){
-
 parts.push(`
-
-/* 傳統市場 */
-nwr["amenity"="marketplace"](around:${radius},${lat},${lon});
-
-/* 超市 */
+nwr["amenity"="marketplace"](around:${radius},${lat},./${lon});
 nwr["shop"="supermarket"](around:${radius},${lat},${lon});
-
-/* 大賣場 / 量販 */
 nwr["shop"="wholesale"](around:${radius},${lat},${lon});
-
-/* COSTCO / 家樂福 / 大潤發 */
 nwr["name"~"costco|好市多|家樂福|大潤發|愛買",i](around:${radius},${lat},${lon});
-
-/* 品牌 */
 nwr["brand"~"costco|carrefour|rt-mart|fe-amart",i](around:${radius},${lat},${lon});
-
 `);
 }
 else if(t==="waste_disposal"){
-
 parts.push(`
 nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
 nwr["amenity"="recycling"](around:${radius},${lat},${lon});
 nwr["landuse"="landfill"](around:${radius},${lat},${lon});
-
 nwr["man_made"="waste_incinerator"](around:${radius},${lat},${lon});
 nwr["power"="plant"]["plant:source"="waste"](around:${radius},${lat},${lon});
-
 nwr["name"~"焚化|垃圾|廢棄物|資源回收|處理場"](around:${radius},${lat},${lon});
 `);
-
 }
 else if(t==="park"){
-
-parts.push(`
-nwr["leisure"="park"](around:${radius},${lat},${lon});
-`);
-
+parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
 }
 else if(t==="tourism"){
-
-parts.push(`
-nwr["tourism"](around:${radius},${lat},${lon})
-["leisure"!="park"]
-["boundary"!="national_park"]
-["tourism"!="picnic_site"];
-`);
-
+parts.push(`nwr["tourism"](around:${radius},${lat},${lon})["leisure"!="park"]["boundary"!="national_park"]["tourism"!="picnic_site"];`);
 }
 else if(t==="bank"){
-
 parts.push(`
 nwr["amenity"="bank"](around:${radius},${lat},${lon});
 nwr["amenity"="post_office"](around:${radius},${lat},${lon});
@@ -919,425 +713,194 @@ nwr["office"="government"](around:${radius},${lat},${lon});
 nwr["amenity"="public_building"](around:${radius},${lat},${lon});
 nwr["amenity"="townhall"](around:${radius},${lat},${lon});
 `);
-
 }
 else if(t==="cemetery"){
-
 parts.push(`
 nwr["amenity"="funeral_hall"](around:${radius},${lat},${lon});
 nwr["amenity"="crematorium"](around:${radius},${lat},${lon});
-
 nwr["landuse"="cemetery"](around:${radius},${lat},${lon});
-
 nwr["name"~"殯儀|生命紀念|納骨|火化"](around:${radius},${lat},${lon});
 `);
-
 }
 else if(t==="school"){
-
 parts.push(`
 nwr["amenity"="school"](around:${radius},${lat},${lon});
-
 nwr["amenity"="college"](around:${radius},${lat},${lon});
-
 nwr["amenity"="university"](around:${radius},${lat},${lon});
-
 nwr["school"](around:${radius},${lat},${lon});
-
 nwr["amenity"="school"]["isced:level"~"0|1|2|3|4|5|6|7|8"](around:${radius},${lat},${lon});
 `);
-
 }
 else if(t==="gas"){
-
 parts.push(`
-
-/* 公用氣體 */
 nwr["man_made"="gasometer"](around:${radius},${lat},${lon});
-
-/* 變電所 */
 nwr["power"="substation"](around:${radius},${lat},${lon});
-
-/* 發電廠 */
 nwr["power"="plant"](around:${radius},${lat},${lon});
-
-/* 高壓電塔 */
 nwr["power"="tower"](around:${radius},${lat},${lon});
-
-/* 高壓輸電線 */
 way["power"="line"](around:${radius},${lat},${lon});
-
-/* 電線桿 */
 nwr["power"="pole"](around:${radius},${lat},${lon});
-
-/* 加油站 */
 nwr["amenity"="fuel"](around:${radius},${lat},${lon});
-
 `);
-
 }
 else if(t==="pollution"){
-
 parts.push(`
 nwr["man_made"="wastewater_treatment_plant"](around:${radius},${lat},${lon});
-
 nwr["waterway"="outfall"](around:${radius},${lat},${lon});
 nwr["man_made"="outfall"](around:${radius},${lat},${lon});
-
 nwr["landuse"="industrial"](around:${radius},${lat},${lon});
 nwr["landuse"="quarry"](around:${radius},${lat},${lon});
-
 nwr["power"="plant"](around:${radius},${lat},${lon});
 nwr["power"="substation"](around:${radius},${lat},${lon});
-
 nwr["man_made"="chimney"](around:${radius},${lat},${lon});
 nwr["man_made"="flare"](around:${radius},${lat},${lon});
-
 nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
 nwr["amenity"="recycling"](around:${radius},${lat},${lon});
-
 nwr["landuse"="landfill"](around:${radius},${lat},${lon});
-
 nwr["name"~"焚化|垃圾|廢棄物|資源回收|污水|處理場",i](around:${radius},${lat},${lon});
 `);
-
 }
-
 else{
-
-parts.push(`
-nwr["amenity"="${t}"](around:${radius},${lat},${lon});
-`);
-
+parts.push(`nwr["amenity"="${t}"](around:${radius},${lat},${lon});`);
 }
-
 });
 
-const query=`
-[out:json][timeout:60];
-(
-${parts.join("\n")}
-);
-out center;
-`;
-
-const res=await fetch(
-"https://overpass-api.de/api/interpreter",
-{
+const query=`[out:json][timeout:60];(${parts.join("\n")});out center;`;
+const res=await fetch("https://overpass-api.de/api/interpreter",{
 method:"POST",
 body:"data="+encodeURIComponent(query),
-headers:{
-"Content-Type":"application/x-www-form-urlencoded"
-}
-}
-);
-
+headers:{"Content-Type":"application/x-www-form-urlencoded"}
+});
 const data=await res.json();
-
 if(!data.elements) return;
 
 const dedup = new Set();
-
 data.elements.forEach(e=>{
-
 let lat2=e.center?.lat ?? e.lat;
 let lon2=e.center?.lon ?? e.lon;
 
-/* 交流道入口修正 */
-if(
-e.tags?.highway === "motorway_link"
-&& e.bounds
-){
-
+if(e.tags?.highway === "motorway_link" && e.bounds){
 const candidates = [
-
-[e.bounds.minlat, e.bounds.minlon],
-[e.bounds.minlat, e.bounds.maxlon],
-[e.bounds.maxlat, e.bounds.minlon],
-[e.bounds.maxlat, e.bounds.maxlon]
-
+[e.bounds.minlat, e.bounds.minlon],[e.bounds.minlat, e.bounds.maxlon],
+[e.bounds.maxlat, e.bounds.minlon],[e.bounds.maxlat, e.bounds.maxlon]
 ];
-
 let bestPoint = candidates[0];
 let bestDistance = Infinity;
-
 for(const p of candidates){
-
-const d = haversine(
-lat,
-lon,
-p[0],
-p[1]
-);
-
-if(d < bestDistance){
-bestDistance = d;
-bestPoint = p;
+const d = haversine(lat,lon,p[0],p[1]);
+if(d < bestDistance){ bestDistance = d; bestPoint = p; }
 }
-
-}
-
-lat2 = bestPoint[0];
-lon2 = bestPoint[1];
-
+lat2 = bestPoint[0]; lon2 = bestPoint[1];
 }
 
 if(lat2 == null || lon2 == null) return;
-
 const key = `${e.type}-${e.id}`;
-
 if(dedup.has(key)) return;
-
 dedup.add(key);
 
 const idx=results.length;
-
 const item={
-
 id:idx,
-
 名稱:e.tags?.name || "未命名",
-
-類型:
-e.tags?.amenity ||
-e.tags?.tourism ||
-e.tags?.shop ||
-e.tags?.railway ||
-e.tags?.highway ||
-e.tags?.office ||
-e.tags?.power ||
-e.tags?.landuse ||
-e.tags?.man_made ||
-"未知",
-
+類型: e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || e.tags?.highway || e.tags?.office || e.tags?.power || e.tags?.landuse || e.tags?.man_made || "未知",
 座標:[lat2,lon2],
-
-距離:Math.round(
-haversine(lat,lon,lat2,lon2)
-),
-
+距離:Math.round(haversine(lat,lon,lat2,lon2)),
 路線距離:"計算中..."
-
 };
-
 results.push(item);
 
-const m=L.marker(item.座標)
-.addTo(markerLayer)
-.bindTooltip(item.名稱,{
-direction:"top"
-});
-
+const m=L.marker(item.座標).addTo(markerLayer).bindTooltip(item.名稱,{direction:"top"});
 m.on("click",()=>{
-
-map.flyTo(item.座標,17,{
-duration:0.8
-});
-
+map.flyTo(item.座標,17,{duration:0.8});
 selectItem(item);
-
 });
-
 });
 
 results.sort((a,b)=>a.距離-b.距離);
-
-/* 初始依直線距離排序 */
-results.sort((a,b)=>a.距離-b.距離);
-
-/* render table */
 renderTable();
 
-/* 計算路線距離 */
+/* 背景非同步更新路網距離 */
 for (const item of results.slice(0,80)) {
-
-const routeDistance =
-await getRouteDistance(item.座標);
-
+const routeDistance = await getRouteDistance(item.座標);
 item.路線距離數值 = routeDistance;
-
-item.路線距離 =
-routeDistance != null
-? routeDistance + " m"
-: "無法到達";
-/* 更新畫面 */
-const cell =
-document.getElementById(`route-${item.id}`);
-
-if(cell){
-
-cell.innerText = item.路線距離;
-
+item.路線距離 = routeDistance != null ? routeDistance + " m" : "無法到達";
+const cell = document.getElementById(`route-${item.id}`);
+if(cell) cell.innerText = item.路線距離;
+}
 }
 
-}
-
-}
-
-/* 排序結果 */
+/* 點擊欄位排序（原有功能） */
 function sortResults(type){
-
 if(type==="distance"){
-
-results.sort((a,b)=>{
-
-return sortState.distance
-? a.距離 - b.距離
-: b.距離 - a.距離;
-
-});
-
+results.sort((a,b)=>{ return sortState.distance ? a.距離 - b.距離 : b.距離 - a.距離; });
 sortState.distance = !sortState.distance;
-
 }
-
 else if(type==="route"){
-
 results.sort((a,b)=>{
-
 const ra = a.路線距離數值 ?? 99999999;
 const rb = b.路線距離數值 ?? 99999999;
-
-return sortState.route
-? ra - rb
-: rb - ra;
-
+return sortState.route ? ra - rb : rb - ra;
 });
-
 sortState.route = !sortState.route;
-
 }
-
 renderTable();
-
 }
 
-/* 重新渲染表格 */
+/* 重新渲染表格（原有功能） */
 function renderTable(){
-
 tbody.innerHTML="";
-
 results.forEach(item=>{
-
 const tr=document.createElement("tr");
-
 tr.dataset.id=item.id;
-
 tr.innerHTML=`
-<td onclick='selectItemById(${item.id})'
-style="cursor:pointer;color:blue">
-${item.名稱}
-</td>
-
+<td onclick='selectItemById(${item.id})' style="cursor:pointer;color:blue">${item.名稱}</td>
 <td>${item.類型}</td>
-
 <td>${item.距離}</td>
-
-<td id="route-${item.id}">
-${item.路線距離}
-</td>
+<td id="route-${item.id}">${item.路線距離}</td>
 `;
-
 tbody.appendChild(tr);
-
 });
-
 }  
-/* 清除路線 */
+
+/* 清除路網藍線（原有功能） */
 function clearRoute(){
-
-if(routeLayer){
-map.removeLayer(routeLayer);
-routeLayer=null;
-}
-
+if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
 routeInfo.innerText="路線距離：尚未計算";
-
 }
 
-/* Excel */
+/* 匯出 Excel（原有功能） */
 function exportExcel(){
-
-if(!results.length){
-
-alert("無資料");
-
-return;
-
-}
-
-const ws = XLSX.utils.json_to_sheet(
-
-results.map(r=>({
-
-名稱:r.名稱,
-
-類型:r.類型,
-
-直線距離:r.距離,
-
-路線距離:r.路線距離 || "",
-
-緯度:r.座標[0],
-
-經度:r.座標[1]
-
-}))
-
-);
+if(!results.length){ alert("無資料"); return; }
+const ws = XLSX.utils.json_to_sheet(results.map(r=>({
+名稱:r.名稱, 類型:r.類型, 直線距離:r.距離, 路線距離:r.路線距離 || "", 緯度:r.座標[0], 經度:r.座標[1]
+})));
 const wb = XLSX.utils.book_new();
-
 XLSX.utils.book_append_sheet(wb, ws, "GIS");
-
 XLSX.writeFile(wb, "GIS查詢結果.xlsx");
-
 }
 
-/* 拖曳結果視窗 */
-
+/* 表格視窗拖曳（原有功能） */
 let isDragging = false;
-
-let offsetX = 0;
-let offsetY = 0;
-
+let offsetX = 0; let offsetY = 0;
 const panel = document.getElementById("resultPanel");
-
 const header = document.getElementById("resultHeader");
 
 header.addEventListener("mousedown", function(e){
-
 isDragging = true;
-
 const rect = panel.getBoundingClientRect();
-
 offsetX = e.clientX - rect.left;
-
 offsetY = e.clientY - rect.top;
-
 panel.style.position = "absolute";
-
 panel.style.zIndex = 9999;
-
 });
 
 document.addEventListener("mousemove", function(e){
-
 if(!isDragging) return;
-
 panel.style.left = (e.clientX - offsetX) + "px";
-
 panel.style.top = (e.clientY - offsetY) + "px";
-
 panel.style.right = "auto";
-
 });
 
-document.addEventListener("mouseup", function(){
-
-isDragging = false;
-
-});
-
+document.addEventListener("mouseup", function(){ isDragging = false; });
 </script>
 
 </body>
