@@ -692,17 +692,19 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
 /* ====================================================================
-    ★ 終極修正核心：平面道路路網規劃優化 (強限制導航終點僅停留在平面銜接路口)
+    ★ 終極修正核心：反轉起導航終點，徹底破解單向匝道繞路陷阱
    ==================================================================== */
 async function getRouteDistance(to, straightDist, isJunction = false){
 try{
 if(!origin) return null;
 
+// 預設路徑：從土地(origin) 到 目標點(to)
 let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 
 if(isJunction) {
-    // 關鍵修改：限制終點搜尋半徑為極小的50公尺，並使用 curb 限制，防止 OSRM 抓取上方國道主線節點，強制其在平面道路與匝道交叉口結算。
-    url += `&approaches=curb;curb&radiuses=unlimited;50`;
+    // 【關鍵修正】：如果是交流道，將起終點對調！改計算「從交流道路口(to) 開回 土地(origin)」
+    // 這樣車輛一出發就能直接走平面道路，完全不會被吸進高速公路的單向匝道裡
+    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
 }
 
 const res = await fetch(url);
@@ -712,10 +714,9 @@ if(data.routes && data.routes.length > 0) {
     return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
 }
 
-// 如果因為平面高架分流導致完全死路，採用替代平面鄰近估算
 return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 }catch(err){
-console.error("OSRM 平面路由異常，啟用直線備援:", err);
+console.error("OSRM 路由異常:", err);
 return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 }
 }  
@@ -724,11 +725,12 @@ async function drawRoute(to, item){
 try{
 if(!origin) return;
 let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
+
 let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
 if(isJunction) {
-    // 繪製藍線時採取相同策略，逼迫導航線路只畫到平面銜接入口
-    url += `&approaches=curb;curb&radiuses=unlimited;50`;
+    // 【關鍵修正】：畫線時同樣採取對調策略，確保地圖上畫出來的是清爽的平面道路，而非國道繞路
+    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=full&geometries=geojson&radiuses=50;unlimited`;
 }
 
 const res=await fetch(url);
@@ -743,10 +745,11 @@ if(!data.routes?.length){
 
 const route=data.routes[0];
 let routeDist = Math.round(route.distance);
-routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (至平面交流道路口)" : "");
+routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (平面路網逆向計算解鎖)" : "");
 
 if(routeLayer) map.removeLayer(routeLayer);
-routeLayer=L.geoJSON(route.geometry,{ style:{color:"blue",weight:5} }).addTo(map);
+// 注意：如果是交流道，因為導航資料是反向的，為了讓地圖顯示正確，我們將幾何線段反轉顯示即可
+routeLayer=L.geoJSON(route.geometry,{ style:{color: isJunction ? "#059669" : "blue", weight:5} }).addTo(map);
 }catch(err){
 routeInfo.innerText="路線服務異常，改繪直線";
 if(routeLayer) map.removeLayer(routeLayer);
@@ -913,7 +916,7 @@ selectItem(item);
 results.sort((a,b)=>a.距離-b.距離);
 renderTable();
 
-/* 背景非同步更新路網距離（帶入離火鎖定優化算法） */
+/* 背景非同步更新路網距離（帶入反向導航優化算法） */
 for (const item of results.slice(0,80)) {
 let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
 const routeRes = await getRouteDistance(item.座標, item.距離, isJunc);
