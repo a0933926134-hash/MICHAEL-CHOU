@@ -195,7 +195,7 @@ font-weight:bold;
 <body>
 
 <div id="panel">
-<h3>影響地價區域因素分析明細表(住宅用地)</h3>
+<h3>影響地價區域因素 analysis 明細表(住宅用地)</h3>
 
 緯度:<input id="lat" value="25.012098"><br>
 經度:<input id="lon" value="121.465675"><br>
@@ -540,16 +540,12 @@ function exportPolygonSHP() {
     }
 }
 
-/* ====================================================================
-    ★ 徹底修正：實時解碼讀取上傳的 SHP(.zip) 或 GeoJSON，100% 完整還原形狀
-   ==================================================================== */
 function importPolygonSHP(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     
-    // 判斷上傳的是 GeoJSON 備援檔還是標準 Zip 壓縮檔
     if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
         reader.onload = function(e) {
             try {
@@ -562,7 +558,6 @@ function importPolygonSHP(event) {
         reader.readAsText(file);
     } else if (file.name.endsWith('.zip')) {
         reader.onload = function(e) {
-            // 使用 shpjs 在網頁前端直接將二進位 zip 解壓縮並轉成標準 GeoJSON 結構
             shp(e.target.result).then(function(geojson) {
                 processImportedGeoJSON(geojson);
             }).catch(function(err) {
@@ -574,7 +569,6 @@ function importPolygonSHP(event) {
     }
 }
 
-// 共通解析處理幾何圖層
 function processImportedGeoJSON(geojson) {
     let feature = null;
     if (geojson.type === "FeatureCollection" && geojson.features.length > 0) {
@@ -590,22 +584,17 @@ function processImportedGeoJSON(geojson) {
         return;
     }
 
-    // 讀取真實的經緯度點位陣列，並反轉回 Leaflet 的 [Lat, Lng] 格式
     let rings = feature.geometry.coordinates[0];
     
-    // 防呆：如果首尾點重複（SHP 封閉規範），在 Leaflet 編輯時要去掉最後一個重複點
     if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
         rings.pop();
     }
 
-    // 轉換為地圖定位點數組
     drawPoints = rings.map(coord => [coord[1], coord[0]]);
 
-    // 重新繪製具備拖曳節點的真實多邊形
     renderEditablePolygon();
     updateCentroidByPoints(drawPoints);
     
-    // 自動將地圖視角移至該幾何中心
     if (drawPoints.length > 0) {
         map.panTo(drawPoints[0]);
     }
@@ -701,38 +690,51 @@ const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * M
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-/* OSRM 路線分析距離與繪製 */
-async function getRouteDistance(to){
+/* ====================================================================
+    ★ 關鍵修正：OSRM 備援機制 (解決高速公路交流道無法計算路線的問題)
+   ==================================================================== */
+async function getRouteDistance(to, straightDist){
 try{
 if(!origin) return null;
 const url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 const res = await fetch(url);
 const data = await res.json();
-if(!data.routes?.length) return null;
-return Math.round(data.routes[0].distance);
+
+// 如果 OSRM 回傳成功且有路線，使用真實路網
+if(data.routes && data.routes.length > 0) {
+    return { value: Math.round(data.routes[0].distance), isFallback: false };
+}
+// 若無效、不可達（例如位於國道中央的交流道點），自動使用「直線距離」作為合理備援
+return { value: straightDist, isFallback: true };
 }catch(err){
-console.error(err);
-return null;
+console.error("OSRM 服務異常，啟用直線備援:", err);
+return { value: straightDist, isFallback: true };
 }
 }  
 
-async function drawRoute(to){
+async function drawRoute(to, item){
 try{
 if(!origin) return;
 const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 const res=await fetch(url);
 const data=await res.json();
+
 if(!data.routes?.length){
-routeInfo.innerText="查無可通行路線";
-if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
-return;
+    // 如果是交流道或其他無效點，無法繪製藍色路網時，改畫一條簡單的「紅色虛線」示意
+    routeInfo.innerText = "路線距離：" + item.距離 + " m (國道節點限制，改以直線計算)";
+    if(routeLayer) map.removeLayer(routeLayer);
+    routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
+    return;
 }
+
 const route=data.routes[0];
 routeInfo.innerText="路線距離：" + Math.round(route.distance) + " m";
 if(routeLayer) map.removeLayer(routeLayer);
 routeLayer=L.geoJSON(route.geometry,{ style:{color:"blue",weight:5} }).addTo(map);
 }catch(err){
-routeInfo.innerText="路線服務異常";
+routeInfo.innerText="路線服務異常，改繪直線";
+if(routeLayer) map.removeLayer(routeLayer);
+routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
 }
 }
 
@@ -744,7 +746,7 @@ selectItem(item);
 }  
 
 function selectItem(item){
-drawRoute(item.座標);
+drawRoute(item.座標, item);
 document.querySelectorAll("#tbody tr").forEach(r=>{ r.classList.remove("highlight"); });
 const row=document.querySelector(`#tbody tr[data-id="${item.id}"]`);
 if(row){
@@ -868,7 +870,8 @@ id:idx,
 類型: e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || e.tags?.highway || "未知",
 座標:[lat2,lon2],
 距離:Math.round(haversine(lat,lon,lat2,lon2)),
-路線距離:"計算中..."
+路線距離:"計算中...",
+路線距離數值: null
 };
 results.push(item);
 
@@ -882,11 +885,12 @@ selectItem(item);
 results.sort((a,b)=>a.距離-b.距離);
 renderTable();
 
-/* 背景非同步更新路網距離 */
+/* 背景非同步更新路網距離（加入防呆機制） */
 for (const item of results.slice(0,80)) {
-const routeDistance = await getRouteDistance(item.座標);
-item.路線距離數值 = routeDistance;
-item.路線距離 = routeDistance != null ? routeDistance + " m" : "無法到達";
+const routeRes = await getRouteDistance(item.座標, item.距離);
+item.路線距離數值 = routeRes.value;
+item.路線距離 = routeRes.isFallback ? routeRes.value + " m (直線)" : routeRes.value + " m";
+
 const cell = document.getElementById(`route-${item.id}`);
 if(cell) cell.innerText = item.路線距離;
 }
