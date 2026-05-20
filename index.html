@@ -136,6 +136,31 @@ border-radius:10px;
 color:#1d4ed8;
 font-weight:bold;
 }
+
+/* 新增：多邊形繪製工具列樣式 */
+.draw-control-bar {
+    background: white;
+    padding: 5px;
+    border-radius: 8px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.draw-btn {
+    background: #ffffff;
+    color: #333;
+    border: 1px solid #ccc;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    white-space: nowrap;
+}
+.draw-btn:hover { background: #f4f4f4; }
+.draw-btn.active { background: #ef4444; color: white; border-color: #dc2626; }
 </style>
 </head>
 <div style="position:absolute;bottom:8px;left:12px;font-size:11px;color:#666;background:rgba(255,255,255,0.8);padding:4px 8px;border-radius:6px;z-index:1000;">
@@ -348,47 +373,201 @@ radius:parseFloat(radiusInput.value),
 color:'blue',
 fillOpacity:0.15
 }).addTo(map);
-/* 點擊定位 */
-map.on('click',e=>{
 
-const lat=e.latlng.lat;
-const lon=e.latlng.lng;
 
-latInput.value=lat.toFixed(6);
-lonInput.value=lon.toFixed(6);
+/* ==========================================
+   新增功能：多邊形滑鼠點選建構與量測功能
+   ========================================== */
+let isDrawingPolygon = false;
+let drawPoints = [];
+let previewPolyline = null;
+let finalPolygon = null;
+let drawMarkers = L.layerGroup().addTo(map);
 
-origin=[lat,lon];
+// 建立自訂地圖控制項工具列
+const drawControl = L.control({ position: 'topleft' });
+drawControl.onAdd = function() {
+    const div = L.DomUtil.create('div', 'draw-control-bar');
+    div.innerHTML = `
+        <button id="btn-start-draw" class="draw-btn" onclick="toggleDrawMode(this)">📐 繪製範圍</button>
+        <button id="btn-end-draw" class="draw-btn" onclick="finishPolygon()" style="display:none; background:#10b981; color:white;">✓ 完成閉合</button>
+        <button id="btn-clear-draw" class="draw-btn" onclick="clearPolygon()" style="display:none; background:#6b7280; color:white;">✕ 清除範圍</button>
+    `;
+    // 防止點擊工具列時觸發地圖點擊事件
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+};
+drawControl.addTo(map);
 
-if(userMarker) map.removeLayer(userMarker);
+function toggleDrawMode(btn) {
+    isDrawingPolygon = !isDrawingPolygon;
+    if (isDrawingPolygon) {
+        btn.classList.add('active');
+        btn.innerText = "🛑 停止點選";
+        document.getElementById('btn-end-draw').style.display = 'block';
+        document.getElementById('btn-clear-draw').style.display = 'block';
+        // 暫時重置點位陣列
+        clearPolygonData();
+    } else {
+        btn.classList.remove('active');
+        btn.innerText = "📐 繪製範圍";
+        if (drawPoints.length === 0) {
+            document.getElementById('btn-end-draw').style.display = 'none';
+            document.getElementById('btn-clear-draw').style.display = 'none';
+        }
+    }
+}
 
-userMarker=L.marker([lat,lon],{
-icon: L.divIcon({
-className: '',
-html: `
-<div style="
-width:18px;
-height:18px;
-background:#ef4444;
-border:3px solid #ffffff;
-border-radius:50%;
-box-shadow:0 0 0 2px rgba(239,68,68,0.35);
-"></div>
-`,
-iconSize:[18,18],
-iconAnchor:[9,9]
-}),
-interactive:false
-}).addTo(map);
+function clearPolygonData() {
+    drawPoints = [];
+    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
+    if (finalPolygon) { map.removeLayer(finalPolygon); finalPolygon = null; }
+    drawMarkers.clearLayers();
+}
 
-if(circleLayer) map.removeLayer(circleLayer);
+function clearPolygon() {
+    clearPolygonData();
+    isDrawingPolygon = false;
+    const btn = document.getElementById('btn-start-draw');
+    btn.classList.remove('active');
+    btn.innerText = "📐 繪製範圍";
+    document.getElementById('btn-end-draw').style.display = 'none';
+    document.getElementById('btn-clear-draw').style.display = 'none';
+}
 
-circleLayer=L.circle([lat,lon],{
-radius:parseFloat(radiusInput.value),
-color:'blue',
-fillOpacity:0.15
-}).addTo(map);
+function finishPolygon() {
+    if (drawPoints.length < 3) {
+        alert("請至少點選 3 個以上的頂點才能組成本地籍範圍多邊形！");
+        return;
+    }
+    
+    // 移除輔助線
+    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
+    
+    // 繪製最終封閉多邊形
+    finalPolygon = L.polygon(drawPoints, {
+        color: '#dc2626',
+        weight: 3,
+        fillColor: '#fca5a5',
+        fillOpacity: 0.4
+    }).addTo(map);
 
+    // 計算面積 (簡化版球面多邊形面積演算法)與周長
+    const areaM2 = Math.abs(getPolygonArea(drawPoints));
+    const areaPing = areaM2 * 0.3025;
+    const perimeter = getPolygonPerimeter(drawPoints);
+
+    // 在多邊形中心跳出報表 Popup
+    const center = finalPolygon.getBounds().getCenter();
+    finalPolygon.bindPopup(`
+        <div style="font-size:13px; line-height:1.5;">
+            <b style="color:#dc2626;">📐 估價街廓範圍量測</b><br>
+            <hr style="margin:4px 0; border:0; border-top:1px solid #eee;">
+            <b>實體面積：</b>${areaM2.toFixed(2)} ㎡<br>
+            <b>換算坪數：</b>${areaPing.toFixed(2)} 坪<br>
+            <b>總周長：</b>${perimeter.toFixed(2)} m
+        </div>
+    `).openPopup(center);
+
+    // 關閉繪製模式，保留清除按鈕
+    isDrawingPolygon = false;
+    const btn = document.getElementById('btn-start-draw');
+    btn.classList.remove('active');
+    btn.innerText = "📐 繪製範圍";
+    document.getElementById('btn-end-draw').style.display = 'none';
+}
+
+// 球面多邊形面積估算公式 (不需額外載入 turf.js 保持流暢)
+function getPolygonArea(coords) {
+    const RADIUS = 6378137;
+    let Area = 0;
+    if (coords.length > 2) {
+        for (let i = 0; i < coords.length; i++) {
+            let p1 = coords[i];
+            let p2 = coords[(i + 1) % coords.length];
+            Area += ((p2[1] - p1[1]) * Math.PI / 180) * (2 + Math.sin(p1[0] * Math.PI / 180) + Math.sin(p2[0] * Math.PI / 180));
+        }
+        Area = Area * RADIUS * RADIUS / 2;
+    }
+    return Area;
+}
+
+// 多邊形總周長計算
+function getPolygonPerimeter(coords) {
+    let length = 0;
+    for (let i = 0; i < coords.length; i++) {
+        let p1 = coords[i];
+        let p2 = coords[(i + 1) % coords.length];
+        length += haversine(p1[0], p1[1], p2[0], p2[1]);
+    }
+    return length;
+}
+
+
+/* 點擊定位（整合多邊形繪製判斷邏輯） */
+map.on('click', e => {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+
+    // 如果當前正在進行「多邊形繪製」，優先處理多邊形節點
+    if (isDrawingPolygon) {
+        drawPoints.push([lat, lon]);
+        
+        // 繪製頂點小標記
+        L.circleMarker([lat, lon], {
+            radius: 5,
+            color: '#dc2626',
+            fillColor: '#fff',
+            fillOpacity: 1,
+            weight: 2
+        }).addTo(drawMarkers);
+
+        // 即時繪製折線
+        if (previewPolyline) {
+            previewPolyline.setLatLngs(drawPoints);
+        } else {
+            previewPolyline = L.polyline(drawPoints, { color: '#dc2626', weight: 2, dashArray: '5, 8' }).addTo(map);
+        }
+        return; // 跳出，不影響原本的環域中心點點選功能
+    }
+
+    // 以下為您原本的點擊環域中心邏輯
+    latInput.value = lat.toFixed(6);
+    lonInput.value = lon.toFixed(6);
+
+    origin = [lat, lon];
+
+    if (userMarker) map.removeLayer(userMarker);
+
+    userMarker = L.marker([lat, lon], {
+        icon: L.divIcon({
+            className: '',
+            html: `
+            <div style="
+            width:18px;
+            height:18px;
+            background:#ef4444;
+            border:3px solid #ffffff;
+            border-radius:50%;
+            box-shadow:0 0 0 2px rgba(239,68,68,0.35);
+            "></div>
+            `,
+            iconSize: [18, 18],
+            iconAnchor: [9, 9]
+        }),
+        interactive: false
+    }).addTo(map);
+
+    if (circleLayer) map.removeLayer(circleLayer);
+
+    circleLayer = L.circle([lat, lon], {
+        radius: parseFloat(radiusInput.value),
+        color: 'blue',
+        fillOpacity: 0.15
+    }).addTo(map);
 });
+
+
 /* 取得現在位置 */
 function getCurrentLocation(){
 
@@ -791,7 +970,7 @@ way["power"="line"](around:${radius},${lat},${lon});
 /* 電線桿 */
 nwr["power"="pole"](around:${radius},${lat},${lon});
 
-/* 加油站（這是你缺的 gas 類核心設施） */
+/* 加油站 */
 nwr["amenity"="fuel"](around:${radius},${lat},${lon});
 
 `);
@@ -822,7 +1001,7 @@ nwr["landuse"="landfill"](around:${radius},${lat},${lon});
 nwr["name"~"焚化|垃圾|廢棄物|資源回收|污水|處理場",i](around:${radius},${lat},${lon});
 `);
 
-}   // ✅ 這個大括號就是你原本缺的 -->
+}
 
 else{
 
@@ -864,7 +1043,7 @@ data.elements.forEach(e=>{
 let lat2=e.center?.lat ?? e.lat;
 let lon2=e.center?.lon ?? e.lon;
 
-/* 🚨 交流道入口修正（只影響 motorway_link） */
+/* 交流道入口修正 */
 if(
 e.tags?.highway === "motorway_link"
 && e.bounds
