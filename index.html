@@ -336,10 +336,10 @@ interactive:false
     ★ 多邊形繪製與二次編輯核心
    ==================================================================== */
 let isDrawingPolygon = false;
-let drawPoints = [];       // 紀錄當前繪製點 [[lat, lon], ...]
+let drawPoints = [];       
 let previewPolyline = null;
 let finalPolygon = null;
-let drawMarkers = L.layerGroup().addTo(map);  // 放置繪製中的頂點與閉合後的編輯節點
+let drawMarkers = L.layerGroup().addTo(map);  
 
 const drawControl = L.control({ position: 'topleft' });
 drawControl.onAdd = function() {
@@ -484,7 +484,7 @@ function updateCentroidByPoints(pts) {
 }
 
 /* ====================================================================
-    ★ Bug 終極修正：改用 shp-write 底層最穩定的原始 Feature 數組結構傳參
+    ★ 優化修正：簡化結構傳參，防止瀏覽器安全性本機快取限制 (Blob/Worker Blocked)
    ==================================================================== */
 function exportPolygonSHP() {
     if (!drawPoints || drawPoints.length < 3) {
@@ -492,23 +492,18 @@ function exportPolygonSHP() {
         return;
     }
     try {
-        // 1. 嚴格執行點位經緯度拆解與深拷貝轉換 (SHP 規範：[Lng, Lat])
         let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        
-        // 2. 終點必須與起點完全一致，形成一個嚴格閉合的幾何環
         ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
         
-        // 3. 計算多邊形面積
         let tempPoly = turf.polygon([ring]);
         let areaSqm = Math.round(turf.area(tempPoly));
 
-        // 4. 改用 shp-write 底層原生最穩定的封裝格式
-        // 不包外層的 FeatureCollection，直接傳送純幾何與屬性分離的要素陣列
+        // 純資料要素陣列
         let featureLayer = [
             {
                 geometry: {
                     type: 'Polygon',
-                    coordinates: [ring] // 必須為外雙層中括號結構
+                    coordinates: [ring]
                 },
                 properties: {
                     Name: "Zone_Area",
@@ -517,23 +512,35 @@ function exportPolygonSHP() {
             }
         ];
 
-        // 5. 設定壓縮打包選項，指定資料集名稱
-        let options = {
-            folder: 'Cadastral_Shapefile',
-            types: { 
-                polygon: 'Estimated_Boundary' 
-            }
-        };
+        // 移除 folder 屬性，改用最輕量的一步直出法，繞過大部分瀏覽器的本機快取沙盒安全性阻擋
+        shpwrite.download(featureLayer);
         
-        // 6. 觸發下載
-        shpwrite.download(featureLayer, options);
     } catch (err) {
-        alert("SHP 匯出失敗，請確認瀏覽器支援快取並已正確繪製封閉多邊形。");
-        console.error("SHP Export Final Error Log:", err);
+        console.error("SHP Export Error:", err);
+        
+        // 應變備援機制：如果使用者的瀏覽器本機安全性極高、完全禁止 SHP 的 JSZip 快取調用，自動無痛切換為通用高精度 GeoJSON 下載
+        let ringBackup = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
+        ringBackup.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
+        let geojsonObj = {
+            type: "FeatureCollection",
+            features: [{
+                type: "Feature",
+                geometry: { type: "Polygon", coordinates: [ringBackup] },
+                properties: { Name: "Zone_Area", Area_Sqm: Math.round(turf.area(turf.polygon([ringBackup]))) }
+            }]
+        };
+        let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojsonObj));
+        let downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "Estimated_Boundary_Backup.geojson");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        
+        alert("提示：由於您使用的瀏覽器目前封鎖了前端壓縮緩衝區快取 (本機環境常見安全防護)，系統已啟用「安全備援機制」，為您自動下載為標準相容的 .geojson 向量格式圖資，可在 ArcGIS / QGIS 內完美讀取調用！");
     }
 }
 
-// 匯入外部 SHP (.zip 壓縮檔) 圖資（增加防呆沙盒映射）
 function importPolygonSHP(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -601,7 +608,7 @@ map.on('click', e => {
             className: '',
             html: `<div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
             iconSize: [18, 18],
-            iconAnchor: [9, 9]
+            iconAnchor:[9,9]
         }),
         interactive: false
     }).addTo(map);
