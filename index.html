@@ -702,8 +702,11 @@ const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * M
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-/* OSRM 路由服務 (整合交流道反向優化邏輯) */
-async function getRouteDistance(to, straightDist, isJunction = false){
+/* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
+async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
+if(isInZone) {
+    return { value: 0, isFallback: false, msg: "" };
+}
 try{
 if(!origin) return null;
 
@@ -730,6 +733,13 @@ return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 async function drawRoute(to, item){
 try{
 if(!origin) return;
+
+if(item.在範圍內) {
+    routeInfo.innerText = "路線距離：0 m (此設施位於您編輯的範圍區段內部)";
+    if(routeLayer) map.removeLayer(routeLayer);
+    return;
+}
+
 let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
 
 let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
@@ -778,7 +788,7 @@ row.scrollIntoView({ behavior:"smooth", block:"center" });
 }
 }
 
-/* Overpass API 查詢核心 */
+/* Overpass API 查詢與幾何相交拓撲核心 */
 async function runQuery(){
 const lat=parseFloat(latInput.value);
 const lon=parseFloat(lonInput.value);
@@ -799,6 +809,14 @@ try {
     tbody.innerHTML="";
     results=[];
     let parts=[];
+
+    // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
+    let turfZonePolygon = null;
+    if (drawPoints && drawPoints.length >= 3) {
+        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
+        ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
+        turfZonePolygon = turf.polygon([ring]);
+    }
 
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
     if(checkedBoxes.length === 0) {
@@ -863,7 +881,6 @@ try {
     `);
     }
     else if(t==="school"){
-    /* ★ 終極修正：利用 Overpass 語法同時抓取學校主體，以及周邊與學校相關的大門(entrance)、門牌與出入口點 */
     parts.push(`
     nwr["amenity"="school"](around:${radius},${lat},${lon});
     nwr["amenity"="university"](around:${radius},${lat},${lon});
@@ -899,7 +916,6 @@ try {
         return;
     }
 
-    // 建立一個地圖暫存區，用來比對學校主體與大門的對應關係
     let rawSchools = [];
     let gates = [];
     const dedup = new Set();
@@ -916,35 +932,41 @@ try {
         let rawType = e.tags?.highway || e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || e.tags?.entrance || e.tags?.barrier || "未知";
         let name = e.tags?.name || "";
 
-        // 分流：收集學校與可能的大門
         if(rawType === "school" || rawType === "university") {
             rawSchools.push({ id: e.id, name: name, lat: lat2, lon: lon2, rawType: rawType });
         } else if(rawType === "main" || rawType === "school_entrance" || rawType === "gate" || e.tags?.entrance === "main") {
             gates.push({ lat: lat2, lon: lon2 });
         } else {
-            // 一般設施直接處理
             let typeName = rawType;
             if(rawType === "motorway_junction" || rawType === "ramp") typeName = "交流道入口(平面路口)";
             
+            // ★核心空間拓撲判定：利用 Turf.js 計算設施點是否落在編輯範圍內
+            let inside = false;
+            if(turfZonePolygon) {
+                let pt = turf.point([lon2, lat2]);
+                inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
+            }
+
             results.push({
                 id: results.length,
                 名稱: name || (rawType === "ramp" ? "交流道平面路口/匝道端" : "周邊設施"),
                 類型: typeName,
                 原始類型: rawType,
                 座標: [lat2, lon2],
-                距離: Math.round(haversine(lat, lon, lat2, lon2)),
-                路線距離: "計算中...",
-                路線距離數值: null
+                在範圍內: inside,
+                距離: inside ? 0 : Math.round(haversine(lat, lon, lat2, lon2)),
+                直線距離顯示: inside ? "0 (位於區段範圍內)" : Math.round(haversine(lat, lon, lat2, lon2)),
+                路線距離: inside ? "0 (位於區段範圍內)" : "計算中...",
+                路線距離數值: inside ? 0 : null
             });
         }
     });
 
-    // 核心整合演算法：計算大門與學校的歸屬。如果大門在學校主體附近，將座標直接修正至該大門
     rawSchools.forEach(sch => {
         let finalLat = sch.lat;
         let finalLon = sch.lon;
         let hasMainGate = false;
-        let minGateDist = 250; // 限定大門必須在學校中心點 250 公尺範圍內才算數
+        let minGateDist = 250; 
 
         gates.forEach(gate => {
             let d = haversine(sch.lat, sch.lon, gate.lat, gate.lon);
@@ -956,23 +978,31 @@ try {
             }
         });
 
+        // 學校部分同樣進行多邊形相交檢查
+        let inside = false;
+        if(turfZonePolygon) {
+            let pt = turf.point([finalLon, finalLat]);
+            inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
+        }
+
         results.push({
             id: results.length,
             名稱: sch.name || "未命名學校",
             類型: hasMainGate ? "學校(已精準定位大門門牌)" : "學校區域(採用形心估算)",
             原始類型: sch.rawType,
             座標: [finalLat, finalLon],
-            距離: Math.round(haversine(lat, lon, finalLat, finalLon)),
-            路線距離: "計算中...",
-            路線距離數值: null
+            在範圍內: inside,
+            距離: inside ? 0 : Math.round(haversine(lat, lon, finalLat, finalLon)),
+            直線距離顯示: inside ? "0 (位於區段範圍內)" : Math.round(haversine(lat, lon, finalLat, finalLon)),
+            路線距離: inside ? "0 (位於區段範圍內)" : "計算中...",
+            路線距離數值: inside ? 0 : null
         });
     });
 
-    // 重新排序
+    // 排序：0公尺（在範圍內）的設施會自動排在表格最上方
     results.sort((a,b)=>a.距離-b.距離);
     renderTable();
 
-    // 在地圖上繪製標籤點
     results.forEach(item => {
         const m=L.marker(item.座標).addTo(markerLayer).bindTooltip(item.名稱,{direction:"top"});
         m.on("click",()=>{
@@ -985,8 +1015,10 @@ try {
 
     /* 背景非同步更新路網距離 */
     for (const item of results.slice(0,80)) {
+        if (item.在範圍內) continue; // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
+        
         let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
-        const routeRes = await getRouteDistance(item.座標, item.距離, isJunc);
+        const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
 
         item.路線距離數值 = routeRes.value;
         item.路線距離 = routeRes.value + " m" + routeRes.msg;
@@ -1030,7 +1062,7 @@ tr.dataset.id=item.id;
 tr.innerHTML=`
 <td onclick='selectItemById(${item.id})' style="cursor:pointer;color:blue">${item.名稱}</td>
 <td>${item.類型}</td>
-<td>${item.距離}</td>
+<td>${item.直線距離顯示}</td>
 <td id="route-${item.id}">${item.路線距離}</td>
 `;
 tbody.appendChild(tr);
@@ -1047,7 +1079,7 @@ routeInfo.innerText="路線距離：尚未計算";
 function exportExcel(){
 if(!results.length){ alert("無資料"); return; }
 const ws = XLSX.utils.json_to_sheet(results.map(r=>({
-名稱:r.名稱, 類型:r.類型, 直線距離:r.距離, 路線距離:r.路線距離 || "", 緯度:r.座標[0], 經度:r.座標[1]
+名稱:r.名稱, 類型:r.類型, 直線距離:r.直線距離顯示, 路線距離:r.路線距離 || "", 緯度:r.座標[0], 經度:r.座標[1]
 })));
 const wb = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb, ws, "GIS");
