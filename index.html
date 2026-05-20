@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>市價徵收查估作業-影響地價區域因素分析明細表(住宅用地)</title>
+<title>市價徵收查估作業-影響地價區域因素明細表(住宅用地)</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -16,7 +16,7 @@
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 
 <style>
-body { margin:0; font-family: Arial; }
+body { margin:0; font-family: Arial, "Microsoft JhengHei"; }
 #map { height:100vh; }
 
 /* UI 面板 */
@@ -65,6 +65,11 @@ border-radius:10px;
 cursor:pointer;
 font-weight:bold;
 background:#2563eb;color:white;
+}
+
+#panel button:disabled {
+background:#94a3b8;
+cursor:not-allowed;
 }
 
 #panel button.clear-btn{
@@ -206,9 +211,9 @@ font-weight:bold;
 
 <label><input type="checkbox" value="station">交通運輸-接近大型車站之程度</label>
 <label><input type="checkbox" value="bus_stop">交通運輸-站牌之接近程度或密集程度</label>
-<label><input type="checkbox" value="motorway_junction" checked>交通運輸-交流道之有無及接近交流道之程度</label>
+<label><input type="checkbox" value="motorway_junction">交通運輸-交流道之有無及接近交流道之程度</label>
 
-<label><input type="checkbox" value="school">公共建設-接近學校之程度(國小、國中、高中、大專院校)</label>
+<label><input type="checkbox" value="school" checked>公共建設-接近學校之程度(門牌大門優先)</label>
 <label><input type="checkbox" value="marketplace">公共建設-接近市場之程度(傳統市場、超級市場、超大型購物中心)</label>
 <label><input type="checkbox" value="park">公共建設-接近公園(里鄰公園、一般公園)、廣場、徒步區之程度</label>
 <label><input type="checkbox" value="tourism">公共建設-接近觀光遊憩設施之程度</label>
@@ -218,7 +223,7 @@ font-weight:bold;
 <label><input type="checkbox" value="cemetery">特殊建設-殯葬設施之有無及接近程度</label>  
 <label><input type="checkbox" value="waste_disposal">特殊建設-廢棄物處理設施之有無及接近程度</label>
 <label><input type="checkbox" value="pollution">環境汙染-水汙染、噪音汙染、廢氣汙染、廢棄物汙染等之有無及接近程度</label>
-<button onclick="runQuery()">查詢</button>
+<button id="query-btn" onclick="runQuery()">查詢</button>
 <div style="display:flex;gap:6px;margin-top:6px;">
 
 <button type="button"
@@ -315,6 +320,7 @@ const lonInput=document.getElementById("lon");
 const radiusInput=document.getElementById("radius");
 const tbody=document.getElementById("tbody");
 const routeInfo=document.getElementById("routeInfo");
+const queryBtn=document.getElementById("query-btn");
 
 let userMarker=null;
 let origin=null;
@@ -361,6 +367,11 @@ drawControl.onAdd = function() {
     return div;
 };
 drawControl.addTo(map);
+
+const resPanel = document.getElementById("resultPanel");
+const sidePanel = document.getElementById("panel");
+L.DomEvent.disableClickPropagation(resPanel);
+L.DomEvent.disableClickPropagation(sidePanel);
 
 function toggleDrawMode(btn) {
     isDrawingPolygon = !isDrawingPolygon;
@@ -537,7 +548,7 @@ function exportPolygonSHP() {
         downloadAnchor.click();
         downloadAnchor.remove();
         
-        alert("提示：由於網頁快取防護阻擋，系統已為您自動下載為高相容性的 .geojson 向量格式圖資，可在 ArcGIS / QGIS 與本系統內完美還原！");
+        alert("提示：由於網頁快取防護阻擋，系統已為您自動下載為高相容性的 .geojson 向量格式圖資。");
     }
 }
 
@@ -606,7 +617,7 @@ function processImportedGeoJSON(geojson) {
 }
 
 
-/* 地圖點擊事件（整合繪製與點選定位） */
+/* 地圖點擊事件 */
 map.on('click', e => {
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
@@ -691,19 +702,14 @@ const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * M
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-/* ====================================================================
-    ★ 終極修正核心：反轉起導航終點，徹底破解單向匝道繞路陷阱
-   ==================================================================== */
+/* OSRM 路由服務 (整合交流道反向優化邏輯) */
 async function getRouteDistance(to, straightDist, isJunction = false){
 try{
 if(!origin) return null;
 
-// 預設路徑：從土地(origin) 到 目標點(to)
 let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 
 if(isJunction) {
-    // 【關鍵修正】：如果是交流道，將起終點對調！改計算「從交流道路口(to) 開回 土地(origin)」
-    // 這樣車輛一出發就能直接走平面道路，完全不會被吸進高速公路的單向匝道裡
     url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
 }
 
@@ -729,7 +735,6 @@ let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 
 let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
 if(isJunction) {
-    // 【關鍵修正】：畫線時同樣採取對調策略，確保地圖上畫出來的是清爽的平面道路，而非國道繞路
     url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=full&geometries=geojson&radiuses=50;unlimited`;
 }
 
@@ -737,7 +742,7 @@ const res=await fetch(url);
 const data=await res.json();
 
 if(!data.routes?.length){
-    routeInfo.innerText = "路線距離：" + item.距離 + " m (平面限制，採直線示意)";
+    routeInfo.innerText = "路線距離：" + item.距離 + " m (採直線路徑示意)";
     if(routeLayer) map.removeLayer(routeLayer);
     routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
     return;
@@ -745,10 +750,9 @@ if(!data.routes?.length){
 
 const route=data.routes[0];
 let routeDist = Math.round(route.distance);
-routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (平面路網逆向計算解鎖)" : "");
+routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (平面路網逆向計算)" : "");
 
 if(routeLayer) map.removeLayer(routeLayer);
-// 注意：如果是交流道，因為導航資料是反向的，為了讓地圖顯示正確，我們將幾何線段反轉顯示即可
 routeLayer=L.geoJSON(route.geometry,{ style:{color: isJunction ? "#059669" : "blue", weight:5} }).addTo(map);
 }catch(err){
 routeInfo.innerText="路線服務異常，改繪直線";
@@ -785,147 +789,218 @@ alert("半徑超過3000m可能造成系統過慢");
 return;
 }
 
-markerLayer.clearLayers();
-if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
-routeInfo.innerText="路線距離：尚未計算";
-tbody.innerHTML="";
-results=[];
-let parts=[];
+queryBtn.disabled = true;
+queryBtn.innerText = "⌛ 檢索圖資中...";
 
-document.querySelectorAll("input[type=checkbox]:checked").forEach(e=>{
-let t=e.value;
-if(t==="station"){
-parts.push(`
-nwr["railway"="station"](around:${radius},${lat},${lon});
-nwr["railway"="station"]["station"="train"](around:${radius},${lat},${lon});
-nwr["railway"="station"]["train"="yes"](around:${radius},${lat},${lon});
-nwr["railway"="halt"](around:${radius},${lat},${lon});
-nwr["railway"="subway_entrance"](around:${radius},${lat},${lon});
-nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
-`);
-}
-else if(t==="bus_stop"){
-parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
-}
-else if(t==="motorway_junction"){
-// 僅撈取與地方平面銜接之連絡道、閘道交接節點，並在後端排除深處主線的穿透點
-parts.push(`
-node["highway"="motorway_junction"](around:${radius},${lat},${lon});
-nwr["highway"="ramp"](around:${radius},${lat},${lon});
-`);
-}
-else if(t==="marketplace"){
-parts.push(`
-nwr["amenity"="marketplace"](around:${radius},${lat},${lon});
-nwr["shop"="supermarket"](around:${radius},${lat},${lon});
-nwr["name"~"costco|好市多|家樂福|大潤發|愛買",i](around:${radius},${lat},${lon});
-`);
-}
-else if(t==="waste_disposal"){
-parts.push(`
-nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
-nwr["name"~"焚化|垃圾|廢棄物|資源回收|處理場"](around:${radius},${lat},${lon});
-`);
-}
-else if(t==="park"){
-parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
-}
-else if(t==="tourism"){
-parts.push(`nwr["tourism"](around:${radius},${lat},${lon})["leisure"!="park"];`);
-}
-else if(t==="bank"){
-parts.push(`
-nwr["amenity"="bank"](around:${radius},${lat},${lon});
-nwr["amenity"="post_office"](around:${radius},${lat},${lon});
-nwr["amenity"="hospital"](around:${radius},${lat},${lon});
-nwr["office"="government"](around:${radius},${lat},${lon});
-`);
-}
-else if(t==="cemetery"){
-parts.push(`
-nwr["landuse"="cemetery"](around:${radius},${lat},${lon});
-nwr["name"~"親儀|生命紀念|納骨|火化"](around:${radius},${lat},${lon});
-`);
-}
-else if(t==="school"){
-parts.push(`
-nwr["amenity"="school"](around:${radius},${lat},${lon});
-nwr["amenity"="university"](around:${radius},${lat},${lon});
-`);
-}
-else if(t==="gas"){
-parts.push(`
-nwr["power"="substation"](around:${radius},${lat},${lon});
-nwr["amenity"="fuel"](around:${radius},${lat},${lon});
-`);
-}
-else if(t==="pollution"){
-parts.push(`
-nwr["man_made"="wastewater_treatment_plant"](around:${radius},${lat},${lon});
-nwr["landuse"="industrial"](around:${radius},${lat},${lon});
-`);
-}
-});
+try {
+    markerLayer.clearLayers();
+    if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
+    routeInfo.innerText="路線距離：尚未計算";
+    tbody.innerHTML="";
+    results=[];
+    let parts=[];
 
-const query=`[out:json][timeout:60];(${parts.join("\n")});out center;`;
-const res=await fetch("https://overpass-api.de/api/interpreter",{
-method:"POST",
-body:"data="+encodeURIComponent(query),
-headers:{"Content-Type":"application/x-www-form-urlencoded"}
-});
-const data=await res.json();
-if(!data.elements) return;
+    const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
+    if(checkedBoxes.length === 0) {
+        alert("請至少勾選一個分析類型！");
+        queryBtn.disabled = false;
+        queryBtn.innerText = "查詢";
+        return;
+    }
 
-const dedup = new Set();
-data.elements.forEach(e=>{
-let lat2=e.center?.lat ?? e.lat;
-let lon2=e.center?.lon ?? e.lon;
+    checkedBoxes.forEach(e=>{
+    let t=e.value;
+    if(t==="station"){
+    parts.push(`
+    nwr["railway"="station"](around:${radius},${lat},${lon});
+    nwr["railway"="station"]["station"="train"](around:${radius},${lat},${lon});
+    nwr["railway"="station"]["train"="yes"](around:${radius},${lat},${lon});
+    nwr["railway"="halt"](around:${radius},${lat},${lon});
+    nwr["railway"="subway_entrance"](around:${radius},${lat},${lon});
+    nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
+    `);
+    }
+    else if(t==="bus_stop"){
+    parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
+    }
+    else if(t==="motorway_junction"){
+    parts.push(`
+    node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+    nwr["highway"="ramp"](around:${radius},${lat},${lon});
+    `);
+    }
+    else if(t==="marketplace"){
+    parts.push(`
+    nwr["amenity"="marketplace"](around:${radius},${lat},${lon});
+    nwr["shop"="supermarket"](around:${radius},${lat},${lon});
+    nwr["name"~"costco|好市多|家樂福|大潤發|愛買",i](around:${radius},${lat},${lon});
+    `);
+    }
+    else if(t==="waste_disposal"){
+    parts.push(`
+    nwr["amenity"="waste_transfer_station"](around:${radius},${lat},${lon});
+    nwr["name"~"焚化|垃圾|廢棄物|資源回收|處理場"](around:${radius},${lat},${lon});
+    `);
+    }
+    else if(t==="park"){
+    parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
+    }
+    else if(t==="tourism"){
+    parts.push(`nwr["tourism"](around:${radius},${lat},${lon})["leisure"!="park"];`);
+    }
+    else if(t==="bank"){
+    parts.push(`
+    nwr["amenity"="bank"](around:${radius},${lat},${lon});
+    nwr["amenity"="post_office"](around:${radius},${lat},${lon});
+    nwr["amenity"="hospital"](around:${radius},${lat},${lon});
+    ` office="government" `(around:${radius},${lat},${lon});
+    `);
+    }
+    else if(t==="cemetery"){
+    parts.push(`
+    nwr["landuse"="cemetery"](around:${radius},${lat},${lon});
+    nwr["name"~"親儀|生命紀念|納骨|火化"](around:${radius},${lat},${lon});
+    `);
+    }
+    else if(t==="school"){
+    /* ★ 終極修正：利用 Overpass 語法同時抓取學校主體，以及周邊與學校相關的大門(entrance)、門牌與出入口點 */
+    parts.push(`
+    nwr["amenity"="school"](around:${radius},${lat},${lon});
+    nwr["amenity"="university"](around:${radius},${lat},${lon});
+    node["entrance"="main"](around:${radius},${lat},${lon});
+    node["amenity"="school_entrance"](around:${radius},${lat},${lon});
+    node["barrier"="gate"](around:${radius},${lat},${lon});
+    `);
+    }
+    else if(t==="gas"){
+    parts.push(`
+    nwr["power"="substation"](around:${radius},${lat},${lon});
+    nwr["amenity"="fuel"](around:${radius},${lat},${lon});
+    `);
+    }
+    else if(t==="pollution"){
+    parts.push(`
+    nwr["man_made"="wastewater_treatment_plant"](around:${radius},${lat},${lon});
+    nwr["landuse"="industrial"](around:${radius},${lat},${lon});
+    `);
+    }
+    });
 
-if(lat2 == null || lon2 == null) return;
-const key = `${e.type}-${e.id}`;
-if(dedup.has(key)) return;
-dedup.add(key);
+    const query=`[out:json][timeout:60];(${parts.join("\n")});out center;`;
+    const res=await fetch("https://overpass-api.de/api/interpreter",{
+    method:"POST",
+    body:"data="+encodeURIComponent(query),
+    headers:{"Content-Type":"application/x-www-form-urlencoded"}
+    });
+    const data=await res.json();
+    if(!data.elements) {
+        queryBtn.disabled = false;
+        queryBtn.innerText = "查詢";
+        return;
+    }
 
-let rawType = e.tags?.highway || e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || "未知";
-let typeName = rawType;
+    // 建立一個地圖暫存區，用來比對學校主體與大門的對應關係
+    let rawSchools = [];
+    let gates = [];
+    const dedup = new Set();
 
-if(rawType === "motorway_junction" || rawType === "ramp") {
-    typeName = "交流道入口(平面路口)";
-}
+    data.elements.forEach(e=>{
+        let lat2=e.center?.lat ?? e.lat;
+        let lon2=e.center?.lon ?? e.lon;
+        if(lat2 == null || lon2 == null) return;
+        
+        const key = `${e.type}-${e.id}`;
+        if(dedup.has(key)) return;
+        dedup.add(key);
 
-const idx=results.length;
-const item={
-id:idx,
-名稱:e.tags?.name || (rawType === "ramp" ? "交流道平面路口/匝道端" : "國道交流道端點"),
-類型: typeName,
-原始類型: rawType,
-座標:[lat2,lon2],
-距離:Math.round(haversine(lat,lon,lat2,lon2)),
-路線距離:"計算中...",
-路線距離數值: null
-};
-results.push(item);
+        let rawType = e.tags?.highway || e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || e.tags?.entrance || e.tags?.barrier || "未知";
+        let name = e.tags?.name || "";
 
-const m=L.marker(item.座標).addTo(markerLayer).bindTooltip(item.名稱,{direction:"top"});
-m.on("click",()=>{
-map.flyTo(item.座標,17,{duration:0.8});
-selectItem(item);
-});
-});
+        // 分流：收集學校與可能的大門
+        if(rawType === "school" || rawType === "university") {
+            rawSchools.push({ id: e.id, name: name, lat: lat2, lon: lon2, rawType: rawType });
+        } else if(rawType === "main" || rawType === "school_entrance" || rawType === "gate" || e.tags?.entrance === "main") {
+            gates.push({ lat: lat2, lon: lon2 });
+        } else {
+            // 一般設施直接處理
+            let typeName = rawType;
+            if(rawType === "motorway_junction" || rawType === "ramp") typeName = "交流道入口(平面路口)";
+            
+            results.push({
+                id: results.length,
+                名稱: name || (rawType === "ramp" ? "交流道平面路口/匝道端" : "周邊設施"),
+                類型: typeName,
+                原始類型: rawType,
+                座標: [lat2, lon2],
+                距離: Math.round(haversine(lat, lon, lat2, lon2)),
+                路線距離: "計算中...",
+                路線距離數值: null
+            });
+        }
+    });
 
-results.sort((a,b)=>a.距離-b.距離);
-renderTable();
+    // 核心整合演算法：計算大門與學校的歸屬。如果大門在學校主體附近，將座標直接修正至該大門
+    rawSchools.forEach(sch => {
+        let finalLat = sch.lat;
+        let finalLon = sch.lon;
+        let hasMainGate = false;
+        let minGateDist = 250; // 限定大門必須在學校中心點 250 公尺範圍內才算數
 
-/* 背景非同步更新路網距離（帶入反向導航優化算法） */
-for (const item of results.slice(0,80)) {
-let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
-const routeRes = await getRouteDistance(item.座標, item.距離, isJunc);
+        gates.forEach(gate => {
+            let d = haversine(sch.lat, sch.lon, gate.lat, gate.lon);
+            if(d < minGateDist) {
+                minGateDist = d;
+                finalLat = gate.lat;
+                finalLon = gate.lon;
+                hasMainGate = true;
+            }
+        });
 
-item.路線距離數值 = routeRes.value;
-item.路線距離 = routeRes.value + " m" + routeRes.msg;
+        results.push({
+            id: results.length,
+            名稱: sch.name || "未命名學校",
+            類型: hasMainGate ? "學校(已精準定位大門門牌)" : "學校區域(採用形心估算)",
+            原始類型: sch.rawType,
+            座標: [finalLat, finalLon],
+            距離: Math.round(haversine(lat, lon, finalLat, finalLon)),
+            路線距離: "計算中...",
+            路線距離數值: null
+        });
+    });
 
-const cell = document.getElementById(`route-${item.id}`);
-if(cell) cell.innerText = item.路線距離;
+    // 重新排序
+    results.sort((a,b)=>a.距離-b.距離);
+    renderTable();
+
+    // 在地圖上繪製標籤點
+    results.forEach(item => {
+        const m=L.marker(item.座標).addTo(markerLayer).bindTooltip(item.名稱,{direction:"top"});
+        m.on("click",()=>{
+            map.flyTo(item.座標,17,{duration:0.8});
+            selectItem(item);
+        });
+    });
+
+    queryBtn.innerText = "🚗 計算路網距離中...";
+
+    /* 背景非同步更新路網距離 */
+    for (const item of results.slice(0,80)) {
+        let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
+        const routeRes = await getRouteDistance(item.座標, item.距離, isJunc);
+
+        item.路線距離數值 = routeRes.value;
+        item.路線距離 = routeRes.value + " m" + routeRes.msg;
+
+        const cell = document.getElementById(`route-${item.id}`);
+        if(cell) cell.innerText = item.路線距離;
+    }
+
+} catch(err) {
+    console.error(err);
+    alert("查詢發生異常，請稍後再試。");
+} finally {
+    queryBtn.disabled = false;
+    queryBtn.innerText = "查詢";
 }
 }
 
