@@ -196,7 +196,7 @@ font-weight:bold;
 </div>
 
 <div id="panel">
-<h3>影響地價區域因素 analysis 明細表(住宅用地)</h3>
+<h3>影響地價區域因素明細表(住宅用地)</h3>
 
 緯度:<input id="lat" value="25.012098"><br>
 經度:<input id="lon" value="121.465675"><br>
@@ -297,7 +297,7 @@ const rounded = Math.round(scale / 100) * 100;
 this._div.innerHTML = `比例尺 1:${rounded.toLocaleString()}`;
 };
 
-scaleControl.addTo(scaleControl && map);
+scaleControl.addTo(map);
 map.on('zoomend moveend', () => { scaleControl.update(); });
 
 let markerLayer=L.layerGroup().addTo(map);
@@ -692,16 +692,16 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
 /* ====================================================================
-    ★ 關鍵修正核心：OSRM 交流道入口優化計算 (只精準導航計算至匝道入口，不重複駛入國道)
+    ★ 終極修正核心：平面道路路網規劃優化 (強限制導航終點僅停留在平面銜接路口)
    ==================================================================== */
 async function getRouteDistance(to, straightDist, isJunction = false){
 try{
 if(!origin) return null;
 
-// 如果是交流道相關目標，要求 OSRM 將終點停留在最接近地方平面道路的入口點（Ramp Entrance）
 let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+
 if(isJunction) {
-    // 透過 approach=curb 提示或優先尋找平面銜接點
+    // 關鍵修改：限制終點搜尋半徑為極小的50公尺，並使用 curb 限制，防止 OSRM 抓取上方國道主線節點，強制其在平面道路與匝道交叉口結算。
     url += `&approaches=curb;curb&radiuses=unlimited;50`;
 }
 
@@ -712,10 +712,10 @@ if(data.routes && data.routes.length > 0) {
     return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
 }
 
-// 備援：若被國道柵欄交通規則阻擋，改採用平面接近點估算距離
+// 如果因為平面高架分流導致完全死路，採用替代平面鄰近估算
 return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 }catch(err){
-console.error("OSRM 服務異常，啟用直線備援:", err);
+console.error("OSRM 平面路由異常，啟用直線備援:", err);
 return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 }
 }  
@@ -727,6 +727,7 @@ let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 
 let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
 if(isJunction) {
+    // 繪製藍線時採取相同策略，逼迫導航線路只畫到平面銜接入口
     url += `&approaches=curb;curb&radiuses=unlimited;50`;
 }
 
@@ -734,7 +735,7 @@ const res=await fetch(url);
 const data=await res.json();
 
 if(!data.routes?.length){
-    routeInfo.innerText = "路線距離：" + item.距離 + " m (國道入口限制，改以直線計算)";
+    routeInfo.innerText = "路線距離：" + item.距離 + " m (平面限制，採直線示意)";
     if(routeLayer) map.removeLayer(routeLayer);
     routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
     return;
@@ -742,7 +743,7 @@ if(!data.routes?.length){
 
 const route=data.routes[0];
 let routeDist = Math.round(route.distance);
-routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (至交流道入口)" : "");
+routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (至平面交流道路口)" : "");
 
 if(routeLayer) map.removeLayer(routeLayer);
 routeLayer=L.geoJSON(route.geometry,{ style:{color:"blue",weight:5} }).addTo(map);
@@ -803,8 +804,8 @@ nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
 else if(t==="bus_stop"){
 parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
 }
-/* ★ 關鍵修改：交流道優化，同時抓取主體節點(junction)與地方平面聯絡道(ramp)交叉入口 */
 else if(t==="motorway_junction"){
+// 僅撈取與地方平面銜接之連絡道、閘道交接節點，並在後端排除深處主線的穿透點
 parts.push(`
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 nwr["highway"="ramp"](around:${radius},${lat},${lon});
@@ -885,15 +886,14 @@ dedup.add(key);
 let rawType = e.tags?.highway || e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || "未知";
 let typeName = rawType;
 
-// 優化名稱轉換，使住宅用地明細表格式更易閱讀
 if(rawType === "motorway_junction" || rawType === "ramp") {
-    typeName = "交流道入口(匝道)";
+    typeName = "交流道入口(平面路口)";
 }
 
 const idx=results.length;
 const item={
 id:idx,
-名稱:e.tags?.name || (rawType === "ramp" ? "交流道連絡道/匝道入口" : "國道交流道出口"),
+名稱:e.tags?.name || (rawType === "ramp" ? "交流道平面路口/匝道端" : "國道交流道端點"),
 類型: typeName,
 原始類型: rawType,
 座標:[lat2,lon2],
@@ -913,7 +913,7 @@ selectItem(item);
 results.sort((a,b)=>a.距離-b.距離);
 renderTable();
 
-/* 背景非同步更新路網距離（帶入交流道入口防夾擊與離火優化算法） */
+/* 背景非同步更新路網距離（帶入離火鎖定優化算法） */
 for (const item of results.slice(0,80)) {
 let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
 const routeRes = await getRouteDistance(item.座標, item.距離, isJunc);
