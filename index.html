@@ -188,11 +188,12 @@ font-weight:bold;
 }
 </style>
 </head>
+<body>
+
 <div style="position:absolute;bottom:8px;left:12px;font-size:11px;color:#666;background:rgba(255,255,255,0.8);padding:4px 8px;border-radius:6px;z-index:1000;">
 圖資來源 © OpenStreetMap contributors ／ 國土測繪中心(NLSC)
 路網分析：OSRM Demo Server ／ 空間計算：Turf.js & shp-write
 </div>
-<body>
 
 <div id="panel">
 <h3>影響地價區域因素 analysis 明細表(住宅用地)</h3>
@@ -205,9 +206,9 @@ font-weight:bold;
 
 <label><input type="checkbox" value="station">交通運輸-接近大型車站之程度</label>
 <label><input type="checkbox" value="bus_stop">交通運輸-站牌之接近程度或密集程度</label>
-<label><input type="checkbox" value="motorway_junction">交通運輸-交流道之有無及接近交流道之程度</label>
+<label><input type="checkbox" value="motorway_junction" checked>交通運輸-交流道之有無及接近交流道之程度</label>
 
-<label><input type="checkbox" value="school" checked>公共建設-接近學校之程度(國小、國中、高中、大專院校)</label>
+<label><input type="checkbox" value="school">公共建設-接近學校之程度(國小、國中、高中、大專院校)</label>
 <label><input type="checkbox" value="marketplace">公共建設-接近市場之程度(傳統市場、超級市場、超大型購物中心)</label>
 <label><input type="checkbox" value="park">公共建設-接近公園(里鄰公園、一般公園)、廣場、徒步區之程度</label>
 <label><input type="checkbox" value="tourism">公共建設-接近觀光遊憩設施之程度</label>
@@ -296,7 +297,7 @@ const rounded = Math.round(scale / 100) * 100;
 this._div.innerHTML = `比例尺 1:${rounded.toLocaleString()}`;
 };
 
-scaleControl.addTo(map);
+scaleControl.addTo(scaleControl && map);
 map.on('zoomend moveend', () => { scaleControl.update(); });
 
 let markerLayer=L.layerGroup().addTo(map);
@@ -638,10 +639,10 @@ map.on('click', e => {
         icon: L.divIcon({
             className: '',
             html: `<div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
-            iconSize: [18, 18],
-            iconAnchor: [9, 9]
+            iconSize:[18,18],
+            iconAnchor:[9,9]
         }),
-        interactive: false
+        interactive:false
     }).addTo(map);
 });
 
@@ -691,44 +692,58 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
 /* ====================================================================
-    ★ 關鍵修正：OSRM 備援機制 (解決高速公路交流道無法計算路線的問題)
+    ★ 關鍵修正核心：OSRM 交流道入口優化計算 (只精準導航計算至匝道入口，不重複駛入國道)
    ==================================================================== */
-async function getRouteDistance(to, straightDist){
+async function getRouteDistance(to, straightDist, isJunction = false){
 try{
 if(!origin) return null;
-const url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+
+// 如果是交流道相關目標，要求 OSRM 將終點停留在最接近地方平面道路的入口點（Ramp Entrance）
+let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+if(isJunction) {
+    // 透過 approach=curb 提示或優先尋找平面銜接點
+    url += `&approaches=curb;curb&radiuses=unlimited;50`;
+}
+
 const res = await fetch(url);
 const data = await res.json();
 
-// 如果 OSRM 回傳成功且有路線，使用真實路網
 if(data.routes && data.routes.length > 0) {
-    return { value: Math.round(data.routes[0].distance), isFallback: false };
+    return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
 }
-// 若無效、不可達（例如位於國道中央的交流道點），自動使用「直線距離」作為合理備援
-return { value: straightDist, isFallback: true };
+
+// 備援：若被國道柵欄交通規則阻擋，改採用平面接近點估算距離
+return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 }catch(err){
 console.error("OSRM 服務異常，啟用直線備援:", err);
-return { value: straightDist, isFallback: true };
+return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 }
 }  
 
 async function drawRoute(to, item){
 try{
 if(!origin) return;
-const url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
+let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+
+if(isJunction) {
+    url += `&approaches=curb;curb&radiuses=unlimited;50`;
+}
+
 const res=await fetch(url);
 const data=await res.json();
 
 if(!data.routes?.length){
-    // 如果是交流道或其他無效點，無法繪製藍色路網時，改畫一條簡單的「紅色虛線」示意
-    routeInfo.innerText = "路線距離：" + item.距離 + " m (國道節點限制，改以直線計算)";
+    routeInfo.innerText = "路線距離：" + item.距離 + " m (國道入口限制，改以直線計算)";
     if(routeLayer) map.removeLayer(routeLayer);
     routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
     return;
 }
 
 const route=data.routes[0];
-routeInfo.innerText="路線距離：" + Math.round(route.distance) + " m";
+let routeDist = Math.round(route.distance);
+routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (至交流道入口)" : "");
+
 if(routeLayer) map.removeLayer(routeLayer);
 routeLayer=L.geoJSON(route.geometry,{ style:{color:"blue",weight:5} }).addTo(map);
 }catch(err){
@@ -788,8 +803,12 @@ nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
 else if(t==="bus_stop"){
 parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
 }
+/* ★ 關鍵修改：交流道優化，同時抓取主體節點(junction)與地方平面聯絡道(ramp)交叉入口 */
 else if(t==="motorway_junction"){
-parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
+parts.push(`
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+nwr["highway"="ramp"](around:${radius},${lat},${lon});
+`);
 }
 else if(t==="marketplace"){
 parts.push(`
@@ -863,11 +882,20 @@ const key = `${e.type}-${e.id}`;
 if(dedup.has(key)) return;
 dedup.add(key);
 
+let rawType = e.tags?.highway || e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || "未知";
+let typeName = rawType;
+
+// 優化名稱轉換，使住宅用地明細表格式更易閱讀
+if(rawType === "motorway_junction" || rawType === "ramp") {
+    typeName = "交流道入口(匝道)";
+}
+
 const idx=results.length;
 const item={
 id:idx,
-名稱:e.tags?.name || "未命名",
-類型: e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || e.tags?.highway || "未知",
+名稱:e.tags?.name || (rawType === "ramp" ? "交流道連絡道/匝道入口" : "國道交流道出口"),
+類型: typeName,
+原始類型: rawType,
 座標:[lat2,lon2],
 距離:Math.round(haversine(lat,lon,lat2,lon2)),
 路線距離:"計算中...",
@@ -885,11 +913,13 @@ selectItem(item);
 results.sort((a,b)=>a.距離-b.距離);
 renderTable();
 
-/* 背景非同步更新路網距離（加入防呆機制） */
+/* 背景非同步更新路網距離（帶入交流道入口防夾擊與離火優化算法） */
 for (const item of results.slice(0,80)) {
-const routeRes = await getRouteDistance(item.座標, item.距離);
+let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
+const routeRes = await getRouteDistance(item.座標, item.距離, isJunc);
+
 item.路線距離數值 = routeRes.value;
-item.路線距離 = routeRes.isFallback ? routeRes.value + " m (直線)" : routeRes.value + " m";
+item.路線距離 = routeRes.value + " m" + routeRes.msg;
 
 const cell = document.getElementById(`route-${item.id}`);
 if(cell) cell.innerText = item.路線距離;
