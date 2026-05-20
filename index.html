@@ -7,10 +7,13 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<!-- 引入幾何計算核心 -->
+<!-- 幾何計算核心 -->
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-<!-- 引入前端 SHP 轉檔打包工具 -->
+<!-- 前端 SHP 轉檔打包工具 -->
 <script src="https://unpkg.com/shp-write@latest/shpwrite.js"></script>
+<!-- 關鍵擴充：引入 JSZip 與 shpjs，讓前端具備真實解碼 SHP 壓縮檔的能力 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 
 <style>
 body { margin:0; font-family: Arial; }
@@ -348,8 +351,8 @@ drawControl.onAdd = function() {
         <button id="btn-start-draw" class="draw-btn" onclick="toggleDrawMode(this)">📐 繪製範圍</button>
         <button id="btn-end-draw" class="draw-btn" onclick="finishPolygon()" style="display:none; background:#10b981; color:white;">✓ 完成閉合</button>
         <button id="btn-export-shp" class="draw-btn shp-btn" onclick="exportPolygonSHP()" style="display:none;">📥 匯出範圍 SHP</button>
-        <label id="lbl-import-shp" class="shp-import-label">📤 匯入 SHP 範圍 (模擬)
-            <input type="file" id="shp-file-input" accept=".zip" style="display:none;" onchange="importPolygonSHP(event)">
+        <label id="lbl-import-shp" class="shp-import-label">📤 匯入範圍 (支援 SHP.zip 或 GeoJSON)
+            <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" style="display:none;" onchange="importPolygonSHP(event)">
         </label>
         <button id="btn-clear-draw" class="draw-btn" onclick="clearPolygon()" style="display:none; background:#6b7280; color:white;">✕ 清除範圍</button>
     `;
@@ -452,7 +455,9 @@ function updateCentroidByPoints(pts) {
     if (!pts || pts.length < 3) return;
     
     let coordinates = pts.map(p => [p[1], p[0]]);
-    coordinates.push([pts[0][1], pts[0][0]]);
+    if (coordinates[0][0] !== coordinates[coordinates.length-1][0] || coordinates[0][1] !== coordinates[coordinates.length-1][1]) {
+        coordinates.push([pts[0][1], pts[0][0]]);
+    }
     
     let turfPoly = turf.polygon([coordinates]);
     let centroid = turf.centroid(turfPoly);
@@ -483,9 +488,6 @@ function updateCentroidByPoints(pts) {
     `).openPopup([cLat, cLon]);
 }
 
-/* ====================================================================
-    ★ 優化修正：簡化結構傳參，防止瀏覽器安全性本機快取限制 (Blob/Worker Blocked)
-   ==================================================================== */
 function exportPolygonSHP() {
     if (!drawPoints || drawPoints.length < 3) {
         alert("目前沒有完整的繪製範圍可供匯出！");
@@ -498,7 +500,6 @@ function exportPolygonSHP() {
         let tempPoly = turf.polygon([ring]);
         let areaSqm = Math.round(turf.area(tempPoly));
 
-        // 純資料要素陣列
         let featureLayer = [
             {
                 geometry: {
@@ -512,13 +513,11 @@ function exportPolygonSHP() {
             }
         ];
 
-        // 移除 folder 屬性，改用最輕量的一步直出法，繞過大部分瀏覽器的本機快取沙盒安全性阻擋
         shpwrite.download(featureLayer);
         
     } catch (err) {
         console.error("SHP Export Error:", err);
         
-        // 應變備援機制：如果使用者的瀏覽器本機安全性極高、完全禁止 SHP 的 JSZip 快取調用，自動無痛切換為通用高精度 GeoJSON 下載
         let ringBackup = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
         ringBackup.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
         let geojsonObj = {
@@ -537,40 +536,83 @@ function exportPolygonSHP() {
         downloadAnchor.click();
         downloadAnchor.remove();
         
-        alert("提示：由於您使用的瀏覽器目前封鎖了前端壓縮緩衝區快取 (本機環境常見安全防護)，系統已啟用「安全備援機制」，為您自動下載為標準相容的 .geojson 向量格式圖資，可在 ArcGIS / QGIS 內完美讀取調用！");
+        alert("提示：由於網頁快取防護阻擋，系統已為您自動下載為高相容性的 .geojson 向量格式圖資，可在 ArcGIS / QGIS 與本系統內完美還原！");
     }
 }
 
+/* ====================================================================
+    ★ 徹底修正：實時解碼讀取上傳的 SHP(.zip) 或 GeoJSON，100% 完整還原形狀
+   ==================================================================== */
 function importPolygonSHP(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    alert("系統已接收 Zip 壓縮檔，由於前端直接解碼 SHP 二進位檔需擴充解碼庫，系統此處將自動將地籍特徵與您目前的中心點對齊，並轉換生成標準 WGS84 編輯範圍...");
-
     const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            let lat = parseFloat(latInput.value);
-            let lon = parseFloat(lonInput.value);
-            
-            drawPoints = [
-                [lat + 0.002, lon - 0.002],
-                [lat + 0.002, lon + 0.002],
-                [lat - 0.002, lon + 0.002],
-                [lat - 0.002, lon - 0.002]
-            ];
-            
-            renderEditablePolygon();
-            updateCentroidByPoints(drawPoints);
-            
-            document.getElementById('btn-export-shp').style.display = 'block';
-            document.getElementById('btn-clear-draw').style.display = 'block';
-            alert("匯入與邊界投影對齊成功！已成功建立向量幾何編輯圖層。");
-        } catch(err) {
-            alert("讀取 SHP 失敗，請確認該 .zip 壓縮檔內是否包含完整的 .shp 向量檔案。");
-        }
-    };
-    reader.readAsArrayBuffer(file);
+    
+    // 判斷上傳的是 GeoJSON 備援檔還是標準 Zip 壓縮檔
+    if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
+        reader.onload = function(e) {
+            try {
+                const geojson = JSON.parse(e.target.result);
+                processImportedGeoJSON(geojson);
+            } catch (err) {
+                alert("GeoJSON 解析失敗，請確認檔案格式正確。");
+            }
+        };
+        reader.readAsText(file);
+    } else if (file.name.endsWith('.zip')) {
+        reader.onload = function(e) {
+            // 使用 shpjs 在網頁前端直接將二進位 zip 解壓縮並轉成標準 GeoJSON 結構
+            shp(e.target.result).then(function(geojson) {
+                processImportedGeoJSON(geojson);
+            }).catch(function(err) {
+                console.error(err);
+                alert("SHP 解壓縮解碼失敗，請確保該 .zip 內含有同名的 .shp, .shx, .dbf 檔案。");
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    }
+}
+
+// 共通解析處理幾何圖層
+function processImportedGeoJSON(geojson) {
+    let feature = null;
+    if (geojson.type === "FeatureCollection" && geojson.features.length > 0) {
+        feature = geojson.features[0];
+    } else if (geojson.type === "Feature") {
+        feature = geojson;
+    } else if (geojson.geometry && geojson.geometry.type === "Polygon") {
+        feature = geojson;
+    }
+
+    if (!feature || !feature.geometry || feature.geometry.type !== "Polygon") {
+        alert("找不到有效的多邊形 (Polygon) 幾何結構！");
+        return;
+    }
+
+    // 讀取真實的經緯度點位陣列，並反轉回 Leaflet 的 [Lat, Lng] 格式
+    let rings = feature.geometry.coordinates[0];
+    
+    // 防呆：如果首尾點重複（SHP 封閉規範），在 Leaflet 編輯時要去掉最後一個重複點
+    if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
+        rings.pop();
+    }
+
+    // 轉換為地圖定位點數組
+    drawPoints = rings.map(coord => [coord[1], coord[0]]);
+
+    // 重新繪製具備拖曳節點的真實多邊形
+    renderEditablePolygon();
+    updateCentroidByPoints(drawPoints);
+    
+    // 自動將地圖視角移至該幾何中心
+    if (drawPoints.length > 0) {
+        map.panTo(drawPoints[0]);
+    }
+
+    document.getElementById('btn-export-shp').style.display = 'block';
+    document.getElementById('btn-clear-draw').style.display = 'block';
+    alert("🎉 成功！已實時解壓縮讀取檔案內容，並 100% 完美還原您繪製的範圍形狀。");
 }
 
 
@@ -608,7 +650,7 @@ map.on('click', e => {
             className: '',
             html: `<div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
             iconSize: [18, 18],
-            iconAnchor:[9,9]
+            iconAnchor: [9, 9]
         }),
         interactive: false
     }).addTo(map);
@@ -659,7 +701,7 @@ const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * M
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
-/* OSRM 路線 analysis 距離與繪製 */
+/* OSRM 路線分析距離與繪製 */
 async function getRouteDistance(to){
 try{
 if(!origin) return null;
