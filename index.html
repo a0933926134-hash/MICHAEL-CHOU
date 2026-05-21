@@ -341,41 +341,20 @@ iconAnchor:[9,9]
 interactive:false
 }).addTo(map);
 
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-  <meta charset="UTF-8">
-  <title>多邊形繪製範例</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>
-    #map { height: 100vh; }
-    .draw-control-bar { background: white; padding: 5px; border-radius: 4px; }
-    .draw-btn { margin: 2px; padding: 4px 8px; cursor: pointer; }
-    .shp-import-label { display: inline-block; margin: 2px; cursor: pointer; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <div id="resultPanel"></div>
-  <div id="panel"></div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    const map = L.map('map').setView([25.0330, 121.5654], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(map);
+/* ====================================================================
+    ★ 多邊形繪製與二次編輯核心
+   ==================================================================== */
+let isDrawingPolygon = false;
+let drawPoints = [];       
+let previewPolyline = null;
+let finalPolygon = null;
+let drawMarkers = L.layerGroup().addTo(map);  
 
-    let isDrawingPolygon = false;
-    let drawPoints = [];
-    let previewPolyline = null;
-    let finalPolygons = [];   // ★ 改為陣列存放多個多邊形
-    let drawMarkers = L.layerGroup().addTo(map);
-
-    const drawControl = L.control({ position: 'topleft' });
-    drawControl.onAdd = function() {
-      const div = L.DomUtil.create('div', 'draw-control-bar');
-      div.innerHTML = `
+const drawControl = L.control({ position: 'topleft' });
+drawControl.onAdd = function() {
+    const div = L.DomUtil.create('div', 'draw-control-bar');
+    div.innerHTML = `
         <button id="btn-start-draw" class="draw-btn" onclick="toggleDrawMode(this)">📐 繪製範圍</button>
         <button id="btn-end-draw" class="draw-btn" onclick="finishPolygon()" style="display:none; background:#10b981; color:white;">✓ 完成閉合</button>
         <button id="btn-export-shp" class="draw-btn shp-btn" onclick="exportPolygonSHP()" style="display:none;">📥 匯出範圍 SHP</button>
@@ -383,93 +362,70 @@ interactive:false
             <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" style="display:none;" onchange="importPolygonSHP(event)">
         </label>
         <button id="btn-clear-draw" class="draw-btn" onclick="clearPolygon()" style="display:none; background:#6b7280; color:white;">✕ 清除範圍</button>
-      `;
-      L.DomEvent.disableClickPropagation(div);
-      return div;
-    };
-    drawControl.addTo(map);
+    `;
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+};
+drawControl.addTo(map);
 
-    const resPanel = document.getElementById("resultPanel");
-    const sidePanel = document.getElementById("panel");
-    L.DomEvent.disableClickPropagation(resPanel);
-    L.DomEvent.disableClickPropagation(sidePanel);
+const resPanel = document.getElementById("resultPanel");
+const sidePanel = document.getElementById("panel");
+L.DomEvent.disableClickPropagation(resPanel);
+L.DomEvent.disableClickPropagation(sidePanel);
 
-    map.on('click', function(e) {
-      if (!isDrawingPolygon) return;
-      const latlng = e.latlng;
-      drawPoints.push(latlng);
-      const marker = L.circleMarker(latlng, { radius: 4, color: 'red' }).addTo(drawMarkers);
-
-      if (previewPolyline) map.removeLayer(previewPolyline);
-      previewPolyline = L.polyline(drawPoints, { color: 'blue', dashArray: '5,5' }).addTo(map);
-    });
-
-    function toggleDrawMode(btn) {
-      isDrawingPolygon = !isDrawingPolygon;
-      if (isDrawingPolygon) {
+function toggleDrawMode(btn) {
+    isDrawingPolygon = !isDrawingPolygon;
+    if (isDrawingPolygon) {
         btn.classList.add('active');
         btn.innerText = "🛑 停止點選";
         document.getElementById('btn-end-draw').style.display = 'block';
         document.getElementById('btn-clear-draw').style.display = 'block';
         clearPolygonData();
-      } else {
+    } else {
         btn.classList.remove('active');
         btn.innerText = "📐 繪製範圍";
         if (drawPoints.length === 0) {
-          document.getElementById('btn-end-draw').style.display = 'none';
-          document.getElementById('btn-clear-draw').style.display = 'none';
+            document.getElementById('btn-end-draw').style.display = 'none';
+            document.getElementById('btn-clear-draw').style.display = 'none';
         }
-      }
     }
+}
 
-    function clearPolygonData() {
-      drawPoints = [];
-      if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-      drawMarkers.clearLayers();
-    }
+function clearPolygonData() {
+    drawPoints = [];
+    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
+    if (finalPolygon) { map.removeLayer(finalPolygon); finalPolygon = null; }
+    drawMarkers.clearLayers();
+    document.getElementById('btn-export-shp').style.display = 'none';
+}
 
-    function clearPolygon() {
-      clearPolygonData();
-      finalPolygons.forEach(p => map.removeLayer(p));
-      finalPolygons = [];
-      isDrawingPolygon = false;
-      const btn = document.getElementById('btn-start-draw');
-      btn.classList.remove('active');
-      btn.innerText = "📐 繪製範圍";
-      document.getElementById('btn-end-draw').style.display = 'none';
-      document.getElementById('btn-clear-draw').style.display = 'none';
-      document.getElementById('btn-export-shp').style.display = 'none';
-    }
+function clearPolygon() {
+    clearPolygonData();
+    isDrawingPolygon = false;
+    const btn = document.getElementById('btn-start-draw');
+    btn.classList.remove('active');
+    btn.innerText = "📐 繪製範圍";
+    document.getElementById('btn-end-draw').style.display = 'none';
+    document.getElementById('btn-clear-draw').style.display = 'none';
+}
 
-    function finishPolygon() {
-      if (drawPoints.length < 3) {
+function finishPolygon() {
+    if (drawPoints.length < 3) {
         alert("請至少點選 3 個以上的頂點才能閉合範圍！");
         return;
-      }
-      if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-
-      const polygon = L.polygon(drawPoints, { color: 'orange' }).addTo(map);
-      finalPolygons.push(polygon);   // ★ 存入陣列
-      clearPolygonData();
-
-      isDrawingPolygon = false;
-      const btn = document.getElementById('btn-start-draw');
-      btn.classList.remove('active');
-      btn.innerText = "📐 繪製範圍";
-      document.getElementById('btn-end-draw').style.display = 'none';
-      document.getElementById('btn-export-shp').style.display = 'block';
     }
-
-    // TODO: exportPolygonSHP / importPolygonSHP 可依需求補上
-    function exportPolygonSHP() {
-      alert("匯出功能尚未實作，這裡可整合 shp-write 或其他工具。");
-    }
-    function importPolygonSHP(event) {
-      alert("匯入功能尚未實作，這裡可整合 shpjs 或其他工具。");
-    }
-  </script>
-</body>
-</html>
+    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
+    
+    renderEditablePolygon();
+    updateCentroidByPoints(drawPoints);
+    
+    isDrawingPolygon = false;
+    const btn = document.getElementById('btn-start-draw');
+    btn.classList.remove('active');
+    btn.innerText = "📐 繪製範圍";
+    document.getElementById('btn-end-draw').style.display = 'none';
+    document.getElementById('btn-export-shp').style.display = 'block';
+}
 
 function renderEditablePolygon() {
     if (finalPolygon) { map.removeLayer(finalPolygon); }
