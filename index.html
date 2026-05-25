@@ -417,6 +417,93 @@ function toggleDrawMode(btn) {
         currentDrawPoints = [];
     }
 }
+function processImportedGeoJSON(geojson) {
+
+    let polygons = [];
+
+    function extract(g) {
+
+        if (!g) return;
+
+        // Polygon
+        if (g.type === "Polygon") {
+            polygons.push(g.coordinates);
+        }
+
+        // MultiPolygon
+        else if (g.type === "MultiPolygon") {
+            g.coordinates.forEach(p => polygons.push(p));
+        }
+
+        // GeometryCollection ⭐⭐⭐（你現在最可能卡這個）
+        else if (g.type === "GeometryCollection") {
+            g.geometries.forEach(extract);
+        }
+
+        // Feature
+        else if (g.type === "Feature") {
+            extract(g.geometry);
+        }
+
+        // FeatureCollection
+        else if (g.type === "FeatureCollection") {
+            g.features.forEach(f => extract(f));
+        }
+
+        // 沒 type 但有 coordinates
+        else if (g.coordinates) {
+
+            if (Array.isArray(g.coordinates[0][0])) {
+                polygons.push(g.coordinates); // MultiPolygon-like
+            } else {
+                polygons.push([g.coordinates]); // Polygon-like
+            }
+        }
+    }
+
+    extract(geojson);
+
+    if (polygons.length === 0) {
+        console.log("❌ 原始資料:", geojson);
+        alert("仍無法解析 GeoJSON（請看 console 原始資料）");
+        return;
+    }
+
+    let count = 0;
+
+    polygons.forEach(poly => {
+
+        // MultiPolygon -> 多層
+        if (Array.isArray(poly[0][0])) {
+
+            poly.forEach(ring => {
+                addPolygon(ring[0]);
+                count++;
+            });
+
+        } else {
+            addPolygon(poly[0]);
+            count++;
+        }
+
+    });
+
+    alert(`🎉 成功匯入 ${count} 個多邊形`);
+}    
+function addPolygon(ring){
+
+    const coords = ring.map(p => [p[1], p[0]]);
+
+    L.polygon(coords,{
+        color:'#dc2626',
+        weight:3,
+        fillOpacity:0.25
+    }).addTo(polygonGroup);
+
+    polygons.push({
+        points: coords
+    });
+}    
 function addPolygon(ring){
 
     const coords = ring.map(p => [p[1], p[0]]);
