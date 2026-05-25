@@ -353,7 +353,6 @@ let currentDrawPoints = [];
 
 /* 所有 Polygon */
 let polygons = [];
-
 /*
 polygons 結構：
 
@@ -525,7 +524,7 @@ function finishPolygon(){
     currentDrawPoints = [];
 
     updateGlobalCentroid();
-
+    
     document.getElementById('btn-export-shp').style.display='block';
 
     isDrawingPolygon = false;
@@ -537,49 +536,41 @@ function finishPolygon(){
 
     document.getElementById('btn-end-draw').style.display='none';
 }
-function updateGlobalCentroid(){
+function selectPolygon(id){
 
-    if(polygons.length===0) return;
-
-    let allFeatures = [];
+    selectedPolygonId = id;
 
     polygons.forEach(p=>{
 
-        let ring = p.points.map(pt=>[pt[1],pt[0]]);
+        const isSelected = p.id === id;
 
-        ring.push([p.points[0][1],p.points[0][0]]);
+        /* Polygon 高亮 */
+        p.polygonLayer.setStyle({
 
-        allFeatures.push(
-            turf.polygon([ring])
-        );
+            color: isSelected ? '#2563eb' : '#dc2626',
+            fillColor: isSelected ? '#60a5fa' : '#dc2626',
+            fillOpacity: isSelected ? 0.35 : 0.25,
+            weight: isSelected ? 4 : 3
+
+        });
+
+        /* 控制點顯示切換 */
+        if(isSelected){
+
+            if(!polygonGroup.hasLayer(p.markerLayer)){
+                polygonGroup.addLayer(p.markerLayer);
+            }
+
+        }else{
+
+            if(polygonGroup.hasLayer(p.markerLayer)){
+                polygonGroup.removeLayer(p.markerLayer);
+            }
+
+        }
 
     });
 
-    let fc = turf.featureCollection(allFeatures);
-
-    let combined = turf.combine(fc);
-
-    let centroid = turf.centroid(combined);
-
-    const cLon = centroid.geometry.coordinates[0];
-    const cLat = centroid.geometry.coordinates[1];
-
-    latInput.value = cLat.toFixed(6);
-    lonInput.value = cLon.toFixed(6);
-
-    origin = [cLat,cLon];
-
-    if(userMarker) map.removeLayer(userMarker);
-
-    userMarker = L.marker([cLat,cLon],{
-        icon:L.divIcon({
-            className:'',
-            html:`<div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
-            iconSize:[18,18],
-            iconAnchor:[9,9]
-        }),
-        interactive:false
-    }).addTo(map);
 }
 function renderEditablePolygon() {
     if (finalPolygon) { map.removeLayer(finalPolygon); }
