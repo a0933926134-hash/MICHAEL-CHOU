@@ -501,111 +501,83 @@ function renderEditablePolygon() {
         id: polygonId,
         polygon: polygon,
         points: JSON.parse(JSON.stringify(drawPoints)),
-        markers: []
+        markers: [],
+        centroid: null
     };
+
+    /* =====================================================
+       點選 Polygon → 切換作用範圍
+    ===================================================== */
 
     polygon.on("click", function () {
 
-    activePolygonId = polygonId;
+        activePolygonId = polygonId;
 
-    polygonLayers.forEach(p => {
+        polygonLayers.forEach(p => {
 
-        p.polygon.setStyle({
-            color:'#dc2626',
-            fillColor:'#dc2626',
-            weight:3,
-            fillOpacity:0.25
+            p.polygon.setStyle({
+                color:'#dc2626',
+                fillColor:'#dc2626',
+                weight:3,
+                fillOpacity:0.25
+            });
+
         });
-
-    });
-
-    polygon.setStyle({
-        color:'#2563eb',
-        fillColor:'#2563eb',
-        weight:5,
-        fillOpacity:0.35
-    });
-
-    /* =====================================================
-       點選後重新計算該範圍形心
-    ===================================================== */
-
-    updateCentroidByPoints(
-        polygonObj.points,
-        true
-    );
-
-});
 
         polygon.setStyle({
-            color: '#2563eb',
-            fillColor: '#2563eb',
-            weight: 5
+            color:'#2563eb',
+            fillColor:'#2563eb',
+            weight:5,
+            fillOpacity:0.35
         });
 
-    });
-
-    drawPoints.forEach((pt, index) => {
-
-    let marker = L.marker(pt, {
-        icon: L.divIcon({
-            className: '',
-            html: '<div class="edit-handle"></div>',
-            iconSize: [12, 12],
-            iconAnchor: [6, 6]
-        }),
-        draggable: true
-    });
-
-    /* =====================================================
-       拖曳中即時更新 Polygon 幾何
-    ===================================================== */
-
-    marker.on('drag', function(e) {
-
-        let newLatLng = e.target.getLatLng();
-
-        polygonObj.points[index] = [
-            newLatLng.lat,
-            newLatLng.lng
-        ];
-
-        polygon.setLatLngs(
-            polygonObj.points
+        updateCentroidByPoints(
+            polygonObj.points,
+            true
         );
 
     });
 
     /* =====================================================
-       拖曳結束後：
-       1. 重算形心
-       2. 更新作用中心
-       3. 更新查詢原點
-       4. 更新 UI
-       5. 更新目前選取範圍
+       建立可拖曳節點
     ===================================================== */
 
-    marker.on('dragend', function() {
+    drawPoints.forEach((pt, index) => {
+
+        let marker = L.marker(pt, {
+            icon: L.divIcon({
+                className: '',
+                html: '<div class="edit-handle"></div>',
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            }),
+            draggable: true
+        });
 
         /* -----------------------------------------
-           若目前拖曳的是作用中的 Polygon
+           拖曳中即時更新 Polygon
         ----------------------------------------- */
 
-        if(activePolygonId === polygonObj.id){
+        marker.on('drag', function(e) {
 
-            activeCentroid = null;
+            let newLatLng = e.target.getLatLng();
 
-            updateCentroidByPoints(
-                polygonObj.points,
-                false
+            polygonObj.points[index] = [
+                newLatLng.lat,
+                newLatLng.lng
+            ];
+
+            polygon.setLatLngs(
+                polygonObj.points
             );
 
-        }else{
+        });
 
-            /* -----------------------------------------
-               非作用 Polygon
-               僅更新其自身幾何
-            ----------------------------------------- */
+        /* -----------------------------------------
+           拖曳完成後更新形心
+        ----------------------------------------- */
+
+        marker.on('dragend', function() {
 
             let coordinates = polygonObj.points.map(
                 p => [p[1], p[0]]
@@ -629,7 +601,56 @@ function renderEditablePolygon() {
                 centroid.geometry.coordinates[0]
             ];
 
-        }
+            /* 若為目前作用範圍 → 更新主形心 */
+
+            if(activePolygonId === polygonObj.id){
+
+                updateCentroidByPoints(
+                    polygonObj.points,
+                    false
+                );
+
+            }
+
+            /* Popup */
+
+            let area = Math.round(
+                turf.area(turfPoly)
+            );
+
+            polygon.bindPopup(`
+                <div style="
+                    font-size:12px;
+                    line-height:1.6;
+                    min-width:200px;
+                ">
+                    <b style="color:#2563eb;">
+                    Polygon 幾何已更新
+                    </b>
+                    <br><br>
+
+                    <b>節點數：</b>
+                    ${polygonObj.points.length}
+                    <br>
+
+                    <b>面積：</b>
+                    ${area.toLocaleString()} ㎡
+                </div>
+            `);
+
+        });
+
+        marker.addTo(drawMarkers);
+
+        polygonObj.markers.push(marker);
+
+    });
+
+    polygonLayers.push(polygonObj);
+
+    activePolygonId = polygonId;
+
+}
 
         /* -----------------------------------------
            即時刷新 Polygon Popup
