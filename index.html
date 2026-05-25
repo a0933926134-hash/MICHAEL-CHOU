@@ -342,14 +342,33 @@ interactive:false
 }).addTo(map);
 
 
-/* ====================================================================
-    ★ 多邊形繪製與二次編輯核心
-   ==================================================================== */
+/* =========================
+   多多邊形繪製核心
+========================= */
+
 let isDrawingPolygon = false;
-let drawPoints = [];       
+
+/* 正在繪製中的點 */
+let currentDrawPoints = [];
+
+/* 所有 Polygon */
+let polygons = [];
+
+/*
+polygons 結構：
+
+{
+    id,
+    points: [[lat,lng],...],
+    polygonLayer,
+    markerLayer
+}
+*/
+
 let previewPolyline = null;
-let finalPolygon = null;
-let drawMarkers = L.layerGroup().addTo(map);  
+
+/* 全部 Polygon 圖層 */
+let polygonGroup = L.layerGroup().addTo(map);
 
 const drawControl = L.control({ position: 'topleft' });
 drawControl.onAdd = function() {
@@ -375,29 +394,58 @@ L.DomEvent.disableClickPropagation(sidePanel);
 
 function toggleDrawMode(btn) {
     isDrawingPolygon = !isDrawingPolygon;
+
     if (isDrawingPolygon) {
+
+        currentDrawPoints = [];
+
         btn.classList.add('active');
         btn.innerText = "🛑 停止點選";
+
         document.getElementById('btn-end-draw').style.display = 'block';
         document.getElementById('btn-clear-draw').style.display = 'block';
-        clearPolygonData();
+
     } else {
+
         btn.classList.remove('active');
         btn.innerText = "📐 繪製範圍";
-        if (drawPoints.length === 0) {
-            document.getElementById('btn-end-draw').style.display = 'none';
-            document.getElementById('btn-clear-draw').style.display = 'none';
+
+        if(previewPolyline){
+            map.removeLayer(previewPolyline);
+            previewPolyline = null;
         }
+
+        currentDrawPoints = [];
     }
 }
 
-function clearPolygonData() {
-    drawPoints = [];
-    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-    if (finalPolygon) { map.removeLayer(finalPolygon); finalPolygon = null; }
-    drawMarkers.clearLayers();
-    document.getElementById('btn-export-shp').style.display = 'none';
-}
+function clearPolygon(){
+
+    polygons.forEach(p=>{
+        polygonGroup.removeLayer(p.polygonLayer);
+        polygonGroup.removeLayer(p.markerLayer);
+    });
+
+    polygons = [];
+
+    currentDrawPoints = [];
+
+    if(previewPolyline){
+        map.removeLayer(previewPolyline);
+        previewPolyline = null;
+    }
+
+    isDrawingPolygon = false;
+
+    const btn = document.getElementById('btn-start-draw');
+
+    btn.classList.remove('active');
+    btn.innerText = "📐 繪製範圍";
+
+    document.getElementById('btn-end-draw').style.display='none';
+    document.getElementById('btn-clear-draw').style.display='none';
+    document.getElementById('btn-export-shp').style.display='none';
+    }
 
 function clearPolygon() {
     clearPolygonData();
