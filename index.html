@@ -537,6 +537,50 @@ function finishPolygon(){
 
     document.getElementById('btn-end-draw').style.display='none';
 }
+function updateGlobalCentroid(){
+
+    if(polygons.length===0) return;
+
+    let allFeatures = [];
+
+    polygons.forEach(p=>{
+
+        let ring = p.points.map(pt=>[pt[1],pt[0]]);
+
+        ring.push([p.points[0][1],p.points[0][0]]);
+
+        allFeatures.push(
+            turf.polygon([ring])
+        );
+
+    });
+
+    let fc = turf.featureCollection(allFeatures);
+
+    let combined = turf.combine(fc);
+
+    let centroid = turf.centroid(combined);
+
+    const cLon = centroid.geometry.coordinates[0];
+    const cLat = centroid.geometry.coordinates[1];
+
+    latInput.value = cLat.toFixed(6);
+    lonInput.value = cLon.toFixed(6);
+
+    origin = [cLat,cLon];
+
+    if(userMarker) map.removeLayer(userMarker);
+
+    userMarker = L.marker([cLat,cLon],{
+        icon:L.divIcon({
+            className:'',
+            html:`<div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
+            iconSize:[18,18],
+            iconAnchor:[9,9]
+        }),
+        interactive:false
+    }).addTo(map);
+}
 function renderEditablePolygon() {
     if (finalPolygon) { map.removeLayer(finalPolygon); }
     drawMarkers.clearLayers();
@@ -610,56 +654,59 @@ function updateCentroidByPoints(pts) {
     `).openPopup([cLat, cLon]);
 }
 
-function exportPolygonSHP() {
-    if (!drawPoints || drawPoints.length < 3) {
-        alert("目前沒有完整的繪製範圍可供匯出！");
+function exportPolygonSHP(){
+
+    if(polygons.length===0){
+        alert("沒有可匯出的範圍");
         return;
     }
-    try {
-        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-        
-        let tempPoly = turf.polygon([ring]);
-        let areaSqm = Math.round(turf.area(tempPoly));
 
-        let featureLayer = [
-            {
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [ring]
-                },
-                properties: {
-                    Name: "Zone_Area",
-                    Area_Sqm: areaSqm
+    try{
+
+        let multiCoords = [];
+
+        polygons.forEach(p=>{
+
+            let ring = p.points.map(pt=>[
+                Number(pt[1]),
+                Number(pt[0])
+            ]);
+
+            ring.push([
+                Number(p.points[0][1]),
+                Number(p.points[0][0])
+            ]);
+
+            multiCoords.push([ring]);
+
+        });
+
+        const geojson = {
+            type:"FeatureCollection",
+            features:[
+                {
+                    type:"Feature",
+                    geometry:{
+                        type:"MultiPolygon",
+                        coordinates:multiCoords
+                    },
+                    properties:{
+                        Name:"MultiZone"
+                    }
                 }
-            }
-        ];
-
-        shpwrite.download(featureLayer);
-        
-    } catch (err) {
-        console.error("SHP Export Error:", err);
-        
-        let ringBackup = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ringBackup.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-        let geojsonObj = {
-            type: "FeatureCollection",
-            features: [{
-                type: "Feature",
-                geometry: { type: "Polygon", coordinates: [ringBackup] },
-                properties: { Name: "Zone_Area", Area_Sqm: Math.round(turf.area(turf.polygon([ringBackup]))) }
-            }]
+            ]
         };
-        let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojsonObj));
-        let downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", "Estimated_Boundary_Backup.geojson");
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        
-        alert("提示：由於網頁快取防護阻擋，系統已為您自動下載為高相容性的 .geojson 向量格式圖資。");
+
+        shpwrite.download(geojson);
+
+    }catch(err){
+
+        console.error(err);
+
+        alert("匯出失敗");
+
     }
+
 }
 
 function importPolygonSHP(event) {
@@ -712,18 +759,36 @@ function processImportedGeoJSON(geojson) {
         rings.pop();
     }
 
-    drawPoints = rings.map(coord => [coord[1], coord[0]]);
-
-    renderEditablePolygon();
-    updateCentroidByPoints(drawPoints);
-    
-    if (drawPoints.length > 0) {
-        map.panTo(drawPoints[0]);
+    const polygonLayer = L.polygon(
+    rings.map(coord=>[coord[1],coord[0]]),
+    {
+        color:'#dc2626',
+        weight:3,
+        fillColor:'#dc2626',
+        fillOpacity:0.25
     }
+);
 
-    document.getElementById('btn-export-shp').style.display = 'block';
-    document.getElementById('btn-clear-draw').style.display = 'block';
-    alert("🎉 成功！已實時解壓縮讀取檔案內容，並 100% 完美還原您繪製的範圍形狀。");
+polygonGroup.addLayer(polygonLayer);
+
+const markerLayer = L.layerGroup();
+polygonGroup.addLayer(markerLayer);
+
+const polygonObj = {
+    id: Date.now(),
+    points: rings.map(coord=>[coord[1],coord[0]]),
+    polygonLayer,
+    markerLayer
+};
+
+polygons.push(polygonObj);
+
+updateGlobalCentroid();
+
+document.getElementById('btn-export-shp').style.display='block';
+document.getElementById('btn-clear-draw').style.display='block';
+
+alert("🎉 已成功匯入 Polygon");
 }
 
 
@@ -732,25 +797,34 @@ map.on('click', e => {
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
 
-    if (isDrawingPolygon) {
-        drawPoints.push([lat, lon]);
-        
-        L.circleMarker([lat, lon], {
-            radius: 5,
-            color: '#dc2626',
-            fillColor: '#fff',
-            fillOpacity: 1,
-            weight: 2
-        }).addTo(drawMarkers);
+   if(isDrawingPolygon){
 
-        if (previewPolyline) {
-            previewPolyline.setLatLngs(drawPoints);
-        } else {
-            previewPolyline = L.polyline(drawPoints, { color: '#dc2626', weight: 2, dashArray: '5, 8' }).addTo(map);
-        }
-        return; 
+    currentDrawPoints.push([lat,lon]);
+
+    L.circleMarker([lat,lon],{
+        radius:5,
+        color:'#dc2626',
+        fillColor:'#fff',
+        fillOpacity:1,
+        weight:2
+    }).addTo(map);
+
+    if(previewPolyline){
+
+        previewPolyline.setLatLngs(currentDrawPoints);
+
+    }else{
+
+        previewPolyline = L.polyline(currentDrawPoints,{
+            color:'#dc2626',
+            weight:2,
+            dashArray:'5,8'
+        }).addTo(map);
+
     }
 
+    return;
+}
     latInput.value = lat.toFixed(6);
     lonInput.value = lon.toFixed(6);
     origin = [lat, lon];
@@ -921,12 +995,29 @@ try {
     let parts=[];
 
     // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
-    let turfZonePolygon = null;
-    if (drawPoints && drawPoints.length >= 3) {
-        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-        turfZonePolygon = turf.polygon([ring]);
-    }
+    let turfZonePolygons = [];
+
+if(polygons.length > 0){
+
+    polygons.forEach(p=>{
+
+        let ring = p.points.map(pt=>[
+            Number(pt[1]),
+            Number(pt[0])
+        ]);
+
+        ring.push([
+            Number(p.points[0][1]),
+            Number(p.points[0][0])
+        ]);
+
+        turfZonePolygons.push(
+            turf.polygon([ring])
+        );
+
+    });
+
+}
 
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
     if(checkedBoxes.length === 0) {
@@ -1059,10 +1150,14 @@ try {
             
             // ★核心空間拓撲判定：利用 Turf.js 計算設施點是否落在編輯範圍內
             let inside = false;
-            if(turfZonePolygon) {
-                let pt = turf.point([lon2, lat2]);
-                inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
-            }
+            if(turfZonePolygons.length){
+
+    let pt = turf.point([lon2,lat2]);
+
+    inside = turfZonePolygons.some(poly=>
+        turf.booleanPointInPolygon(pt,poly)
+    );
+}
 
             results.push({
                 id: results.length,
