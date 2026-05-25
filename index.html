@@ -417,7 +417,27 @@ function toggleDrawMode(btn) {
         currentDrawPoints = [];
     }
 }
+function addPolygon(rings){
 
+    const coords = rings.map(c => [c[1], c[0]]);
+
+    const polygonLayer = L.polygon(coords, {
+        color:'#dc2626',
+        weight:3,
+        fillColor:'#dc2626',
+        fillOpacity:0.25
+    }).addTo(polygonGroup);
+
+    const markerLayer = L.layerGroup().addTo(polygonGroup);
+
+    polygons.push({
+        id: Date.now() + Math.random(),
+        points: coords,
+        polygonLayer,
+        markerLayer
+    });
+
+}
 function clearPolygon(){
 
     polygons.forEach(p=>{
@@ -730,56 +750,58 @@ function importPolygonSHP(event) {
 }
 
 function processImportedGeoJSON(geojson) {
-    let feature = null;
-    if (geojson.type === "FeatureCollection" && geojson.features.length > 0) {
-        feature = geojson.features[0];
-    } else if (geojson.type === "Feature") {
-        feature = geojson;
-    } else if (geojson.geometry && geojson.geometry.type === "Polygon") {
-        feature = geojson;
+
+    let features = [];
+
+    // 1️⃣ FeatureCollection
+    if (geojson.type === "FeatureCollection") {
+        features = geojson.features || [];
     }
 
-    if (!feature || !feature.geometry || feature.geometry.type !== "Polygon") {
-        alert("找不到有效的多邊形 (Polygon) 幾何結構！");
+    // 2️⃣ 單一 Feature
+    else if (geojson.type === "Feature") {
+        features = [geojson];
+    }
+
+    // 3️⃣ geometry（裸 geometry）
+    else if (geojson.geometry) {
+        features = [geojson];
+    }
+
+    else {
+        alert("無法辨識 GeoJSON 結構");
         return;
     }
 
-    let rings = feature.geometry.coordinates[0];
-    
-    if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
-        rings.pop();
+    let added = 0;
+
+    features.forEach(f => {
+
+        let geom = f.geometry || f;
+
+        // ✅ Polygon
+        if (geom.type === "Polygon") {
+
+            addPolygon(geom.coordinates[0]);
+            added++;
+        }
+
+        // ✅ MultiPolygon（重點修正）
+        else if (geom.type === "MultiPolygon") {
+
+            geom.coordinates.forEach(poly => {
+                addPolygon(poly[0]);
+                added++;
+            });
+        }
+
+    });
+
+    if (added === 0) {
+        alert("找不到 Polygon / MultiPolygon 幾何");
+    } else {
+        alert(`🎉 成功匯入 ${added} 個多邊形`);
     }
-
-    const polygonLayer = L.polygon(
-    rings.map(coord=>[coord[1],coord[0]]),
-    {
-        color:'#dc2626',
-        weight:3,
-        fillColor:'#dc2626',
-        fillOpacity:0.25
-    }
-);
-
-polygonGroup.addLayer(polygonLayer);
-
-const markerLayer = L.layerGroup();
-polygonGroup.addLayer(markerLayer);
-
-const polygonObj = {
-    id: Date.now(),
-    points: rings.map(coord=>[coord[1],coord[0]]),
-    polygonLayer,
-    markerLayer
-};
-
-polygons.push(polygonObj);
-
-updateGlobalCentroid();
-
-document.getElementById('btn-export-shp').style.display='block';
-document.getElementById('btn-clear-draw').style.display='block';
-
-alert("🎉 已成功匯入 Polygon");
 }
 
 
