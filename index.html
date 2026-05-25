@@ -187,9 +187,9 @@ font-weight:bold;
     width: 12px;
     height: 12px;
     background: #ffffff;
-    border: 2px solid #2563eb;
+    border: 2px solid #dc2626;
     border-radius: 50%;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 </style>
 </head>
@@ -345,31 +345,11 @@ interactive:false
 /* ====================================================================
     ★ 多邊形繪製與二次編輯核心
    ==================================================================== */
-let polygons = [];            // ⭐ 所有 polygon 集合
-let activePolygonId = null;  // ⭐ 當前選取 polygon
-
-<script>
-
-/* ================================
-   🧠 GIS Polygon Data Model (v3)
-================================ */
-
-// ⭐ 所有 polygon 集合
-let polygons = [];
-
-// ⭐ 目前被選取的 polygon ID
-let activePolygonId = null;
-
-// ⭐ 繪製中暫存點（未完成 polygon）
-let drawPoints = [];
-
-// ⭐ 線段預覽（繪製中）
+let isDrawingPolygon = false;
+let drawPoints = [];       
 let previewPolyline = null;
-
-// ⭐ marker 管理層（控制點）
-let drawMarkers = L.layerGroup().addTo(map);
-
-</script>
+let finalPolygon = null;
+let drawMarkers = L.layerGroup().addTo(map);  
 
 const drawControl = L.control({ position: 'topleft' });
 drawControl.onAdd = function() {
@@ -431,79 +411,55 @@ function clearPolygon() {
 
 function finishPolygon() {
     if (drawPoints.length < 3) {
-        alert("至少 3 點");
+        alert("請至少點選 3 個以上的頂點才能閉合範圍！");
         return;
     }
-
-    const id = crypto.randomUUID();
-
-    const poly = {
-        id,
-        points: [...drawPoints],
-        layer: null,
-        markers: L.layerGroup(),
-        centroid: null
-    };
-
-    renderPolygon(poly);
-
-    polygons.push(poly);
-    setActivePolygon(id);
-
-    drawPoints = [];
-
-    updatePolygonListUI();
+    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
+    
+    renderEditablePolygon();
+    updateCentroidByPoints(drawPoints);
+    
+    isDrawingPolygon = false;
+    const btn = document.getElementById('btn-start-draw');
+    btn.classList.remove('active');
+    btn.innerText = "📐 繪製範圍";
+    document.getElementById('btn-end-draw').style.display = 'none';
+    document.getElementById('btn-export-shp').style.display = 'block';
 }
 
-function renderPolygon(poly) {
+function renderEditablePolygon() {
+    if (finalPolygon) { map.removeLayer(finalPolygon); }
+    drawMarkers.clearLayers();
 
-    // ===== 1️⃣ 建立 polygon layer =====
-    poly.layer = L.polygon(poly.points, {
-        color: poly.id === activePolygonId ? '#2563eb' : '#dc2626',
+    finalPolygon = L.polygon(drawPoints, {
+        color: '#dc2626',
         weight: 3,
         fillColor: '#dc2626',
         fillOpacity: 0.25
     }).addTo(map);
 
-    // ===== 2️⃣ 點擊 polygon → 切換 active =====
-    poly.layer.on("click", () => {
-        setActivePolygon(poly.id);
-    });
-
-    // ===== 3️⃣ 建立可拖曳控制點 =====
-    poly.markers = L.layerGroup().addTo(map);
-
-    poly.points.forEach((pt, index) => {
-
+    drawPoints.forEach((pt, index) => {
         let marker = L.marker(pt, {
-            draggable: true,
             icon: L.divIcon({
                 className: '',
                 html: '<div class="edit-handle"></div>',
                 iconSize: [12, 12],
                 iconAnchor: [6, 6]
-            })
+            }),
+            draggable: true
+        });
+        
+        marker.on('drag', function(e) {
+            let newLatLng = e.target.getLatLng();
+            drawPoints[index] = [newLatLng.lat, newLatLng.lng];
+            finalPolygon.setLatLngs(drawPoints);
+        });
+        
+        marker.on('dragend', function() {
+            updateCentroidByPoints(drawPoints);
         });
 
-        // ===== 4️⃣ 拖曳更新點位 =====
-        marker.on('drag', (e) => {
-            const newLatLng = e.target.getLatLng();
-
-            poly.points[index] = [
-                newLatLng.lat,
-                newLatLng.lng
-            ];
-
-            // 即時更新 polygon geometry
-            poly.layer.setLatLngs(poly.points);
-        });
-
-        // ===== 5️⃣ 拖曳結束 → 重算 centroid =====
-        marker.on('dragend', () => {
-            updateCentroid(poly);
-        });
-
-        marker.addTo(poly.markers);
+        marker.addTo(drawMarkers);
     });
 }
 
