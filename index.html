@@ -457,24 +457,86 @@ function clearPolygon() {
     document.getElementById('btn-clear-draw').style.display = 'none';
 }
 
-function finishPolygon() {
-    if (drawPoints.length < 3) {
-        alert("請至少點選 3 個以上的頂點才能閉合範圍！");
+function finishPolygon(){
+
+    if(currentDrawPoints.length < 3){
+        alert("請至少點選3個頂點");
         return;
     }
-    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-    
-    renderEditablePolygon();
-    updateCentroidByPoints(drawPoints);
-    
-    isDrawingPolygon = false;
-    const btn = document.getElementById('btn-start-draw');
-    btn.classList.remove('active');
-    btn.innerText = "📐 繪製範圍";
-    document.getElementById('btn-end-draw').style.display = 'none';
-    document.getElementById('btn-export-shp').style.display = 'block';
-}
 
+    if(previewPolyline){
+        map.removeLayer(previewPolyline);
+        previewPolyline = null;
+    }
+
+    const polyId = Date.now();
+
+    const polygonLayer = L.polygon(currentDrawPoints,{
+        color:'#dc2626',
+        weight:3,
+        fillColor:'#dc2626',
+        fillOpacity:0.25
+    });
+
+    polygonGroup.addLayer(polygonLayer);
+
+    const markerLayer = L.layerGroup();
+    polygonGroup.addLayer(markerLayer);
+
+    const polygonObj = {
+        id: polyId,
+        points: JSON.parse(JSON.stringify(currentDrawPoints)),
+        polygonLayer,
+        markerLayer
+    };
+
+    polygonObj.points.forEach((pt,index)=>{
+
+        const marker = L.marker(pt,{
+            icon:L.divIcon({
+                className:'',
+                html:'<div class="edit-handle"></div>',
+                iconSize:[12,12],
+                iconAnchor:[6,6]
+            }),
+            draggable:true
+        });
+
+        marker.on('drag',function(e){
+
+            const latlng = e.target.getLatLng();
+
+            polygonObj.points[index] = [latlng.lat,latlng.lng];
+
+            polygonLayer.setLatLngs(polygonObj.points);
+
+        });
+
+        marker.on('dragend',function(){
+            updateGlobalCentroid();
+        });
+
+        markerLayer.addLayer(marker);
+
+    });
+
+    polygons.push(polygonObj);
+
+    currentDrawPoints = [];
+
+    updateGlobalCentroid();
+
+    document.getElementById('btn-export-shp').style.display='block';
+
+    isDrawingPolygon = false;
+
+    const btn=document.getElementById('btn-start-draw');
+
+    btn.classList.remove('active');
+    btn.innerText="📐 繪製範圍";
+
+    document.getElementById('btn-end-draw').style.display='none';
+}
 function renderEditablePolygon() {
     if (finalPolygon) { map.removeLayer(finalPolygon); }
     drawMarkers.clearLayers();
