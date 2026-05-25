@@ -247,6 +247,18 @@ cursor:pointer;
 <button class="clear-btn" onclick="clearRoute()">清除路線距離</button>
 
 <div id="routeInfo">路線距離：尚未計算</div>
+<div id="activePolygonInfo"
+style="
+margin-top:8px;
+padding:8px;
+background:#eff6ff;
+border-radius:10px;
+font-size:12px;
+color:#1d4ed8;
+font-weight:bold;
+">
+目前作用範圍：尚未選取
+   
 </div>
 
 <div id="resultPanel">
@@ -353,6 +365,7 @@ let drawPoints = [];
 let previewPolyline = null;
 let polygonLayers = [];
 let activePolygonId = null;
+let activeCentroid = null;    
 let polygonIdSeed = 1;
 let drawMarkers = L.layerGroup().addTo(map);  
 
@@ -493,15 +506,36 @@ function renderEditablePolygon() {
 
     polygon.on("click", function () {
 
-        activePolygonId = polygonId;
+    activePolygonId = polygonId;
 
-        polygonLayers.forEach(p => {
-            p.polygon.setStyle({
-                color: '#dc2626',
-                fillColor: '#dc2626',
-                weight: 3
-            });
+    polygonLayers.forEach(p => {
+
+        p.polygon.setStyle({
+            color:'#dc2626',
+            fillColor:'#dc2626',
+            weight:3,
+            fillOpacity:0.25
         });
+
+    });
+
+    polygon.setStyle({
+        color:'#2563eb',
+        fillColor:'#2563eb',
+        weight:5,
+        fillOpacity:0.35
+    });
+
+    /* =====================================================
+       點選後重新計算該範圍形心
+    ===================================================== */
+
+    updateCentroidByPoints(
+        polygonObj.points,
+        true
+    );
+
+});
 
         polygon.setStyle({
             color: '#2563eb',
@@ -513,82 +547,267 @@ function renderEditablePolygon() {
 
     drawPoints.forEach((pt, index) => {
 
-        let marker = L.marker(pt, {
-            icon: L.divIcon({
-                className: '',
-                html: '<div class="edit-handle"></div>',
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
-            }),
-            draggable: true
-        });
+    let marker = L.marker(pt, {
+        icon: L.divIcon({
+            className: '',
+            html: '<div class="edit-handle"></div>',
+            iconSize: [12, 12],
+            iconAnchor: [6, 6]
+        }),
+        draggable: true
+    });
 
-        marker.on('drag', function(e) {
+    /* =====================================================
+       拖曳中即時更新 Polygon 幾何
+    ===================================================== */
 
-            let newLatLng = e.target.getLatLng();
+    marker.on('drag', function(e) {
 
-            polygonObj.points[index] = [
-                newLatLng.lat,
-                newLatLng.lng
-            ];
+        let newLatLng = e.target.getLatLng();
 
-            polygon.setLatLngs(polygonObj.points);
+        polygonObj.points[index] = [
+            newLatLng.lat,
+            newLatLng.lng
+        ];
 
-        });
-
-        marker.on('dragend', function() {
-
-            updateCentroidByPoints(
-                polygonObj.points
-            );
-
-        });
-
-        marker.addTo(drawMarkers);
-
-        polygonObj.markers.push(marker);
+        polygon.setLatLngs(
+            polygonObj.points
+        );
 
     });
 
+    /* =====================================================
+       拖曳結束後：
+       1. 重算形心
+       2. 更新作用中心
+       3. 更新查詢原點
+       4. 更新 UI
+       5. 更新目前選取範圍
+    ===================================================== */
+
+    marker.on('dragend', function() {
+
+        /* -----------------------------------------
+           若目前拖曳的是作用中的 Polygon
+        ----------------------------------------- */
+
+        if(activePolygonId === polygonObj.id){
+
+            activeCentroid = null;
+
+            updateCentroidByPoints(
+                polygonObj.points,
+                false
+            );
+
+        }else{
+
+            /* -----------------------------------------
+               非作用 Polygon
+               僅更新其自身幾何
+            ----------------------------------------- */
+
+            let coordinates = polygonObj.points.map(
+                p => [p[1], p[0]]
+            );
+
+            coordinates.push([
+                polygonObj.points[0][1],
+                polygonObj.points[0][0]
+            ]);
+
+            let turfPoly = turf.polygon([
+                coordinates
+            ]);
+
+            let centroid = turf.centroid(
+                turfPoly
+            );
+
+            polygonObj.centroid = [
+                centroid.geometry.coordinates[1],
+                centroid.geometry.coordinates[0]
+            ];
+
+        }
+
+        /* -----------------------------------------
+           即時刷新 Polygon Popup
+        ----------------------------------------- */
+
+        let ring = polygonObj.points.map(
+            p => [p[1], p[0]]
+        );
+
+        ring.push([
+            polygonObj.points[0][1],
+            polygonObj.points[0][0]
+        ]);
+
+        let area = Math.round(
+            turf.area(
+                turf.polygon([ring])
+            )
+        );
+
+        polygon.bindPopup(`
+            <div style="
+                font-size:12px;
+                line-height:1.6;
+                min-width:200px;
+            ">
+                <b style="color:#2563eb;">
+                Polygon 幾何已更新
+                </b>
+                <br><br>
+
+                <b>節點數：</b>
+                ${polygonObj.points.length}
+                <br>
+
+                <b>面積：</b>
+                ${area.toLocaleString()} ㎡
+                <br><br>
+
+                已重新計算：
+                <br>
+                • Geometry Shape
+                <br>
+                • Centroid
+                <br>
+                • Distance Origin
+            </div>
+        `);
+
+    });
+
+    marker.addTo(drawMarkers);
+
+    polygonObj.markers.push(marker);
+
+});
     polygonLayers.push(polygonObj);
 
     activePolygonId = polygonId;
 }
-function updateCentroidByPoints(pts) {
+function updateCentroidByPoints(
+    pts,
+    moveMap = false
+){
+
     if (!pts || pts.length < 3) return;
-    
-    let coordinates = pts.map(p => [p[1], p[0]]);
-    if (coordinates[0][0] !== coordinates[coordinates.length-1][0] || coordinates[0][1] !== coordinates[coordinates.length-1][1]) {
-        coordinates.push([pts[0][1], pts[0][0]]);
+
+    let coordinates = pts.map(
+        p => [p[1], p[0]]
+    );
+
+    if (
+        coordinates[0][0] !== coordinates[coordinates.length-1][0] ||
+        coordinates[0][1] !== coordinates[coordinates.length-1][1]
+    ) {
+        coordinates.push([
+            pts[0][1],
+            pts[0][0]
+        ]);
     }
-    
+
     let turfPoly = turf.polygon([coordinates]);
+
     let centroid = turf.centroid(turfPoly);
-    
+
     const cLon = centroid.geometry.coordinates[0];
     const cLat = centroid.geometry.coordinates[1];
 
+    activeCentroid = [cLat, cLon];
+
     latInput.value = cLat.toFixed(6);
     lonInput.value = cLon.toFixed(6);
+
     origin = [cLat, cLon];
 
-    if (userMarker) map.removeLayer(userMarker);
-    userMarker = L.marker([cLat, cLon], {
-        icon: L.divIcon({
-            className: '',
-            html: `<div style="width:18px; height:18px; background:#ef4444; border:3px solid #ffffff; border-radius:50%; box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
-            iconSize: [18, 18],
-            iconAnchor: [9, 9]
+    if(userMarker){
+        map.removeLayer(userMarker);
+    }
+
+    userMarker = L.marker([cLat, cLon],{
+        icon:L.divIcon({
+            className:'',
+            html:`
+            <div style="
+                width:22px;
+                height:22px;
+                background:#2563eb;
+                border:4px solid #ffffff;
+                border-radius:50%;
+                box-shadow:0 0 0 3px rgba(37,99,235,0.35);
+            "></div>`,
+            iconSize:[22,22],
+            iconAnchor:[11,11]
         }),
-        interactive: false
+        interactive:false
     }).addTo(map);
 
-    finalPolygon.bindPopup(`
-        <div style="font-size:12px; line-height:1.4;">
-            <b style="color:#dc2626;">📐 範圍與節點更新完成</b><br>
-            已動態重算幾何形心並帶入中心點。<br>您可直接**拖曳邊界上的白色圓點**再次微調範圍，或點擊左側面板「查詢」進行量距。
-        </div>
-    `).openPopup([cLat, cLon]);
+    if(moveMap){
+        map.flyTo(
+            [cLat, cLon],
+            Math.max(map.getZoom(),17),
+            { duration:0.8 }
+        );
+    }
+
+    /* ============================
+       即時資訊 Popup
+    ============================ */
+
+    let sqm = Math.round(
+        turf.area(turfPoly)
+    );
+
+    let hectare = (sqm / 10000).toFixed(4);
+
+   L.popup()
+.setLatLng([cLat, cLon])
+.setContent(`
+    <div style="
+        font-size:12px;
+        line-height:1.6;
+        min-width:220px;
+    ">
+        <b style="color:#2563eb;">
+        已切換作用範圍
+        </b><br><br>
+
+        <b>形心座標：</b><br>
+        ${cLat.toFixed(6)},
+        ${cLon.toFixed(6)}
+        <br><br>
+
+        <b>面積：</b><br>
+        ${sqm.toLocaleString()} ㎡
+        <br>
+        ${hectare} 公頃
+        <br><br>
+
+        此範圍已成為：
+        <br>
+        <b>目前距離量測中心</b>
+    </div>
+`)
+.openOn(map);
+
+/* =====================================================
+   更新右側 UI 顯示
+===================================================== */
+
+document.getElementById(
+    "activePolygonInfo"
+).innerHTML = `
+目前作用範圍中心：
+<br>
+${cLat.toFixed(6)},
+${cLon.toFixed(6)}
+`;
+
 }
 
 function exportPolygonSHP() {
@@ -803,7 +1022,9 @@ if(isInZone) {
 }
 try{
 if(!origin) return null;
-
+if(activeCentroid){
+    origin = activeCentroid;
+}
 let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 
 if(isJunction) {
@@ -827,7 +1048,9 @@ return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 async function drawRoute(to, item){
 try{
 if(!origin) return;
-
+if(activeCentroid){
+    origin = activeCentroid;
+}
 if(item.在範圍內) {
     routeInfo.innerText = "路線距離：0 m (此設施位於您編輯的範圍區段內部)";
     if(routeLayer) map.removeLayer(routeLayer);
@@ -884,8 +1107,13 @@ row.scrollIntoView({ behavior:"smooth", block:"center" });
 
 /* Overpass API 查詢與幾何相交拓撲核心 */
 async function runQuery(){
-const lat=parseFloat(latInput.value);
-const lon=parseFloat(lonInput.value);
+let lat=parseFloat(latInput.value);
+let lon=parseFloat(lonInput.value);
+
+if(activeCentroid){
+    lat = activeCentroid[0];
+    lon = activeCentroid[1];
+}
 const radius=parseFloat(radiusInput.value);
 
 if(radius > 3000){
