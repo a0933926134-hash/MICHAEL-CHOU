@@ -353,7 +353,6 @@ let currentDrawPoints = [];
 
 /* 所有 Polygon */
 let polygons = [];
-let selectedPolygonId = null;    
 /*
 polygons 結構：
 
@@ -478,9 +477,10 @@ function finishPolygon(){
         fillOpacity:0.25
     });
 
-    
+    polygonGroup.addLayer(polygonLayer);
+
     const markerLayer = L.layerGroup();
-   
+    polygonGroup.addLayer(markerLayer);
 
     const polygonObj = {
         id: polyId,
@@ -513,8 +513,6 @@ function finishPolygon(){
 
         marker.on('dragend',function(){
             updateGlobalCentroid();
-            selectPolygon(polygonObj.id);
-            selectPolygon(polyId);
         });
 
         markerLayer.addLayer(marker);
@@ -522,51 +520,21 @@ function finishPolygon(){
     });
 
     polygons.push(polygonObj);
-    polygonLayer.on('click',function(e){
-
-    L.DomEvent.stopPropagation(e);
-
-    selectPolygon(polygonObj.id);
-
-});
 
     currentDrawPoints = [];
 
-    function selectPolygon(id){
+    updateGlobalCentroid();
+    
+    document.getElementById('btn-export-shp').style.display='block';
 
-    selectedPolygonId = id;
+    isDrawingPolygon = false;
 
-    polygons.forEach(p=>{
+    const btn=document.getElementById('btn-start-draw');
 
-        const isSelected = p.id === id;
+    btn.classList.remove('active');
+    btn.innerText="📐 繪製範圍";
 
-        /* Polygon 高亮 */
-        p.polygonLayer.setStyle({
-
-            color: isSelected ? '#2563eb' : '#dc2626',
-            fillColor: isSelected ? '#60a5fa' : '#dc2626',
-            fillOpacity: isSelected ? 0.35 : 0.25,
-            weight: isSelected ? 4 : 3
-
-        });
-
-        /* 控制點顯示切換 */
-        if(isSelected){
-
-            if(!polygonGroup.hasLayer(p.markerLayer)){
-                polygonGroup.addLayer(p.markerLayer);
-            }
-
-        }else{
-
-            if(polygonGroup.hasLayer(p.markerLayer)){
-                polygonGroup.removeLayer(p.markerLayer);
-            }
-
-        }
-
-    });
-
+    document.getElementById('btn-end-draw').style.display='none';
 }
 function selectPolygon(id){
 
@@ -795,7 +763,7 @@ function processImportedGeoJSON(geojson) {
 polygonGroup.addLayer(polygonLayer);
 
 const markerLayer = L.layerGroup();
-
+polygonGroup.addLayer(markerLayer);
 
 const polygonObj = {
     id: Date.now(),
@@ -805,76 +773,18 @@ const polygonObj = {
 };
 
 polygons.push(polygonObj);
-/* 點擊 Polygon 可選取 */
-polygonLayer.on('click',function(e){
 
-    L.DomEvent.stopPropagation(e);
+updateGlobalCentroid();
 
-    selectPolygon(polyId);
+document.getElementById('btn-export-shp').style.display='block';
+document.getElementById('btn-clear-draw').style.display='block';
 
-});    
-
-function selectPolygon(id){
-
-    selectedPolygonId = id;
-
-    polygons.forEach(p=>{
-
-        const isSelected = p.id === id;
-
-        /* Polygon 高亮 */
-        p.polygonLayer.setStyle({
-
-            color: isSelected ? '#2563eb' : '#dc2626',
-            fillColor: isSelected ? '#60a5fa' : '#dc2626',
-            fillOpacity: isSelected ? 0.35 : 0.25,
-            weight: isSelected ? 4 : 3
-
-        });
-
-        /* 控制點顯示切換 */
-        if(isSelected){
-
-            if(!polygonGroup.hasLayer(p.markerLayer)){
-                polygonGroup.addLayer(p.markerLayer);
-            }
-
-        }else{
-
-            if(polygonGroup.hasLayer(p.markerLayer)){
-                polygonGroup.removeLayer(p.markerLayer);
-            }
-
-        }
-
-    });
-
+alert("🎉 已成功匯入 Polygon");
 }
+
 
 /* 地圖點擊事件 */
 map.on('click', e => {
-    /* 點空白處取消選取 Polygon */
-
-if(!isDrawingPolygon){
-
-    selectedPolygonId = null;
-
-    polygons.forEach(p=>{
-
-        p.polygonLayer.setStyle({
-            color:'#dc2626',
-            fillColor:'#dc2626',
-            fillOpacity:0.25,
-            weight:3
-        });
-
-        if(polygonGroup.hasLayer(p.markerLayer)){
-            polygonGroup.removeLayer(p.markerLayer);
-        }
-
-    });
-
-}
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
 
