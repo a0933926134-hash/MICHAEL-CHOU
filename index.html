@@ -270,339 +270,205 @@ cursor:pointer;
 <div id="map"></div>
 
 <script>
-let map=L.map('map').setView([25.012098,121.465675],15);
+/* ================= MAP STATE ================= */
+let map = L.map('map').setView([25.012098,121.465675], 15);
 
-L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
-maxZoom:19
+L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}', {
+    maxZoom: 19
 }).addTo(map);
 
-/* 比例尺 */
-const scaleControl = L.control({ position: 'bottomleft' });
+let markerLayer = L.layerGroup().addTo(map);
+let routeLayer = null;
 
-scaleControl.onAdd = function () {
-this._div = L.DomUtil.create('div', 'scale-denominator');
-this._div.style.background = 'rgba(255,255,255,0.9)';
-this._div.style.padding = '4px 8px';
-this._div.style.borderRadius = '6px';
-this._div.style.boxShadow = '0 1px 5px rgba(0,0,0,0.3)';
-this._div.style.fontSize = '12px';
-this._div.style.fontWeight = 'bold';
-this._div.style.marginBottom = '42px';
-this.update();
-return this._div;
-};
+/* ================= ORIGIN ================= */
+let origin = [25.012098,121.465675];
+let userMarker = null;
 
-scaleControl.update = function () {
-const center = map.getCenter();
-const zoom = map.getZoom();
-const metersPerPixel = 40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
-const dpi = 96;
-const scale = metersPerPixel * dpi / 0.0254;
-const rounded = Math.round(scale / 100) * 100;
-this._div.innerHTML = `比例尺 1:${rounded.toLocaleString()}`;
-};
+/* ================= RESULTS ================= */
+let results = [];
 
-scaleControl.addTo(map);
-map.on('zoomend moveend', () => { scaleControl.update(); });
-
-let markerLayer=L.layerGroup().addTo(map);
-/* 地籍圖 */
-const cadastralLayer = L.tileLayer(
-'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/EPSG:3857/{z}/{y}/{x}',{
-maxZoom:22,
-opacity:0.75
-}
-);
-cadastralLayer.addTo(map);
-  
-const latInput=document.getElementById("lat");
-const lonInput=document.getElementById("lon");
-const radiusInput=document.getElementById("radius");
-const tbody=document.getElementById("tbody");
-const routeInfo=document.getElementById("routeInfo");
-const queryBtn=document.getElementById("query-btn");
-
-let userMarker=null;
-let origin=null;
-let results=[];
-
-let sortState = { distance:true, route:true };
-let routeLayer=null;
-
-origin=[25.012098,121.465675];
-
-userMarker=L.marker(origin,{
-icon:L.divIcon({
-className:'',
-html: `<div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
-iconSize:[18,18],
-iconAnchor:[9,9]
-}),
-interactive:false
-}).addTo(map);
-
-
-/* ====================================================================
-    ★ 多邊形繪製與二次編輯核心
-   ==================================================================== */
-let polygons = [];  
-// [
-//   {
-//     id: 1,
-//     points: [[lat,lng]...],
-//     polygonLayer: L.polygon,
-//     markers: L.layerGroup,
-//     selected: false
-//   }
-// ]
-
+/* ================= DRAW STATE (修正核心) ================= */
+let polygons = [];
 let activePolygonId = null;
 let isDrawingPolygon = false;
-let previewPolyline = null;
-const drawControl = L.control({ position: 'topleft' });
-drawControl.onAdd = function() {
-    const div = L.DomUtil.create('div', 'draw-control-bar');
-    div.innerHTML = `
-        <button id="btn-start-draw" class="draw-btn" onclick="toggleDrawMode(this)">📐 繪製範圍</button>
-        <button id="btn-end-draw" class="draw-btn" onclick="finishPolygon()" style="display:none; background:#10b981; color:white;">✓ 完成閉合</button>
-        <button id="btn-export-shp" class="draw-btn shp-btn" onclick="exportPolygonSHP()" style="display:none;">📥 匯出範圍 SHP</button>
-        <label id="lbl-import-shp" class="shp-import-label">📤 匯入範圍 (支援 SHP.zip 或 GeoJSON)
-            <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" style="display:none;" onchange="importPolygonSHP(event)">
-        </label>
-        <button id="btn-clear-draw" class="draw-btn" onclick="clearPolygon()" style="display:none; background:#6b7280; color:white;">✕ 清除範圍</button>
-    `;
-    L.DomEvent.disableClickPropagation(div);
-    return div;
-};
-drawControl.addTo(map);
 
-const resPanel = document.getElementById("resultPanel");
-const sidePanel = document.getElementById("panel");
-L.DomEvent.disableClickPropagation(resPanel);
-L.DomEvent.disableClickPropagation(sidePanel);
+/* ================= DRAW CONTROL ================= */
+map.on('click', function (e) {
+    if (!isDrawingPolygon) return;
 
-function toggleDrawMode(btn) {
-    isDrawingPolygon = !isDrawingPolygon;
-    if (isDrawingPolygon) {
-        btn.classList.add('active');
-        btn.innerText = "🛑 停止點選";
-        document.getElementById('btn-end-draw').style.display = 'block';
-        document.getElementById('btn-clear-draw').style.display = 'block';
-        clearPolygonData();
-    } else {
-        btn.classList.remove('active');
-        btn.innerText = "📐 繪製範圍";
-        if (drawPoints.length === 0) {
-            document.getElementById('btn-end-draw').style.display = 'none';
-            document.getElementById('btn-clear-draw').style.display = 'none';
-        }
+    let poly = polygons.find(p => p.id === activePolygonId);
+
+    if (!poly) {
+        poly = {
+            id: Date.now(),
+            points: [],
+            layer: null,
+            markers: L.layerGroup().addTo(map),
+            selected: true
+        };
+        polygons.push(poly);
+        activePolygonId = poly.id;
     }
-}
 
-function clearPolygonData() {
-    drawPoints = [];
-    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-    if (finalPolygon) { map.removeLayer(finalPolygon); finalPolygon = null; }
-    drawMarkers.clearLayers();
-    document.getElementById('btn-export-shp').style.display = 'none';
-}
+    poly.points.push([e.latlng.lat, e.latlng.lng]);
 
-function clearPolygon() {
+    L.circleMarker([e.latlng.lat, e.latlng.lng], {
+        radius: 5,
+        color: '#dc2626',
+        fillColor: '#fff',
+        fillOpacity: 1,
+        weight: 2
+    }).addTo(poly.markers);
+
+    if (poly.layer) map.removeLayer(poly.layer);
+    poly.layer = L.polygon(poly.points, { color: 'red' }).addTo(map);
+});
+
+/* ================= CLEAR DRAW ================= */
+function clearAll() {
     polygons.forEach(p => {
-        if (p.polygonLayer) map.removeLayer(p.polygonLayer);
-        if (p.markers) p.markers.clearLayers();
+        if (p.layer) map.removeLayer(p.layer);
+        if (p.markers) map.removeLayer(p.markers);
     });
 
     polygons = [];
     activePolygonId = null;
-
-    if (previewPolyline) map.removeLayer(previewPolyline);
-    previewPolyline = null;
-}
-    clearPolygonData();
-    isDrawingPolygon = false;
-    const btn = document.getElementById('btn-start-draw');
-    btn.classList.remove('active');
-    btn.innerText = "📐 繪製範圍";
-    document.getElementById('btn-end-draw').style.display = 'none';
-    document.getElementById('btn-clear-draw').style.display = 'none';
 }
 
-function finishPolygon() {
-    const poly = polygons.find(p => p.id === activePolygonId);
-    if (!poly || poly.points.length < 3) {
-        alert("至少3點");
-        return;
-    }
-
-    if (previewPolyline) {
-        map.removeLayer(previewPolyline);
-        previewPolyline = null;
-    }
-
-    poly.polygonLayer = renderPolygon(poly);
-    poly.selected = true;
-
-    updateCentroid(poly);
-
-    activePolygonId = null;
-
-    document.getElementById('btn-export-shp').style.display = 'block';
+/* ================= TOGGLE DRAW ================= */
+function toggleDrawMode() {
+    isDrawingPolygon = !isDrawingPolygon;
 }
 
-function renderEditablePolygon() {
-    if (finalPolygon) { map.removeLayer(finalPolygon); }
-    drawMarkers.clearLayers();
+/* ================= CENTROID ================= */
+function updateCentroid(poly) {
+    if (!poly || poly.points.length < 3) return;
 
-    function renderPolygon(poly) {
+    let coords = poly.points.map(p => [p[1], p[0]]);
+    coords.push(coords[0]);
 
-    const layer = L.polygon(poly.points, {
-        color: poly.selected ? '#dc2626' : '#64748b',
-        weight: poly.selected ? 3 : 2,
-        fillOpacity: poly.selected ? 0.25 : 0.15
-    }).addTo(map);
-
-    layer.on("click", () => {
-        selectPolygon(poly.id);
-    });
-
-    return layer;
-}
-function selectPolygon(id) {
-
-    polygons.forEach(p => {
-        p.selected = (p.id === id);
-        if (p.polygonLayer) {
-            p.polygonLayer.setStyle({
-                color: p.selected ? '#dc2626' : '#64748b',
-                fillOpacity: p.selected ? 0.25 : 0.15
-            });
-        }
-    });
-
-    activePolygonId = id;
-
-    const poly = polygons.find(p => p.id === id);
-    updateCentroid(poly);
-}
-function updateCentroidByPoints(pts) {
-    if (!pts || pts.length < 3) return;
-    
-    let coordinates = pts.map(p => [p[1], p[0]]);
-    if (coordinates[0][0] !== coordinates[coordinates.length-1][0] || coordinates[0][1] !== coordinates[coordinates.length-1][1]) {
-        coordinates.push([pts[0][1], pts[0][0]]);
-    }
-    
-    let turfPoly = turf.polygon([coordinates]);
+    let turfPoly = turf.polygon([coords]);
     let centroid = turf.centroid(turfPoly);
-    
-    const cLon = centroid.geometry.coordinates[0];
-    const cLat = centroid.geometry.coordinates[1];
 
-    latInput.value = cLat.toFixed(6);
-    lonInput.value = cLon.toFixed(6);
+    let cLon = centroid.geometry.coordinates[0];
+    let cLat = centroid.geometry.coordinates[1];
+
     origin = [cLat, cLon];
 
+    document.getElementById("lat").value = cLat.toFixed(6);
+    document.getElementById("lon").value = cLon.toFixed(6);
+
     if (userMarker) map.removeLayer(userMarker);
-    userMarker = L.marker([cLat, cLon], {
-        icon: L.divIcon({
-            className: '',
-            html: `<div style="width:18px; height:18px; background:#ef4444; border:3px solid #ffffff; border-radius:50%; box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
-            iconSize: [18, 18],
-            iconAnchor: [9, 9]
-        }),
-        interactive: false
-    }).addTo(map);
 
-    finalPolygon.bindPopup(`
-        <div style="font-size:12px; line-height:1.4;">
-            <b style="color:#dc2626;">📐 範圍與節點更新完成</b><br>
-            已動態重算幾何形心並帶入中心點。<br>您可直接**拖曳邊界上的白色圓點**再次微調範圍，或點擊左側面板「查詢」進行量距。
-        </div>
-    `).openPopup([cLat, cLon]);
+    userMarker = L.marker([cLat, cLon]).addTo(map);
 }
 
-function exportPolygonSHP() {
-    if (!drawPoints || drawPoints.length < 3) {
-        alert("目前沒有完整的繪製範圍可供匯出！");
-        return;
-    }
+/* ================= Haversine ================= */
+function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = x => x * Math.PI / 180;
+
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/* ================= OVERPASS QUERY ================= */
+async function runQuery() {
+
+    const lat = parseFloat(document.getElementById("lat").value);
+    const lon = parseFloat(document.getElementById("lon").value);
+    const radius = parseFloat(document.getElementById("radius").value);
+
+    origin = [lat, lon];
+
+    markerLayer.clearLayers();
+    results = [];
+
+    const query = `
+    [out:json];
+    node(around:${radius},${lat},${lon})["amenity"];
+    out;
+    `;
+
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        body: "data=" + encodeURIComponent(query),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" }
+    });
+
+    const data = await res.json();
+
+    (data.elements || []).forEach((e, i) => {
+
+        const lat2 = e.lat;
+        const lon2 = e.lon;
+        if (!lat2 || !lon2) return;
+
+        const dist = haversine(lat, lon, lat2, lon2);
+
+        results.push({
+            id: i,
+            name: e.tags?.name || "未命名",
+            type: e.tags?.amenity || "unknown",
+            dist: Math.round(dist),
+            lat: lat2,
+            lon: lon2
+        });
+
+        L.marker([lat2, lon2])
+            .addTo(markerLayer)
+            .bindPopup(e.tags?.name || "未命名");
+    });
+
+    renderTable();
+}
+
+/* ================= TABLE ================= */
+function renderTable() {
+    const tbody = document.getElementById("tbody");
+    tbody.innerHTML = "";
+
+    results.forEach(r => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+        <td>${r.name}</td>
+        <td>${r.type}</td>
+        <td>${r.dist} m</td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+
+/* ================= ROUTE ================= */
+async function drawRoute(to) {
     try {
-        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-        
-        let tempPoly = turf.polygon([ring]);
-        let areaSqm = Math.round(turf.area(tempPoly));
+        const url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
-        let featureLayer = [
-            {
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [ring]
-                },
-                properties: {
-                    Name: "Zone_Area",
-                    Area_Sqm: areaSqm
-                }
-            }
-        ];
+        const res = await fetch(url);
+        const data = await res.json();
 
-        shpwrite.download(featureLayer);
-        
+        if (!data.routes?.length) return;
+
+        if (routeLayer) map.removeLayer(routeLayer);
+
+        routeLayer = L.geoJSON(data.routes[0].geometry, {
+            style: { color: "blue", weight: 4 }
+        }).addTo(map);
+
     } catch (err) {
-        console.error("SHP Export Error:", err);
-        
-        let ringBackup = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ringBackup.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-        let geojsonObj = {
-            type: "FeatureCollection",
-            features: [{
-                type: "Feature",
-                geometry: { type: "Polygon", coordinates: [ringBackup] },
-                properties: { Name: "Zone_Area", Area_Sqm: Math.round(turf.area(turf.polygon([ringBackup]))) }
-            }]
-        };
-        let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojsonObj));
-        let downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", "Estimated_Boundary_Backup.geojson");
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        
-        alert("提示：由於網頁快取防護阻擋，系統已為您自動下載為高相容性的 .geojson 向量格式圖資。");
+        console.error(err);
     }
 }
-
-function importPolygonSHP(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    
-    if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
-        reader.onload = function(e) {
-            try {
-                const geojson = JSON.parse(e.target.result);
-                processImportedGeoJSON(geojson);
-            } catch (err) {
-                alert("GeoJSON 解析失敗，請確認檔案格式正確。");
-            }
-        };
-        reader.readAsText(file);
-    } else if (file.name.endsWith('.zip')) {
-        reader.onload = function(e) {
-            shp(e.target.result).then(function(geojson) {
-                processImportedGeoJSON(geojson);
-            }).catch(function(err) {
-                console.error(err);
-                alert("SHP 解壓縮解碼失敗，請確保該 .zip 內含有同名的 .shp, .shx, .dbf 檔案。");
-            });
-        };
-        reader.readAsArrayBuffer(file);
-    }
-}
-
 function processImportedGeoJSON(geojson) {
     let feature = null;
     if (geojson.type === "FeatureCollection" && geojson.features.length > 0) {
