@@ -410,11 +410,16 @@ function toggleDrawMode(btn) {
 }
 
 function clearPolygonData() {
+
     drawPoints = [];
-    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-    if (finalPolygon) { map.removeLayer(finalPolygon); finalPolygon = null; }
+
+    if (previewPolyline) {
+        map.removeLayer(previewPolyline);
+        previewPolyline = null;
+    }
+
     drawMarkers.clearLayers();
-    document.getElementById('btn-export-shp').style.display = 'none';
+
 }
 
 function clearPolygon() {
@@ -475,6 +480,15 @@ function finishPolygon() {
 updateCentroidByPoints(
     JSON.parse(JSON.stringify(drawPoints))
 );
+
+/* 清空暫存點 */
+
+drawPoints = [];
+
+if(previewPolyline){
+    map.removeLayer(previewPolyline);
+    previewPolyline = null;
+}
     
     isDrawingPolygon = false;
     const btn = document.getElementById('btn-start-draw');
@@ -823,13 +837,23 @@ function updateCentroidByPoints(
 document.getElementById(
     "activePolygonInfo"
 ).innerHTML = `
-目前作用範圍中心：
+目前作用 Polygon：
+document.getElementById(
+    "activePolygonInfo"
+).innerHTML = `
+目前作用 Polygon：
+<br><br>
+
+中心：
 <br>
 ${cLat.toFixed(6)},
 ${cLon.toFixed(6)}
-`;
 
-}
+<br><br>
+
+Polygon ID：
+${activePolygonId}
+`;
 
 function exportPolygonSHP() {
     if (!drawPoints || drawPoints.length < 3) {
@@ -1347,7 +1371,10 @@ polygonLayers.forEach(poly=>{
         let inside = false;
         if(turfZonePolygons.length){
 
-    let pt = turf.point([lon2, lat2]);
+    let pt = turf.point([
+    finalLon,
+    finalLat
+]);
 
     inside = turfZonePolygons.some(poly =>
         turf.booleanPointInPolygon(pt, poly)
