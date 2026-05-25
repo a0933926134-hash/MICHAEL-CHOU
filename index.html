@@ -417,6 +417,21 @@ function toggleDrawMode(btn) {
         currentDrawPoints = [];
     }
 }
+function addPolygon(ring){
+
+    const coords = ring.map(p => [p[1], p[0]]);
+
+    const layer = L.polygon(coords,{
+        color:'#dc2626',
+        weight:3,
+        fillOpacity:0.25
+    }).addTo(polygonGroup);
+
+    polygons.push({
+        points: coords,
+        layer
+    });
+}    
 function addPolygon(rings){
 
     const coords = rings.map(c => [c[1], c[0]]);
@@ -751,45 +766,50 @@ function importPolygonSHP(event) {
 
 function processImportedGeoJSON(geojson) {
 
-    let features = [];
+    let geometries = [];
 
     // 1️⃣ FeatureCollection
-    if (geojson.type === "FeatureCollection") {
-        features = geojson.features || [];
+    if (geojson?.type === "FeatureCollection") {
+        geojson.features?.forEach(f => {
+            if (f?.geometry) geometries.push(f.geometry);
+        });
     }
 
-    // 2️⃣ 單一 Feature
-    else if (geojson.type === "Feature") {
-        features = [geojson];
+    // 2️⃣ Feature
+    else if (geojson?.type === "Feature") {
+        if (geojson.geometry) geometries.push(geojson.geometry);
     }
 
-    // 3️⃣ geometry（裸 geometry）
-    else if (geojson.geometry) {
-        features = [geojson];
+    // 3️⃣ Geometry 直接是 Polygon / MultiPolygon（重點修正）
+    else if (geojson?.type === "Polygon" || geojson?.type === "MultiPolygon") {
+        geometries.push(geojson);
     }
 
+    // 4️⃣ 有些檔案沒有 type，但有 coordinates
+    else if (geojson?.coordinates) {
+        geometries.push(geojson);
+    }
+
+    // ❌ 完全無法判斷
     else {
-        alert("無法辨識 GeoJSON 結構");
+        console.log("GeoJSON debug:", geojson);
+        alert("無法辨識 GeoJSON 結構（已輸出 console，請查看資料格式）");
         return;
     }
 
     let added = 0;
 
-    features.forEach(f => {
+    geometries.forEach(g => {
 
-        let geom = f.geometry || f;
-
-        // ✅ Polygon
-        if (geom.type === "Polygon") {
-
-            addPolygon(geom.coordinates[0]);
+        // Polygon
+        if (g.type === "Polygon") {
+            addPolygon(g.coordinates[0]);
             added++;
         }
 
-        // ✅ MultiPolygon（重點修正）
-        else if (geom.type === "MultiPolygon") {
-
-            geom.coordinates.forEach(poly => {
+        // MultiPolygon
+        else if (g.type === "MultiPolygon") {
+            g.coordinates.forEach(poly => {
                 addPolygon(poly[0]);
                 added++;
             });
@@ -798,9 +818,9 @@ function processImportedGeoJSON(geojson) {
     });
 
     if (added === 0) {
-        alert("找不到 Polygon / MultiPolygon 幾何");
+        alert("解析成功，但沒有 Polygon 幾何");
     } else {
-        alert(`🎉 成功匯入 ${added} 個多邊形`);
+        alert(`🎉 成功匯入 ${added} 個圖形`);
     }
 }
 
