@@ -856,55 +856,61 @@ ${activePolygonId}
 `;
 
 function exportPolygonSHP() {
-    if (!drawPoints || drawPoints.length < 3) {
-        alert("目前沒有完整的繪製範圍可供匯出！");
+
+    if (!polygonLayers.length) {
+
+        alert("目前沒有 Polygon");
+
         return;
     }
-    try {
-        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-        
-        let tempPoly = turf.polygon([ring]);
-        let areaSqm = Math.round(turf.area(tempPoly));
 
-        let featureLayer = [
-            {
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [ring]
+    try {
+
+        let featureLayer = [];
+
+        polygonLayers.forEach((poly, idx)=>{
+
+            let ring = poly.points.map(
+                p => [Number(p[1]), Number(p[0])]
+            );
+
+            ring.push([
+                Number(poly.points[0][1]),
+                Number(poly.points[0][0])
+            ]);
+
+            let turfPoly = turf.polygon([ring]);
+
+            let areaSqm = Math.round(
+                turf.area(turfPoly)
+            );
+
+            featureLayer.push({
+
+                geometry:{
+                    type:'Polygon',
+                    coordinates:[ring]
                 },
-                properties: {
-                    Name: "Zone_Area",
+
+                properties:{
+                    ID: idx + 1,
                     Area_Sqm: areaSqm
                 }
-            }
-        ];
+
+            });
+
+        });
 
         shpwrite.download(featureLayer);
-        
-    } catch (err) {
-        console.error("SHP Export Error:", err);
-        
-        let ringBackup = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ringBackup.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-        let geojsonObj = {
-            type: "FeatureCollection",
-            features: [{
-                type: "Feature",
-                geometry: { type: "Polygon", coordinates: [ringBackup] },
-                properties: { Name: "Zone_Area", Area_Sqm: Math.round(turf.area(turf.polygon([ringBackup]))) }
-            }]
-        };
-        let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojsonObj));
-        let downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", "Estimated_Boundary_Backup.geojson");
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        
-        alert("提示：由於網頁快取防護阻擋，系統已為您自動下載為高相容性的 .geojson 向量格式圖資。");
+
+    } catch(err){
+
+        console.error(err);
+
+        alert("SHP 匯出失敗");
+
     }
+
 }
 
 function importPolygonSHP(event) {
@@ -937,41 +943,77 @@ function importPolygonSHP(event) {
 }
 
 function processImportedGeoJSON(geojson) {
-    let feature = null;
-    if (geojson.type === "FeatureCollection" && geojson.features.length > 0) {
-        feature = geojson.features[0];
-    } else if (geojson.type === "Feature") {
-        feature = geojson;
-    } else if (geojson.geometry && geojson.geometry.type === "Polygon") {
-        feature = geojson;
-    }
 
-    if (!feature || !feature.geometry || feature.geometry.type !== "Polygon") {
-        alert("找不到有效的多邊形 (Polygon) 幾何結構！");
+    let features = [];
+
+    if (geojson.type === "FeatureCollection") {
+
+        features = geojson.features;
+
+    } else if (geojson.type === "Feature") {
+
+        features = [geojson];
+
+    } else {
+
+        alert("無法辨識 GeoJSON 結構");
         return;
     }
 
-    let rings = feature.geometry.coordinates[0];
-    
-    if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
-        rings.pop();
+    let importedCount = 0;
+
+    features.forEach(feature => {
+
+        if (
+            !feature.geometry ||
+            feature.geometry.type !== "Polygon"
+        ) return;
+
+        let rings = feature.geometry.coordinates[0];
+
+        if (
+            rings.length > 1 &&
+            rings[0][0] === rings[rings.length-1][0] &&
+            rings[0][1] === rings[rings.length-1][1]
+        ) {
+            rings.pop();
+        }
+
+        drawPoints = rings.map(coord => [
+            coord[1],
+            coord[0]
+        ]);
+
+        renderEditablePolygon();
+
+        importedCount++;
+
+    });
+
+    if(importedCount === 0){
+
+        alert("找不到有效 Polygon");
+
+        return;
     }
 
-    drawPoints = rings.map(coord => [coord[1], coord[0]]);
+    updateCentroidByPoints(
+        polygonLayers[
+            polygonLayers.length - 1
+        ].points,
+        true
+    );
 
-    renderEditablePolygon();
+    document.getElementById(
+        'btn-export-shp'
+    ).style.display = 'block';
 
-updateCentroidByPoints(
-    JSON.parse(JSON.stringify(drawPoints))
-);
-    
-    if (drawPoints.length > 0) {
-        map.panTo(drawPoints[0]);
-    }
+    document.getElementById(
+        'btn-clear-draw'
+    ).style.display = 'block';
 
-    document.getElementById('btn-export-shp').style.display = 'block';
-    document.getElementById('btn-clear-draw').style.display = 'block';
-    alert("🎉 成功！已實時解壓縮讀取檔案內容，並 100% 完美還原您繪製的範圍形狀。");
+    alert(`成功匯入 ${importedCount} 個 Polygon`);
+
 }
 
 
