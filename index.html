@@ -654,77 +654,8 @@ function renderEditablePolygon() {
 
         });
 
-        marker.addTo(drawMarkers);
-
-        polygonObj.markers.push(marker);
-
-    });
-
-    polygonLayers.push(polygonObj);
-
-    activePolygonId = polygonId;
-
-}
-
-        /* -----------------------------------------
-           即時刷新 Polygon Popup
-        ----------------------------------------- */
-
-        let ring = polygonObj.points.map(
-            p => [p[1], p[0]]
-        );
-
-        ring.push([
-            polygonObj.points[0][1],
-            polygonObj.points[0][0]
-        ]);
-
-        let area = Math.round(
-            turf.area(
-                turf.polygon([ring])
-            )
-        );
-
-        polygon.bindPopup(`
-            <div style="
-                font-size:12px;
-                line-height:1.6;
-                min-width:200px;
-            ">
-                <b style="color:#2563eb;">
-                Polygon 幾何已更新
-                </b>
-                <br><br>
-
-                <b>節點數：</b>
-                ${polygonObj.points.length}
-                <br>
-
-                <b>面積：</b>
-                ${area.toLocaleString()} ㎡
-                <br><br>
-
-                已重新計算：
-                <br>
-                • Geometry Shape
-                <br>
-                • Centroid
-                <br>
-                • Distance Origin
-            </div>
-        `);
-
-    });
-
-    marker.addTo(drawMarkers);
-
-    polygonObj.markers.push(marker);
-
-});
-    polygonLayers.push(polygonObj);
-
-    activePolygonId = polygonId;
-}
+        
+        
 function updateCentroidByPoints(
     pts,
     moveMap = false
@@ -838,10 +769,18 @@ document.getElementById(
     "activePolygonInfo"
 ).innerHTML = `
 目前作用 Polygon：
-document.getElementById(
-    "activePolygonInfo"
-).innerHTML = `
-目前作用 Polygon：
+<br><br>
+
+中心：
+<br>
+${cLat.toFixed(6)},
+${cLon.toFixed(6)}
+
+<br><br>
+
+Polygon ID：
+${activePolygonId}
+`;
 <br><br>
 
 中心：
