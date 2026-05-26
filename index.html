@@ -16,8 +16,36 @@
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 
 <style>
-body { margin:0; font-family: Arial, "Microsoft JhengHei"; }
-#map { height:100vh; }
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>市價徵收查估作業-影響地價區域因素明細表(住宅用地)</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+<script src="https://unpkg.com/shp-write@latest/shpwrite.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+
+<style>
+html, body {
+margin:0;
+height:100%;
+}
+
+#map {
+height:100vh;
+width:100%;
+}
+
+/* ★ FIX：避免 Leaflet control 壓住 UI */
+.leaflet-top,
+.leaflet-bottom {
+z-index: 2000 !important;
+}
 
 /* UI 面板 */
 #panel{
@@ -27,53 +55,11 @@ right:12px;
 width:320px;
 background: linear-gradient(135deg,#fffdf5,#fef3c7);
 padding:14px;
-z-index:1000;
+z-index:3000;   /* ★ FIX */
 border-radius:16px;
 box-shadow:0 10px 25px rgba(0,0,0,0.25);
 font-size:13px;
 border:1px solid #fcd34d;
-}  
-
-#panel h3{margin:0 0 8px 0;color:#1e3a8a;}
-
-#panel input{
-width:95%;
-padding:6px;
-margin:3px 0;
-border-radius:8px;
-border:1px solid #cbd5e1;
-}
-
-#panel label{
-display:grid;
-grid-template-columns: 18px 1fr;
-align-items:center;
-column-gap:8px;
-padding:4px 6px;
-border-radius:8px;
-cursor:pointer;
-}
-
-#panel label:hover{background:#e0ecff;}
-
-#panel button{
-width:100%;
-margin-top:6px;
-padding:8px;
-border:none;
-border-radius:10px;
-cursor:pointer;
-font-weight:bold;
-background:#2563eb;color:white;
-}
-
-#panel button:disabled {
-background:#94a3b8;
-cursor:not-allowed;
-}
-
-#panel button.clear-btn{
-background:#10b981;
 }
 
 #resultPanel{
@@ -85,112 +71,184 @@ max-width:600px;
 background:white;
 border-radius:14px;
 box-shadow:0 10px 25px rgba(0,0,0,0.25);
-z-index:999;
-overflow:hidden;
+z-index:3000; /* ★ FIX */
 }
 
-#resultHeader{
-background:#2563eb;
-color:white;
-padding:8px;
-font-weight:bold;
-cursor:grab;
-user-select:none;
+/* ★ FIX：繪製工具層級 */
+.draw-control-bar {
+background:white;
+padding:6px;
+border-radius:8px;
+box-shadow:0 1px 5px rgba(0,0,0,0.4);
 display:flex;
-justify-content:space-between;
-align-items:center;
+flex-direction:column;
+gap:5px;
+z-index:3000; /* ★ FIX */
+position: relative;
 }
 
-#resultHeader button{
-background:#10b981;
-border:none;
+.draw-btn {
+background:#fff;
+border:1px solid #ccc;
+padding:6px 10px;
+border-radius:4px;
+cursor:pointer;
+font-size:12px;
+font-weight:bold;
+}
+
+.draw-btn.active {
+background:#ef4444;
+color:#fff;
+}
+
+.shp-import-label {
+background:#059669;
 color:white;
-padding:4px 8px;
-border-radius:6px;
+padding:6px 10px;
+border-radius:4px;
 cursor:pointer;
 font-size:12px;
 }
 
-#resultTableWrapper{
-max-height:180px;
-overflow-y:auto;
+.edit-handle{
+width:12px;
+height:12px;
+background:#fff;
+border:2px solid #dc2626;
+border-radius:50%;
+}
+</style>
+</head>
+
+<body>
+
+<div id="panel">
+<h3>影響地價區域因素</h3>
+
+緯度:<input id="lat"><br>
+經度:<input id="lon"><br>
+半徑:<input id="radius">
+
+<button id="query-btn" onclick="runQuery()">查詢</button>
+</div>
+
+<div id="resultPanel">
+<div id="resultHeader">查詢結果</div>
+<table>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+
+<div id="map"></div>
+
+<script>
+
+let map = L.map('map').setView([25.012,121.465],15);
+
+L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
+maxZoom:19
+}).addTo(map);
+
+/* =========================
+   ★ FIX：繪製穩定核心
+========================= */
+let isDrawingPolygon = false;
+let drawPoints = [];
+let previewPolyline = null;
+let finalPolygon = null;
+let drawMarkers = L.layerGroup().addTo(map);
+
+const drawControl = L.control({ position:'topleft' });
+
+drawControl.onAdd = function(map){
+
+const div = L.DomUtil.create('div','draw-control-bar');
+
+div.innerHTML = `
+<button onclick="toggleDrawMode(this)" class="draw-btn">📐 繪製範圍</button>
+<button onclick="finishPolygon()" class="draw-btn">✓ 完成</button>
+<button onclick="clearPolygon()" class="draw-btn">✕ 清除</button>
+`;
+
+L.DomEvent.disableClickPropagation(div); // ★ FIX：避免點擊穿透地圖
+return div;
+};
+
+drawControl.addTo(map);
+
+/* ★ FIX：避免 UI 點擊觸發 map click */
+map.on('click', function(e){
+
+if(e.originalEvent?.target?.closest('.draw-control-bar,#panel,#resultPanel')){
+return;
 }
 
-table{
-width:100%;
-border-collapse: collapse;
-font-size:12px;
-table-layout: fixed;
+if(isDrawingPolygon){
+drawPoints.push([e.latlng.lat, e.latlng.lng]);
+
+L.circleMarker(e.latlng,{radius:5}).addTo(drawMarkers);
+
+if(previewPolyline){
+previewPolyline.setLatLngs(drawPoints);
+}else{
+previewPolyline = L.polyline(drawPoints,{color:'red'}).addTo(map);
+}
+}
+});
+
+/* toggle */
+function toggleDrawMode(btn){
+isDrawingPolygon = !isDrawingPolygon;
+btn.classList.toggle('active');
 }
 
-td,th{
-border:1px solid #e5e7eb;
-padding:6px;
-text-align:center;
-vertical-align:middle;
+/* finish */
+function finishPolygon(){
+if(drawPoints.length<3) return alert("至少3點");
+
+finalPolygon = L.polygon(drawPoints,{color:'red'}).addTo(map);
+
+isDrawingPolygon = false;
+drawMarkers.clearLayers();
+
+if(previewPolyline){
+map.removeLayer(previewPolyline);
+previewPolyline=null;
+}
 }
 
-th{
-background:#dbeafe;
-position:sticky;
-top:0;
+/* clear */
+function clearPolygon(){
+drawPoints=[];
+drawMarkers.clearLayers();
+if(finalPolygon) map.removeLayer(finalPolygon);
+if(previewPolyline) map.removeLayer(previewPolyline);
+}
+/* ★ FIX：避免 Leaflet control 壓住 UI */
+.leaflet-top,
+.leaflet-bottom {
+z-index: 2000 !important;
 }
 
-.highlight{
-background:#fde68a !important;
+/* ★ FIX：右側 UI 層級 */
+#panel{
+z-index:3000 !important;
 }
 
-#routeInfo{
-margin-top:10px;
-padding:8px;
-background:#eff6ff;
-border-radius:10px;
-color:#1d4ed8;
-font-weight:bold;
+#resultPanel{
+z-index:3000 !important;
 }
 
-/* 繪製控制項工具列擴充 */
-.draw-control-bar {
-    background: white;
-    padding: 6px;
-    border-radius: 8px;
-    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+/* ★ FIX：繪圖工具列 */
+.draw-control-bar{
+z-index:3000 !important;
+position:relative;
 }
-.draw-btn {
-    background: #ffffff;
-    color: #333;
-    border: 1px solid #ccc;
-    padding: 6px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: bold;
-    text-align: center;
-    white-space: nowrap;
-}
-.draw-btn:hover { background: #f4f4f4; }
-.draw-btn.active { background: #ef4444; color: white; border-color: #dc2626; }
-.shp-btn { background: #4f46e5; color: white; border: none; }
-.shp-btn:hover { background: #4338ca; }
-.shp-import-label {
-    background: #059669; color: white; border: none;
-    padding: 6px 10px; border-radius: 4px; cursor: pointer;
-    font-size: 12px; font-weight: bold; text-align: center;
-}
-.shp-import-label:hover { background: #047857; }
+</script>
 
-/* 拖曳編輯控制點樣式 */
-.edit-handle {
-    width: 12px;
-    height: 12px;
-    background: #ffffff;
-    border: 2px solid #dc2626;
-    border-radius: 50%;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-}
+</body>
+</html>
 </style>
 </head>
 <body>
@@ -350,28 +408,63 @@ let drawPoints = [];
 let previewPolyline = null;
 let finalPolygon = null;
 let drawMarkers = L.layerGroup().addTo(map);  
-
 const drawControl = L.control({ position: 'topleft' });
-drawControl.onAdd = function() {
+
+drawControl.onAdd = function () {
+
     const div = L.DomUtil.create('div', 'draw-control-bar');
+
     div.innerHTML = `
         <button id="btn-start-draw" class="draw-btn" onclick="toggleDrawMode(this)">📐 繪製範圍</button>
-        <button id="btn-end-draw" class="draw-btn" onclick="finishPolygon()" style="display:none; background:#10b981; color:white;">✓ 完成閉合</button>
-        <button id="btn-export-shp" class="draw-btn shp-btn" onclick="exportPolygonSHP()" style="display:none;">📥 匯出範圍 SHP</button>
-        <label id="lbl-import-shp" class="shp-import-label">📤 匯入範圍 (支援 SHP.zip 或 GeoJSON)
-            <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" style="display:none;" onchange="importPolygonSHP(event)">
+
+        <button id="btn-end-draw"
+            class="draw-btn"
+            onclick="finishPolygon()"
+            style="display:none;background:#10b981;color:white;">
+            ✓ 完成閉合
+        </button>
+
+        <button id="btn-export-shp"
+            class="draw-btn shp-btn"
+            onclick="exportPolygonSHP()"
+            style="display:none;">
+            📥 匯出範圍 SHP
+        </button>
+
+        <label id="lbl-import-shp" class="shp-import-label">
+            📤 匯入範圍
+            <input
+                type="file"
+                id="shp-file-input"
+                accept=".zip,.geojson,.json"
+                style="display:none;"
+                onchange="importPolygonSHP(event)">
         </label>
-        <button id="btn-clear-draw" class="draw-btn" onclick="clearPolygon()" style="display:none; background:#6b7280; color:white;">✕ 清除範圍</button>
+
+        <button id="btn-clear-draw"
+            class="draw-btn"
+            onclick="clearPolygon()"
+            style="display:none;background:#6b7280;color:white;">
+            ✕ 清除範圍
+        </button>
     `;
+
+    /* ★ FIX：阻止點擊穿透 */
     L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
+
     return div;
 };
-drawControl.addTo(map);
 
+drawControl.addTo(map);
 const resPanel = document.getElementById("resultPanel");
 const sidePanel = document.getElementById("panel");
+
 L.DomEvent.disableClickPropagation(resPanel);
+L.DomEvent.disableScrollPropagation(resPanel);
+
 L.DomEvent.disableClickPropagation(sidePanel);
+L.DomEvent.disableScrollPropagation(sidePanel);
 
 function toggleDrawMode(btn) {
     isDrawingPolygon = !isDrawingPolygon;
@@ -619,6 +712,14 @@ function processImportedGeoJSON(geojson) {
 
 /* 地圖點擊事件 */
 map.on('click', e => {
+    /* ★ FIX：避免 UI 點擊穿透造成誤繪製 */
+if (
+    e.originalEvent.target.closest('#panel') ||
+    e.originalEvent.target.closest('#resultPanel') ||
+    e.originalEvent.target.closest('.draw-control-bar')
+){
+    return;
+}
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
 
