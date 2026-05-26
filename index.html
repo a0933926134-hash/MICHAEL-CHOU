@@ -350,7 +350,7 @@ interactive:false
 let isDrawingPolygon = false;
 
 /* 當前繪製中的點（暫存用） */
-let drawingPoints = [];
+let drawPoints = [];
 
 /* 繪製預覽線 */
 let previewPolyline = null;
@@ -441,14 +441,21 @@ L.DomEvent.disableClickPropagation(sidePanel);
 
 function toggleDrawMode(btn) {
     isDrawingPolygon = !isDrawingPolygon;
+
     if (isDrawingPolygon) {
 
-    drawingPoints = [];
+        drawPoints = [];
 
-    if(previewPolyline){
-        map.removeLayer(previewPolyline);
-        previewPolyline = null;
+        if (previewPolyline) {
+            map.removeLayer(previewPolyline);
+            previewPolyline = null;
+        }
+
+    } else {
+        btn.classList.remove('active');
+        btn.innerText = "📐 繪製範圍";
     }
+}
 
     } else {
         btn.classList.remove('active');
@@ -747,11 +754,36 @@ function processImportedGeoJSON(geojson) {
 
 /* 地圖點擊事件 */
 map.on('click', e => {
+
+    // ⭐⭐⭐ Step 6 補強：非繪圖模式直接離開
+    if (!isDrawingPolygon) return;
+
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
 
+    drawPoints.push([lat, lon]);
+
+    L.circleMarker([lat, lon], {
+        radius: 5,
+        color: '#dc2626',
+        fillColor: '#fff',
+        fillOpacity: 1,
+        weight: 2
+    }).addTo(drawMarkers);
+
+    if (previewPolyline) {
+        previewPolyline.setLatLngs(drawPoints);
+    } else {
+        previewPolyline = L.polyline(drawPoints, {
+            color: '#dc2626',
+            weight: 2,
+            dashArray: '5, 8'
+        }).addTo(map);
+    }
+});
+
     if (isDrawingPolygon) {
-        drawingPoints.push([lat,lon]);
+        drawPoints.push([lat,lon]);
         
         L.circleMarker([lat, lon], {
             radius: 5,
@@ -762,9 +794,13 @@ map.on('click', e => {
         }).addTo(drawMarkers);
 
         if (previewPolyline) {
-            previewPolyline.setLatLngs(drawingPoints);
+            previewPolyline.setLatLngs(drawPoints);
         } else {
-            previewPolyline = L.polyline(drawPoints, { color: '#dc2626', weight: 2, dashArray: '5, 8' }).addTo(map);
+            previewPolyline = L.polyline(drawPoints, {
+    color: '#dc2626',
+    weight: 2,
+    dashArray: '5, 8'
+}).addTo(map);
         }
         return; 
     }
