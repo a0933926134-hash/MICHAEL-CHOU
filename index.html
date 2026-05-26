@@ -450,7 +450,6 @@ function toggleDrawMode(btn) {
         previewPolyline = null;
     }
 
-}
     } else {
         btn.classList.remove('active');
         btn.innerText = "📐 繪製範圍";
@@ -502,7 +501,7 @@ function finishPolygon() {
     }
     if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
     
-    renderEditablePolygon();
+    renderEditablePolygon(activePolygon);
     updateCentroidByPoints(drawPoints);
     
     isDrawingPolygon = false;
@@ -733,7 +732,7 @@ function processImportedGeoJSON(geojson) {
 
     drawPoints = rings.map(coord => [coord[1], coord[0]]);
 
-    renderEditablePolygon();
+    renderEditablePolygon(activePolygon);
     updateCentroidByPoints(drawPoints);
     
     if (drawPoints.length > 0) {
@@ -944,7 +943,6 @@ try {
    ⭐ 使用「目前選取 Polygon」進行空間分析
 ========================================================= */
 
-let activePoly = polygons.find(p => p.id === activePolygonId);
 
 let activePoly = polygons.find(p=>p.id===activePolygonId);
 
