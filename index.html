@@ -442,18 +442,18 @@ L.DomEvent.disableClickPropagation(sidePanel);
 function toggleDrawMode(btn) {
     isDrawingPolygon = !isDrawingPolygon;
 
-    if (isDrawingPolygon) {
+    btn.classList.toggle('active');
 
+    if (isDrawingPolygon) {
         drawPoints = [];
 
-        if (previewPolyline) {
-            map.removeLayer(previewPolyline);
-            previewPolyline = null;
-        }
+        if (!drawMarkers) drawMarkers = L.layerGroup().addTo(map);
 
+        btn.innerText = "📐 繪製中";
+        document.getElementById('btn-end-draw').style.display = 'block';
     } else {
-        btn.classList.remove('active');
         btn.innerText = "📐 繪製範圍";
+        document.getElementById('btn-end-draw').style.display = 'none';
     }
 }
 
@@ -753,15 +753,17 @@ function processImportedGeoJSON(geojson) {
 
 
 /* 地圖點擊事件 */
-map.on('click', e => {
+map.on('click', function (e) {
 
-    // ⭐⭐⭐ Step 6 補強：非繪圖模式直接離開
+    // ⭐ Step 6：非繪圖模式直接退出（防止卡死 & 誤觸）
     if (!isDrawingPolygon) return;
 
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
 
     drawPoints.push([lat, lon]);
+
+    if (!drawMarkers) drawMarkers = L.layerGroup().addTo(map);
 
     L.circleMarker([lat, lon], {
         radius: 5,
@@ -781,30 +783,7 @@ map.on('click', e => {
         }).addTo(map);
     }
 });
-
-    if (isDrawingPolygon) {
-        drawPoints.push([lat,lon]);
-        
-        L.circleMarker([lat, lon], {
-            radius: 5,
-            color: '#dc2626',
-            fillColor: '#fff',
-            fillOpacity: 1,
-            weight: 2
-        }).addTo(drawMarkers);
-
-        if (previewPolyline) {
-            previewPolyline.setLatLngs(drawPoints);
-        } else {
-            previewPolyline = L.polyline(drawPoints, {
-    color: '#dc2626',
-    weight: 2,
-    dashArray: '5, 8'
-}).addTo(map);
-        }
-        return; 
-    }
-
+    
     latInput.value = lat.toFixed(6);
     lonInput.value = lon.toFixed(6);
     origin = [lat, lon];
