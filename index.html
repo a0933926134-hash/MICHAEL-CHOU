@@ -591,17 +591,59 @@ function processImportedGeoJSON(geojson) {
         feature = geojson;
     }
 
-    if (!feature || !feature.geometry || feature.geometry.type !== "Polygon") {
-        alert("找不到有效的多邊形 (Polygon) 幾何結構！");
+    if (!feature || !feature.geometry) {
+    alert("無法辨識 GeoJSON 幾何結構");
+    return;
+}
+
+let rings = null;
+
+/* Polygon */
+if (feature.geometry.type === "Polygon") {
+    rings = feature.geometry.coordinates[0];
+}
+
+/* MultiPolygon */
+else if (feature.geometry.type === "MultiPolygon") {
+    rings = feature.geometry.coordinates[0][0];
+}
+
+/* GeometryCollection */
+else if (feature.geometry.type === "GeometryCollection") {
+
+    const poly = feature.geometry.geometries.find(g =>
+        g.type === "Polygon" || g.type === "MultiPolygon"
+    );
+
+    if (!poly) {
+        alert("GeometryCollection 中找不到 Polygon");
         return;
     }
 
-    let rings = feature.geometry.coordinates[0];
+    if (poly.type === "Polygon") {
+        rings = poly.coordinates[0];
+    } else {
+        rings = poly.coordinates[0][0];
+    }
+}
+
+if (!rings || rings.length < 3) {
+    alert("Polygon 節點不足");
+    return;
+}
     
     if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
         rings.pop();
     }
+    const invalidCoord = rings.some(coord =>
+    Math.abs(coord[1]) > 90 ||
+    Math.abs(coord[0]) > 180
+);
 
+if (invalidCoord) {
+    alert("此 SHP 可能不是 WGS84(EPSG:4326) 座標系統，請先轉換座標。");
+    return;
+}
     drawPoints = rings.map(coord => [coord[1], coord[0]]);
 
     renderEditablePolygon();
