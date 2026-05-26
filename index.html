@@ -953,6 +953,15 @@ nwr["office"="government"](around:${radius},${lat},${lon});
         dedup.add(key);
 
         let rawType = e.tags?.highway || e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || e.tags?.entrance || e.tags?.barrier || "未知";
+        /* 郵局特徵強制修正 */
+if(
+e.tags?.amenity === "post_office" ||
+/郵局/i.test(e.tags?.name || "") ||
+/中華郵政/i.test(e.tags?.operator || "") ||
+/中華郵政/i.test(e.tags?.brand || "")
+){
+    rawType = "post_office";
+}
         let name = e.tags?.name || "";
 
         if(rawType === "school" || rawType === "university") {
