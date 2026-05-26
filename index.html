@@ -874,13 +874,29 @@ try {
     parts.push(`nwr["tourism"](around:${radius},${lat},${lon})["leisure"!="park"];`);
     }
     else if(t==="bank"){
-    parts.push(`
-    nwr["amenity"="bank"](around:${radius},${lat},${lon});
-    nwr["amenity"="post_office"](around:${radius},${lat},${lon});
-    nwr["amenity"="hospital"](around:${radius},${lat},${lon});
-    nwr["office"="government"](around:${radius},${lat},${lon});
-    `);
-    }
+parts.push(`
+/* 銀行 */
+nwr["amenity"="bank"](around:${radius},${lat},${lon});
+
+/* 郵局（標準 OSM 標記） */
+nwr["amenity"="post_office"](around:${radius},${lat},${lon});
+
+/* 台灣常見：中華郵政被標成 bank */
+nwr["operator"~"中華郵政|Chunghwa Post",i](around:${radius},${lat},${lon});
+
+/* 台灣常見：品牌欄位 */
+nwr["brand"~"中華郵政|Chunghwa Post",i](around:${radius},${lat},${lon});
+
+/* 名稱包含郵局 */
+nwr["name"~"郵局|Post Office",i](around:${radius},${lat},${lon});
+
+/* 醫院 */
+nwr["amenity"="hospital"](around:${radius},${lat},${lon});
+
+/* 政府機關 */
+nwr["office"="government"](around:${radius},${lat},${lon});
+`);
+}
     else if(t==="cemetery"){
     parts.push(`
     nwr["landuse"="cemetery"](around:${radius},${lat},${lon});
