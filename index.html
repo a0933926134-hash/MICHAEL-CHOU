@@ -270,10 +270,98 @@ cursor:pointer;
 <div id="map"></div>
 
 <script>
-let map=L.map('map').setView([25.012098,121.465675],15);
+<script>
 
-L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',{
-maxZoom:19
+/* =========================================================
+   GIS 多底圖架構（合法替代 Google Maps）
+   ========================================================= */
+
+let map = L.map('map', {
+    zoomControl: true
+}).setView([25.012098,121.465675],15);
+
+/* =========================================================
+   1. NLSC 電子地圖（預設）
+   ========================================================= */
+const nlscEMAP = L.tileLayer(
+'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
+{
+    maxZoom:19,
+    attribution:'© NLSC'
+});
+
+/* =========================================================
+   2. NLSC 正射影像
+   ========================================================= */
+const nlscPHOTO = L.tileLayer(
+'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/EPSG:3857/{z}/{y}/{x}',
+{
+    maxZoom:20,
+    attribution:'© NLSC 正射影像'
+});
+
+/* =========================================================
+   3. OpenStreetMap
+   ========================================================= */
+const osmLayer = L.tileLayer(
+'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+{
+    maxZoom:19,
+    attribution:'© OpenStreetMap contributors'
+});
+
+/* =========================================================
+   4. ESRI World Imagery（合法衛星圖）
+   ========================================================= */
+const esriWorldImagery = L.tileLayer(
+'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+{
+    maxZoom:19,
+    attribution:'© Esri World Imagery'
+});
+
+/* =========================================================
+   預設底圖
+   ========================================================= */
+nlscEMAP.addTo(map);
+
+/* =========================================================
+   地籍圖（獨立 overlay）
+   ========================================================= */
+const cadastralLayer = L.tileLayer(
+'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/EPSG:3857/{z}/{y}/{x}',
+{
+    maxZoom:22,
+    opacity:0.75,
+    attribution:'© NLSC 地籍圖'
+}
+);
+
+cadastralLayer.addTo(map);
+
+/* =========================================================
+   底圖切換
+   ========================================================= */
+const baseMaps = {
+    "NLSC 電子地圖": nlscEMAP,
+    "NLSC 正射影像": nlscPHOTO,
+    "OpenStreetMap": osmLayer,
+    "ESRI 衛星影像": esriWorldImagery
+};
+
+/* =========================================================
+   GIS Overlay
+   ========================================================= */
+const overlayMaps = {
+    "地籍圖": cadastralLayer
+};
+
+/* =========================================================
+   圖層控制器
+   ========================================================= */
+L.control.layers(baseMaps, overlayMaps,{
+    collapsed:false,
+    position:'topright'
 }).addTo(map);
 
 /* 比例尺 */
