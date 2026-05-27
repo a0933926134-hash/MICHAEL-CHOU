@@ -244,6 +244,32 @@ cursor:pointer;
 <button class="clear-btn" onclick="clearRoute()">清除路線距離</button>
 
 <div id="routeInfo">路線距離：尚未計算</div>
+<hr style="margin:10px 0;">
+
+<h3>地形坡度分析</h3>
+
+<label>
+<input type="checkbox" id="enableSlope">
+啟用 DEM 坡度分析
+</label>
+
+<button onclick="analyzeSlope()"
+style="background:#7c3aed;">
+分析範圍坡度
+</button>
+
+<div id="slopeInfo"
+style="
+margin-top:8px;
+padding:8px;
+background:#f3e8ff;
+border-radius:10px;
+font-size:12px;
+line-height:1.6;
+color:#5b21b6;
+">
+尚未分析坡度
+</div>    
 </div>
 
 <div id="resultPanel">
@@ -350,8 +376,25 @@ const baseMaps = {
 /* =========================================================
    GIS Overlay
    ========================================================= */
+/* =========================================================
+   NLSC DEM 地形暈渲圖（Hillshade）
+   ========================================================= */
+
+const nlscDEM = L.tileLayer(
+'https://wmts.nlsc.gov.tw/wmts/EMAP5_OPENDATA/default/EPSG:3857/{z}/{y}/{x}',
+{
+    maxZoom:18,
+    opacity:0.45,
+    attribution:'© NLSC DEM'
+});
+
+/* =========================================================
+   GIS Overlay
+   ========================================================= */
+
 const overlayMaps = {
-    "地籍圖": cadastralLayer
+    "地籍圖": cadastralLayer,
+    "DEM 地形": nlscDEM
 };
 
 /* =========================================================
@@ -1228,7 +1271,78 @@ function clearRoute(){
 if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
 routeInfo.innerText="路線距離：尚未計算";
 }
+/* =========================================================
 
+        if(!slopes.length){
+            slopeInfo.innerHTML = "無法計算坡度";
+            return;
+        }
+
+        /* 統計 */
+        const avgSlope = (
+            slopes.reduce((a,b)=>a+b,0) / slopes.length
+        );
+
+        const maxSlope = Math.max(...slopes);
+        const minSlope = Math.min(...slopes);
+
+        let terrainType = "平坦";
+
+        if(avgSlope > 30){
+            terrainType = "陡坡";
+        }
+        else if(avgSlope > 15){
+            terrainType = "中坡";
+        }
+        else if(avgSlope > 5){
+            terrainType = "緩坡";
+        }
+
+        /* 顯示 */
+        slopeInfo.innerHTML = `
+        <b>DEM 坡度分析完成</b><br>
+        採樣點數：${elevations.length}<br>
+        平均坡度：${avgSlope.toFixed(2)} %<br>
+        最大坡度：${maxSlope.toFixed(2)} %<br>
+        最小坡度：${minSlope.toFixed(2)} %<br>
+        地形分類：${terrainType}
+        `;
+
+        /* 視覺化採樣點 */
+        elevations.forEach(p=>{
+
+            let color = "#22c55e";
+
+            const nearSlope = avgSlope;
+
+            if(nearSlope > 30){
+                color = "#dc2626";
+            }
+            else if(nearSlope > 15){
+                color = "#f97316";
+            }
+            else if(nearSlope > 5){
+                color = "#eab308";
+            }
+
+            L.circleMarker([p.lat,p.lon],{
+                radius:4,
+                color,
+                fillColor:color,
+                fillOpacity:0.9,
+                weight:1
+            })
+            .addTo(markerLayer)
+            .bindTooltip(`高程: ${p.ele} m`);
+        });
+
+    }catch(err){
+
+        console.error(err);
+
+        slopeInfo.innerHTML = "DEM 坡度分析失敗";
+    }
+}
 /* 匯出 Excel */
 function exportExcel(){
 if(!results.length){ alert("無資料"); return; }
