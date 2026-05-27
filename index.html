@@ -191,6 +191,65 @@ font-weight:bold;
     border-radius: 50%;
     box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
+<style>
+body { margin:0; font-family: Arial, "Microsoft JhengHei"; }
+#map { height:100vh; }
+
+/* ===== 你原本的所有 CSS ===== */
+#panel { ... }
+#resultPanel { ... }
+
+/* =================================================
+   ↓↓↓ 這裡開始貼新增 CSS ↓↓↓
+   ================================================= */
+
+#slopePanel{
+position:absolute;
+top:12px;
+left:12px;
+width:260px;
+background:#ffffff;
+border-radius:12px;
+box-shadow:0 10px 25px rgba(0,0,0,0.25);
+z-index:1200;
+overflow:hidden;
+font-size:12px;
+}
+
+#slopeHeader{
+background:#7c3aed;
+color:white;
+padding:8px;
+font-weight:bold;
+cursor:grab;
+display:flex;
+justify-content:space-between;
+align-items:center;
+user-select:none;
+}
+
+#slopeHeader button{
+background:#10b981;
+border:none;
+color:white;
+padding:4px 8px;
+border-radius:6px;
+cursor:pointer;
+font-size:11px;
+}
+
+#slopeContent{
+padding:8px;
+background:#f3e8ff;
+color:#5b21b6;
+line-height:1.6;
+}
+
+/* =================================================
+   ↑↑↑ 這裡結束新增 CSS ↑↑↑
+   ================================================= */
+
+</style>    
 </style>
 </head>
 <body>
@@ -246,30 +305,7 @@ cursor:pointer;
 <div id="routeInfo">路線距離：尚未計算</div>
 <hr style="margin:10px 0;">
 
-<h3>地形坡度分析</h3>
-
-<label>
-<input type="checkbox" id="enableSlope">
-啟用 DEM 坡度分析
-</label>
-
-<button onclick="analyzeSlope()"
-style="background:#7c3aed;">
-分析範圍坡度
-</button>
-
-<div id="slopeInfo"
-style="
-margin-top:8px;
-padding:8px;
-background:#f3e8ff;
-border-radius:10px;
-font-size:12px;
-line-height:1.6;
-color:#5b21b6;
-">
-尚未分析坡度
-</div>    
+   
 </div>
 
 <div id="resultPanel">
@@ -292,7 +328,16 @@ color:#5b21b6;
 </table>
 </div>
 </div>
+<div id="slopePanel">
+    <div id="slopeHeader">
+        🌄 地形坡度分析（可拖曳）
+        <button onclick="analyzeSlope()">執行</button>
+    </div>
 
+    <div id="slopeContent">
+        <div id="slopeInfo">尚未分析坡度</div>
+    </div>
+</div>
 <div id="map"></div>
 
 <script>
