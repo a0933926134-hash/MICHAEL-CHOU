@@ -1272,6 +1272,97 @@ if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
 routeInfo.innerText="路線距離：尚未計算";
 }
 /* =========================================================
+   DEM 坡度分析
+   ========================================================= */
+
+async function analyzeSlope(){
+
+    const slopeInfo = document.getElementById("slopeInfo");
+
+    if(!drawPoints || drawPoints.length < 3){
+        alert("請先繪製分析範圍");
+        return;
+    }
+
+    slopeInfo.innerHTML = "DEM 分析中...";
+
+    try{
+
+        /* 清除舊採樣 */
+        markerLayer.clearLayers();
+
+        /* 建立 Polygon */
+        let ring = drawPoints.map(p => [p[1], p[0]]);
+        ring.push([drawPoints[0][1], drawPoints[0][0]]);
+
+        const polygon = turf.polygon([ring]);
+
+        /* 取得範圍 bbox */
+        const bbox = turf.bbox(polygon);
+
+        const minLon = bbox[0];
+        const minLat = bbox[1];
+        const maxLon = bbox[2];
+        const maxLat = bbox[3];
+
+        /* 採樣密度 */
+        const sampleStep = 0.00015;
+
+        let elevations = [];
+
+        for(let lat=minLat; lat<=maxLat; lat+=sampleStep){
+
+            for(let lon=minLon; lon<=maxLon; lon+=sampleStep){
+
+                const pt = turf.point([lon,lat]);
+
+                if(turf.booleanPointInPolygon(pt,polygon)){
+
+                    /*
+                       DEM 高程模擬
+                       （目前先用 pseudo DEM）
+                    */
+
+                    const ele =
+                        20 +
+                        (Math.sin(lat*40)*20) +
+                        (Math.cos(lon*40)*20);
+
+                    elevations.push({
+                        lat,
+                        lon,
+                        ele
+                    });
+                }
+            }
+        }
+
+        if(elevations.length < 2){
+            slopeInfo.innerHTML = "採樣點不足";
+            return;
+        }
+
+        /* 坡度計算 */
+        let slopes = [];
+
+        for(let i=1;i<elevations.length;i++){
+
+            const p1 = elevations[i-1];
+            const p2 = elevations[i];
+
+            const dist = haversine(
+                p1.lat,p1.lon,
+                p2.lat,p2.lon
+            );
+
+            if(dist <= 0) continue;
+
+            const rise = Math.abs(p2.ele - p1.ele);
+
+            const slope = (rise / dist) * 100;
+
+            slopes.push(slope);
+        }
 
         if(!slopes.length){
             slopeInfo.innerHTML = "無法計算坡度";
@@ -1279,9 +1370,8 @@ routeInfo.innerText="路線距離：尚未計算";
         }
 
         /* 統計 */
-        const avgSlope = (
-            slopes.reduce((a,b)=>a+b,0) / slopes.length
-        );
+        const avgSlope =
+            slopes.reduce((a,b)=>a+b,0) / slopes.length;
 
         const maxSlope = Math.max(...slopes);
         const minSlope = Math.min(...slopes);
@@ -1298,7 +1388,7 @@ routeInfo.innerText="路線距離：尚未計算";
             terrainType = "緩坡";
         }
 
-        /* 顯示 */
+        /* 顯示結果 */
         slopeInfo.innerHTML = `
         <b>DEM 坡度分析完成</b><br>
         採樣點數：${elevations.length}<br>
@@ -1308,20 +1398,18 @@ routeInfo.innerText="路線距離：尚未計算";
         地形分類：${terrainType}
         `;
 
-        /* 視覺化採樣點 */
+        /* 視覺化 */
         elevations.forEach(p=>{
 
             let color = "#22c55e";
 
-            const nearSlope = avgSlope;
-
-            if(nearSlope > 30){
+            if(avgSlope > 30){
                 color = "#dc2626";
             }
-            else if(nearSlope > 15){
+            else if(avgSlope > 15){
                 color = "#f97316";
             }
-            else if(nearSlope > 5){
+            else if(avgSlope > 5){
                 color = "#eab308";
             }
 
@@ -1333,7 +1421,7 @@ routeInfo.innerText="路線距離：尚未計算";
                 weight:1
             })
             .addTo(markerLayer)
-            .bindTooltip(`高程: ${p.ele} m`);
+            .bindTooltip(`高程: ${p.ele.toFixed(1)} m`);
         });
 
     }catch(err){
