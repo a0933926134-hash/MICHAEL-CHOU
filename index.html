@@ -198,7 +198,45 @@ body { margin:0; font-family: Arial, "Microsoft JhengHei"; }
 /* ===== 你原本的所有 CSS ===== */
 #panel { ... }
 #resultPanel { ... }
+#toolPanel{
+position:absolute;
+top:12px;
+left:12px;
+width:260px;
+background:white;
+border-radius:12px;
+box-shadow:0 10px 25px rgba(0,0,0,0.25);
+z-index:1200;
+font-size:12px;
+overflow:hidden;
+}
 
+#toolPanel button{
+width:100%;
+padding:6px;
+margin:3px 0;
+border:none;
+border-radius:6px;
+background:#2563eb;
+color:white;
+cursor:pointer;
+}
+
+#toolPanel label{
+display:block;
+padding:6px;
+background:#f3f4f6;
+border-radius:6px;
+cursor:pointer;
+margin:3px 0;
+}
+
+#slopeInfo{
+margin-top:8px;
+padding:6px;
+background:#f5f3ff;
+border-radius:6px;
+}
 /* =================================================
    ↓↓↓ 這裡開始貼新增 CSS ↓↓↓
    ================================================= */
@@ -432,7 +470,28 @@ const nlscDEM = L.tileLayer(
     opacity:0.45,
     attribution:'© NLSC DEM'
 });
+<div id="toolPanel">
+    <div id="toolHeader">
+        🧭 GIS 工具箱
+    </div>
 
+    <button onclick="toggleDrawMode(this)">📐 繪製範圍</button>
+    <button onclick="finishPolygon()">✔ 完成閉合</button>
+    <button onclick="clearPolygon()">✕ 清除範圍</button>
+
+    <label>
+        📤 匯入 SHP/GeoJSON
+        <input type="file" onchange="importPolygonSHP(event)">
+    </label>
+
+    <button onclick="exportPolygonSHP()">📥 匯出 SHP</button>
+
+    <hr>
+
+    <button onclick="analyzeSlope()">🌄 執行坡度分析</button>
+
+    <div id="slopeInfo">尚未分析坡度</div>
+</div>
 /* =========================================================
    GIS Overlay
    ========================================================= */
@@ -517,22 +576,6 @@ let previewPolyline = null;
 let finalPolygon = null;
 let drawMarkers = L.layerGroup().addTo(map);  
 
-const drawControl = L.control({ position: 'topleft' });
-drawControl.onAdd = function() {
-    const div = L.DomUtil.create('div', 'draw-control-bar');
-    div.innerHTML = `
-        <button id="btn-start-draw" class="draw-btn" onclick="toggleDrawMode(this)">📐 繪製範圍</button>
-        <button id="btn-end-draw" class="draw-btn" onclick="finishPolygon()" style="display:none; background:#10b981; color:white;">✓ 完成閉合</button>
-        <button id="btn-export-shp" class="draw-btn shp-btn" onclick="exportPolygonSHP()" style="display:none;">📥 匯出範圍 SHP</button>
-        <label id="lbl-import-shp" class="shp-import-label">📤 匯入範圍 (支援 SHP.zip 或 GeoJSON)
-            <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" style="display:none;" onchange="importPolygonSHP(event)">
-        </label>
-        <button id="btn-clear-draw" class="draw-btn" onclick="clearPolygon()" style="display:none; background:#6b7280; color:white;">✕ 清除範圍</button>
-    `;
-    L.DomEvent.disableClickPropagation(div);
-    return div;
-};
-drawControl.addTo(map);
 
 const resPanel = document.getElementById("resultPanel");
 const sidePanel = document.getElementById("panel");
