@@ -725,22 +725,21 @@ html,body{
 
 
 
-const map = L.map('map',{
-  zoomControl:true,
-  preferCanvas:true,
-  zoomAnimation:true,
-  fadeAnimation:false,
-  markerZoomAnimation:false,
+const map = L.map('map', {
+  crs: L.CRS.EPSG3857,
+  zoomControl: true,
+  preferCanvas: true,
 
-  // ✅ 加這兩個（防黑方塊核心）
-  minZoom:7,
-  maxZoom:18,
-  maxBounds: [
-    [21.8, 119.0],
-    [25.5, 122.5]
-  ],
+  minZoom: 7,
+  maxZoom: 18,
+
+  maxBounds: L.latLngBounds(
+    L.latLng(21.8, 119.0),
+    L.latLng(25.5, 122.5)
+  ),
+
   maxBoundsViscosity: 1.0
-}).setView([25.05,121.45],11);
+});
 
 
 
@@ -754,26 +753,27 @@ const map = L.map('map',{
 
 
 
-L.tileLayer(
-'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
-{
+L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', {
   attribution: '© NLSC',
 
-  maxZoom: 18,
   minZoom: 7,
+  maxZoom: 18,
+
+  tileSize: 256,
 
   noWrap: true,
-  bounds: [
-    [21.8, 119.0],
-    [25.5, 122.5]
-  ],
 
-  keepBuffer: 2,
+  bounds: [[21.8, 119.0], [25.5, 122.5]],
+
+  keepBuffer: 4,
+
   updateWhenIdle: true,
   updateWhenZooming: false,
-  unloadInvisibleTiles: true,
 
-  crossOrigin: true
+  crossOrigin: true,
+
+  // ⭐關鍵：避免黑方塊（失敗 tile 處理）
+  errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4//8/AwAI/AL+X9k2AAAAAElFTkSuQmCC'
 }).addTo(map);
 
 
@@ -1701,17 +1701,19 @@ document.getElementById("seasonFilter")
 
 
 map.on("zoomend",()=>{
-
-
-
-  render(getFilteredData());
-
-
-
+render(getFilteredData());
 });
 
-
-
+map.on("moveend", () => {
+map.panInsideBounds(map.options.maxBounds);
+});
+map.on('zoomstart', () => {
+  map.eachLayer(layer => {
+    if (layer._tiles) {
+      layer._resetAll();
+    }
+  });
+});
 /* =========================================================
 
    初始
