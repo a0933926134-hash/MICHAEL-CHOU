@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -120,6 +119,20 @@ body{
   margin-top:8px;
 }
 
+/* ================= POI LABEL ================= */
+
+.poi-text-label{
+  background:rgba(255,255,255,0.92);
+  border:1px solid rgba(0,0,0,0.15);
+  border-radius:6px;
+  padding:2px 6px;
+  font-size:11px;
+  font-weight:700;
+  color:#111827;
+  white-space:nowrap;
+  box-shadow:0 2px 6px rgba(0,0,0,0.15);
+}
+
 .poi-popup{
   font-size:13px;
 }
@@ -142,6 +155,7 @@ body{
 <div id="panel">
 
   <div id="header">
+
     <div id="headerTitle">
       Rent + POI GIS
     </div>
@@ -153,6 +167,7 @@ body{
     <div id="status">
       請點選學校
     </div>
+
   </div>
 
   <!-- ================= FILTER ================= -->
@@ -286,9 +301,13 @@ let currentCenter = null;
 ========================================================= */
 
 function setStatus(msg,color="#2563eb"){
+
   const el = document.getElementById("status");
+
   el.innerHTML = msg;
+
   el.style.color = color;
+
 }
 
 /* =========================================================
@@ -321,33 +340,70 @@ function isPOIEnabled(type){
 }
 
 /* =========================================================
+   POI COLOR
+========================================================= */
+
+function getColor(type){
+
+  return (
+    type==="便利商店" ? "#22c55e" :
+    type==="銀行" ? "#3b82f6" :
+    type==="超市" ? "#f59e0b" :
+    type==="傳統市場" ? "#ef4444" :
+    "#8b5cf6"
+  );
+
+}
+
+/* =========================================================
    POI ICON
 ========================================================= */
 
 function poiIcon(type){
 
-  const color =
-    type==="便利商店" ? "#22c55e" :
-    type==="銀行" ? "#3b82f6" :
-    type==="超市" ? "#f59e0b" :
-    type==="傳統市場" ? "#ef4444" :
-    "#8b5cf6";
-
   return L.divIcon({
+
     className:"",
+
     html:`
       <div style="
         width:14px;
         height:14px;
         border-radius:50%;
-        background:${color};
+        background:${getColor(type)};
         border:2px solid white;
         box-shadow:0 0 6px rgba(0,0,0,0.35);
       "></div>
     `,
+
     iconSize:[14,14],
     iconAnchor:[7,7]
+
   });
+
+}
+
+/* =========================================================
+   TEXT LABEL ICON
+========================================================= */
+
+function textLabel(name){
+
+  return L.divIcon({
+
+    className:"",
+
+    html:`
+      <div class="poi-text-label">
+        ${name}
+      </div>
+    `,
+
+    iconSize:[120,24],
+    iconAnchor:[0,30]
+
+  });
+
 }
 
 /* =========================================================
@@ -392,8 +448,6 @@ async function fetchPOI(lat,lng){
     }
 
     const json = await res.json();
-
-    console.log("POI RESULT:",json);
 
     if(!json.elements){
 
@@ -446,6 +500,12 @@ async function fetchPOI(lat,lng){
 
       count++;
 
+      const poiName =
+        tags.name ||
+        type;
+
+      /* ================= POINT ================= */
+
       const marker = L.marker(
         [e.lat,e.lon],
         {
@@ -455,13 +515,25 @@ async function fetchPOI(lat,lng){
 
       marker.bindPopup(`
         <div class="poi-popup">
-          <b>${tags.name || type}</b>
+          <b>${poiName}</b>
           <br>
           ${type}
         </div>
       `);
 
       poiLayer.addLayer(marker);
+
+      /* ================= TEXT ================= */
+
+      const label = L.marker(
+        [e.lat,e.lon],
+        {
+          icon:textLabel(poiName),
+          interactive:false
+        }
+      );
+
+      poiLayer.addLayer(label);
 
     });
 
@@ -653,4 +725,3 @@ render(data);
 
 </body>
 </html>
-```
