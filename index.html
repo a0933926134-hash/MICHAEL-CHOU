@@ -19,11 +19,6 @@ body {
   top: 0;
   width: calc(100% - 380px);
   height: 100vh;
-  background:#f8fafc;
-}
-
-.leaflet-container {
-  background:#dbeafe;
 }
 
 #gisTitle {
@@ -98,15 +93,19 @@ body {
   background:#1d4ed8;
 }
 
+/* 修正：POI文字不要背景與外框 */
 .poi-label{
-  font-size:11px;
+  font-size:12px;
   font-weight:700;
   color:#111827;
-  background:rgba(255,255,255,0.92);
-  padding:2px 6px;
-  border-radius:6px;
-  border:1px solid #d1d5db;
+  background:transparent;
+  border:none;
+  box-shadow:none;
+  padding:0;
   white-space:nowrap;
+  text-shadow:
+    0 1px 2px rgba(255,255,255,0.95),
+    0 0 4px rgba(255,255,255,0.95);
 }
 
 #header {
@@ -248,49 +247,15 @@ body {
 
 <script>
 
-/* =========================
-   地圖初始化
-========================= */
+const map = L.map('map').setView([25.05,121.45], 11);
 
-const map = L.map('map',{
-  preferCanvas:true,
-  zoomControl:true,
-  fadeAnimation:false,
-  zoomAnimation:true,
-  markerZoomAnimation:true
-}).setView([25.05,121.45], 11);
-
-/* =========================
-   修正黑方塊 WMTS
-========================= */
-
-const nlscEMAP = L.tileLayer(
+L.tileLayer(
   'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
   {
     attribution:'&copy; NLSC',
-    maxZoom:18,
-    minZoom:7,
-    tileSize:256,
-    zoomOffset:0,
-    updateWhenZooming:false,
-    keepBuffer:8,
-    crossOrigin:true,
-    noWrap:true
+    maxZoom:19
   }
-);
-
-nlscEMAP.addTo(map);
-
-/* 強制重繪避免黑格 */
-map.on('zoomend moveend',()=>{
-  setTimeout(()=>{
-    map.invalidateSize(true);
-  },50);
-});
-
-/* =========================
-   原始資料
-========================= */
+).addTo(map);
 
 const data = [
 
@@ -300,15 +265,7 @@ const data = [
   {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q4", rents:{雅房:9300, 套房:12300, 整層:20300}},
 
   {name:"致理科大", district:"板橋", lat:25.0208, lng:121.4643, season:"2025-Q1", rents:{雅房:11000, 套房:13000, 整層:22000}},
-  {name:"致理科大", district:"板橋", lat:25.0208, lng:121.4643, season:"2025-Q2", rents:{雅房:11200, 套房:13200, 整層:22200}},
-  {name:"致理科大", district:"板橋", lat:25.0208, lng:121.4643, season:"2025-Q3", rents:{雅房:11300, 套房:13300, 整層:22300}},
-  {name:"致理科大", district:"板橋", lat:25.0208, lng:121.4643, season:"2025-Q4", rents:{雅房:11500, 套房:13500, 整層:22500}},
-
   {name:"亞東科大", district:"板橋", lat:24.9951, lng:121.4531, season:"2025-Q1", rents:{雅房:10800, 套房:12800, 整層:21000}},
-  {name:"亞東科大", district:"板橋", lat:24.9951, lng:121.4531, season:"2025-Q2", rents:{雅房:10900, 套房:12900, 整層:21100}},
-  {name:"亞東科大", district:"板橋", lat:24.9951, lng:121.4531, season:"2025-Q3", rents:{雅房:11000, 套房:13000, 整層:21200}},
-  {name:"亞東科大", district:"板橋", lat:24.9951, lng:121.4531, season:"2025-Q4", rents:{雅房:11100, 套房:13100, 整層:21300}},
-
   {name:"淡江大學", district:"淡水", lat:25.1762, lng:121.4510, season:"2025-Q1", rents:{雅房:8000, 套房:10000, 整層:18000}},
   {name:"真理大學", district:"淡水", lat:25.1751, lng:121.4325, season:"2025-Q1", rents:{雅房:7500, 套房:9500, 整層:17000}},
   {name:"台北大學", district:"三峽", lat:24.9441, lng:121.3710, season:"2025-Q1", rents:{雅房:8500, 套房:10500, 整層:19000}},
@@ -335,6 +292,19 @@ const poiKeywords = {
   laundry:"自助洗衣店"
 };
 
+/* =========================
+   詳細 POI 名稱
+========================= */
+
+const poiNameSamples = {
+  park:["新莊運動公園","板橋萬坪公園","大安森林公園","中山公園"],
+  school:["新莊高中","板橋國小","淡水國中","林口高中"],
+  supermarket:["全聯福利中心","家樂福超市","美廉社","愛買"],
+  convenience:["7-ELEVEN","全家便利商店","萊爾富","OK便利商店"],
+  police:["新莊派出所","板橋派出所","淡水派出所","中和派出所"],
+  laundry:["日日洗自助洗衣","橘子洗衣","投幣自助洗衣","WashMe自助洗衣"]
+};
+
 const schoolSelect = document.getElementById("schoolSelect");
 
 const uniqueSchools = [...new Map(
@@ -348,21 +318,21 @@ uniqueSchools.forEach(s=>{
   schoolSelect.appendChild(opt);
 });
 
-/* =========================
-   模擬 POI
-========================= */
-
 function generatePOI(centerLat,centerLng,type){
 
   const pois=[];
+
+  const names = poiNameSamples[type];
 
   for(let i=0;i<12;i++){
 
     const lat=centerLat+(Math.random()-0.5)*0.02;
     const lng=centerLng+(Math.random()-0.5)*0.02;
 
+    const baseName = names[i % names.length];
+
     pois.push({
-      name:`${poiKeywords[type]} ${i+1}`,
+      name:`${baseName} ${i+1}店`,
       lat,
       lng
     });
@@ -370,10 +340,6 @@ function generatePOI(centerLat,centerLng,type){
 
   return pois;
 }
-
-/* =========================
-   POI 搜尋
-========================= */
 
 function searchPOI(){
 
@@ -391,10 +357,7 @@ function searchPOI(){
 
   if(!school) return;
 
-  map.flyTo([school.lat,school.lng],15,{
-    animate:true,
-    duration:1.2
-  });
+  map.flyTo([school.lat,school.lng],15);
 
   drawRadius(school.lat,school.lng);
 
@@ -407,8 +370,7 @@ function searchPOI(){
       color:"#2563eb",
       fillColor:"#60a5fa",
       fillOpacity:0.9,
-      weight:2,
-      renderer:L.canvas()
+      weight:2
     });
 
     marker.bindPopup(`
@@ -421,7 +383,8 @@ function searchPOI(){
       {
         permanent:true,
         direction:'top',
-        offset:[0,-8]
+        offset:[0,-8],
+        className:''
       }
     );
 
@@ -431,25 +394,16 @@ function searchPOI(){
 
 }
 
-/* =========================
-   原有功能
-========================= */
-
 function shouldShowLabel(latlng,zoom){
-
   if(zoom<12) return false;
 
   const p=map.latLngToContainerPoint(latlng);
 
   for(let q of labelPositions){
-
-    if(Math.hypot(p.x-q.x,p.y-q.y)<80){
-      return false;
-    }
+    if(Math.hypot(p.x-q.x,p.y-q.y)<80) return false;
   }
 
   labelPositions.push(p);
-
   return true;
 }
 
@@ -459,7 +413,7 @@ function getFilteredData(){
   const s=document.getElementById("seasonFilter").value;
 
   return data.filter(x=>
-    (d==="all"||x.district===d)&&
+    (d==="all"||x.district===d) &&
     (s==="all"||x.season===s)
   );
 }
@@ -485,17 +439,13 @@ function drawRadius(lat,lng){
     radius:2000,
     color:"#60a5fa",
     fillColor:"#93c5fd",
-    fillOpacity:0.25,
-    renderer:L.canvas()
+    fillOpacity:0.25
   }).addTo(circleLayer);
 }
 
 function go(lat,lng){
 
-  map.flyTo([lat,lng],16,{
-    animate:true,
-    duration:1.2
-  });
+  map.flyTo([lat,lng],16);
 
   drawRadius(lat,lng);
 }
@@ -520,7 +470,6 @@ function render(list){
   Object.keys(grouped).forEach(name=>{
 
     const items=grouped[name];
-
     const first=items[0];
 
     const types={
@@ -565,10 +514,8 @@ function render(list){
       iconAnchor:[60,25]
     });
 
-    L.marker([first.lat,first.lng],{
-      icon,
-      bubblingMouseEvents:false
-    }).addTo(markerLayer);
+    L.marker([first.lat,first.lng],{icon})
+      .addTo(markerLayer);
 
     const row=(label,arr)=>`
       <tr>
