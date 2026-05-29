@@ -19,6 +19,7 @@ body {
   top: 0;
   width: calc(100% - 380px);
   height: 100vh;
+  background:#f8fafc;
 }
 
 #gisTitle {
@@ -93,7 +94,6 @@ body {
   background:#1d4ed8;
 }
 
-/* 修正：POI文字不要背景與外框 */
 .poi-label{
   font-size:12px;
   font-weight:700;
@@ -181,6 +181,17 @@ body {
   color: #111827;
   text-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
+
+/* 修正 Leaflet WMTS 黑屏 */
+.leaflet-tile {
+  image-rendering: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.leaflet-container {
+  background:#f8fafc;
+}
 </style>
 </head>
 
@@ -247,15 +258,46 @@ body {
 
 <script>
 
-const map = L.map('map').setView([25.05,121.45], 11);
+/* =========================
+   修正 WMTS 黑屏問題
+========================= */
 
+const map = L.map('map',{
+  zoomControl:true,
+  preferCanvas:true,
+  zoomSnap:0.5,
+  zoomDelta:0.5,
+  fadeAnimation:false,
+  zoomAnimation:false,
+  markerZoomAnimation:false
+}).setView([25.05,121.45], 11);
+
+/* 修正：
+   指定 tileSize / zoomOffset / crossOrigin
+   避免特定比例尺黑磚
+*/
 L.tileLayer(
   'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
   {
     attribution:'&copy; NLSC',
-    maxZoom:19
+    maxZoom:18,
+    minZoom:7,
+    tileSize:256,
+    zoomOffset:0,
+    updateWhenIdle:true,
+    updateWhenZooming:false,
+    keepBuffer:8,
+    crossOrigin:true,
+    noWrap:true
   }
 ).addTo(map);
+
+/* 強制重繪避免黑屏 */
+map.on('zoomend moveend resize',()=>{
+  setTimeout(()=>{
+    map.invalidateSize(true);
+  },50);
+});
 
 const data = [
 
@@ -292,10 +334,6 @@ const poiKeywords = {
   laundry:"自助洗衣店"
 };
 
-/* =========================
-   詳細 POI 名稱
-========================= */
-
 const poiNameSamples = {
   park:["新莊運動公園","板橋萬坪公園","大安森林公園","中山公園"],
   school:["新莊高中","板橋國小","淡水國中","林口高中"],
@@ -321,7 +359,6 @@ uniqueSchools.forEach(s=>{
 function generatePOI(centerLat,centerLng,type){
 
   const pois=[];
-
   const names = poiNameSamples[type];
 
   for(let i=0;i<12;i++){
@@ -373,11 +410,6 @@ function searchPOI(){
       weight:2
     });
 
-    marker.bindPopup(`
-      <b>${p.name}</b><br>
-      類型：${poiKeywords[poiType]}
-    `);
-
     marker.bindTooltip(
       `<div class="poi-label">${p.name}</div>`,
       {
@@ -395,6 +427,7 @@ function searchPOI(){
 }
 
 function shouldShowLabel(latlng,zoom){
+
   if(zoom<12) return false;
 
   const p=map.latLngToContainerPoint(latlng);
@@ -404,6 +437,7 @@ function shouldShowLabel(latlng,zoom){
   }
 
   labelPositions.push(p);
+
   return true;
 }
 
