@@ -51,9 +51,6 @@ body {
   flex-direction: column;
 }
 
-/* =========================
-   新增 POI PANEL
-========================= */
 #poiPanel{
   position:absolute;
   top:12px;
@@ -182,7 +179,6 @@ body {
   text-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
 
-/* 修正 Leaflet WMTS 黑屏 */
 .leaflet-tile {
   image-rendering: auto;
   backface-visibility: hidden;
@@ -259,7 +255,7 @@ body {
 <script>
 
 /* =========================
-   修正 WMTS 黑屏問題
+   WMTS 黑屏修正
 ========================= */
 
 const map = L.map('map',{
@@ -272,10 +268,6 @@ const map = L.map('map',{
   markerZoomAnimation:false
 }).setView([25.05,121.45], 11);
 
-/* 修正：
-   指定 tileSize / zoomOffset / crossOrigin
-   避免特定比例尺黑磚
-*/
 L.tileLayer(
   'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
   {
@@ -292,20 +284,19 @@ L.tileLayer(
   }
 ).addTo(map);
 
-/* 強制重繪避免黑屏 */
 map.on('zoomend moveend resize',()=>{
   setTimeout(()=>{
     map.invalidateSize(true);
   },50);
 });
 
+/* =========================
+   學校資料
+========================= */
+
 const data = [
 
   {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q1", rents:{雅房:9000, 套房:12000, 整層:20000}},
-  {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q2", rents:{雅房:9100, 套房:12100, 整層:20100}},
-  {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q3", rents:{雅房:9200, 套房:12200, 整層:20200}},
-  {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q4", rents:{雅房:9300, 套房:12300, 整層:20300}},
-
   {name:"致理科大", district:"板橋", lat:25.0208, lng:121.4643, season:"2025-Q1", rents:{雅房:11000, 套房:13000, 整層:22000}},
   {name:"亞東科大", district:"板橋", lat:24.9951, lng:121.4531, season:"2025-Q1", rents:{雅房:10800, 套房:12800, 整層:21000}},
   {name:"淡江大學", district:"淡水", lat:25.1762, lng:121.4510, season:"2025-Q1", rents:{雅房:8000, 套房:10000, 整層:18000}},
@@ -325,22 +316,67 @@ let poiLayer = L.layerGroup().addTo(map);
 
 let labelPositions=[];
 
-const poiKeywords = {
+/* =========================
+   修正 POI 資料異常
+   每個行政區對應自己的 POI
+========================= */
+
+const poiDatabase = {
+
+  "淡水":{
+    park:["滬尾砲台公園","淡水河濱公園","鄞山寺公園"],
+    school:["淡水國中","淡水商工","正德國中"],
+    supermarket:["全聯淡水店","家樂福淡新店","美廉社淡水店"],
+    convenience:["7-ELEVEN淡大門市","全家淡江店","萊爾富淡水店"],
+    police:["淡水分局","中正路派出所","水碓派出所"],
+    laundry:["橘子洗衣淡水店","日日洗淡水店","WashMe淡水店"]
+  },
+
+  "板橋":{
+    park:["板橋萬坪公園","新板特區公園","音樂公園"],
+    school:["板橋高中","海山高中","板橋國小"],
+    supermarket:["家樂福板橋店","全聯板橋店","美廉社板橋店"],
+    convenience:["7-ELEVEN板橋店","全家板橋店","OK板橋店"],
+    police:["板橋派出所","新海派出所","海山分局"],
+    laundry:["橘子洗衣板橋店","日日洗板橋店","WashMe板橋店"]
+  },
+
+  "新莊":{
+    park:["新莊運動公園","中港大排公園","幸福公園"],
+    school:["新莊高中","丹鳳高中","新莊國中"],
+    supermarket:["全聯新莊店","家樂福新莊店","美廉社新莊店"],
+    convenience:["7-ELEVEN新莊店","全家新莊店","萊爾富新莊店"],
+    police:["新莊派出所","中平派出所","丹鳳派出所"],
+    laundry:["橘子洗衣新莊店","日日洗新莊店","WashMe新莊店"]
+  },
+
+  "三峽":{
+    park:["三峽河濱公園","鳶山公園","中山公園"],
+    school:["北大高中","三峽國中","龍埔國小"],
+    supermarket:["全聯三峽店","家樂福三峽店","美廉社三峽店"],
+    convenience:["7-ELEVEN三峽店","全家三峽店","萊爾富三峽店"],
+    police:["三峽分局","北大派出所","三峽派出所"],
+    laundry:["橘子洗衣三峽店","日日洗三峽店","WashMe三峽店"]
+  }
+
+};
+
+/* 其他行政區 fallback */
+function getFallbackPOI(type,district){
+  return [
+    `${district}${type}1`,
+    `${district}${type}2`,
+    `${district}${type}3`
+  ];
+}
+
+const typeMap = {
   park:"公園",
   school:"學校",
   supermarket:"超市",
   convenience:"便利商店",
   police:"派出所",
   laundry:"自助洗衣店"
-};
-
-const poiNameSamples = {
-  park:["新莊運動公園","板橋萬坪公園","大安森林公園","中山公園"],
-  school:["新莊高中","板橋國小","淡水國中","林口高中"],
-  supermarket:["全聯福利中心","家樂福超市","美廉社","愛買"],
-  convenience:["7-ELEVEN","全家便利商店","萊爾富","OK便利商店"],
-  police:["新莊派出所","板橋派出所","淡水派出所","中和派出所"],
-  laundry:["日日洗自助洗衣","橘子洗衣","投幣自助洗衣","WashMe自助洗衣"]
 };
 
 const schoolSelect = document.getElementById("schoolSelect");
@@ -356,24 +392,48 @@ uniqueSchools.forEach(s=>{
   schoolSelect.appendChild(opt);
 });
 
-function generatePOI(centerLat,centerLng,type){
+/* =========================
+   修正：
+   POI 完全依照學校行政區產生
+========================= */
+
+function generatePOI(school,type){
 
   const pois=[];
-  const names = poiNameSamples[type];
 
-  for(let i=0;i<12;i++){
+  const district = school.district;
 
-    const lat=centerLat+(Math.random()-0.5)*0.02;
-    const lng=centerLng+(Math.random()-0.5)*0.02;
+  let names = [];
 
-    const baseName = names[i % names.length];
+  if(
+    poiDatabase[district] &&
+    poiDatabase[district][type]
+  ){
+    names = poiDatabase[district][type];
+  }else{
+    names = getFallbackPOI(typeMap[type],district);
+  }
+
+  names.forEach((name,index)=>{
+
+    const angle = (Math.PI * 2 / names.length) * index;
+    const distance = 0.006 + (index * 0.0015);
+
+    const lat =
+      school.lat +
+      Math.cos(angle) * distance;
+
+    const lng =
+      school.lng +
+      Math.sin(angle) * distance;
 
     pois.push({
-      name:`${baseName} ${i+1}店`,
+      name,
       lat,
       lng
     });
-  }
+
+  });
 
   return pois;
 }
@@ -398,7 +458,8 @@ function searchPOI(){
 
   drawRadius(school.lat,school.lng);
 
-  const pois=generatePOI(school.lat,school.lng,poiType);
+  /* 修正後 */
+  const pois=generatePOI(school,poiType);
 
   pois.forEach(p=>{
 
