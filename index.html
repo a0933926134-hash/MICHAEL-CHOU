@@ -733,17 +733,20 @@ html,body{
 
 
 const map = L.map('map',{
-
   zoomControl:true,
-
   preferCanvas:true,
-
   zoomAnimation:true,
-
   fadeAnimation:false,
+  markerZoomAnimation:false,
 
-  markerZoomAnimation:false
-
+  // ✅ 加這兩個（防黑方塊核心）
+  minZoom:7,
+  maxZoom:18,
+  maxBounds: [
+    [21.8, 119.0],
+    [25.5, 122.5]
+  ],
+  maxBoundsViscosity: 1.0
 }).setView([25.05,121.45],11);
 
 
@@ -761,6 +764,25 @@ const map = L.map('map',{
 L.tileLayer(
 'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
 {
+  attribution: '© NLSC',
+
+  maxZoom: 18,
+  minZoom: 7,
+
+  // ✅ 防黑方塊核心
+  noWrap: true,
+  bounds: [
+    [21.8, 119.0],
+    [25.5, 122.5]
+  ],
+
+  keepBuffer: 2,
+  updateWhenIdle: true,
+  updateWhenZooming: false,
+  unloadInvisibleTiles: true,
+
+  crossOrigin: true
+}).addTo(map);
   attribution: '© NLSC',
   maxZoom: 19,
   minZoom: 6,
