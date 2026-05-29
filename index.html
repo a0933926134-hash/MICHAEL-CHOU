@@ -1,85 +1,164 @@
+```html
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
 <meta charset="utf-8" />
 <title>新北市大專院校租金 GIS + POI</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI";
+
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,"Segoe UI";
 }
 
-#map {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: calc(100% - 380px);
-  height: 100vh;
+/* ================= MAP ================= */
+
+#map{
+  position:absolute;
+  left:0;
+  top:0;
+  width:calc(100% - 380px);
+  height:100vh;
 }
 
-#panel {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 380px;
-  height: 100vh;
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: blur(12px);
-  border-left: 1px solid #e5e7eb;
-  display: flex;
-  flex-direction: column;
+/* ================= PANEL ================= */
+
+#panel{
+  position:absolute;
+  right:0;
+  top:0;
+  width:380px;
+  height:100vh;
+  background:rgba(255,255,255,0.95);
+  backdrop-filter:blur(10px);
+  border-left:1px solid #ddd;
+  overflow-y:auto;
 }
 
-#header {
-  padding: 14px;
-  border-bottom: 1px solid #eee;
+/* ================= HEADER ================= */
+
+#header{
+  padding:14px;
+  border-bottom:1px solid #eee;
 }
 
-#filterBox, #poiBox {
-  padding: 10px 14px;
-  border-bottom: 1px solid #eee;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+#headerTitle{
+  font-size:18px;
+  font-weight:700;
 }
 
-select, label {
-  font-size: 12px;
+#headerSub{
+  font-size:12px;
+  color:#666;
+  margin-top:4px;
 }
 
-.card {
-  background: #fff;
-  margin: 10px;
-  padding: 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+/* ================= FILTER ================= */
+
+#filterBox,
+#poiBox{
+  padding:12px 14px;
+  border-bottom:1px solid #eee;
 }
 
-.poi-label {
-  font-size: 12px;
-  font-weight: 700;
-  background: white;
-  padding: 2px 4px;
-  border-radius: 4px;
+#filterBox select{
+  width:100%;
+  margin-bottom:8px;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid #d0d7de;
 }
+
+#poiBox label{
+  display:block;
+  margin-bottom:8px;
+  font-size:13px;
+}
+
+/* ================= LIST ================= */
+
+#list{
+  padding:12px;
+}
+
+.card{
+  background:#fff;
+  border-radius:14px;
+  padding:14px;
+  margin-bottom:12px;
+  cursor:pointer;
+  box-shadow:0 2px 12px rgba(0,0,0,0.08);
+  transition:0.2s;
+}
+
+.card:hover{
+  transform:translateY(-2px);
+}
+
+.school-name{
+  font-size:15px;
+  font-weight:700;
+}
+
+.school-meta{
+  font-size:12px;
+  color:#666;
+  margin-top:4px;
+}
+
+/* ================= STATUS ================= */
+
+#status{
+  font-size:12px;
+  color:#2563eb;
+  margin-top:8px;
+}
+
+.poi-popup{
+  font-size:13px;
+}
+
+.poi-popup b{
+  font-size:14px;
+}
+
 </style>
 </head>
 
 <body>
 
+<!-- ================= MAP ================= -->
+
 <div id="map"></div>
 
+<!-- ================= PANEL ================= -->
+
 <div id="panel">
+
   <div id="header">
-    <b>Rent + POI GIS</b>
+    <div id="headerTitle">
+      Rent + POI GIS
+    </div>
+
+    <div id="headerSub">
+      新北市大專院校租金與生活機能分析
+    </div>
+
+    <div id="status">
+      請點選學校
+    </div>
   </div>
 
+  <!-- ================= FILTER ================= -->
+
   <div id="filterBox">
+
     <select id="districtFilter">
       <option value="all">全部行政區</option>
       <option value="新莊">新莊</option>
@@ -89,174 +168,484 @@ select, label {
     </select>
 
     <select id="seasonFilter">
-      <option value="all">季別</option>
+      <option value="all">全部季別</option>
       <option value="2025-Q1">2025 Q1</option>
       <option value="2025-Q2">2025 Q2</option>
       <option value="2025-Q3">2025 Q3</option>
       <option value="2025-Q4">2025 Q4</option>
     </select>
+
   </div>
+
+  <!-- ================= POI ================= -->
 
   <div id="poiBox">
+
     <b>範圍 POI 顯示</b>
-    <label><input type="checkbox" checked id="c1"> 便利商店</label>
-    <label><input type="checkbox" checked id="c2"> 銀行</label>
-    <label><input type="checkbox" checked id="c3"> 超市/大賣場</label>
-    <label><input type="checkbox" checked id="c4"> 傳統市場</label>
+
+    <label>
+      <input type="checkbox" checked id="c1">
+      便利商店
+    </label>
+
+    <label>
+      <input type="checkbox" checked id="c2">
+      銀行
+    </label>
+
+    <label>
+      <input type="checkbox" checked id="c3">
+      超市 / 大賣場
+    </label>
+
+    <label>
+      <input type="checkbox" checked id="c4">
+      傳統市場
+    </label>
+
+    <label>
+      <input type="checkbox" checked id="c5">
+      自助洗衣店
+    </label>
+
   </div>
 
+  <!-- ================= LIST ================= -->
+
   <div id="list"></div>
+
 </div>
 
 <script>
 
-const map = L.map('map').setView([25.05,121.45], 11);
+/* =========================================================
+   MAP INIT
+========================================================= */
+
+const map = L.map('map').setView([25.05,121.45],11);
 
 L.tileLayer(
   'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
-  { attribution: '&copy; NLSC' }
+  {
+    attribution:'&copy; NLSC'
+  }
 ).addTo(map);
 
+/* =========================================================
+   DATA
+========================================================= */
+
 const data = [
-  {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q1", rents:{雅房:9000, 套房:12000, 整層:20000}},
-  {name:"淡江大學", district:"淡水", lat:25.1762, lng:121.4510, season:"2025-Q1", rents:{雅房:8000, 套房:10000, 整層:18000}},
-  {name:"台北大學", district:"三峽", lat:24.9441, lng:121.3710, season:"2025-Q1", rents:{雅房:8500, 套房:10500, 整層:19000}}
+
+  {
+    name:"輔仁大學",
+    district:"新莊",
+    lat:25.0355,
+    lng:121.4315,
+    season:"2025-Q1"
+  },
+
+  {
+    name:"淡江大學",
+    district:"淡水",
+    lat:25.1762,
+    lng:121.4510,
+    season:"2025-Q1"
+  },
+
+  {
+    name:"台北大學",
+    district:"三峽",
+    lat:24.9441,
+    lng:121.3710,
+    season:"2025-Q1"
+  },
+
+  {
+    name:"致理科大",
+    district:"板橋",
+    lat:25.0208,
+    lng:121.4643,
+    season:"2025-Q1"
+  }
+
 ];
 
-let markerLayer = L.layerGroup().addTo(map);
-let circleLayer = L.layerGroup().addTo(map);
-let poiLayer = L.layerGroup().addTo(map);
+/* =========================================================
+   LAYERS
+========================================================= */
 
-let centerPoint = null;
+const markerLayer = L.layerGroup().addTo(map);
+const circleLayer = L.layerGroup().addTo(map);
+const poiLayer = L.layerGroup().addTo(map);
 
-// ---------------- POI ICON ----------------
-function poiIcon(type){
-  const color =
-    type==="便利商店"?"#22c55e":
-    type==="銀行"?"#3b82f6":
-    type==="超市"?"#f59e0b":
-    "#ef4444";
+let currentCenter = null;
 
-  return L.divIcon({
-    className:"",
-    html:`<div style="background:${color};width:10px;height:10px;border-radius:50%"></div>`,
-    iconSize:[10,10]
-  });
+/* =========================================================
+   STATUS
+========================================================= */
+
+function setStatus(msg,color="#2563eb"){
+  const el = document.getElementById("status");
+  el.innerHTML = msg;
+  el.style.color = color;
 }
 
-// ---------------- OVERPASS QUERY ----------------
-async function fetchPOI(lat,lng){
-  const query = `
-  [out:json];
-  (
-    node["shop"="convenience"](around:2000,${lat},${lng});
-    node["amenity"="bank"](around:2000,${lat},${lng});
-    node["shop"="supermarket"](around:2000,${lat},${lng});
-    node["shop"="mall"](around:2000,${lat},${lng});
-    node["amenity"="marketplace"](around:2000,${lat},${lng});
-  );
-  out;`;
+/* =========================================================
+   POI ENABLE
+========================================================= */
 
-  const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
-
-  const res = await fetch(url);
-  const json = await res.json();
-
-  poiLayer.clearLayers();
-
-  json.elements.forEach(e=>{
-    if(!e.lat || !e.lon) return;
-
-    let type = "";
-
-    if(e.tags.shop==="convenience") type="便利商店";
-    else if(e.tags.amenity==="bank") type="銀行";
-    else if(e.tags.shop==="supermarket" || e.tags.shop==="mall") type="超市";
-    else if(e.tags.amenity==="marketplace") type="傳統市場";
-
-    if(!type) return;
-
-    if(!isPOIEnabled(type)) return;
-
-    const m = L.marker([e.lat,e.lon],{icon:poiIcon(type)})
-      .bindPopup(`<b>${type}</b><br>${e.tags.name || ""}`);
-
-    poiLayer.addLayer(m);
-  });
-}
-
-// ---------------- POI FILTER ----------------
 function isPOIEnabled(type){
-  if(type==="便利商店") return document.getElementById("c1").checked;
-  if(type==="銀行") return document.getElementById("c2").checked;
-  if(type==="超市") return document.getElementById("c3").checked;
-  if(type==="傳統市場") return document.getElementById("c4").checked;
+
+  if(type==="便利商店"){
+    return document.getElementById("c1").checked;
+  }
+
+  if(type==="銀行"){
+    return document.getElementById("c2").checked;
+  }
+
+  if(type==="超市"){
+    return document.getElementById("c3").checked;
+  }
+
+  if(type==="傳統市場"){
+    return document.getElementById("c4").checked;
+  }
+
+  if(type==="自助洗衣店"){
+    return document.getElementById("c5").checked;
+  }
+
   return false;
 }
 
-// ---------------- RADIUS ----------------
-function drawRadius(lat,lng){
-  circleLayer.clearLayers();
+/* =========================================================
+   POI ICON
+========================================================= */
 
-  L.circle([lat,lng],{
-    radius:2000,
-    color:"#60a5fa",
-    fillOpacity:0.2
-  }).addTo(circleLayer);
-}
+function poiIcon(type){
 
-// ---------------- CLICK SCHOOL ----------------
-function go(lat,lng){
-  map.flyTo([lat,lng],15);
-  centerPoint = [lat,lng];
+  const color =
+    type==="便利商店" ? "#22c55e" :
+    type==="銀行" ? "#3b82f6" :
+    type==="超市" ? "#f59e0b" :
+    type==="傳統市場" ? "#ef4444" :
+    "#8b5cf6";
 
-  drawRadius(lat,lng);
-  fetchPOI(lat,lng);
-}
-
-// ---------------- FILTER ----------------
-function getFilteredData(){
-  const d=document.getElementById("districtFilter").value;
-  const s=document.getElementById("seasonFilter").value;
-
-  return data.filter(x=>
-    (d==="all"||x.district===d)&&
-    (s==="all"||x.season===s)
-  );
-}
-
-// ---------------- RENDER ----------------
-function render(list){
-  markerLayer.clearLayers();
-
-  const el=document.getElementById("list");
-  el.innerHTML="";
-
-  list.forEach(d=>{
-    const m = L.marker([d.lat,d.lng]).addTo(markerLayer);
-    m.on("click",()=>go(d.lat,d.lng));
-
-    const card=document.createElement("div");
-    card.className="card";
-    card.innerHTML=`<b>${d.name}</b><br>${d.district}`;
-    card.onclick=()=>go(d.lat,d.lng);
-
-    el.appendChild(card);
+  return L.divIcon({
+    className:"",
+    html:`
+      <div style="
+        width:14px;
+        height:14px;
+        border-radius:50%;
+        background:${color};
+        border:2px solid white;
+        box-shadow:0 0 6px rgba(0,0,0,0.35);
+      "></div>
+    `,
+    iconSize:[14,14],
+    iconAnchor:[7,7]
   });
 }
 
-map.on("moveend",()=>render(getFilteredData()));
-map.on("zoomend",()=>render(getFilteredData()));
+/* =========================================================
+   FETCH POI
+========================================================= */
 
-document.getElementById("districtFilter").onchange=()=>render(getFilteredData());
-document.getElementById("seasonFilter").onchange=()=>render(getFilteredData());
+async function fetchPOI(lat,lng){
 
-// POI checkbox 即時刷新
-["c1","c2","c3","c4"].forEach(id=>{
-  document.getElementById(id).onchange=()=>{
-    if(centerPoint) fetchPOI(centerPoint[0],centerPoint[1]);
-  };
+  setStatus("POI 載入中...");
+
+  poiLayer.clearLayers();
+
+  const query = `
+  [out:json][timeout:25];
+  (
+    node(around:2000,${lat},${lng})["shop"="convenience"];
+    node(around:2000,${lat},${lng})["amenity"="bank"];
+    node(around:2000,${lat},${lng})["shop"="supermarket"];
+    node(around:2000,${lat},${lng})["shop"="mall"];
+    node(around:2000,${lat},${lng})["amenity"="marketplace"];
+    node(around:2000,${lat},${lng})["shop"="laundry"];
+  );
+  out body;
+  `;
+
+  try{
+
+    const url =
+      "https://overpass-api.de/api/interpreter?data=" +
+      encodeURIComponent(query);
+
+    const res = await fetch(url);
+
+    if(!res.ok){
+
+      setStatus(
+        "POI API 錯誤：" + res.status,
+        "#dc2626"
+      );
+
+      return;
+    }
+
+    const json = await res.json();
+
+    console.log("POI RESULT:",json);
+
+    if(!json.elements){
+
+      setStatus(
+        "查無 POI 資料",
+        "#dc2626"
+      );
+
+      return;
+    }
+
+    let count = 0;
+
+    json.elements.forEach(e=>{
+
+      if(!e.lat || !e.lon) return;
+
+      const tags = e.tags || {};
+
+      let type = "";
+
+      /* ================= TYPE ================= */
+
+      if(tags.shop==="convenience"){
+        type="便利商店";
+      }
+
+      else if(tags.amenity==="bank"){
+        type="銀行";
+      }
+
+      else if(
+        tags.shop==="supermarket" ||
+        tags.shop==="mall"
+      ){
+        type="超市";
+      }
+
+      else if(tags.amenity==="marketplace"){
+        type="傳統市場";
+      }
+
+      else if(tags.shop==="laundry"){
+        type="自助洗衣店";
+      }
+
+      if(!type) return;
+
+      if(!isPOIEnabled(type)) return;
+
+      count++;
+
+      const marker = L.marker(
+        [e.lat,e.lon],
+        {
+          icon: poiIcon(type)
+        }
+      );
+
+      marker.bindPopup(`
+        <div class="poi-popup">
+          <b>${tags.name || type}</b>
+          <br>
+          ${type}
+        </div>
+      `);
+
+      poiLayer.addLayer(marker);
+
+    });
+
+    setStatus(`POI 載入完成（${count}筆）`);
+
+  }
+
+  catch(err){
+
+    console.error(err);
+
+    setStatus(
+      "POI 載入失敗",
+      "#dc2626"
+    );
+
+  }
+
+}
+
+/* =========================================================
+   DRAW RADIUS
+========================================================= */
+
+function drawRadius(lat,lng){
+
+  circleLayer.clearLayers();
+
+  L.circle(
+    [lat,lng],
+    {
+      radius:2000,
+      color:"#60a5fa",
+      fillColor:"#93c5fd",
+      fillOpacity:0.18
+    }
+  ).addTo(circleLayer);
+
+}
+
+/* =========================================================
+   GO
+========================================================= */
+
+function go(lat,lng){
+
+  currentCenter = [lat,lng];
+
+  map.flyTo([lat,lng],15);
+
+  drawRadius(lat,lng);
+
+  fetchPOI(lat,lng);
+
+}
+
+/* =========================================================
+   FILTER
+========================================================= */
+
+function getFilteredData(){
+
+  const district =
+    document.getElementById("districtFilter").value;
+
+  const season =
+    document.getElementById("seasonFilter").value;
+
+  return data.filter(d=>{
+
+    return (
+      (district==="all" || d.district===district)
+      &&
+      (season==="all" || d.season===season)
+    );
+
+  });
+
+}
+
+/* =========================================================
+   RENDER
+========================================================= */
+
+function render(list){
+
+  markerLayer.clearLayers();
+
+  const el =
+    document.getElementById("list");
+
+  el.innerHTML = "";
+
+  list.forEach(d=>{
+
+    /* ================= MAP MARKER ================= */
+
+    const marker =
+      L.marker([d.lat,d.lng]);
+
+    marker.addTo(markerLayer);
+
+    marker.bindPopup(`
+      <b>${d.name}</b>
+      <br>
+      ${d.district}
+    `);
+
+    marker.on("click",()=>{
+
+      go(d.lat,d.lng);
+
+    });
+
+    /* ================= CARD ================= */
+
+    const card =
+      document.createElement("div");
+
+    card.className = "card";
+
+    card.innerHTML = `
+      <div class="school-name">
+        ${d.name}
+      </div>
+
+      <div class="school-meta">
+        ${d.district}
+      </div>
+    `;
+
+    card.onclick = ()=>{
+
+      go(d.lat,d.lng);
+
+    };
+
+    el.appendChild(card);
+
+  });
+
+}
+
+/* =========================================================
+   EVENT
+========================================================= */
+
+document.getElementById("districtFilter")
+  .addEventListener("change",()=>{
+
+    render(getFilteredData());
+
+  });
+
+document.getElementById("seasonFilter")
+  .addEventListener("change",()=>{
+
+    render(getFilteredData());
+
+  });
+
+/* ================= POI CHECKBOX ================= */
+
+["c1","c2","c3","c4","c5"].forEach(id=>{
+
+  document.getElementById(id)
+    .addEventListener("change",()=>{
+
+      if(currentCenter){
+
+        fetchPOI(
+          currentCenter[0],
+          currentCenter[1]
+        );
+
+      }
+
+    });
+
 });
+
+/* =========================================================
+   START
+========================================================= */
 
 render(data);
 
@@ -264,3 +653,4 @@ render(data);
 
 </body>
 </html>
+```
