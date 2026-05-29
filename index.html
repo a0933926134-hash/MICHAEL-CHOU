@@ -1,226 +1,138 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html>
 <head>
-<meta charset="utf-8"/>
+<meta charset="utf-8" />
 <title>新北市大專院校租金 GIS</title>
-
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-
-html,body{
-  margin:0;
-  padding:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  font-family:system-ui,-apple-system,"Segoe UI";
-  background:#f3f4f6;
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI";
 }
 
-#map{
-  position:absolute;
-  left:0;
-  top:0;
-  width:calc(100% - 380px);
-  height:100vh;
-  background:#dbeafe;
+#map {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(100% - 380px);
+  height: 100vh;
 }
 
-/* 避免 Leaflet tile 黑方塊 */
-.leaflet-container{
-  background:#dbeafe;
+#gisTitle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-width: 240px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
 }
 
-.leaflet-tile{
-  image-rendering:auto;
+#gisTitle .t1 { font-size: 13px; font-weight: 700; }
+#gisTitle .t2 { margin-top: 6px; font-size: 11px; color: #666; }
+
+#panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 380px;
+  height: 100vh;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  border-left: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
 }
 
-.leaflet-pane,
-.leaflet-tile-container{
-  will-change: transform;
-  backface-visibility: hidden;
+#header {
+  padding: 14px;
+  border-bottom: 1px solid #eee;
 }
 
-/* ======================= TITLE ======================= */
+#title { font-size: 18px; font-weight: 700; }
+#subtitle { font-size: 12px; color: #666; }
 
-#gisTitle{
-  position:absolute;
-  top:12px;
-  right:12px;
-  z-index:1000;
-  background:rgba(255,255,255,0.96);
-  border:1px solid #d0d7de;
-  border-radius:12px;
-  padding:10px 12px;
-  min-width:240px;
-  box-shadow:0 2px 12px rgba(0,0,0,0.08);
+#filterBox {
+  padding: 10px 14px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-#gisTitle .t1{font-size:13px;font-weight:700;}
-#gisTitle .t2{margin-top:6px;font-size:11px;color:#666;}
-
-/* ======================= POI BOX ======================= */
-
-#poiBox{
-  position:absolute;
-  top:12px;
-  left:12px;
-  z-index:2000;
-  width:210px;
-  background:rgba(255,255,255,0.97);
-  border-radius:14px;
-  padding:12px;
-  border:1px solid #d0d7de;
-  box-shadow:0 8px 24px rgba(0,0,0,0.15);
-  cursor:move;
-  user-select:none;
+#filterBox select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
 }
 
-#poiBox h4{margin:0 0 10px;font-size:13px;}
-.poi-item{font-size:12px;margin:6px 0;}
-.poi-note{margin-top:8px;font-size:11px;color:#666;line-height:1.5;}
-
-/* ======================= RIGHT PANEL ======================= */
-
-#panel{
-  position:absolute;
-  right:0;
-  top:0;
-  width:380px;
-  height:100vh;
-  background:rgba(255,255,255,0.94);
-  backdrop-filter:blur(12px);
-  border-left:1px solid #e5e7eb;
-  display:flex;
-  flex-direction:column;
+#list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
 }
 
-#header{padding:14px;border-bottom:1px solid #eee;}
-#title{font-size:18px;font-weight:700;}
-#subtitle{font-size:12px;color:#666;}
-
-#filterBox{
-  padding:10px 14px;
-  border-bottom:1px solid #eee;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
+.card {
+  background: linear-gradient(145deg, #ffffff, #f3f4f6);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12), 0 3px 6px rgba(0,0,0,0.08);
+  transition: all 0.25s ease;
 }
 
-#filterBox select{
-  width:100%;
-  padding:7px 9px;
-  font-size:12px;
-  border:1px solid #d0d7de;
-  border-radius:8px;
+.card:hover { transform: translateY(-4px); }
+
+.name { font-weight: 800; font-size: 15px; }
+.meta { font-size: 12px; color: #6b7280; }
+
+.price-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 12px;
 }
 
-#list{flex:1;overflow-y:auto;padding:12px;}
-
-/* ======================= CARD ======================= */
-
-.card{
-  background:linear-gradient(145deg,#ffffff,#f3f4f6);
-  border-radius:14px;
-  padding:14px;
-  margin-bottom:12px;
-  cursor:pointer;
-  box-shadow:0 10px 20px rgba(0,0,0,0.10);
-  transition:all 0.25s ease;
+.price-table th {
+  text-align: left;
+  font-size: 11px;
+  color: #111827;
+  padding: 4px 6px;
+  background: #f3f4f6;
 }
 
-.card:hover{transform:translateY(-4px);}
-.name{font-weight:800;font-size:15px;}
-.meta{font-size:12px;color:#6b7280;}
-
-.price-table{
-  width:100%;
-  margin-top:8px;
-  border-collapse:collapse;
-  font-size:12px;
+.price-table td {
+  padding: 4px 6px;
+  color: #2563eb;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.price-table th{
-  text-align:left;
-  padding:4px 6px;
-  background:#f3f4f6;
+.gis-label .label {
+  font-size: 16px;
+  font-weight: 900;
+  color: #111827;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
-
-.price-table td{
-  padding:4px 6px;
-  color:#2563eb;
-  font-weight:700;
-}
-
-/* ======================= LABEL ======================= */
-
-.gis-label .label{
-  font-size:14px;
-  font-weight:900;
-  color:#111827;
-  text-shadow:0 2px 6px rgba(255,255,255,0.9);
-  white-space:nowrap;
-}
-
-.poi-text{
-  font-size:11px;
-  font-weight:700;
-  color:#111827;
-  background:rgba(255,255,255,0.92);
-  padding:2px 5px;
-  border-radius:6px;
-  border:1px solid rgba(0,0,0,0.08);
-  white-space:nowrap;
-}
-
-/* ======================= RADIUS ======================= */
-
-#radiusInfo{
-  position:absolute;
-  bottom:12px;
-  left:12px;
-  z-index:1000;
-  background:rgba(255,255,255,0.95);
-  border-radius:10px;
-  padding:8px 10px;
-  font-size:12px;
-  border:1px solid #d0d7de;
-  box-shadow:0 2px 10px rgba(0,0,0,0.08);
-}
-
 </style>
 </head>
 
 <body>
 
 <div id="map">
-
   <div id="gisTitle">
     <div class="t1">新北市大專院校租金地圖</div>
-    <div class="t2">School Rent GIS</div>
+    <div class="t2" id="gisSub">初始化中...</div>
   </div>
-
-  <div id="radiusInfo">POI 僅搜尋學校周邊 2 公里範圍</div>
-
-  <div id="poiBox">
-    <h4>POI BOX</h4>
-
-    <div class="poi-item"><label><input type="checkbox" class="poi" value="park">公園</label></div>
-    <div class="poi-item"><label><input type="checkbox" class="poi" value="mall">賣場</label></div>
-    <div class="poi-item"><label><input type="checkbox" class="poi" value="convenience">便利商店</label></div>
-    <div class="poi-item"><label><input type="checkbox" class="poi" value="laundry">自助洗衣店</label></div>
-    <div class="poi-item"><label><input type="checkbox" class="poi" value="police">警局</label></div>
-
-    <div class="poi-note">
-      ✔ 僅顯示目前選定學校<br>
-      ✔ 半徑 2 公里內 POI
-    </div>
-  </div>
-
 </div>
 
 <div id="panel">
@@ -257,43 +169,179 @@ html,body{
 
 <script>
 
-/* ================= MAP ================= */
+<script>
 
-const map = L.map('map', {
-  crs: L.CRS.EPSG3857,
-  zoomControl: true,
-  preferCanvas: true,
-
-  minZoom: 7,
-  maxZoom: 18,
-
-  maxBounds: L.latLngBounds(
-    L.latLng(21.8, 119.0),
-    L.latLng(25.5, 122.5)
-  ),
-
-  maxBoundsViscosity: 1.0
-});
-
-/* ================= TILE FIX ================= */
+const map = L.map('map').setView([25.05,121.45], 11);
 
 L.tileLayer(
-'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', {
-  attribution: '© NLSC',
-  minZoom: 7,
-  maxZoom: 18,
-  tileSize: 256,
-  noWrap: true,
-  bounds: [[21.8, 119.0], [25.5, 122.5]],
-  keepBuffer: 6,              // ⭐提高 buffer（關鍵修復）
-  updateWhenIdle: true,
-  updateWhenZooming: false,
-  crossOrigin: true,
+  'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
+  { attribution:'NLSC' }
+).addTo(map);
 
-  errorTileUrl:
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4//8/AwAI/AL+X9k2AAAAAElFTkSuQmCC'
-}).addTo(map);
+const poiLayer = L.layerGroup().addTo(map);
+let centerPoint = null;
 
+// ---------------- ICON ----------------
+function icon(color){
+  return L.divIcon({
+    className:"",
+    html:`<div style="width:10px;height:10px;border-radius:50%;background:${color}"></div>`,
+    iconSize:[10,10]
+  });
+}
+
+// ---------------- TYPE FIX ----------------
+function getType(tags){
+
+  if(tags.shop === "convenience") return "便利商店";
+
+  if(tags.amenity === "bank" || tags.shop === "bank") return "銀行";
+
+  if(tags.shop === "supermarket") return "超市";
+
+  if(tags.shop === "mall") return "超市";
+
+  if(tags.amenity === "marketplace") return "傳統市場";
+
+  return null;
+}
+
+// ---------------- COLOR ----------------
+function color(t){
+  return {
+    "便利商店":"#22c55e",
+    "銀行":"#3b82f6",
+    "超市":"#f59e0b",
+    "傳統市場":"#ef4444"
+  }[t] || "#999";
+}
+
+// ---------------- CHECK ----------------
+function enabled(type){
+  if(type==="便利商店") return c1.checked;
+  if(type==="銀行") return c2.checked;
+  if(type==="超市") return c3.checked;
+  if(type==="傳統市場") return c4.checked;
+  return false;
+}
+
+// ---------------- OVERPASS (FIXED + FALLBACK) ----------------
+async function fetchPOI(lat,lng){
+
+  poiLayer.clearLayers();
+
+  const query = `
+  [out:json][timeout:25];
+  (
+    node(around:2000,${lat},${lng})["shop"="convenience"];
+    node(around:2000,${lat},${lng})["amenity"="bank"];
+    node(around:2000,${lat},${lng})["shop"="bank"];
+    node(around:2000,${lat},${lng})["shop"="supermarket"];
+    node(around:2000,${lat},${lng})["shop"="mall"];
+    node(around:2000,${lat},${lng})["amenity"="marketplace"];
+  );
+  out;`;
+
+  const endpoints = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter"
+  ];
+
+  let json = null;
+
+  for(const url of endpoints){
+    try{
+      const res = await fetch(url, {
+        method:"POST",
+        body: query
+      });
+
+      json = await res.json();
+
+      if(json && json.elements){
+        console.log("POI source:", url);
+        break;
+      }
+
+    } catch(e){
+      console.log("Overpass fail:", url, e);
+    }
+  }
+
+  if(!json || !json.elements){
+    alert("POI 載入失敗（Overpass API 無回應）");
+    return;
+  }
+
+  console.log("POI count:", json.elements.length);
+
+  json.elements.forEach(e=>{
+
+    if(!e.lat || !e.lon) return;
+
+    const type = getType(e.tags || {});
+    if(!type) return;
+
+    if(!enabled(type)) return;
+
+    const name = e.tags.name || type;
+
+    L.marker([e.lat, e.lon], {
+      icon: icon(color(type))
+    })
+    .bindPopup(`<b>${type}</b><br>${name}`)
+    .addTo(poiLayer);
+  });
+
+}
+
+// ---------------- RADIUS ----------------
+function draw(lat,lng){
+
+  if(centerPoint){
+    map.removeLayer(centerPoint.circle);
+  }
+
+  const circle = L.circle([lat,lng],{
+    radius:2000,
+    color:"#60a5fa",
+    fillOpacity:0.15
+  }).addTo(map);
+
+  centerPoint = {circle};
+}
+
+// ---------------- CLICK ----------------
+function go(lat,lng){
+  map.flyTo([lat,lng],15);
+  draw(lat,lng);
+  fetchPOI(lat,lng);
+}
+
+// ---------------- SAMPLE ----------------
+const data = [
+  {name:"輔仁大學",lat:25.0355,lng:121.4315},
+  {name:"淡江大學",lat:25.1762,lng:121.4510},
+  {name:"台北大學",lat:24.9441,lng:121.3710}
+];
+
+// ---------------- LIST ----------------
+function render(){
+  const el=document.getElementById("list");
+  el.innerHTML="";
+
+  data.forEach(d=>{
+    const div=document.createElement("div");
+    div.className="card";
+    div.innerHTML=d.name;
+    div.onclick=()=>go(d.lat,d.lng);
+    el.appendChild(div);
+  });
+}
+
+render();
+
+</script>
 </script>
 
 </body>
