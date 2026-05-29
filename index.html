@@ -19,6 +19,11 @@ body {
   top: 0;
   width: calc(100% - 380px);
   height: 100vh;
+  background:#f8fafc;
+}
+
+.leaflet-container {
+  background:#dbeafe;
 }
 
 #gisTitle {
@@ -184,7 +189,6 @@ body {
 
 <div id="map">
 
-  <!-- 新增 POI PANEL -->
   <div id="poiPanel">
     <h3>POI 搜尋</h3>
 
@@ -244,15 +248,49 @@ body {
 
 <script>
 
-const map = L.map('map').setView([25.05,121.45], 11);
+/* =========================
+   地圖初始化
+========================= */
 
-L.tileLayer(
+const map = L.map('map',{
+  preferCanvas:true,
+  zoomControl:true,
+  fadeAnimation:false,
+  zoomAnimation:true,
+  markerZoomAnimation:true
+}).setView([25.05,121.45], 11);
+
+/* =========================
+   修正黑方塊 WMTS
+========================= */
+
+const nlscEMAP = L.tileLayer(
   'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
   {
     attribution:'&copy; NLSC',
-    maxZoom:19
+    maxZoom:18,
+    minZoom:7,
+    tileSize:256,
+    zoomOffset:0,
+    updateWhenZooming:false,
+    keepBuffer:8,
+    crossOrigin:true,
+    noWrap:true
   }
-).addTo(map);
+);
+
+nlscEMAP.addTo(map);
+
+/* 強制重繪避免黑格 */
+map.on('zoomend moveend',()=>{
+  setTimeout(()=>{
+    map.invalidateSize(true);
+  },50);
+});
+
+/* =========================
+   原始資料
+========================= */
 
 const data = [
 
@@ -297,10 +335,6 @@ const poiKeywords = {
   laundry:"自助洗衣店"
 };
 
-/* =========================
-   初始化學校選單
-========================= */
-
 const schoolSelect = document.getElementById("schoolSelect");
 
 const uniqueSchools = [...new Map(
@@ -315,7 +349,7 @@ uniqueSchools.forEach(s=>{
 });
 
 /* =========================
-   模擬 POI 資料
+   模擬 POI
 ========================= */
 
 function generatePOI(centerLat,centerLng,type){
@@ -338,7 +372,7 @@ function generatePOI(centerLat,centerLng,type){
 }
 
 /* =========================
-   搜尋 POI
+   POI 搜尋
 ========================= */
 
 function searchPOI(){
@@ -357,7 +391,10 @@ function searchPOI(){
 
   if(!school) return;
 
-  map.flyTo([school.lat,school.lng],15);
+  map.flyTo([school.lat,school.lng],15,{
+    animate:true,
+    duration:1.2
+  });
 
   drawRadius(school.lat,school.lng);
 
@@ -370,7 +407,8 @@ function searchPOI(){
       color:"#2563eb",
       fillColor:"#60a5fa",
       fillOpacity:0.9,
-      weight:2
+      weight:2,
+      renderer:L.canvas()
     });
 
     marker.bindPopup(`
@@ -398,15 +436,20 @@ function searchPOI(){
 ========================= */
 
 function shouldShowLabel(latlng,zoom){
+
   if(zoom<12) return false;
 
   const p=map.latLngToContainerPoint(latlng);
 
   for(let q of labelPositions){
-    if(Math.hypot(p.x-q.x,p.y-q.y)<80) return false;
+
+    if(Math.hypot(p.x-q.x,p.y-q.y)<80){
+      return false;
+    }
   }
 
   labelPositions.push(p);
+
   return true;
 }
 
@@ -416,7 +459,7 @@ function getFilteredData(){
   const s=document.getElementById("seasonFilter").value;
 
   return data.filter(x=>
-    (d==="all"||x.district===d) &&
+    (d==="all"||x.district===d)&&
     (s==="all"||x.season===s)
   );
 }
@@ -442,13 +485,17 @@ function drawRadius(lat,lng){
     radius:2000,
     color:"#60a5fa",
     fillColor:"#93c5fd",
-    fillOpacity:0.25
+    fillOpacity:0.25,
+    renderer:L.canvas()
   }).addTo(circleLayer);
 }
 
 function go(lat,lng){
 
-  map.flyTo([lat,lng],16);
+  map.flyTo([lat,lng],16,{
+    animate:true,
+    duration:1.2
+  });
 
   drawRadius(lat,lng);
 }
@@ -473,6 +520,7 @@ function render(list){
   Object.keys(grouped).forEach(name=>{
 
     const items=grouped[name];
+
     const first=items[0];
 
     const types={
@@ -517,8 +565,10 @@ function render(list){
       iconAnchor:[60,25]
     });
 
-    L.marker([first.lat,first.lng],{icon})
-      .addTo(markerLayer);
+    L.marker([first.lat,first.lng],{
+      icon,
+      bubblingMouseEvents:false
+    }).addTo(markerLayer);
 
     const row=(label,arr)=>`
       <tr>
