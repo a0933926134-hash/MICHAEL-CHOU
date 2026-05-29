@@ -1,752 +1,1836 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
+
 <head>
+
 <meta charset="utf-8"/>
+
 <title>新北市大專院校租金 GIS</title>
+
+
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
+
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+
 
 <style>
 
+
+
 html,body{
+
   margin:0;
+
   padding:0;
+
   width:100%;
+
   height:100%;
+
   overflow:hidden;
+
   font-family:system-ui,-apple-system,"Segoe UI";
+
   background:#f3f4f6;
+
 }
+
+
 
 #map{
+
   position:absolute;
+
   left:0;
+
   top:0;
+
   width:calc(100% - 380px);
+
   height:100vh;
+
   background:#dbeafe;
+
 }
 
-/* ✅ 修正：移除會造成黑方塊的 GPU 強制加速 */
+
+
+/* 避免 Leaflet tile 黑方塊 */
+
 .leaflet-container{
+
   background:#dbeafe;
+
 }
+
+
+
+.leaflet-tile{
+
+  image-rendering:auto;
+
+}
+
+
+
+.leaflet-pane,
+
+.leaflet-tile-container{
+
+  will-change:transform;
+
+  backface-visibility:hidden;
+
+  transform:translateZ(0);
+
+}
+
+
 
 /* =======================
+
    TITLE
+
 ======================= */
+
+
 
 #gisTitle{
+
   position:absolute;
+
   top:12px;
+
   right:12px;
+
   z-index:1000;
+
   background:rgba(255,255,255,0.96);
+
   border:1px solid #d0d7de;
+
   border-radius:12px;
+
   padding:10px 12px;
+
   min-width:240px;
+
   box-shadow:0 2px 12px rgba(0,0,0,0.08);
+
 }
 
+
+
+#gisTitle .t1{
+
+  font-size:13px;
+
+  font-weight:700;
+
+}
+
+
+
+#gisTitle .t2{
+
+  margin-top:6px;
+
+  font-size:11px;
+
+  color:#666;
+
+}
+
+
+
 /* =======================
+
    POI BOX
+
 ======================= */
+
+
 
 #poiBox{
+
   position:absolute;
+
   top:12px;
+
   left:12px;
+
   z-index:2000;
+
   width:210px;
+
   background:rgba(255,255,255,0.97);
+
   border-radius:14px;
+
   padding:12px;
+
   border:1px solid #d0d7de;
+
   box-shadow:0 8px 24px rgba(0,0,0,0.15);
+
   cursor:move;
+
   user-select:none;
+
 }
+
+
+
+#poiBox h4{
+
+  margin:0 0 10px;
+
+  font-size:13px;
+
+}
+
+
+
+.poi-item{
+
+  font-size:12px;
+
+  margin:6px 0;
+
+}
+
+
+
+.poi-note{
+
+  margin-top:8px;
+
+  font-size:11px;
+
+  color:#666;
+
+  line-height:1.5;
+
+}
+
+
 
 /* =======================
-   PANEL
+
+   RIGHT PANEL
+
 ======================= */
 
+
+
 #panel{
+
   position:absolute;
+
   right:0;
+
   top:0;
+
   width:380px;
+
   height:100vh;
+
   background:rgba(255,255,255,0.94);
+
   backdrop-filter:blur(12px);
+
   border-left:1px solid #e5e7eb;
+
   display:flex;
+
   flex-direction:column;
+
 }
+
+
+
+#header{
+
+  padding:14px;
+
+  border-bottom:1px solid #eee;
+
+}
+
+
+
+#title{
+
+  font-size:18px;
+
+  font-weight:700;
+
+}
+
+
+
+#subtitle{
+
+  font-size:12px;
+
+  color:#666;
+
+}
+
+
+
+#filterBox{
+
+  padding:10px 14px;
+
+  border-bottom:1px solid #eee;
+
+  display:flex;
+
+  flex-direction:column;
+
+  gap:8px;
+
+}
+
+
+
+#filterBox select{
+
+  width:100%;
+
+  padding:7px 9px;
+
+  font-size:12px;
+
+  border:1px solid #d0d7de;
+
+  border-radius:8px;
+
+}
+
+
+
+#list{
+
+  flex:1;
+
+  overflow-y:auto;
+
+  padding:12px;
+
+}
+
+
+
+/* =======================
+
+   CARD
+
+======================= */
+
+
+
+.card{
+
+  background:linear-gradient(145deg,#ffffff,#f3f4f6);
+
+  border-radius:14px;
+
+  padding:14px;
+
+  margin-bottom:12px;
+
+  cursor:pointer;
+
+  box-shadow:0 10px 20px rgba(0,0,0,0.10);
+
+  transition:all 0.25s ease;
+
+}
+
+
+
+.card:hover{
+
+  transform:translateY(-4px);
+
+}
+
+
+
+.name{
+
+  font-weight:800;
+
+  font-size:15px;
+
+}
+
+
+
+.meta{
+
+  font-size:12px;
+
+  color:#6b7280;
+
+}
+
+
+
+.price-table{
+
+  width:100%;
+
+  margin-top:8px;
+
+  border-collapse:collapse;
+
+  font-size:12px;
+
+}
+
+
+
+.price-table th{
+
+  text-align:left;
+
+  padding:4px 6px;
+
+  background:#f3f4f6;
+
+}
+
+
+
+.price-table td{
+
+  padding:4px 6px;
+
+  color:#2563eb;
+
+  font-weight:700;
+
+}
+
+
+
+/* =======================
+
+   LABEL
+
+======================= */
+
+
+
+.gis-label .label{
+
+  font-size:14px;
+
+  font-weight:900;
+
+  color:#111827;
+
+  text-shadow:0 2px 6px rgba(255,255,255,0.9);
+
+  white-space:nowrap;
+
+}
+
+
+
+/* =======================
+
+   POI LABEL
+
+======================= */
+
+
+
+.poi-text{
+
+  font-size:11px;
+
+  font-weight:700;
+
+  color:#111827;
+
+  background:rgba(255,255,255,0.92);
+
+  padding:2px 5px;
+
+  border-radius:6px;
+
+  border:1px solid rgba(0,0,0,0.08);
+
+  white-space:nowrap;
+
+}
+
+
+
+/* =======================
+
+   RADIUS INFO
+
+======================= */
+
+
+
+#radiusInfo{
+
+  position:absolute;
+
+  bottom:12px;
+
+  left:12px;
+
+  z-index:1000;
+
+  background:rgba(255,255,255,0.95);
+
+  border-radius:10px;
+
+  padding:8px 10px;
+
+  font-size:12px;
+
+  border:1px solid #d0d7de;
+
+  box-shadow:0 2px 10px rgba(0,0,0,0.08);
+
+}
+
 
 
 </style>
+
 </head>
+
+
 
 <body>
 
+
+
 <div id="map">
 
+
+
   <div id="gisTitle">
+
     <div class="t1">新北市大專院校租金地圖</div>
+
     <div class="t2" id="gisSub">
+
       School Rent GIS
+
     </div>
+
   </div>
+
+
 
   <div id="radiusInfo">
+
     POI 僅搜尋學校周邊 2 公里範圍
+
   </div>
 
+
+
   <!-- POI BOX -->
+
   <div id="poiBox">
+
+
 
     <h4>POI BOX</h4>
 
+
+
     <div class="poi-item">
+
       <label>
+
         <input type="checkbox" class="poi" value="park">
+
         公園
+
       </label>
+
     </div>
 
+
+
     <div class="poi-item">
+
       <label>
+
         <input type="checkbox" class="poi" value="mall">
+
         賣場
+
       </label>
+
     </div>
 
+
+
     <div class="poi-item">
+
       <label>
+
         <input type="checkbox" class="poi" value="convenience">
+
         便利商店
+
       </label>
+
     </div>
 
+
+
     <div class="poi-item">
+
       <label>
+
         <input type="checkbox" class="poi" value="laundry">
+
         自助洗衣店
+
       </label>
+
     </div>
 
+
+
     <div class="poi-item">
+
       <label>
+
         <input type="checkbox" class="poi" value="police">
+
         警局
+
       </label>
+
     </div>
+
+
 
     <div class="poi-note">
+
       ✔ 僅顯示目前選定學校<br>
+
       ✔ 半徑 2 公里內 POI
+
     </div>
+
+
 
   </div>
 
+
+
 </div>
+
+
 
 <div id="panel">
 
+
+
   <div id="header">
+
     <div id="title">Rent Explorer</div>
+
     <div id="subtitle">School-based GIS Analysis</div>
+
   </div>
+
+
 
   <!-- FILTER BOX -->
+
   <div id="filterBox">
 
+
+
     <select id="districtFilter">
+
       <option value="all">全部行政區</option>
+
       <option value="新莊">新莊</option>
+
       <option value="泰山">泰山</option>
+
       <option value="板橋">板橋</option>
+
       <option value="淡水">淡水</option>
+
       <option value="三峽">三峽</option>
+
       <option value="林口">林口</option>
+
       <option value="中和">中和</option>
+
       <option value="新店">新店</option>
+
       <option value="深坑">深坑</option>
+
     </select>
+
+
 
     <select id="seasonFilter">
+
       <option value="all">季別</option>
+
       <option value="2025-Q1">2025 Q1</option>
+
       <option value="2025-Q2">2025 Q2</option>
+
       <option value="2025-Q3">2025 Q3</option>
+
       <option value="2025-Q4">2025 Q4</option>
+
     </select>
 
+
+
   </div>
+
+
 
   <div id="list"></div>
 
+
+
 </div>
+
+
 
 <script>
 
+
+
 /* =========================================================
+
    MAP
+
 ========================================================= */
+
+
 
 const map = L.map('map',{
+
   zoomControl:true,
+
   preferCanvas:true,
+
   zoomAnimation:true,
+
   fadeAnimation:false,
+
   markerZoomAnimation:false
+
 }).setView([25.05,121.45],11);
 
+
+
 /* =========================================================
+
    BASEMAP
+
    修正黑方塊
+
 ========================================================= */
+
+
 
 L.tileLayer(
+
 'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
+
 {
+
   attribution:'© NLSC',
+
   maxZoom:19,
+
   keepBuffer:8,
+
   updateWhenZooming:false,
+
   updateWhenIdle:true,
+
   unloadInvisibleTiles:false,
+
   crossOrigin:true
+
 }).addTo(map);
 
+
+
 /* =========================================================
+
    DATA
+
 ========================================================= */
+
+
 
 const data = [
 
+
+
 {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q1", rents:{雅房:9000, 套房:12000, 整層:20000}},
+
 {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q2", rents:{雅房:9100, 套房:12100, 整層:20100}},
+
 {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q3", rents:{雅房:9200, 套房:12200, 整層:20200}},
+
 {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q4", rents:{雅房:9300, 套房:12300, 整層:20300}},
 
+
+
 {name:"致理科大", district:"板橋", lat:25.0208, lng:121.4643, season:"2025-Q1", rents:{雅房:11000, 套房:13000, 整層:22000}},
+
 {name:"致理科大", district:"板橋", lat:25.0208, lng:121.4643, season:"2025-Q2", rents:{雅房:11200, 套房:13200, 整層:22200}},
+
 {name:"致理科大", district:"板橋", lat:25.0208, lng:121.4643, season:"2025-Q3", rents:{雅房:11300, 套房:13300, 整層:22300}},
+
 {name:"致理科大", district:"板橋", lat:25.0208, lng:121.4643, season:"2025-Q4", rents:{雅房:11500, 套房:13500, 整層:22500}},
 
+
+
 {name:"亞東科大", district:"板橋", lat:24.9951, lng:121.4531, season:"2025-Q1", rents:{雅房:10800, 套房:12800, 整層:21000}},
+
 {name:"亞東科大", district:"板橋", lat:24.9951, lng:121.4531, season:"2025-Q2", rents:{雅房:10900, 套房:12900, 整層:21100}},
+
 {name:"亞東科大", district:"板橋", lat:24.9951, lng:121.4531, season:"2025-Q3", rents:{雅房:11000, 套房:13000, 整層:21200}},
+
 {name:"亞東科大", district:"板橋", lat:24.9951, lng:121.4531, season:"2025-Q4", rents:{雅房:11100, 套房:13100, 整層:21300}},
 
+
+
 {name:"淡江大學", district:"淡水", lat:25.1762, lng:121.4510, season:"2025-Q1", rents:{雅房:8000, 套房:10000, 整層:18000}},
+
 {name:"淡江大學", district:"淡水", lat:25.1762, lng:121.4510, season:"2025-Q2", rents:{雅房:8100, 套房:10100, 整層:18100}},
+
 {name:"淡江大學", district:"淡水", lat:25.1762, lng:121.4510, season:"2025-Q3", rents:{雅房:8200, 套房:10200, 整層:18200}},
+
 {name:"淡江大學", district:"淡水", lat:25.1762, lng:121.4510, season:"2025-Q4", rents:{雅房:8300, 套房:10300, 整層:18300}},
 
+
+
 {name:"真理大學", district:"淡水", lat:25.1751, lng:121.4325, season:"2025-Q1", rents:{雅房:7500, 套房:9500, 整層:17000}},
+
 {name:"真理大學", district:"淡水", lat:25.1751, lng:121.4325, season:"2025-Q2", rents:{雅房:7600, 套房:9600, 整層:17100}},
+
 {name:"真理大學", district:"淡水", lat:25.1751, lng:121.4325, season:"2025-Q3", rents:{雅房:7700, 套房:9700, 整層:17200}},
+
 {name:"真理大學", district:"淡水", lat:25.1751, lng:121.4325, season:"2025-Q4", rents:{雅房:7800, 套房:9800, 整層:17300}},
 
+
+
 {name:"台北大學", district:"三峽", lat:24.9441, lng:121.3710, season:"2025-Q1", rents:{雅房:8500, 套房:10500, 整層:19000}},
+
 {name:"台北大學", district:"三峽", lat:24.9441, lng:121.3710, season:"2025-Q2", rents:{雅房:8600, 套房:10600, 整層:19100}},
+
 {name:"台北大學", district:"三峽", lat:24.9441, lng:121.3710, season:"2025-Q3", rents:{雅房:8700, 套房:10700, 整層:19200}},
+
 {name:"台北大學", district:"三峽", lat:24.9441, lng:121.3710, season:"2025-Q4", rents:{雅房:8800, 套房:10800, 整層:19300}},
 
+
+
 {name:"醒吾科大", district:"林口", lat:25.0823, lng:121.3965, season:"2025-Q1", rents:{雅房:9000, 套房:11000, 整層:20000}},
+
 {name:"醒吾科大", district:"林口", lat:25.0823, lng:121.3965, season:"2025-Q2", rents:{雅房:9100, 套房:11100, 整層:20100}},
+
 {name:"醒吾科大", district:"林口", lat:25.0823, lng:121.3965, season:"2025-Q3", rents:{雅房:9200, 套房:11200, 整層:20200}},
+
 {name:"醒吾科大", district:"林口", lat:25.0823, lng:121.3965, season:"2025-Q4", rents:{雅房:9300, 套房:11300, 整層:20300}},
 
+
+
 {name:"明志科大", district:"泰山", lat:25.0405, lng:121.4222, season:"2025-Q1", rents:{雅房:9000, 套房:11000, 整層:20000}},
+
 {name:"明志科大", district:"泰山", lat:25.0405, lng:121.4222, season:"2025-Q2", rents:{雅房:9100, 套房:11100, 整層:20100}},
+
 {name:"明志科大", district:"泰山", lat:25.0405, lng:121.4222, season:"2025-Q3", rents:{雅房:9200, 套房:11200, 整層:20200}},
+
 {name:"明志科大", district:"泰山", lat:25.0405, lng:121.4222, season:"2025-Q4", rents:{雅房:9300, 套房:11300, 整層:20300}},
 
+
+
 {name:"華夏科大", district:"中和", lat:24.9805, lng:121.5077, season:"2025-Q1", rents:{雅房:10500, 套房:12500, 整層:21000}},
+
 {name:"華夏科大", district:"中和", lat:24.9805, lng:121.5077, season:"2025-Q2", rents:{雅房:10600, 套房:12600, 整層:21100}},
+
 {name:"華夏科大", district:"中和", lat:24.9805, lng:121.5077, season:"2025-Q3", rents:{雅房:10700, 套房:12700, 整層:21200}},
+
 {name:"華夏科大", district:"中和", lat:24.9805, lng:121.5077, season:"2025-Q4", rents:{雅房:10800, 套房:12800, 整層:21300}},
 
+
+
 {name:"景文科大", district:"新店", lat:24.9519, lng:121.5092, season:"2025-Q1", rents:{雅房:9500, 套房:11500, 整層:20000}},
+
 {name:"景文科大", district:"新店", lat:24.9519, lng:121.5092, season:"2025-Q2", rents:{雅房:9600, 套房:11600, 整層:20100}},
+
 {name:"景文科大", district:"新店", lat:24.9519, lng:121.5092, season:"2025-Q3", rents:{雅房:9700, 套房:11700, 整層:20200}},
+
 {name:"景文科大", district:"新店", lat:24.9519, lng:121.5092, season:"2025-Q4", rents:{雅房:9800, 套房:11800, 整層:20300}},
 
+
+
 {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q1", rents:{雅房:9500, 套房:11500, 整層:20000}},
+
 {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q2", rents:{雅房:9600, 套房:11600, 整層:20100}},
+
 {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q3", rents:{雅房:9700, 套房:11700, 整層:20200}},
+
 {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q4", rents:{雅房:9800, 套房:11800, 整層:20300}}
+
+
 
 ];
 
+
+
 /* =========================================================
+
    LAYERS
+
 ========================================================= */
 
+
+
 let markerLayer = L.layerGroup().addTo(map);
+
 let circleLayer = L.layerGroup().addTo(map);
 
+
+
 let poiLayers = {
+
   park:L.layerGroup().addTo(map),
+
   mall:L.layerGroup().addTo(map),
+
   convenience:L.layerGroup().addTo(map),
+
   laundry:L.layerGroup().addTo(map),
+
   police:L.layerGroup().addTo(map)
+
 };
+
+
 
 let labelPositions = [];
 
+
+
 /* =========================================================
+
    CURRENT SCHOOL
+
 ========================================================= */
+
+
 
 let currentSchool = null;
 
+
+
 /* =========================================================
+
    LABEL COLLISION
+
 ========================================================= */
+
+
 
 function shouldShowLabel(latlng, zoom){
 
+
+
   if(zoom < 12) return false;
+
+
 
   const p = map.latLngToContainerPoint(latlng);
 
+
+
   for(let q of labelPositions){
 
+
+
     if(Math.hypot(p.x-q.x,p.y-q.y) < 80){
+
       return false;
+
     }
+
   }
+
+
 
   labelPositions.push(p);
 
+
+
   return true;
+
 }
 
+
+
 /* =========================================================
+
    FILTER
+
 ========================================================= */
+
+
 
 function getFilteredData(){
 
+
+
   const d = document.getElementById("districtFilter").value;
+
   const s = document.getElementById("seasonFilter").value;
 
+
+
   return data.filter(x=>
+
     (d==="all" || x.district===d) &&
+
     (s==="all" || x.season===s)
+
   );
+
 }
 
+
+
 /* =========================================================
+
    QUANTILE
+
 ========================================================= */
+
+
 
 function quantile(arr,q){
 
+
+
   arr = arr.slice().sort((a,b)=>a-b);
 
+
+
   const p = (arr.length-1)*q;
+
   const b = Math.floor(p);
+
   const r = p-b;
 
+
+
   return arr[b+1] !== undefined
+
     ? arr[b] + r*(arr[b+1]-arr[b])
+
     : arr[b];
+
 }
 
+
+
 /* =========================================================
+
    DRAW RADIUS
+
 ========================================================= */
+
+
 
 function drawRadius(lat,lng){
 
+
+
   circleLayer.clearLayers();
 
+
+
   L.circle([lat,lng],{
+
     radius:2000,
+
     color:"#2563eb",
+
     weight:2,
+
     fillColor:"#93c5fd",
+
     fillOpacity:0.18
+
   }).addTo(circleLayer);
+
 }
 
+
+
 /* =========================================================
+
    GO
+
 ========================================================= */
+
+
 
 function go(lat,lng,name){
 
+
+
   currentSchool = {
+
     lat,
+
     lng,
+
     name
+
   };
 
+
+
   map.flyTo([lat,lng],15,{
+
     duration:1.2
+
   });
+
+
 
   drawRadius(lat,lng);
 
+
+
   updatePOI();
+
 }
 
+
+
 /* =========================================================
+
    RENDER
+
 ========================================================= */
+
+
 
 function render(list){
 
+
+
   markerLayer.clearLayers();
+
+
 
   labelPositions = [];
 
+
+
   const el = document.getElementById("list");
+
+
 
   el.innerHTML = "";
 
+
+
   const grouped = {};
+
+
 
   list.forEach(d=>{
 
+
+
     if(!grouped[d.name]){
+
       grouped[d.name] = [];
+
     }
+
+
 
     grouped[d.name].push(d);
 
+
+
   });
+
+
 
   Object.keys(grouped).forEach(name=>{
 
+
+
     const items = grouped[name];
+
     const first = items[0];
 
+
+
     const types = {
+
       雅房:[],
+
       套房:[],
+
       整層:[]
+
     };
+
+
 
     items.forEach(i=>{
 
+
+
       types.雅房.push(i.rents.雅房);
+
       types.套房.push(i.rents.套房);
+
       types.整層.push(i.rents.整層);
 
+
+
     });
+
+
 
     const icon = L.divIcon({
+
       className:"",
+
       html:`
+
       <div style="text-align:center;">
 
+
+
         <div style="
+
           width:22px;
+
           height:22px;
+
           background:#ea4335;
+
           border-radius:50% 50% 50% 0;
+
           transform:rotate(-45deg);
+
           margin:auto;
+
           box-shadow:0 2px 8px rgba(0,0,0,0.25);
+
         "></div>
 
+
+
         ${
+
           shouldShowLabel(
+
             L.latLng(first.lat,first.lng),
+
             map.getZoom()
+
           )
+
           ?
+
           `<div class="gis-label">
+
              <div class="label">${name}</div>
+
            </div>`
+
           :""
+
         }
 
+
+
       </div>
+
       `,
+
       iconSize:[120,50],
+
       iconAnchor:[60,25]
+
     });
 
+
+
     L.marker([first.lat,first.lng],{icon})
+
       .addTo(markerLayer)
+
       .on("click",()=>{
+
         go(first.lat,first.lng,name);
+
       });
 
+
+
     const row=(label,arr)=>`
+
       <tr>
+
         <th>${label}</th>
+
         <td>${quantile(arr,0.25).toFixed(0)}</td>
+
         <td>${quantile(arr,0.5).toFixed(0)}</td>
+
         <td>${quantile(arr,0.75).toFixed(0)}</td>
+
       </tr>
+
     `;
+
+
 
     const card=document.createElement("div");
 
+
+
     card.className="card";
 
+
+
     card.onclick=()=>{
+
       go(first.lat,first.lng,name);
+
     };
 
+
+
     card.innerHTML=`
+
       <div class="name">${name}</div>
+
       <div class="meta">${first.district}</div>
+
+
 
       <table class="price-table">
 
+
+
         <tr>
+
           <th></th>
+
           <th>25分位</th>
+
           <th>中位數</th>
+
           <th>75分位</th>
+
         </tr>
 
+
+
         ${row("雅房",types.雅房)}
+
         ${row("套房",types.套房)}
+
         ${row("整層",types.整層)}
 
+
+
       </table>
+
     `;
+
+
 
     el.appendChild(card);
 
+
+
   });
+
+
 
 }
 
+
+
 /* =========================================================
+
    POI QUERY
+
 ========================================================= */
+
+
 
 function getPOIQuery(type){
 
+
+
   switch(type){
 
+
+
     case "park":
+
       return 'node["leisure"="park"]';
 
+
+
     case "mall":
+
       return 'node["shop"="mall"]';
 
+
+
     case "convenience":
+
       return 'node["shop"="convenience"]';
 
+
+
     case "laundry":
+
       return 'node["shop"="laundry"]';
 
+
+
     case "police":
+
       return 'node["amenity"="police"]';
+
   }
+
 }
 
+
+
 /* =========================================================
+
    LOAD POI
+
    修正：僅搜尋半徑 2KM 內
+
 ========================================================= */
+
+
 
 async function loadPOI(type){
 
+
+
   if(!currentSchool) return;
 
+
+
   const lat = currentSchool.lat;
+
   const lng = currentSchool.lng;
 
+
+
   const query = `
+
   [out:json][timeout:25];
+
   (
+
     ${getPOIQuery(type)}(around:2000,${lat},${lng});
+
   );
+
   out center;
+
   `;
 
+
+
   const url =
+
     "https://overpass-api.de/api/interpreter?data="
+
     + encodeURIComponent(query);
+
+
 
   try{
 
+
+
     const res = await fetch(url);
+
+
 
     const json = await res.json();
 
+
+
     poiLayers[type].clearLayers();
+
+
 
     json.elements.forEach(e=>{
 
+
+
       if(!e.lat || !e.lon) return;
 
+
+
       const poiName =
+
         e.tags?.name ||
+
         type;
 
+
+
       const marker = L.circleMarker([e.lat,e.lon],{
+
         radius:6,
+
         weight:1,
+
         color:"#1d4ed8",
+
         fillColor:"#2563eb",
+
         fillOpacity:0.9
+
       });
 
+
+
       marker.bindPopup(`
+
         <b>${poiName}</b><br>
+
         類型：${type}
+
       `);
+
+
 
       marker.addTo(poiLayers[type]);
 
+
+
       /* POI 名稱 */
 
+
+
       L.marker([e.lat,e.lon],{
+
         interactive:false,
+
         icon:L.divIcon({
+
           className:"",
+
           html:`<div class="poi-text">${poiName}</div>`,
+
           iconSize:[100,20],
+
           iconAnchor:[-8,10]
+
         })
+
       }).addTo(poiLayers[type]);
+
+
 
     });
 
+
+
   }catch(err){
+
+
 
     console.error("POI載入失敗:",err);
 
+
+
   }
+
+
 
 }
 
+
+
 /* =========================================================
+
    UPDATE POI
+
 ========================================================= */
+
+
 
 function updatePOI(){
 
+
+
   document.querySelectorAll(".poi")
+
   .forEach(cb=>{
+
+
 
     const type = cb.value;
 
+
+
     if(cb.checked){
+
+
 
       loadPOI(type);
 
+
+
     }else{
+
+
 
       poiLayers[type].clearLayers();
 
+
+
     }
+
+
 
   });
 
+
+
 }
 
+
+
 /* =========================================================
+
    EVENTS
+
 ========================================================= */
 
+
+
 document.querySelectorAll(".poi")
+
 .forEach(cb=>{
+
+
 
   cb.addEventListener("change",updatePOI);
 
+
+
 });
+
+
 
 document.getElementById("districtFilter")
+
 .addEventListener("change",()=>{
+
+
 
   render(getFilteredData());
 
+
+
 });
+
+
 
 document.getElementById("seasonFilter")
+
 .addEventListener("change",()=>{
+
+
 
   render(getFilteredData());
 
+
+
 });
 
+
+
 /* =========================================================
+
    避免 moveend 不斷重繪造成黑方塊
+
 ========================================================= */
+
+
 
 map.on("zoomend",()=>{
 
+
+
   render(getFilteredData());
+
+
 
 });
 
+
+
 /* =========================================================
+
    初始
+
 ========================================================= */
+
+
 
 render(data);
 
+
+
 /* =========================================================
+
    預設定位第一間學校
+
 ========================================================= */
+
+
 
 setTimeout(()=>{
 
+
+
   const first = data[0];
+
+
 
   go(first.lat,first.lng,first.name);
 
+
+
 },500);
 
+
+
 /* =========================================================
+
    Draggable POI BOX
+
 ========================================================= */
+
+
 
 const box = document.getElementById("poiBox");
 
+
+
 let dragging = false;
+
 let offsetX = 0;
+
 let offsetY = 0;
+
+
 
 box.addEventListener("mousedown",(e)=>{
 
+
+
   dragging = true;
 
+
+
   offsetX = e.clientX - box.offsetLeft;
+
   offsetY = e.clientY - box.offsetTop;
 
+
+
 });
+
+
 
 document.addEventListener("mousemove",(e)=>{
 
+
+
   if(!dragging) return;
 
+
+
   box.style.left =
+
     (e.clientX-offsetX)+"px";
 
+
+
   box.style.top =
+
     (e.clientY-offsetY)+"px";
 
+
+
 });
+
+
 
 document.addEventListener("mouseup",()=>{
 
+
+
   dragging = false;
+
+
 
 });
 
+
+
 </script>
 
+
+
 </body>
-</html>
+
+</html> 
+
