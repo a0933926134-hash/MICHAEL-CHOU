@@ -759,25 +759,23 @@ const map = L.map('map',{
 
 
 L.tileLayer(
-
 'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
-
 {
+  attribution: '© NLSC',
+  maxZoom: 19,
+  minZoom: 6,
 
-  attribution:'© NLSC',
+  // 🔥 關鍵修正
+  noWrap: true,
+  bounds: [[21.8, 119.0], [25.5, 122.5]],
 
-  maxZoom:19,
+  // 穩定 tile 載入
+  keepBuffer: 2,
+  updateWhenIdle: true,
+  updateWhenZooming: false,
+  unloadInvisibleTiles: true,
 
-  keepBuffer:8,
-
-  updateWhenZooming:false,
-
-  updateWhenIdle:true,
-
-  unloadInvisibleTiles:false,
-
-  crossOrigin:true
-
+  crossOrigin: true
 }).addTo(map);
 
 
