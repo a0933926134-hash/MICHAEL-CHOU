@@ -283,8 +283,15 @@ function drawRadius(lat,lng){
 }
 
 function go(lat,lng){
-  map.flyTo([lat,lng],16);
   drawRadius(lat,lng);
+
+  const circle=L.circle([lat,lng],{
+    radius:2000
+  });
+
+  map.fitBounds(circle.getBounds(),{
+    padding:[40,40]
+  });
 }
 
 function render(list){
