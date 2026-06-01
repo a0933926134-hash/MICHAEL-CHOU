@@ -231,7 +231,25 @@ const data = [
   {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q3", rents:{雅房:9700, 套房:11700, 整層:20200}},
   {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q4", rents:{雅房:9800, 套房:11800, 整層:20300}}
 ];
+function quantile(arr, q){
 
+  if(!arr || arr.length===0) return 0;
+
+  const sorted = [...arr].sort((a,b)=>a-b);
+
+  const pos = (sorted.length - 1) * q;
+
+  const base = Math.floor(pos);
+
+  const rest = pos - base;
+
+  if(sorted[base + 1] !== undefined){
+    return sorted[base] +
+      rest * (sorted[base + 1] - sorted[base]);
+  }
+
+  return sorted[base];
+}
 // ===================== FIXED LOGIC =====================
 let markerLayer = L.layerGroup().addTo(map);
 let circleLayer = L.layerGroup().addTo(map);
