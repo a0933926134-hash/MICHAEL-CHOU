@@ -351,7 +351,6 @@ function updateView(){
   const district = document.getElementById("districtFilter").value;
   const season = document.getElementById("seasonFilter").value;
 
-  // 未選完整條件
   if(district==="all" || season==="all"){
     markerLayer.clearLayers();
     circleLayer.clearLayers();
@@ -363,17 +362,16 @@ function updateView(){
     `;
 
     document.getElementById("gisSub").innerHTML = "待選擇條件";
-
     return;
   }
 
+  // 🔥 FIX：只用 district，不用 season 切資料
   const result = data.filter(d =>
-    d.district === district &&
-    d.season === season
+    d.district === district
   );
 
   document.getElementById("gisSub").innerHTML =
-    `${district}｜${season}`;
+    `${district}｜全季資料分析`;
 
   render(result);
 }
