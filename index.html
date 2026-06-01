@@ -262,13 +262,20 @@ function getFilteredData(){
 }
 
 function drawRadius(lat,lng){
+
   circleLayer.clearLayers();
+
   L.circle([lat,lng],{
     radius:2000,
-    color:"#60a5fa",
+    color:"#3b82f6",
+    weight:2,
+    opacity:0.9,
+    dashArray:"5,5",
+
     fillColor:"#93c5fd",
-    fillOpacity:0.25
+    fillOpacity:0.18
   }).addTo(circleLayer);
+
 }
 
 function go(lat,lng,name){
@@ -431,6 +438,27 @@ function updateView(){
   }
 
   render(result);
+
+const firstSchool = result[0];
+
+selectedSchool = firstSchool.name;
+
+drawRadius(
+  firstSchool.lat,
+  firstSchool.lng
+);
+
+map.fitBounds(
+  L.circle(
+    [firstSchool.lat,firstSchool.lng],
+    {radius:2000}
+  ).getBounds(),
+  {
+    padding:[40,40]
+  }
+);
+
+render(result);
 
 }
 updateView();
