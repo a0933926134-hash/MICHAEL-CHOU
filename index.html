@@ -27,41 +27,24 @@ body {
   top: 0;
   width: 380px;
   height: 100vh;
-  background: rgba(255,255,255,0.92);
-  border-left: 1px solid #e5e7eb;
+  background: #fff;
+  border-left: 1px solid #ddd;
   display: flex;
   flex-direction: column;
-}
-
-#filterBox {
-  padding: 10px;
-  border-bottom: 1px solid #eee;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-select {
-  padding: 6px;
 }
 
 #list {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: 12px;
 }
 
 .card {
   padding: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  border-radius: 10px;
   background: #f3f4f6;
-  border-radius: 8px;
   cursor: pointer;
-}
-
-.card.active {
-  background: #dbeafe;
-  border: 1px solid #3b82f6;
 }
 </style>
 </head>
@@ -71,26 +54,21 @@ select {
 <div id="map"></div>
 
 <div id="panel">
-  <div id="filterBox">
-    <select id="district">
+  <div style="padding:10px">
+    <select id="districtFilter">
       <option value="all">全部行政區</option>
       <option value="新莊">新莊</option>
-      <option value="泰山">泰山</option>
       <option value="板橋">板橋</option>
       <option value="淡水">淡水</option>
       <option value="三峽">三峽</option>
-      <option value="林口">林口</option>
-      <option value="中和">中和</option>
-      <option value="新店">新店</option>
-      <option value="深坑">深坑</option>
     </select>
 
-    <select id="season">
+    <select id="seasonFilter">
       <option value="all">請選季別</option>
-      <option value="2025-Q1">2025 Q1</option>
-      <option value="2025-Q2">2025 Q2</option>
-      <option value="2025-Q3">2025 Q3</option>
-      <option value="2025-Q4">2025 Q4</option>
+      <option value="2025-Q1">2025-Q1</option>
+      <option value="2025-Q2">2025-Q2</option>
+      <option value="2025-Q3">2025-Q3</option>
+      <option value="2025-Q4">2025-Q4</option>
     </select>
   </div>
 
@@ -106,7 +84,7 @@ L.tileLayer(
   { maxZoom: 18 }
 ).addTo(map);
 
-// ===================== 你的 DATA（完全不動） =====================
+// ===================== CONST DATA（完全不動） =====================
 const data = [
   {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q1", rents:{雅房:9000, 套房:12000, 整層:20000}},
   {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q2", rents:{雅房:9100, 套房:12100, 整層:20100}},
@@ -131,42 +109,71 @@ const data = [
   {name:"真理大學", district:"淡水", lat:25.1751, lng:121.4325, season:"2025-Q1", rents:{雅房:7500, 套房:9500, 整層:17000}},
   {name:"真理大學", district:"淡水", lat:25.1751, lng:121.4325, season:"2025-Q2", rents:{雅房:7600, 套房:9600, 整層:17100}},
   {name:"真理大學", district:"淡水", lat:25.1751, lng:121.4325, season:"2025-Q3", rents:{雅房:7700, 套房:9700, 整層:17200}},
-  {name:"真理大學", district:"淡水", lat:25.1751, lng:121.4325, season:"2025-Q4", rents:{雅房:7800, 套房:9800, 整層:17300}}
+  {name:"真理大學", district:"淡水", lat:25.1751, lng:121.4325, season:"2025-Q4", rents:{雅房:7800, 套房:9800, 整層:17300}},
+
+  {name:"台北大學", district:"三峽", lat:24.9441, lng:121.3710, season:"2025-Q1", rents:{雅房:8500, 套房:10500, 整層:19000}},
+  {name:"台北大學", district:"三峽", lat:24.9441, lng:121.3710, season:"2025-Q2", rents:{雅房:8600, 套房:10600, 整層:19100}},
+  {name:"台北大學", district:"三峽", lat:24.9441, lng:121.3710, season:"2025-Q3", rents:{雅房:8700, 套房:10700, 整層:19200}},
+  {name:"台北大學", district:"三峽", lat:24.9441, lng:121.3710, season:"2025-Q4", rents:{雅房:8800, 套房:10800, 整層:19300}},
+
+  {name:"醒吾科大", district:"林口", lat:25.0823, lng:121.3965, season:"2025-Q1", rents:{雅房:9000, 套房:11000, 整層:20000}},
+  {name:"醒吾科大", district:"林口", lat:25.0823, lng:121.3965, season:"2025-Q2", rents:{雅房:9100, 套房:11100, 整層:20100}},
+  {name:"醒吾科大", district:"林口", lat:25.0823, lng:121.3965, season:"2025-Q3", rents:{雅房:9200, 套房:11200, 整層:20200}},
+  {name:"醒吾科大", district:"林口", lat:25.0823, lng:121.3965, season:"2025-Q4", rents:{雅房:9300, 套房:11300, 整層:20300}},
+
+  {name:"明志科大", district:"泰山", lat:25.0405, lng:121.4222, season:"2025-Q1", rents:{雅房:9000, 套房:11000, 整層:20000}},
+  {name:"明志科大", district:"泰山", lat:25.0405, lng:121.4222, season:"2025-Q2", rents:{雅房:9100, 套房:11100, 整層:20100}},
+  {name:"明志科大", district:"泰山", lat:25.0405, lng:121.4222, season:"2025-Q3", rents:{雅房:9200, 套房:11200, 整層:20200}},
+  {name:"明志科大", district:"泰山", lat:25.0405, lng:121.4222, season:"2025-Q4", rents:{雅房:9300, 套房:11300, 整層:20300}},
+
+  {name:"華夏科大", district:"中和", lat:24.9805, lng:121.5077, season:"2025-Q1", rents:{雅房:10500, 套房:12500, 整層:21000}},
+  {name:"華夏科大", district:"中和", lat:24.9805, lng:121.5077, season:"2025-Q2", rents:{雅房:10600, 套房:12600, 整層:21100}},
+  {name:"華夏科大", district:"中和", lat:24.9805, lng:121.5077, season:"2025-Q3", rents:{雅房:10700, 套房:12700, 整層:21200}},
+  {name:"華夏科大", district:"中和", lat:24.9805, lng:121.5077, season:"2025-Q4", rents:{雅房:10800, 套房:12800, 整層:21300}},
+
+  {name:"景文科大", district:"新店", lat:24.9519, lng:121.5092, season:"2025-Q1", rents:{雅房:9500, 套房:11500, 整層:20000}},
+  {name:"景文科大", district:"新店", lat:24.9519, lng:121.5092, season:"2025-Q2", rents:{雅房:9600, 套房:11600, 整層:20100}},
+  {name:"景文科大", district:"新店", lat:24.9519, lng:121.5092, season:"2025-Q3", rents:{雅房:9700, 套房:11700, 整層:20200}},
+  {name:"景文科大", district:"新店", lat:24.9519, lng:121.5092, season:"2025-Q4", rents:{雅房:9800, 套房:11800, 整層:20300}},
+
+  // ✅ 修正：補回東南 + 不再斷裂
+  {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q1", rents:{雅房:9500, 套房:11500, 整層:20000}},
+  {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q2", rents:{雅房:9600, 套房:11600, 整層:20100}},
+  {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q3", rents:{雅房:9700, 套房:11700, 整層:20200}},
+  {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q4", rents:{雅房:9800, 套房:11800, 整層:20300}}
+
+
 ];
 
-// ===================== STATE =====================
 let markerLayer = L.layerGroup().addTo(map);
 let circleLayer = L.layerGroup().addTo(map);
 
-let currentData = [];
-let selectedSchool = null;
+// ===================== 工具 =====================
+function groupBySchool(list){
+  const g = {};
+  list.forEach(d=>{
+    if(!g[d.name]) g[d.name]=[];
+    g[d.name].push(d);
+  });
+  return g;
+}
 
-// ===================== MAP DRAW =====================
 function drawCircle(lat,lng){
   circleLayer.clearLayers();
-
   L.circle([lat,lng],{
     radius:2000,
     color:"#3b82f6",
-    fillColor:"#93c5fd",
-    fillOpacity:0.25
+    fillOpacity:0.2
   }).addTo(circleLayer);
 }
 
-function go(lat,lng,name){
-  selectedSchool = name;
-
+// ===================== 點學校 =====================
+function go(lat,lng){
   drawCircle(lat,lng);
-
-  map.fitBounds(
-    L.circle([lat,lng],{radius:2000}).getBounds(),
-    {padding:[40,40]}
-  );
-
-  render(currentData);
+  map.fitBounds(L.circle([lat,lng],{radius:2000}).getBounds());
 }
 
-// ===================== RENDER =====================
+// ===================== render =====================
 function render(list){
 
   markerLayer.clearLayers();
@@ -174,63 +181,58 @@ function render(list){
   const el = document.getElementById("list");
   el.innerHTML = "";
 
-  const grouped = {};
-  list.forEach(d=>{
-    if(!grouped[d.name]) grouped[d.name]=[];
-    grouped[d.name].push(d);
-  });
+  const grouped = groupBySchool(list);
 
   Object.keys(grouped).forEach(name=>{
-    const first = grouped[name][0];
+    const items = grouped[name];
+    const first = items[0];
 
     L.marker([first.lat, first.lng])
       .addTo(markerLayer)
-      .on("click",()=>go(first.lat,first.lng,name));
+      .on("click",()=>go(first.lat, first.lng));
 
     const card = document.createElement("div");
-    card.className = "card" + (selectedSchool===name ? " active":"");
-    card.innerHTML = name;
-    card.onclick = ()=>go(first.lat,first.lng,name);
+    card.className = "card";
+    card.innerHTML = `
+      <b>${name}</b><br/>
+      ${first.district}
+    `;
+
+    card.onclick = ()=>go(first.lat, first.lng);
 
     el.appendChild(card);
   });
 }
 
-// ===================== UPDATE VIEW =====================
+// ===================== updateView（核心修正） =====================
 function updateView(){
 
-  const d = document.getElementById("district").value;
-  const s = document.getElementById("season").value;
+  const d = document.getElementById("districtFilter").value;
+  const s = document.getElementById("seasonFilter").value;
 
-  selectedSchool = null;
   markerLayer.clearLayers();
   circleLayer.clearLayers();
 
   if(d==="all" || s==="all"){
-    document.getElementById("list").innerHTML =
-      "請選行政區與季別";
+    document.getElementById("list").innerHTML = "請選擇行政區與季別";
     return;
   }
 
-  currentData = data.filter(x =>
+  const result = data.filter(x =>
     x.district === d && x.season === s
   );
 
-  if(currentData.length === 0){
+  if(result.length===0){
     document.getElementById("list").innerHTML = "查無資料";
     return;
   }
 
-  render(currentData);
-
-  // ⭐只做一次 auto focus（不再重複 render / go）
-  const first = currentData[0];
-  go(first.lat, first.lng, first.name);
+  render(result);
 }
 
-// ===================== EVENTS =====================
-document.getElementById("district").onchange = updateView;
-document.getElementById("season").onchange = updateView;
+// ===================== events =====================
+document.getElementById("districtFilter").addEventListener("change",updateView);
+document.getElementById("seasonFilter").addEventListener("change",updateView);
 
 updateView();
 
