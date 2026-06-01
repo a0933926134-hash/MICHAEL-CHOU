@@ -351,27 +351,20 @@ function updateView(){
   const district = document.getElementById("districtFilter").value;
   const season = document.getElementById("seasonFilter").value;
 
-  if(district==="all" || season==="all"){
+  if(district==="all"){
     markerLayer.clearLayers();
     circleLayer.clearLayers();
-
     document.getElementById("list").innerHTML = `
       <div style="padding:30px;text-align:center;color:#6b7280;">
-        請選擇行政區 + 季別
-      </div>
-    `;
-
-    document.getElementById("gisSub").innerHTML = "待選擇條件";
+        請選擇行政區
+      </div>`;
     return;
   }
 
-  // 🔥 FIX：保留 district，但不要用 season filter data
   const result = data.filter(d =>
-    d.district === district
+    d.district === district &&
+    (season === "all" || d.season === season)
   );
-
-  document.getElementById("gisSub").innerHTML =
-    `${district}｜${season}`;
 
   render(result);
 }
