@@ -392,12 +392,40 @@ function render(list){
   });
 }
 
-map.on("moveend",()=>render(getFilteredData()));
-map.on("zoomend",()=>render(getFilteredData()));
-document.getElementById("districtFilter").addEventListener("change",()=>render(getFilteredData()));
-document.getElementById("seasonFilter").addEventListener("change",()=>render(getFilteredData()));
+map.on("moveend",()=>{
 
-render(data);
+  const district =
+    document.getElementById("districtFilter").value;
+
+  const season =
+    document.getElementById("seasonFilter").value;
+
+  if(district!=="all" && season!=="all"){
+    render(getFilteredData());
+  }
+});
+
+map.on("zoomend",()=>{
+
+  const district =
+    document.getElementById("districtFilter").value;
+
+  const season =
+    document.getElementById("seasonFilter").value;
+
+  if(district!=="all" && season!=="all"){
+    render(getFilteredData());
+  }
+});
+
+document.getElementById("districtFilter")
+  .addEventListener("change",updateView);
+
+document.getElementById("seasonFilter")
+  .addEventListener("change",updateView);
+
+// 預設不顯示學校
+updateView();
 
 </script>
 
