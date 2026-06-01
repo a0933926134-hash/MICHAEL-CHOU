@@ -364,7 +364,23 @@ function render(list){
       iconAnchor:[60,25]
     });
 
-    L.marker([first.lat,first.lng],{icon}).addTo(markerLayer);
+    L.marker([first.lat,first.lng],{icon})
+  .addTo(markerLayer)
+  .on("click",()=>{
+
+      drawRadius(first.lat,first.lng);
+
+      const circle=L.circle(
+        [first.lat,first.lng],
+        {radius:2000}
+      );
+
+      map.fitBounds(
+        circle.getBounds(),
+        {padding:[40,40]}
+      );
+
+  });
 
     const row=(label,arr)=>`
       <tr><th>${label}</th>
