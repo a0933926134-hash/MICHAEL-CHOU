@@ -291,75 +291,31 @@ function go(lat,lng,name){
 }
 
 function render(list){
-
   markerLayer.clearLayers();
 
-  const el=document.getElementById("list");
-  el.innerHTML="";
-
-  const grouped={};
-
+  const grouped = {};
   list.forEach(d=>{
     if(!grouped[d.name]) grouped[d.name]=[];
     grouped[d.name].push(d);
   });
 
-  Object.keys(grouped).forEach(name=>{
+  const el = document.getElementById("list");
+  el.innerHTML = "";
 
+  Object.keys(grouped).forEach(name=>{
     const items = grouped[name];
     const first = items[0];
 
-    const types = {雅房:[], 套房:[], 整層:[]};
+    L.marker([first.lat, first.lng])
+      .addTo(markerLayer)
+      .on("click", () => go(first.lat, first.lng, name));
 
-    items.forEach(i=>{
-      types.雅房.push(i.rents.雅房);
-      types.套房.push(i.rents.套房);
-      types.整層.push(i.rents.整層);
-    });
-
-    const icon = L.divIcon({
-      className:"",
-      html:`<div style="width:20px;height:20px;background:#ea4335;border-radius:50%"></div>`
-    });
-
-    L.marker([first.lat,first.lng],{icon})
-  .addTo(markerLayer)
-  .on("click",()=>go(first.lat,first.lng,name))
-
-      .on("click",()=>go(first.lat,first.lng,name));
-
-    const row = (label,arr)=>`
-      <tr>
-        <th>${label}</th>
-        <td>${quantile(arr,0.25).toFixed(0)}</td>
-        <td>${quantile(arr,0.5).toFixed(0)}</td>
-        <td>${quantile(arr,0.75).toFixed(0)}</td>
-      </tr>`;
-
-    const card=document.createElement("div");
-    card.className = selectedSchool===name ? "card active":"card";
-
-    card.onclick=()=>go(first.lat,first.lng,name);
-
-    card.innerHTML=`
-      <div class="name">${name}</div>
-      <div class="meta">${first.district}</div>
-
-      <table class="price-table">
-        <tr>
-          <th></th><th>25%</th><th>中位數</th><th>75%</th>
-        </tr>
-        ${row("雅房",types.雅房)}
-        ${row("套房",types.套房)}
-        ${row("整層",types.整層)}
-      </table>
-    `;
+    const card = document.createElement("div");
+    card.innerHTML = name;
+    card.onclick = () => go(first.lat, first.lng, name);
 
     el.appendChild(card);
   });
-
-  document.getElementById("gisSub").innerHTML =
-    "已載入完成：" + Object.keys(grouped).length + " 間學校";
 }
 
 // ===================== EVENTS =====================
