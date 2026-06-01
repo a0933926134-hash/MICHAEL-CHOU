@@ -171,10 +171,17 @@ body {
 
 const map = L.map('map').setView([25.05,121.45], 11);
 
-L.tileLayer(
+const nlscEMAP = L.tileLayer(
   'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
-  { attribution: '&copy; NLSC' }
-).addTo(map);
+  {
+    attribution:'© NLSC',
+    maxZoom:18,
+    updateWhenIdle:true,
+    keepBuffer:8
+  }
+);
+
+nlscEMAP.addTo(map);
 
 // ✅ 已完整修正 + 補齊資料 + 修正逗號錯誤
 const data = [
