@@ -154,12 +154,12 @@ body {
     </select>
 
     <select id="seasonFilter">
-      <option value="all">季別</option>
-      <option value="2025-Q1">2025 Q1</option>
-      <option value="2025-Q2">2025 Q2</option>
-      <option value="2025-Q3">2025 Q3</option>
-      <option value="2025-Q4">2025 Q4</option>
-    </select>
+  <option value="all">請選擇季別</option>
+  <option value="2025-Q1">2025 Q1</option>
+  <option value="2025-Q2">2025 Q2</option>
+  <option value="2025-Q3">2025 Q3</option>
+  <option value="2025-Q4">2025 Q4</option>
+</select>
   </div>
 
   <div id="list"></div>
@@ -369,22 +369,67 @@ function updateView(){
   const district = document.getElementById("districtFilter").value;
   const season = document.getElementById("seasonFilter").value;
 
+  markerLayer.clearLayers();
+  circleLayer.clearLayers();
+  selectedSchool = null;
+
+  // 尚未選行政區
   if(district==="all"){
-    markerLayer.clearLayers();
-    circleLayer.clearLayers();
+
     document.getElementById("list").innerHTML = `
-      <div style="padding:30px;text-align:center;color:#6b7280;">
-        請選擇行政區
+      <div style="
+        padding:40px 20px;
+        text-align:center;
+        color:#6b7280;
+        font-size:13px;">
+        請先選擇行政區
       </div>`;
+
+    document.getElementById("gisSub").innerHTML =
+      "請選擇查詢條件";
+
+    return;
+  }
+
+  // 尚未選季別
+  if(season==="all"){
+
+    document.getElementById("list").innerHTML = `
+      <div style="
+        padding:40px 20px;
+        text-align:center;
+        color:#6b7280;
+        font-size:13px;">
+        請選擇年度季別
+      </div>`;
+
+    document.getElementById("gisSub").innerHTML =
+      "請選擇年度季別";
+
     return;
   }
 
   const result = data.filter(d =>
     d.district === district &&
-    (season === "all" || d.season === season)
+    d.season === season
   );
 
+  if(result.length===0){
+
+    document.getElementById("list").innerHTML = `
+      <div style="
+        padding:40px 20px;
+        text-align:center;
+        color:#ef4444;
+        font-size:13px;">
+        查無資料
+      </div>`;
+
+    return;
+  }
+
   render(result);
+
 }
 updateView();
 
