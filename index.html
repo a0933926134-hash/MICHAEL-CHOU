@@ -21,16 +21,57 @@ body {
   height: 100vh;
 }
 
+#gisTitle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-width: 240px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+#gisTitle .t1 { font-size: 13px; font-weight: 700; }
+#gisTitle .t2 { margin-top: 6px; font-size: 11px; color: #666; }
+
 #panel {
   position: absolute;
   right: 0;
   top: 0;
   width: 380px;
   height: 100vh;
-  background: #fff;
-  border-left: 1px solid #ddd;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  border-left: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
+}
+
+#header {
+  padding: 14px;
+  border-bottom: 1px solid #eee;
+}
+
+#title { font-size: 18px; font-weight: 700; }
+#subtitle { font-size: 12px; color: #666; }
+
+#filterBox {
+  padding: 10px 14px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#filterBox select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
 }
 
 #list {
@@ -40,37 +81,88 @@ body {
 }
 
 .card {
-  padding: 10px;
-  margin-bottom: 10px;
-  background: #f3f4f6;
-  border-radius: 10px;
+  background: linear-gradient(145deg, #ffffff, #f3f4f6);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
   cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12), 0 3px 6px rgba(0,0,0,0.08);
+  transition: all 0.25s ease;
+}
+
+.card:hover { transform: translateY(-4px); }
+
+.name { font-weight: 800; font-size: 15px; }
+.meta { font-size: 12px; color: #6b7280; }
+
+.price-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.price-table th {
+  text-align: left;
+  font-size: 11px;
+  color: #111827;
+  padding: 4px 6px;
+  background: #f3f4f6;
+}
+
+.price-table td {
+  padding: 4px 6px;
+  color: #2563eb;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gis-label .label {
+  font-size: 16px;
+  font-weight: 900;
+  color: #111827;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
 </style>
 </head>
 
 <body>
 
-<div id="map"></div>
+<div id="map">
+  <div id="gisTitle">
+    <div class="t1">新北市大專院校租金地圖</div>
+    <div class="t2" id="gisSub">初始化中...</div>
+  </div>
+</div>
 
 <div id="panel">
-  <div style="padding:10px">
+  <div id="header">
+    <div id="title">Rent Explorer</div>
+    <div id="subtitle">School-based GIS Analysis</div>
+  </div>
+
+  <div id="filterBox">
     <select id="districtFilter">
       <option value="all">全部行政區</option>
       <option value="新莊">新莊</option>
+      <option value="泰山">泰山</option>
       <option value="板橋">板橋</option>
       <option value="淡水">淡水</option>
       <option value="三峽">三峽</option>
+      <option value="林口">林口</option>
+      <option value="中和">中和</option>
+      <option value="新店">新店</option>
+      <option value="深坑">深坑</option>
     </select>
 
     <select id="seasonFilter">
-      <option value="all">請選季別</option>
-      <option value="2025-Q1">2025-Q1</option>
-      <option value="2025-Q2">2025-Q2</option>
-      <option value="2025-Q3">2025-Q3</option>
-      <option value="2025-Q4">2025-Q4</option>
+      <option value="all">季別</option>
+      <option value="2025-Q1">2025 Q1</option>
+      <option value="2025-Q2">2025 Q2</option>
+      <option value="2025-Q3">2025 Q3</option>
+      <option value="2025-Q4">2025 Q4</option>
     </select>
-  </div>
+    </div>
 
   <div id="list"></div>
 </div>
