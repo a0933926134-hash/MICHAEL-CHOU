@@ -257,7 +257,43 @@ function shouldShowLabel(latlng,zoom){
   labelPositions.push(p);
   return true;
 }
+function updateView(){
 
+  const district =
+    document.getElementById("districtFilter").value;
+
+  const season =
+    document.getElementById("seasonFilter").value;
+
+  // 尚未同時選擇行政區與季別
+  if(district==="all" || season==="all"){
+
+    markerLayer.clearLayers();
+    circleLayer.clearLayers();
+
+    document.getElementById("list").innerHTML = `
+      <div style="
+        padding:30px;
+        text-align:center;
+        color:#6b7280;
+        font-size:14px;">
+        請先選擇行政區及季別
+      </div>
+    `;
+
+    document.getElementById("gisSub").innerHTML =
+      "請先選擇行政區及季別";
+
+    return;
+  }
+
+  const result = getFilteredData();
+
+  document.getElementById("gisSub").innerHTML =
+    `${district}｜${season}`;
+
+  render(result);
+}
 function getFilteredData(){
   const d=document.getElementById("districtFilter").value;
   const s=document.getElementById("seasonFilter").value;
