@@ -170,7 +170,46 @@ body {
 <script>
 
 const map = L.map('map').setView([25.05,121.45], 11);
-L.control.scale({ position: 'bottomleft' }).addTo(map);  
+const map = L.map('map').setView([25.05,121.45], 11);
+
+// ⭐ 在這裡加入你的自訂比例尺
+const CustomScale = L.Control.extend({
+  onAdd: function (map) {
+    this._div = L.DomUtil.create('div', 'custom-scale');
+    this.update(map);
+    map.on('move zoom', () => this.update(map));
+    return this._div;
+  },
+
+  update: function (map) {
+    const y = map.getSize().y / 2;
+    const x = map.getSize().x / 2;
+
+    const p1 = map.containerPointToLatLng([x, y]);
+    const p2 = map.containerPointToLatLng([x + 100, y]);
+    const p3 = map.containerPointToLatLng([x + 200, y]);
+
+    const d1 = p1.distanceTo(p2);
+    const d2 = p1.distanceTo(p3);
+
+    this._div.innerHTML = `
+      <div style="
+        background: rgba(255,255,255,0.9);
+        padding:6px 10px;
+        border:1px solid #ddd;
+        border-radius:8px;
+        font-size:12px;
+        box-shadow:0 2px 6px rgba(0,0,0,0.1);
+      ">
+        ${Math.round(d1)} / ${Math.round(d2)} m
+      </div>
+    `;
+  }
+});
+
+// ⭐ 加到 map（左下角）
+new CustomScale({ position: 'bottomleft' }).addTo(map);  
+
 
 L.tileLayer(
   'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
