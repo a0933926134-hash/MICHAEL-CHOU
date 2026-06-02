@@ -372,16 +372,13 @@ function render(list){
       types.整層.push(i.rents.整層);
     });
 
-    const icon=L.divIcon({
-      className:"",
-      html:`<div style="text-align:center;">
-        <div style="width:22px;height:22px;background:#ea4335;border-radius:50% 50% 50% 0;transform:rotate(-45deg);margin:auto;"></div>
-        ${shouldShowLabel(L.latLng(first.lat,first.lng),map.getZoom())?
-          `<div class="gis-label"><div class="label">${name}</div></div>`:""}
-      </div>`,
-      iconSize:[120,50],
-      iconAnchor:[60,25]
-    });
+    // 在 render 函式內部找到這一段並替換：
+const icon = L.divIcon({
+  className: "custom-div-icon",
+  html: `<div class="cute-marker"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
+});
 
     L.marker([first.lat,first.lng],{icon}).addTo(markerLayer);
 
