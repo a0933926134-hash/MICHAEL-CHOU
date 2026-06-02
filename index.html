@@ -131,7 +131,8 @@ body {
 <div id="map">
   <div id="gisTitle">
     <div class="t1">新北市大專院校租金地圖</div>
-    </div>
+    <div class="t2" id="gisSub">初始化中...</div>
+  </div>
 </div>
 
 <div id="panel">
@@ -168,30 +169,8 @@ body {
 
 <script>
 
-const map = L.map('map', { minZoom: 10, maxZoom: 18 }).setView([25.05, 121.45], 11);
-L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}').addTo(map);
+const map = L.map('map').setView([25.05,121.45], 11);
 
-let markerLayer = L.layerGroup().addTo(map);
-let circleLayer = L.layerGroup().addTo(map);
-
-// ✅ 修正後的 go 函數：自動適應 2km 範圍
-function go(lat, lng){
-  const center = L.latLng(lat, lng);
-  const radiusInMeters = 2000;
-  // 計算包含 2km 半徑的邊界框
-  const bounds = center.toBounds(radiusInMeters * 2);
-  
-  // 自動調整地圖視角與縮放，padding 確保圓形不貼邊
-  map.fitBounds(bounds, { padding: [50, 50] });
-  
-  circleLayer.clearLayers();
-  L.circle([lat, lng], {
-    radius: radiusInMeters,
-    color: "#60a5fa",
-    fillColor: "#93c5fd",
-    fillOpacity: 0.25
-  }).addTo(circleLayer);
-}
 L.tileLayer(
   'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
   { attribution: '&copy; NLSC' }
