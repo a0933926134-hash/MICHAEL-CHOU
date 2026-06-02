@@ -376,40 +376,66 @@ document.getElementById("districtFilter").addEventListener("change",()=>render(g
 document.getElementById("seasonFilter").addEventListener("change",()=>render(getFilteredData()));
 // ... 前面原本的資料與函式定義 ...
 
-// 1. 修改：根據行政區更新學校選單的函式
-function updateSchoolOptions(district = "all") {
-    const schoolSelect = document.getElementById("schoolFilter");
-    // 保留預設選項
-    schoolSelect.innerHTML = '<option value="all">全部學校</option>';
+// --- 1. 篩選邏輯：確保只回傳符合三項條件的資料 ---
+function getFilteredData() {
+    const d = document.getElementById("districtFilter").value;
+    const s = document.getElementById("seasonFilter").value;
+    const n = document.getElementById("schoolFilter").value;
     
-    // 篩選出該區的學校名稱
-    const filteredSchools = district === "all" 
-        ? [...new Set(data.map(item => item.name))]
-        : [...new Set(data.filter(x => x.district === district).map(item => item.name))];
+    return data.filter(x => 
+        (d === "all" || x.district === d) && 
+        (s === "all" || x.season === s) &&
+        (n === "all" || x.name === n)
+    );
+}
 
-    // 填入選項
-    filteredSchools.forEach(name => {
-        const opt = document.createElement("option");
-        opt.value = name;
-        opt.textContent = name;
-        schoolSelect.appendChild(opt);
+// --- 2. 渲染邏輯：依據傳入的 list 繪製卡片 ---
+function render(list) {
+    markerLayer.clearLayers();
+    const el = document.getElementById("list");
+    el.innerHTML = ""; // ✅ 關鍵：每次執行前強制清空，避免殘留
+
+    if (list.length === 0) {
+        el.innerHTML = "<div style='padding:20px; text-align:center;'>無符合條件的資料</div>";
+        return;
+    }
+
+    list.forEach(item => {
+        const icon = L.divIcon({ className: "custom-div-icon", html: `<div class="cute-marker"></div>`, iconSize: [20, 20] });
+        L.marker([item.lat, item.lng], { icon }).addTo(markerLayer);
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.onclick = () => go(item.lat, item.lng, item.rents.套房);
+
+        card.innerHTML = `
+            <div class="name">${item.name} (${item.season})</div>
+            <div class="meta">${item.district}</div>
+            <table class="price-table">
+                <tr><th>雅房</th><th>套房</th><th>整層</th></tr>
+                <tr>
+                    <td>${item.rents.雅房}</td>
+                    <td>${item.rents.套房}</td>
+                    <td>${item.rents.整層}</td>
+                </tr>
+            </table>
+        `;
+        el.appendChild(card);
     });
 }
 
-// 2. 修改：行政區監聽器，加入聯動功能
-document.getElementById("districtFilter").addEventListener("change", () => {
-    const d = document.getElementById("districtFilter").value;
-    updateSchoolOptions(d); // 更新學校清單
-    render(getFilteredData()); // 重新渲染列表
+// --- 3. 聯動機制與監聽 ---
+document.getElementById("districtFilter").addEventListener("change", (e) => {
+    updateSchoolOptions(e.target.value); // 重置學校選單
+    render(getFilteredData());           // 更新列表與地圖
 });
 
-// 3. 其他監聽器保持不變 (或確保已加入)
 document.getElementById("seasonFilter").addEventListener("change", () => render(getFilteredData()));
 document.getElementById("schoolFilter").addEventListener("change", () => render(getFilteredData()));
 
-// 4. 初始化時執行
+// 初始化
 updateSchoolOptions("all");
-render(data);
+render(getFilteredData()); // ✅ 確保初始狀態就是篩選過的
 </script>
 
 </body>
