@@ -329,7 +329,10 @@ function render(list){
 
     const card=document.createElement("div");
     card.className="card";
-    card.onclick=()=>go(first.lat,first.lng);
+    // 在 render 函式內的 card.onclick 修改如下：
+// 假設我們以「套房的中位數」作為判斷基準
+const medianSuite = quantile(types.套房, 0.5); 
+card.onclick = () => go(first.lat, first.lng, medianSuite);
 
     card.innerHTML=`
       <div class="name">${name}</div>
