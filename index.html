@@ -374,15 +374,39 @@ function render(list) {
     card.onclick = () => go(item.lat, item.lng, 套房);
 
     card.innerHTML = `
-      <div class="name">${item.name} <small style="color:#999;font-weight:normal;">(${item.season})</small></div>
-      <div class="meta">${item.district}</div>
-      <table class="price-table">
-        <tr><th>房型</th><th>租金行情</th></tr>
-        <tr><td>雅房</td><td>${雅房} 元</td></tr>
-        <tr><td>套房</td><td>${套房} 元</td></tr>
-        <tr><td>整層</td><td>${整層} 元</td></tr>
-      </table>
-    `;
+  <div class="name">${item.name}</div>
+  <div class="meta">${item.district} | ${item.season}</div>
+  <table class="price-table">
+    <thead>
+      <tr>
+        <th>房型</th>
+        <th>25分位</th>
+        <th>中位數</th>
+        <th>75分位</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>雅房</td>
+        <td>${item.stats.雅房[0]}</td>
+        <td>${item.stats.雅房[1]}</td>
+        <td>${item.stats.雅房[2]}</td>
+      </tr>
+      <tr>
+        <td>套房</td>
+        <td>${item.stats.套房[0]}</td>
+        <td>${item.stats.套房[1]}</td>
+        <td>${item.stats.套房[2]}</td>
+      </tr>
+      <tr>
+        <td>整層</td>
+        <td>${item.stats.整層[0]}</td>
+        <td>${item.stats.整層[1]}</td>
+        <td>${item.stats.整層[2]}</td>
+      </tr>
+    </tbody>
+  </table>
+`;
     el.appendChild(card);
   });
 }
