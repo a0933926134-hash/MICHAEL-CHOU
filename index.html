@@ -204,10 +204,8 @@ L.tileLayer(
   { attribution: '&copy; NLSC' }
 ).addTo(map);
 
-// ✅ 已完整修正 + 補齊資料 + 修正逗號錯誤
+// ✅ 修正後的資料陣列 (僅宣告一次)
 const data = [
-
-  const data = [
   { name: "輔仁大學", district: "新莊", lat: 25.0355, lng: 121.4315, season: "2026-Q1", 
     stats: { 雅房: [9200, 9500, 9800], 套房: [12200, 12500, 12800], 整層: [20200, 20500, 20800] } },
   { name: "致理科大", district: "板橋", lat: 25.0208, lng: 121.4643, season: "2026-Q1", 
@@ -234,113 +232,58 @@ const data = [
 
 let markerLayer = L.layerGroup().addTo(map);
 let circleLayer = L.layerGroup().addTo(map);
-let labelPositions=[];
-
-function shouldShowLabel(latlng,zoom){
-  if(zoom<12) return false;
-  const p=map.latLngToContainerPoint(latlng);
-  for(let q of labelPositions){
-    if(Math.hypot(p.x-q.x,p.y-q.y)<80) return false;
-  }
-  labelPositions.push(p);
-  return true;
-}
 
 function getFilteredData(){
-  const d=document.getElementById("districtFilter").value;
-  const s=document.getElementById("seasonFilter").value;
-  return data.filter(x=>(d==="all"||x.district===d)&&(s==="all"||x.season===s));
+  const d = document.getElementById("districtFilter").value;
+  const s = document.getElementById("seasonFilter").value;
+  return data.filter(x => (d === "all" || x.district === d) && (s === "all" || x.season === s));
 }
 
-function quantile(arr,q){
-  arr=arr.slice().sort((a,b)=>a-b);
-  const p=(arr.length-1)*q;
-  const b=Math.floor(p);
-  const r=p-b;
-  return arr[b+1]!==undefined?arr[b]+r*(arr[b+1]-arr[b]):arr[b];
-}
-
-function drawRadius(lat,lng){
-  circleLayer.clearLayers();
-  L.circle([lat,lng],{
-    radius:2000,
-    color:"#60a5fa",
-    fillColor:"#93c5fd",
-    fillOpacity:0.25
-  }).addTo(circleLayer);
-}
-// 1. 顏色判斷函式 (增加視覺美觀)
 function getColor(price) {
-    return price > 20000 ? '#ef4444' : // 紅色：高價
-           price > 15000 ? '#f59e0b' : // 黃色：中價
-           '#10b981';                // 綠色：平價
+    return price > 20000 ? '#ef4444' : price > 15000 ? '#f59e0b' : '#10b981';
 }
 
-// --- 修正後的 go 函式 ---
+// ✅ 整合後的單一 go 函式
 function go(lat, lng, avgPrice) {
-  // 1. 清除舊圖層
   circleLayer.clearLayers();
-
-  // 2. 建立圓圈
   const circle = L.circle([lat, lng], {
-    radius: 2000, // 半徑 2000 公尺
+    radius: 2000,
     color: getColor(avgPrice),
     fillColor: getColor(avgPrice),
     fillOpacity: 0.2,
     weight: 2
   }).addTo(circleLayer);
-
-  // 3. 取得圓圈的邊界範圍
-  const bounds = circle.getBounds();
-
-  // 4. 強制地圖縮放到該範圍，並增加 padding 避免圓圈邊緣被切到
-  // 將 padding 設定大一點，例如 [50, 50] (像素)
-  map.flyToBounds(bounds, {
-    paddingTopLeft: [20, 20],
-    paddingBottomRight: [20, 400] // 400 是為了避開右邊的 380px 面板
-});
-}
-function go(lat,lng){
-  map.flyTo([lat,lng],15);
-  drawRadius(lat,lng);
+  map.flyToBounds(circle.getBounds(), { paddingTopLeft: [20, 20], paddingBottomRight: [20, 400] });
 }
 
 function render(list) {
   markerLayer.clearLayers();
   const el = document.getElementById("list");
   el.innerHTML = "";
-
   list.forEach(item => {
     const icon = L.divIcon({ className: "custom-div-icon", html: `<div class="cute-marker"></div>`, iconSize: [20, 20], iconAnchor: [10, 10] });
     L.marker([item.lat, item.lng], {icon}).addTo(markerLayer);
-
     const card = document.createElement("div");
     card.className = "card";
-    // 以套房中位數 (stats.套房[1]) 作為地圖點擊互動的價格基準
     card.onclick = () => go(item.lat, item.lng, item.stats.套房[1]);
-
     card.innerHTML = `
       <div class="name">${item.name}</div>
       <div class="meta">${item.district} | ${item.season}</div>
       <table class="price-table">
-        <thead>
-          <tr><th>房型</th><th>25分位</th><th>中位數</th><th>75分位</th></tr>
-        </thead>
+        <thead><tr><th>房型</th><th>25分位</th><th>中位數</th><th>75分位</th></tr></thead>
         <tbody>
           <tr><td>雅房</td><td>${item.stats.雅房[0]}</td><td>${item.stats.雅房[1]}</td><td>${item.stats.雅房[2]}</td></tr>
           <tr><td>套房</td><td>${item.stats.套房[0]}</td><td>${item.stats.套房[1]}</td><td>${item.stats.套房[2]}</td></tr>
           <tr><td>整層</td><td>${item.stats.整層[0]}</td><td>${item.stats.整層[1]}</td><td>${item.stats.整層[2]}</td></tr>
         </tbody>
-      </table>
-    `;
+      </table>`;
     el.appendChild(card);
   });
 }
-map.on("moveend",()=>render(getFilteredData()));
-map.on("zoomend",()=>render(getFilteredData()));
-document.getElementById("districtFilter").addEventListener("change",()=>render(getFilteredData()));
-document.getElementById("seasonFilter").addEventListener("change",()=>render(getFilteredData()));
 
+map.on("moveend", () => render(getFilteredData()));
+document.getElementById("districtFilter").addEventListener("change", () => render(getFilteredData()));
+document.getElementById("seasonFilter").addEventListener("change", () => render(getFilteredData()));
 render(data);
 
 </script>
