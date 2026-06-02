@@ -321,18 +321,23 @@ function getColor(price) {
 }
 
 // --- 修正後的 go 函式 ---
-function go(lat, lng, avgPrice) {
-  // 1. 清除舊圖層
+function go(name, lat, lng, avgPrice) {
+  // 1. 執行地圖移動
+  map.flyTo([lat, lng], 17);
+  
+  // 2. 重新渲染地圖，並傳入「當前選取的學校名稱」
+  render(getFilteredData(), name); 
+  
+  // 3. 繪製圓圈
   circleLayer.clearLayers();
-
-  // 2. 建立圓圈
-  const circle = L.circle([lat, lng], {
-    radius: 2000, // 半徑 2000 公尺
+  L.circle([lat, lng], {
+    radius: 2000,
     color: getColor(avgPrice),
     fillColor: getColor(avgPrice),
     fillOpacity: 0.2,
     weight: 2
   }).addTo(circleLayer);
+}
 
   // 3. 取得圓圈的邊界範圍
   const bounds = circle.getBounds();
@@ -349,17 +354,36 @@ function go(lat,lng){
   drawRadius(lat,lng);
 }
 
-function render(list){
+function render(list, selectedName = null) {
   markerLayer.clearLayers();
-  labelPositions=[];
-  const el=document.getElementById("list");
-  el.innerHTML="";
+  labelPositions = [];
+  const el = document.getElementById("list");
+  
+  // 如果有選取特定學校，只保留該學校的資料
+  const displayList = selectedName 
+    ? list.filter(item => item.name === selectedName) 
+    : list;
 
-  const grouped={};
-  list.forEach(d=>{
-    if(!grouped[d.name]) grouped[d.name]=[];
+  // 繪製 Marker (僅針對 displayList)
+  const grouped = {};
+  displayList.forEach(d => {
+    if (!grouped[d.name]) grouped[d.name] = [];
     grouped[d.name].push(d);
   });
+
+  Object.keys(grouped).forEach(name => {
+    const first = grouped[name][0];
+    const icon = L.divIcon({
+      className: "custom-div-icon",
+      html: `<div class="cute-marker"></div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+    L.marker([first.lat, first.lng], { icon }).addTo(markerLayer);
+  });
+
+  // 列表部分保持不變...
+}
 
   Object.keys(grouped).forEach(name=>{
     const items=grouped[name];
