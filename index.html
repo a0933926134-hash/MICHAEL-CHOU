@@ -206,19 +206,8 @@ L.tileLayer(
 
 // ✅ 已完整修正 + 補齊資料 + 修正逗號錯誤
 const data = [
-  {
-    name: "輔仁大學", 
-    district: "新莊", 
-    lat: 25.0355, 
-    lng: 121.4315, 
-    season: "2026-Q1", 
-    stats: { 
-      // 陣列對應順序：[25分位, 中位數, 75分位]
-      雅房: [9200, 9500, 9800], 
-      套房: [12200, 12500, 12800], 
-      整層: [20200, 20500, 20800] 
-    }
-  },
+
+  {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q1", rents:{雅房:9000, 套房:12000, 整層:20000}},
   {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q2", rents:{雅房:9100, 套房:12100, 整層:20100}},
   {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q3", rents:{雅房:9200, 套房:12200, 整層:20200}},
   {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q4", rents:{雅房:9300, 套房:12300, 整層:20300}},
@@ -385,39 +374,15 @@ function render(list) {
     card.onclick = () => go(item.lat, item.lng, 套房);
 
     card.innerHTML = `
-  <div class="name">${item.name}</div>
-  <div class="meta">${item.district} | ${item.season}</div>
-  <table class="price-table">
-    <thead>
-      <tr>
-        <th>房型</th>
-        <th>25分位</th>
-        <th>中位數</th>
-        <th>75分位</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>雅房</td>
-        <td>${item.stats.雅房[0]}</td>
-        <td>${item.stats.雅房[1]}</td>
-        <td>${item.stats.雅房[2]}</td>
-      </tr>
-      <tr>
-        <td>套房</td>
-        <td>${item.stats.套房[0]}</td>
-        <td>${item.stats.套房[1]}</td>
-        <td>${item.stats.套房[2]}</td>
-      </tr>
-      <tr>
-        <td>整層</td>
-        <td>${item.stats.整層[0]}</td>
-        <td>${item.stats.整層[1]}</td>
-        <td>${item.stats.整層[2]}</td>
-      </tr>
-    </tbody>
-  </table>
-`;
+      <div class="name">${item.name} <small style="color:#999;font-weight:normal;">(${item.season})</small></div>
+      <div class="meta">${item.district}</div>
+      <table class="price-table">
+        <tr><th>房型</th><th>租金行情</th></tr>
+        <tr><td>雅房</td><td>${雅房} 元</td></tr>
+        <tr><td>套房</td><td>${套房} 元</td></tr>
+        <tr><td>整層</td><td>${整層} 元</td></tr>
+      </table>
+    `;
     el.appendChild(card);
   });
 }
