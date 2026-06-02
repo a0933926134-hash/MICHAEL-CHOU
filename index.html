@@ -72,19 +72,41 @@ function render(list, selectedName = null) {
 
   const displayList = selectedName ? list.filter(item => item.name === selectedName) : list;
   
+  // 1. 先將資料依據學校名稱分組
+  const grouped = {};
   displayList.forEach(d => {
-    const icon = L.divIcon({ className: "custom-div-icon", html: `<div class="cute-marker"></div>`, iconSize: [20, 20], iconAnchor: [10, 10] });
-    L.marker([d.lat, d.lng], { icon }).addTo(markerLayer).on('click', () => go(d.name, d.lat, d.lng, d.rents));
+    if (!grouped[d.name]) grouped[d.name] = [];
+    grouped[d.name].push(d);
+  });
 
+  Object.keys(grouped).forEach(name => {
+    const items = grouped[name];
+    const first = items[0];
+
+    // 2. 統計計算
+    const types = { 雅房: [], 套房: [], 整層: [] };
+    items.forEach(i => {
+      types.雅房.push(i.rents.雅房);
+      types.套房.push(i.rents.套房);
+      types.整層.push(i.rents.整層);
+    });
+
+    // 繪製 Marker
+    const icon = L.divIcon({ className: "custom-div-icon", html: `<div class="cute-marker"></div>`, iconSize: [20, 20], iconAnchor: [10, 10] });
+    L.marker([first.lat, first.lng], { icon }).addTo(markerLayer).on('click', () => go(name, first.lat, first.lng, quantile(types.套房, 0.5)));
+
+    // 3. 顯示表格 (包含統計分位數)
     if (!selectedName) {
       const card = document.createElement("div");
       card.className = "card";
-      card.onclick = () => go(d.name, d.lat, d.lng, d.rents);
-      card.innerHTML = `<div class="name">${d.name} (${d.season})</div>
+      card.onclick = () => go(name, first.lat, first.lng, quantile(types.套房, 0.5));
+      card.innerHTML = `
+        <div class="name">${name}</div>
         <table class="price-table">
-          <tr><th>雅房</th><td>${d.rents.雅房}</td></tr>
-          <tr><th>套房</th><td>${d.rents.套房}</td></tr>
-          <tr><th>整層</th><td>${d.rents.整層}</td></tr>
+          <tr><th>房型</th><th>25分位</th><th>中位數</th><th>75分位</th></tr>
+          <tr><td>雅房</td><td>${quantile(types.雅房, 0.25).toFixed(0)}</td><td>${quantile(types.雅房, 0.5).toFixed(0)}</td><td>${quantile(types.雅房, 0.75).toFixed(0)}</td></tr>
+          <tr><td>套房</td><td>${quantile(types.套房, 0.25).toFixed(0)}</td><td>${quantile(types.套房, 0.5).toFixed(0)}</td><td>${quantile(types.套房, 0.75).toFixed(0)}</td></tr>
+          <tr><td>整層</td><td>${quantile(types.整層, 0.25).toFixed(0)}</td><td>${quantile(types.整層, 0.5).toFixed(0)}</td><td>${quantile(types.整層, 0.75).toFixed(0)}</td></tr>
         </table>`;
       el.appendChild(card);
     }
