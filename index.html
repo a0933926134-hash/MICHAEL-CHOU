@@ -3,51 +3,210 @@
 <head>
 <meta charset="utf-8" />
 <title>新北市大專院校租金 GIS</title>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI"; }
-#map { position: absolute; left: 0; top: 0; width: calc(100% - 380px); height: 100vh; }
-#gisTitle { position: absolute; top: 12px; right: 12px; z-index: 1000; background: rgba(255,255,255,0.95); border: 1px solid #d0d7de; border-radius: 10px; padding: 10px 12px; min-width: 240px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
-#panel { position: absolute; right: 0; top: 0; width: 380px; height: 100vh; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-left: 1px solid #e5e7eb; display: flex; flex-direction: column; }
-#header { padding: 14px; border-bottom: 1px solid #eee; }
-#filterBox { padding: 10px 14px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
-#list { flex: 1; overflow-y: auto; padding: 12px; }
-.card { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 12px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.25s; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI";
+}
+
+#map {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(100% - 380px);
+  height: 100vh;
+}
+
+#gisTitle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-width: 240px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+#gisTitle .t1 { font-size: 13px; font-weight: 700; }
+#gisTitle .t2 { margin-top: 6px; font-size: 11px; color: #666; }
+
+#panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 380px;
+  height: 100vh;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  border-left: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+}
+
+#header {
+  padding: 14px;
+  border-bottom: 1px solid #eee;
+}
+
+#title { font-size: 18px; font-weight: 700; }
+#subtitle { font-size: 12px; color: #666; }
+
+#filterBox {
+  padding: 10px 14px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#filterBox select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+}
+
+#list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.card {
+  background: linear-gradient(145deg, #ffffff, #f3f4f6);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12), 0 3px 6px rgba(0,0,0,0.08);
+  transition: all 0.25s ease;
+}
+
 .card:hover { transform: translateY(-4px); }
+
 .name { font-weight: 800; font-size: 15px; }
-.price-table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 12px; }
-.price-table th, .price-table td { padding: 6px; border: 1px solid #eee; }
-/* 可愛呼吸標記 */
-.cute-marker { width: 20px; height: 20px; background-color: #ff4d4f; border: 3px solid #ffffff; border-radius: 50%; box-shadow: 0 0 10px rgba(255, 77, 79, 0.6); animation: pulse 2s infinite; }
-@keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 77, 79, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 77, 79, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 77, 79, 0); } }
+.meta { font-size: 12px; color: #6b7280; }
+
+.price-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.price-table th {
+  text-align: left;
+  font-size: 11px;
+  color: #111827;
+  padding: 4px 6px;
+  background: #f3f4f6;
+}
+
+.price-table td {
+  padding: 4px 6px;
+  color: #2563eb;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gis-label .label {
+  font-size: 16px;
+  font-weight: 900;
+  color: #111827;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+/* 可愛標記點樣式 */
+.cute-marker {
+  width: 20px;
+  height: 20px;
+  background-color: #ff4d4f;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255, 77, 79, 0.6);
+  animation: pulse 2s infinite;
+}
+
+/* 呼吸動畫 */
+@keyframes pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 77, 79, 0.7); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 77, 79, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 77, 79, 0); }
+}  
 </style>
 </head>
+
 <body>
 
 <div id="map">
   <div id="gisTitle">
-    <div style="font-weight:700">新北市大專院校租金地圖</div>
-    <div id="gisSub" style="font-size:11px; color:#666">點選學校查看詳細</div>
+    <div class="t1">新北市大專院校租金地圖</div>
+    <div class="t2" id="gisSub">初始化中...</div>
   </div>
 </div>
 
 <div id="panel">
-  <div id="header"><div style="font-size:18px; font-weight:700">Rent Explorer</div></div>
-  <div id="filterBox">
-    <select id="districtFilter"><option value="all">全部行政區</option><option value="新莊">新莊</option><option value="板橋">板橋</option><option value="淡水">淡水</option><option value="三峽">三峽</option><option value="林口">林口</option><option value="泰山">泰山</option><option value="中和">中和</option><option value="新店">新店</option><option value="深坑">深坑</option></select>
-    <select id="seasonFilter"><option value="all">季別</option><option value="2025-Q1">2025 Q1</option><option value="2025-Q2">2025 Q2</option><option value="2025-Q3">2025 Q3</option><option value="2025-Q4">2025 Q4</option><option value="2026-Q1">2026 Q1</option></select>
+  <div id="header">
+    <div id="title">Rent Explorer</div>
+    <div id="subtitle">School-based GIS Analysis</div>
   </div>
+
+  <div id="filterBox">
+    <select id="districtFilter">
+      <option value="all">全部行政區</option>
+      <option value="新莊">新莊</option>
+      <option value="泰山">泰山</option>
+      <option value="板橋">板橋</option>
+      <option value="淡水">淡水</option>
+      <option value="三峽">三峽</option>
+      <option value="林口">林口</option>
+      <option value="中和">中和</option>
+      <option value="新店">新店</option>
+      <option value="深坑">深坑</option>
+    </select>
+
+    <select id="seasonFilter">
+      <option value="all">季別</option>
+      <option value="2025-Q1">2025 Q1</option>
+      <option value="2025-Q2">2025 Q2</option>
+      <option value="2025-Q3">2025 Q3</option>
+      <option value="2025-Q4">2025 Q4</option>
+      <option value="2026-Q1">2026 Q1</option>
+    </select>
+  </div>
+
   <div id="list"></div>
 </div>
 
 <script>
-const map = L.map('map').setView([25.05, 121.45], 11);
-L.control.scale({ imperial: false, metric: true, position: 'bottomleft' }).addTo(map);
-L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', { attribution: '&copy; NLSC' }).addTo(map);
 
+const map = L.map('map').setView([25.05,121.45], 11);
+// 【在這裡加入比例尺功能】
+  L.control.scale({
+    imperial: false,    // 只顯示公制 (km/m)
+    metric: true,
+    position: 'bottomleft'
+  }).addTo(map);
+
+  // 2. 加入圖層 (原本的程式碼)
+  L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', {
+    attribution: '&copy; NLSC'
+  }).addTo(map);
+L.tileLayer(
+  'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
+  { attribution: '&copy; NLSC' }
+).addTo(map);
+
+// ✅ 已完整修正 + 補齊資料 + 修正逗號錯誤
 const data = [
+
   {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q1", rents:{雅房:9000, 套房:12000, 整層:20000}},
   {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q2", rents:{雅房:9100, 套房:12100, 整層:20100}},
   {name:"輔仁大學", district:"新莊", lat:25.0355, lng:121.4315, season:"2025-Q3", rents:{雅房:9200, 套房:12200, 整層:20200}},
@@ -115,55 +274,151 @@ const data = [
   {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2025-Q4", rents:{雅房:9800, 套房:11800, 整層:20300}},
   {name:"東南科大", district:"深坑", lat:25.0044, lng:121.6047, season:"2026-Q1", rents:{雅房:9500, 套房:11500, 整層:20000}},
 
-
 ];
 
 let markerLayer = L.layerGroup().addTo(map);
 let circleLayer = L.layerGroup().addTo(map);
+let labelPositions=[];
 
-function go(name, lat, lng, rents) {
-  map.flyTo([lat, lng], 17);
-  render(getFilteredData(), name);
-  circleLayer.clearLayers();
-  L.circle([lat, lng], { radius: 2000, color: '#f59e0b', fillOpacity: 0.2 }).addTo(circleLayer);
+function shouldShowLabel(latlng,zoom){
+  if(zoom<12) return false;
+  const p=map.latLngToContainerPoint(latlng);
+  for(let q of labelPositions){
+    if(Math.hypot(p.x-q.x,p.y-q.y)<80) return false;
+  }
+  labelPositions.push(p);
+  return true;
 }
 
-function render(list, selectedName = null) {
+function getFilteredData(){
+  const d=document.getElementById("districtFilter").value;
+  const s=document.getElementById("seasonFilter").value;
+  return data.filter(x=>(d==="all"||x.district===d)&&(s==="all"||x.season===s));
+}
+
+function quantile(arr,q){
+  arr=arr.slice().sort((a,b)=>a-b);
+  const p=(arr.length-1)*q;
+  const b=Math.floor(p);
+  const r=p-b;
+  return arr[b+1]!==undefined?arr[b]+r*(arr[b+1]-arr[b]):arr[b];
+}
+
+function drawRadius(lat,lng){
+  circleLayer.clearLayers();
+  L.circle([lat,lng],{
+    radius:2000,
+    color:"#60a5fa",
+    fillColor:"#93c5fd",
+    fillOpacity:0.25
+  }).addTo(circleLayer);
+}
+// 1. 顏色判斷函式 (增加視覺美觀)
+function getColor(price) {
+    return price > 20000 ? '#ef4444' : // 紅色：高價
+           price > 15000 ? '#f59e0b' : // 黃色：中價
+           '#10b981';                // 綠色：平價
+}
+
+// --- 修正後的 go 函式 ---
+function go(lat, lng, avgPrice) {
+  // 1. 清除舊圖層
+  circleLayer.clearLayers();
+
+  // 2. 建立圓圈
+  const circle = L.circle([lat, lng], {
+    radius: 2000, // 半徑 2000 公尺
+    color: getColor(avgPrice),
+    fillColor: getColor(avgPrice),
+    fillOpacity: 0.2,
+    weight: 2
+  }).addTo(circleLayer);
+
+  // 3. 取得圓圈的邊界範圍
+  const bounds = circle.getBounds();
+
+  // 4. 強制地圖縮放到該範圍，並增加 padding 避免圓圈邊緣被切到
+  // 將 padding 設定大一點，例如 [50, 50] (像素)
+  map.flyToBounds(bounds, {
+    paddingTopLeft: [20, 20],
+    paddingBottomRight: [20, 400] // 400 是為了避開右邊的 380px 面板
+});
+}
+function go(lat,lng){
+  map.flyTo([lat,lng],15);
+  drawRadius(lat,lng);
+}
+
+function render(list){
   markerLayer.clearLayers();
-  const el = document.getElementById("list");
-  if (!selectedName) el.innerHTML = "";
+  labelPositions=[];
+  const el=document.getElementById("list");
+  el.innerHTML="";
 
-  const displayList = selectedName ? list.filter(item => item.name === selectedName) : list;
-  
-  displayList.forEach(d => {
-    const icon = L.divIcon({ className: "custom-div-icon", html: `<div class="cute-marker"></div>`, iconSize: [20, 20], iconAnchor: [10, 10] });
-    L.marker([d.lat, d.lng], { icon }).addTo(markerLayer).on('click', () => go(d.name, d.lat, d.lng, d.rents));
+  const grouped={};
+  list.forEach(d=>{
+    if(!grouped[d.name]) grouped[d.name]=[];
+    grouped[d.name].push(d);
+  });
 
-    if (!selectedName) {
-      const card = document.createElement("div");
-      card.className = "card";
-      card.onclick = () => go(d.name, d.lat, d.lng, d.rents);
-      card.innerHTML = `<div class="name">${d.name} (${d.season})</div>
-        <table class="price-table">
-          <tr><th>雅房</th><td>${d.rents.雅房}</td></tr>
-          <tr><th>套房</th><td>${d.rents.套房}</td></tr>
-          <tr><th>整層</th><td>${d.rents.整層}</td></tr>
-        </table>`;
-      el.appendChild(card);
-    }
+  Object.keys(grouped).forEach(name=>{
+    const items=grouped[name];
+    const first=items[0];
+
+    const types={雅房:[],套房:[],整層:[]};
+    items.forEach(i=>{
+      types.雅房.push(i.rents.雅房);
+      types.套房.push(i.rents.套房);
+      types.整層.push(i.rents.整層);
+    });
+
+    // 在 render 函式內部找到這一段並替換：
+const icon = L.divIcon({
+  className: "custom-div-icon",
+  html: `<div class="cute-marker"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
+});
+
+    L.marker([first.lat,first.lng],{icon}).addTo(markerLayer);
+
+    const row=(label,arr)=>`
+      <tr><th>${label}</th>
+      <td>${quantile(arr,0.25).toFixed(0)}</td>
+      <td>${quantile(arr,0.5).toFixed(0)}</td>
+      <td>${quantile(arr,0.75).toFixed(0)}</td></tr>`;
+
+    const card=document.createElement("div");
+    card.className="card";
+    // 在 render 函式內的 card.onclick 修改如下：
+// 假設以「套房的中位數」作為判斷基準
+const medianPrice = quantile(types.套房, 0.5); // 選用套房中位數作為判定依據
+card.onclick = () => go(first.lat, first.lng, medianPrice);
+
+    card.innerHTML=`
+      <div class="name">${name}</div>
+      <div class="meta">${first.district}</div>
+
+      <table class="price-table">
+        <tr><th></th><th>25分位</th><th>中位數</th><th>75分位</th></tr>
+        ${row("雅房",types.雅房)}
+        ${row("套房",types.套房)}
+        ${row("整層",types.整層)}
+      </table>
+    `;
+
+    el.appendChild(card);
   });
 }
 
-function getFilteredData() {
-  const d = document.getElementById("districtFilter").value;
-  const s = document.getElementById("seasonFilter").value;
-  return data.filter(x => (d === "all" || x.district === d) && (s === "all" || x.season === s));
-}
-
-document.getElementById("districtFilter").addEventListener("change", () => render(getFilteredData()));
-document.getElementById("seasonFilter").addEventListener("change", () => render(getFilteredData()));
+map.on("moveend",()=>render(getFilteredData()));
+map.on("zoomend",()=>render(getFilteredData()));
+document.getElementById("districtFilter").addEventListener("change",()=>render(getFilteredData()));
+document.getElementById("seasonFilter").addEventListener("change",()=>render(getFilteredData()));
 
 render(data);
+
 </script>
+
 </body>
-</html>f
+</html>
