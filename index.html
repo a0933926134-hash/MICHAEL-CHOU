@@ -399,13 +399,21 @@ card.onclick = () => go(first.lat, first.lng, medianPrice);
       <div class="name">${name}</div>
       <div class="meta">${first.district}</div>
 
-      <table class="price-table">
-        <tr><th></th><th>25分位</th><th>中位數</th><th>75分位</th></tr>
-        ${row("雅房",types.雅房)}
-        ${row("套房",types.套房)}
-        ${row("整層",types.整層)}
-      </table>
-    `;
+      // 1. 先抓出當前選取的季節資料 (假設顯示第一筆)
+const currentRents = items[0].rents; 
+
+// 2. 更新表格顯示
+card.innerHTML = `
+  <div class="name">${name} (${items[0].season})</div>
+  <div class="meta">${first.district}</div>
+
+  <table class="price-table">
+    <tr><th>房型</th><th>租金金額 (元)</th></tr>
+    <tr><td>雅房</td><td>${currentRents.雅房}</td></tr>
+    <tr><td>套房</td><td>${currentRents.套房}</td></tr>
+    <tr><td>整層</td><td>${currentRents.整層}</td></tr>
+  </table>
+`;
 
     el.appendChild(card);
   });
