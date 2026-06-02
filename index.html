@@ -342,20 +342,6 @@ function go(lat, lng){
     fillOpacity: 0.25
   }).addTo(circleLayer);
 }
-// 渲染列表
-const listEl = document.getElementById("list");
-data.forEach(item => {
-  const div = document.createElement("div");
-  div.className = "card";
-  div.innerHTML = `<div class="name">${item.name}</div><div>${item.district}</div>`;
-  div.onclick = () => go(item.lat, item.lng);
-  listEl.appendChild(div);
-});
-
-// 初始化標記
-data.forEach(d => {
-  L.marker([d.lat, d.lng]).addTo(markerLayer).on('click', () => go(d.lat, d.lng));
-});  
   // fitBounds 會自動調整縮放與中心點
   map.fitBounds(bounds, { padding: [50, 50] }); 
   
