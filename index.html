@@ -324,9 +324,16 @@ function drawRadius(lat,lng){
   }).addTo(circleLayer);
 }
 
-function go(lat,lng){
-  map.flyTo([lat,lng],16);
-  drawRadius(lat,lng);
+function go(lat, lng){
+  const center = L.latLng(lat, lng);
+  // 計算半徑 2 公里 (2000公尺) 的邊界
+  const bounds = L.latLngBounds(
+    center.toBounds(4000).getSouthWest(), 
+    center.toBounds(4000).getNorthEast()
+  );
+  
+  map.fitBounds(bounds, { padding: [20, 20] }); // 加入一點內邊距，看起來比較舒適
+  drawRadius(lat, lng);
 }
 
 function render(list){
