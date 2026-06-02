@@ -376,12 +376,19 @@ document.getElementById("districtFilter").addEventListener("change",()=>render(g
 document.getElementById("seasonFilter").addEventListener("change",()=>render(getFilteredData()));
 // ... 前面原本的資料與函式定義 ...
 
-// 1. 在這裡加入初始化學校選單的函式
-function initSchoolFilter() {
+// 1. 修改：根據行政區更新學校選單的函式
+function updateSchoolOptions(district = "all") {
     const schoolSelect = document.getElementById("schoolFilter");
-    // 從資料中提取不重複的學校名稱並填入選單
-    const schools = [...new Set(data.map(item => item.name))];
-    schools.forEach(name => {
+    // 保留預設選項
+    schoolSelect.innerHTML = '<option value="all">全部學校</option>';
+    
+    // 篩選出該區的學校名稱
+    const filteredSchools = district === "all" 
+        ? [...new Set(data.map(item => item.name))]
+        : [...new Set(data.filter(x => x.district === district).map(item => item.name))];
+
+    // 填入選項
+    filteredSchools.forEach(name => {
         const opt = document.createElement("option");
         opt.value = name;
         opt.textContent = name;
@@ -389,27 +396,20 @@ function initSchoolFilter() {
     });
 }
 
-// 2. 這是你原本的 getFilteredData，請把它替換成這個支援三重篩選的版本
-function getFilteredData() {
+// 2. 修改：行政區監聽器，加入聯動功能
+document.getElementById("districtFilter").addEventListener("change", () => {
     const d = document.getElementById("districtFilter").value;
-    const s = document.getElementById("seasonFilter").value;
-    const n = document.getElementById("schoolFilter").value; 
-    
-    return data.filter(x => 
-        (d === "all" || x.district === d) && 
-        (s === "all" || x.season === s) &&
-        (n === "all" || x.name === n)
-    );
-}
+    updateSchoolOptions(d); // 更新學校清單
+    render(getFilteredData()); // 重新渲染列表
+});
 
-// 3. 綁定事件監聽器 (確保這三行都在)
-document.getElementById("districtFilter").addEventListener("change", () => render(getFilteredData()));
+// 3. 其他監聽器保持不變 (或確保已加入)
 document.getElementById("seasonFilter").addEventListener("change", () => render(getFilteredData()));
 document.getElementById("schoolFilter").addEventListener("change", () => render(getFilteredData()));
 
-// 4. 最後執行這兩個初始化動作
-initSchoolFilter(); // 初始化選單
-render(data);       // 顯示地圖資料
+// 4. 初始化時執行
+updateSchoolOptions("all");
+render(data);
 </script>
 
 </body>
