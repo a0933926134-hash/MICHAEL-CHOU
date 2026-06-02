@@ -160,34 +160,33 @@ body {
 
   <div id="filterBox">
     <select id="districtFilter">
-    <option value="all">全部行政區</option>
-    <option value="新莊">新莊</option>
-    <option value="泰山">泰山</option>
-    <option value="板橋">板橋</option>
-    <option value="淡水">淡水</option>
-    <option value="三峽">三峽</option>
-    <option value="林口">林口</option>
-    <option value="中和">中和</option>
-    <option value="新店">新店</option>
-    <option value="深坑">深坑</option>
-
-        </select>
-
-    <select id="schoolFilter">
-        <option value="all">全部學校</option>
+      <option value="all">全部行政區</option>
+      <option value="新莊">新莊</option>
+      <option value="泰山">泰山</option>
+      <option value="板橋">板橋</option>
+      <option value="淡水">淡水</option>
+      <option value="三峽">三峽</option>
+      <option value="林口">林口</option>
+      <option value="中和">中和</option>
+      <option value="新店">新店</option>
+      <option value="深坑">深坑</option>
     </select>
 
     <select id="seasonFilter">
-        <option value="all">季別</option>
-        </select>
-</div>
+      <option value="all">季別</option>
+      <option value="2025-Q1">2025 Q1</option>
+      <option value="2025-Q2">2025 Q2</option>
+      <option value="2025-Q3">2025 Q3</option>
+      <option value="2025-Q4">2025 Q4</option>
+      <option value="2026-Q1">2026 Q1</option>
+    </select>
+  </div>
 
   <div id="list"></div>
 </div>
 
 <script>
-let markerLayer = L.layerGroup().addTo(map);
-let circleLayer = L.layerGroup().addTo(map);
+
 const map = L.map('map').setView([25.05,121.45], 11);
 // 【在這裡加入比例尺功能】
   L.control.scale({
@@ -277,7 +276,8 @@ const data = [
 
 ];
 
-
+let markerLayer = L.layerGroup().addTo(map);
+let circleLayer = L.layerGroup().addTo(map);
 let labelPositions=[];
 
 function shouldShowLabel(latlng,zoom){
@@ -321,55 +321,92 @@ function getColor(price) {
 }
 
 // --- 修正後的 go 函式 ---
-// --- 合併後的單一 go 函式 ---
-function go(lat, lng, price) {
-  // 清除舊的圓圈
+function go(lat, lng, avgPrice) {
+  // 1. 清除舊圖層
   circleLayer.clearLayers();
 
-  // 繪製新的圓圈
+  // 2. 建立圓圈
   const circle = L.circle([lat, lng], {
-    radius: 2000, 
-    color: getColor(price),
-    fillColor: getColor(price),
-    fillOpacity: 0.3,
+    radius: 2000, // 半徑 2000 公尺
+    color: getColor(avgPrice),
+    fillColor: getColor(avgPrice),
+    fillOpacity: 0.2,
     weight: 2
   }).addTo(circleLayer);
 
-  // 飛至該點
-  map.flyToBounds(circle.getBounds(), {
+  // 3. 取得圓圈的邊界範圍
+  const bounds = circle.getBounds();
+
+  // 4. 強制地圖縮放到該範圍，並增加 padding 避免圓圈邊緣被切到
+  // 將 padding 設定大一點，例如 [50, 50] (像素)
+  map.flyToBounds(bounds, {
     paddingTopLeft: [20, 20],
-    paddingBottomRight: [20, 400]
-  });
+    paddingBottomRight: [20, 400] // 400 是為了避開右邊的 380px 面板
+});
+}
+function go(lat,lng){
+  map.flyTo([lat,lng],15);
+  drawRadius(lat,lng);
 }
 
-function render(list) {
+function render(list){
   markerLayer.clearLayers();
-  const el = document.getElementById("list");
-  el.innerHTML = "";
+  labelPositions=[];
+  const el=document.getElementById("list");
+  el.innerHTML="";
 
-  list.forEach(item => {
-    // 建立標記
-    const icon = L.divIcon({ className: "custom-div-icon", html: `<div class="cute-marker"></div>`, iconSize: [20, 20] });
-    L.marker([item.lat, item.lng], { icon }).addTo(markerLayer);
+  const grouped={};
+  list.forEach(d=>{
+    if(!grouped[d.name]) grouped[d.name]=[];
+    grouped[d.name].push(d);
+  });
 
-    const card = document.createElement("div");
-    card.className = "card";
-    // 以套房價格作為顏色判定依據
-    card.onclick = () => go(item.lat, item.lng, item.rents.套房);
+  Object.keys(grouped).forEach(name=>{
+    const items=grouped[name];
+    const first=items[0];
 
-    // 直接顯示該筆資料的租金，不進行分位計算
-    card.innerHTML = `
-      <div class="name">${item.name} (${item.season})</div>
-      <div class="meta">${item.district}</div>
+    const types={雅房:[],套房:[],整層:[]};
+    items.forEach(i=>{
+      types.雅房.push(i.rents.雅房);
+      types.套房.push(i.rents.套房);
+      types.整層.push(i.rents.整層);
+    });
+
+    // 在 render 函式內部找到這一段並替換：
+const icon = L.divIcon({
+  className: "custom-div-icon",
+  html: `<div class="cute-marker"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
+});
+
+    L.marker([first.lat,first.lng],{icon}).addTo(markerLayer);
+
+    const row=(label,arr)=>`
+      <tr><th>${label}</th>
+      <td>${quantile(arr,0.25).toFixed(0)}</td>
+      <td>${quantile(arr,0.5).toFixed(0)}</td>
+      <td>${quantile(arr,0.75).toFixed(0)}</td></tr>`;
+
+    const card=document.createElement("div");
+    card.className="card";
+    // 在 render 函式內的 card.onclick 修改如下：
+// 假設以「套房的中位數」作為判斷基準
+const medianPrice = quantile(types.套房, 0.5); // 選用套房中位數作為判定依據
+card.onclick = () => go(first.lat, first.lng, medianPrice);
+
+    card.innerHTML=`
+      <div class="name">${name}</div>
+      <div class="meta">${first.district}</div>
+
       <table class="price-table">
-        <tr><th>雅房</th><th>套房</th><th>整層</th></tr>
-        <tr>
-          <td>${item.rents.雅房}</td>
-          <td>${item.rents.套房}</td>
-          <td>${item.rents.整層}</td>
-        </tr>
+        <tr><th></th><th>25分位</th><th>中位數</th><th>75分位</th></tr>
+        ${row("雅房",types.雅房)}
+        ${row("套房",types.套房)}
+        ${row("整層",types.整層)}
       </table>
     `;
+
     el.appendChild(card);
   });
 }
@@ -378,68 +415,9 @@ map.on("moveend",()=>render(getFilteredData()));
 map.on("zoomend",()=>render(getFilteredData()));
 document.getElementById("districtFilter").addEventListener("change",()=>render(getFilteredData()));
 document.getElementById("seasonFilter").addEventListener("change",()=>render(getFilteredData()));
-// ... 前面原本的資料與函式定義 ...
 
-// --- 1. 篩選邏輯：確保只回傳符合三項條件的資料 ---
-function getFilteredData() {
-    const d = document.getElementById("districtFilter").value;
-    const s = document.getElementById("seasonFilter").value;
-    const n = document.getElementById("schoolFilter").value;
-    
-    return data.filter(x => 
-        (d === "all" || x.district === d) && 
-        (s === "all" || x.season === s) &&
-        (n === "all" || x.name === n)
-    );
-}
+render(data);
 
-// --- 2. 渲染邏輯：依據傳入的 list 繪製卡片 ---
-function render(list) {
-    markerLayer.clearLayers();
-    const el = document.getElementById("list");
-    el.innerHTML = ""; // ✅ 關鍵：每次執行前強制清空，避免殘留
-
-    if (list.length === 0) {
-        el.innerHTML = "<div style='padding:20px; text-align:center;'>無符合條件的資料</div>";
-        return;
-    }
-
-    list.forEach(item => {
-        const icon = L.divIcon({ className: "custom-div-icon", html: `<div class="cute-marker"></div>`, iconSize: [20, 20] });
-        L.marker([item.lat, item.lng], { icon }).addTo(markerLayer);
-
-        const card = document.createElement("div");
-card.className = "card";
-// 確保這行代碼正確綁定
-card.onclick = () => go(item.lat, item.lng, item.rents.套房);
-        card.innerHTML = `
-            <div class="name">${item.name} (${item.season})</div>
-            <div class="meta">${item.district}</div>
-            <table class="price-table">
-                <tr><th>雅房</th><th>套房</th><th>整層</th></tr>
-                <tr>
-                    <td>${item.rents.雅房}</td>
-                    <td>${item.rents.套房}</td>
-                    <td>${item.rents.整層}</td>
-                </tr>
-            </table>
-        `;
-        el.appendChild(card);
-    });
-}
-
-// --- 3. 聯動機制與監聽 ---
-document.getElementById("districtFilter").addEventListener("change", (e) => {
-    updateSchoolOptions(e.target.value); // 重置學校選單
-    render(getFilteredData());           // 更新列表與地圖
-});
-
-document.getElementById("seasonFilter").addEventListener("change", () => render(getFilteredData()));
-document.getElementById("schoolFilter").addEventListener("change", () => render(getFilteredData()));
-
-// 初始化
-updateSchoolOptions("all");
-render(getFilteredData()); // ✅ 確保初始狀態就是篩選過的
 </script>
 
 </body>
