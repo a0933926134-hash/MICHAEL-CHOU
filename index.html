@@ -256,24 +256,41 @@ let markerLayer = L.layerGroup().addTo(map);
     const el = document.getElementById("list");
     el.innerHTML = "";
     
-    // 地圖繪製 (每個季度一個點，或只取第一筆資料當作代表點)
+    // 為了地圖呈現，我們先找出不重複的學校位置
+    const uniqueSchools = [...new Map(list.map(item => [item.name, item])).values()];
+    
+    uniqueSchools.forEach(school => {
+      L.marker([school.lat, school.lng])
+       .addTo(markerLayer)
+       .on('click', () => {
+         // 點擊地圖時：只篩選該學校的所有季度資料
+         const schoolData = data.filter(x => x.name === school.name);
+         render(schoolData);
+       });
+    });
+
     list.forEach(item => {
-      L.marker([item.lat, item.lng]).addTo(markerLayer).on('click', () => showSchoolHistory(item.name));
-      
       const card = document.createElement("div");
       card.className = "card";
       card.innerHTML = `
         <div class="name">${item.name} (${item.season})</div>
         <table class="price-table">
           <tr><th>房型</th><th>25分位</th><th>中位數</th><th>75分位</th></tr>
+          <tr><td>雅房</td><td>${item.stats.雅房[0]}</td><td>${item.stats.雅房[1]}</td><td>${item.stats.雅房[2]}</td></tr>
           <tr><td>套房</td><td>${item.stats.套房[0]}</td><td>${item.stats.套房[1]}</td><td>${item.stats.套房[2]}</td></tr>
         </table>`;
       el.appendChild(card);
     });
   }
 
-  document.getElementById("districtFilter").onchange = () => render(data.filter(x => (document.getElementById("districtFilter").value === "all" || x.district === document.getElementById("districtFilter").value)));
-  render(data);  
+  function resetView() { render(data); }
+
+  document.getElementById("districtFilter").onchange = (e) => {
+    const val = e.target.value;
+    render(val === "all" ? data : data.filter(x => x.district === val));
+  };
+
+  render(data);
 let circleLayer = L.layerGroup().addTo(map);
 
 function getFilteredData(){
