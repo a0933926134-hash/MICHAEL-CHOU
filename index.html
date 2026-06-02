@@ -280,6 +280,26 @@ function getColor(price) {
            price > 15000 ? '#f59e0b' :
            '#10b981'; 
 }
+// 2. 修改後的 go 函式：自動適應視窗範圍
+function go(lat, lng, avgPrice) {
+    // 清除舊的圓圈
+    circleLayer.clearLayers();
+
+    // 建立圓圈物件 (設定為變數方便後續操作)
+    const circle = L.circle([lat, lng], {
+        radius: 2000,
+        color: getColor(avgPrice),
+        fillColor: getColor(avgPrice),
+        fillOpacity: 0.2, // 調低透明度讓地圖底圖更清晰
+        weight: 2         // 加粗邊框更有質感
+    }).addTo(circleLayer);
+
+    // 【關鍵修改】：自動縮放地圖以完整包含圓圈
+    map.fitBounds(circle.getBounds(), {
+        padding: [20, 20], // 邊緣留白，避免貼齊螢幕邊緣
+        animate: true      // 啟用平滑移動動畫
+    });
+}  
 function go(lat,lng){
   map.flyTo([lat,lng],16);
   drawRadius(lat,lng);
