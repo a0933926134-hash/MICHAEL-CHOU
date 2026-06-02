@@ -281,25 +281,30 @@ function getColor(price) {
            '#10b981';                // 綠色：平價
 }
 
-// 2. 修改後的 go 函式：自動適應視窗範圍
+// --- 修正後的 go 函式 ---
 function go(lat, lng, avgPrice) {
-    // 清除舊的圓圈
-    circleLayer.clearLayers();
+  // 1. 清除舊圖層
+  circleLayer.clearLayers();
 
-    // 建立圓圈物件 (設定為變數方便後續操作)
-    const circle = L.circle([lat, lng], {
-        radius: 2000,
-        color: getColor(avgPrice),
-        fillColor: getColor(avgPrice),
-        fillOpacity: 0.2, // 調低透明度讓地圖底圖更清晰
-        weight: 2         // 加粗邊框更有質感
-    }).addTo(circleLayer);
+  // 2. 建立圓圈
+  const circle = L.circle([lat, lng], {
+    radius: 2000, // 半徑 2000 公尺
+    color: getColor(avgPrice),
+    fillColor: getColor(avgPrice),
+    fillOpacity: 0.2,
+    weight: 2
+  }).addTo(circleLayer);
 
-    // 【關鍵修改】：自動縮放地圖以完整包含圓圈
-    map.fitBounds(circle.getBounds(), {
-        padding: [20, 20], // 邊緣留白，避免貼齊螢幕邊緣
-        animate: true      // 啟用平滑移動動畫
-    });
+  // 3. 取得圓圈的邊界範圍
+  const bounds = circle.getBounds();
+
+  // 4. 強制地圖縮放到該範圍，並增加 padding 避免圓圈邊緣被切到
+  // 將 padding 設定大一點，例如 [50, 50] (像素)
+  map.flyToBounds(bounds, {
+    padding: [50, 50],
+    animate: true,
+    duration: 1.5 // 加入動畫時間，讓縮放更流暢
+  });
 }
 function go(lat,lng){
   map.flyTo([lat,lng],16);
