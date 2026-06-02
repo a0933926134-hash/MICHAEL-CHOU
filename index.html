@@ -321,23 +321,18 @@ function getColor(price) {
 }
 
 // --- 修正後的 go 函式 ---
-function go(name, lat, lng, avgPrice) {
-  // 1. 執行地圖移動
-  map.flyTo([lat, lng], 17);
-  
-  // 2. 重新渲染地圖，並傳入「當前選取的學校名稱」
-  render(getFilteredData(), name); 
-  
-  // 3. 繪製圓圈
+function go(lat, lng, avgPrice) {
+  // 1. 清除舊圖層
   circleLayer.clearLayers();
-  L.circle([lat, lng], {
-    radius: 2000,
+
+  // 2. 建立圓圈
+  const circle = L.circle([lat, lng], {
+    radius: 2000, // 半徑 2000 公尺
     color: getColor(avgPrice),
     fillColor: getColor(avgPrice),
     fillOpacity: 0.2,
     weight: 2
   }).addTo(circleLayer);
-}
 
   // 3. 取得圓圈的邊界範圍
   const bounds = circle.getBounds();
@@ -354,32 +349,16 @@ function go(lat,lng){
   drawRadius(lat,lng);
 }
 
-function render(list, selectedName = null) {
+function render(list){
   markerLayer.clearLayers();
-  labelPositions = [];
-  const el = document.getElementById("list");
-  
-  // 如果有選取特定學校，只保留該學校的資料
-  const displayList = selectedName 
-    ? list.filter(item => item.name === selectedName) 
-    : list;
+  labelPositions=[];
+  const el=document.getElementById("list");
+  el.innerHTML="";
 
-  // 繪製 Marker (僅針對 displayList)
-  const grouped = {};
-  displayList.forEach(d => {
-    if (!grouped[d.name]) grouped[d.name] = [];
+  const grouped={};
+  list.forEach(d=>{
+    if(!grouped[d.name]) grouped[d.name]=[];
     grouped[d.name].push(d);
-  });
-
-  Object.keys(grouped).forEach(name => {
-    const first = grouped[name][0];
-    const icon = L.divIcon({
-      className: "custom-div-icon",
-      html: `<div class="cute-marker"></div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10]
-    });
-    L.marker([first.lat, first.lng], { icon }).addTo(markerLayer);
   });
 
   Object.keys(grouped).forEach(name=>{
@@ -414,7 +393,8 @@ const icon = L.divIcon({
     // 在 render 函式內的 card.onclick 修改如下：
 // 假設以「套房的中位數」作為判斷基準
 const medianPrice = quantile(types.套房, 0.5); // 選用套房中位數作為判定依據
-card.onclick = () => go(name, first.lat, first.lng, medianPrice);
+card.onclick = () => go(first.lat, first.lng, medianPrice);
+
     card.innerHTML=`
       <div class="name">${name}</div>
       <div class="meta">${first.district}</div>
