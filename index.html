@@ -243,6 +243,37 @@ const data = [
     ];
 
 let markerLayer = L.layerGroup().addTo(map);
+// 新功能：點擊後篩選特定學校
+  function showSchoolHistory(schoolName) {
+    document.getElementById("districtFilter").value = "all";
+    document.getElementById("seasonFilter").value = "all";
+    const filtered = data.filter(x => x.name === schoolName);
+    render(filtered);
+  }
+
+  function render(list) {
+    markerLayer.clearLayers();
+    const el = document.getElementById("list");
+    el.innerHTML = "";
+    
+    // 地圖繪製 (每個季度一個點，或只取第一筆資料當作代表點)
+    list.forEach(item => {
+      L.marker([item.lat, item.lng]).addTo(markerLayer).on('click', () => showSchoolHistory(item.name));
+      
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="name">${item.name} (${item.season})</div>
+        <table class="price-table">
+          <tr><th>房型</th><th>25分位</th><th>中位數</th><th>75分位</th></tr>
+          <tr><td>套房</td><td>${item.stats.套房[0]}</td><td>${item.stats.套房[1]}</td><td>${item.stats.套房[2]}</td></tr>
+        </table>`;
+      el.appendChild(card);
+    });
+  }
+
+  document.getElementById("districtFilter").onchange = () => render(data.filter(x => (document.getElementById("districtFilter").value === "all" || x.district === document.getElementById("districtFilter").value)));
+  render(data);  
 let circleLayer = L.layerGroup().addTo(map);
 
 function getFilteredData(){
