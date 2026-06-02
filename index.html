@@ -274,12 +274,13 @@ function drawRadius(lat,lng){
     fillOpacity:0.25
   }).addTo(circleLayer);
 }
-// 這是你的顏色判斷函式 (放在 script 區塊內即可)
+// 1. 顏色判斷函式 (增加視覺美觀)
 function getColor(price) {
-    return price > 20000 ? '#ef4444' :
-           price > 15000 ? '#f59e0b' :
-           '#10b981'; 
+    return price > 20000 ? '#ef4444' : // 紅色：高價
+           price > 15000 ? '#f59e0b' : // 黃色：中價
+           '#10b981';                // 綠色：平價
 }
+
 // 2. 修改後的 go 函式：自動適應視窗範圍
 function go(lat, lng, avgPrice) {
     // 清除舊的圓圈
@@ -299,7 +300,7 @@ function go(lat, lng, avgPrice) {
         padding: [20, 20], // 邊緣留白，避免貼齊螢幕邊緣
         animate: true      // 啟用平滑移動動畫
     });
-}  
+}
 function go(lat,lng){
   map.flyTo([lat,lng],16);
   drawRadius(lat,lng);
