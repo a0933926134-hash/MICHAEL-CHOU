@@ -324,15 +324,38 @@ function drawRadius(lat, lng){
   }).addTo(circleLayer);
 }
 
-// ✅ 修正後的邏輯：使用 fitBounds 自動適應 2km 範圍
+// ✅ 修正後的 go 函式
 function go(lat, lng){
   const center = L.latLng(lat, lng);
-  // 建立 4000 公尺寬的邊界框，確保 2 公里半徑完全顯示
-  const bounds = L.latLngBounds(
-    center.toBounds(4000).getSouthWest(), 
-    center.toBounds(4000).getNorthEast()
-  );
+  // 定義一個 2000 公尺的圓形範圍，利用 toBounds 取得邊界框
+  const radiusInMeters = 2000;
+  const bounds = center.toBounds(radiusInMeters * 2);
   
+  // 自動調整視角以適應邊界，padding 讓圓形不會貼邊
+  map.fitBounds(bounds, { padding: [50, 50] });
+  
+  circleLayer.clearLayers();
+  L.circle([lat, lng], {
+    radius: radiusInMeters,
+    color: "#60a5fa",
+    fillColor: "#93c5fd",
+    fillOpacity: 0.25
+  }).addTo(circleLayer);
+}
+// 渲染列表
+const listEl = document.getElementById("list");
+data.forEach(item => {
+  const div = document.createElement("div");
+  div.className = "card";
+  div.innerHTML = `<div class="name">${item.name}</div><div>${item.district}</div>`;
+  div.onclick = () => go(item.lat, item.lng);
+  listEl.appendChild(div);
+});
+
+// 初始化標記
+data.forEach(d => {
+  L.marker([d.lat, d.lng]).addTo(markerLayer).on('click', () => go(d.lat, d.lng));
+});  
   // fitBounds 會自動調整縮放與中心點
   map.fitBounds(bounds, { padding: [50, 50] }); 
   
