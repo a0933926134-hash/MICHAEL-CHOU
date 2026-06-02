@@ -349,68 +349,43 @@ function go(lat,lng){
   drawRadius(lat,lng);
 }
 
-function render(list){
+function render(list) {
   markerLayer.clearLayers();
-  labelPositions=[];
-  const el=document.getElementById("list");
-  el.innerHTML="";
+  const el = document.getElementById("list");
+  el.innerHTML = "";
 
-  const grouped={};
-  list.forEach(d=>{
-    if(!grouped[d.name]) grouped[d.name]=[];
-    grouped[d.name].push(d);
-  });
-
-  Object.keys(grouped).forEach(name=>{
-    const items=grouped[name];
-    const first=items[0];
-
-    const types={雅房:[],套房:[],整層:[]};
-    items.forEach(i=>{
-      types.雅房.push(i.rents.雅房);
-      types.套房.push(i.rents.套房);
-      types.整層.push(i.rents.整層);
+  // 1. 直接遍歷過濾後的 list (因為已經經過 filter，直接取單筆資料即可)
+  list.forEach(item => {
+    // 建立地圖標記
+    const icon = L.divIcon({
+      className: "custom-div-icon",
+      html: `<div class="cute-marker"></div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
     });
+    L.marker([item.lat, item.lng], {icon}).addTo(markerLayer);
 
-    // 在 render 函式內部找到這一段並替換：
-const icon = L.divIcon({
-  className: "custom-div-icon",
-  html: `<div class="cute-marker"></div>`,
-  iconSize: [20, 20],
-  iconAnchor: [10, 10]
-});
+    // 2. 直接使用該筆資料的租金 (因為已經篩選出該季節，四分位數即為當前租金)
+    const {雅房, 套房, 整層} = item.rents;
 
-    L.marker([first.lat,first.lng],{icon}).addTo(markerLayer);
+    const card = document.createElement("div");
+    card.className = "card";
+    // 點擊時使用套房價格作為顏色判定基準
+    card.onclick = () => go(item.lat, item.lng, 套房);
 
-    const row=(label,arr)=>`
-      <tr><th>${label}</th>
-      <td>${quantile(arr,0.25).toFixed(0)}</td>
-      <td>${quantile(arr,0.5).toFixed(0)}</td>
-      <td>${quantile(arr,0.75).toFixed(0)}</td></tr>`;
-
-    const card=document.createElement("div");
-    card.className="card";
-    // 在 render 函式內的 card.onclick 修改如下：
-// 假設以「套房的中位數」作為判斷基準
-const medianPrice = quantile(types.套房, 0.5); // 選用套房中位數作為判定依據
-card.onclick = () => go(first.lat, first.lng, medianPrice);
-
-    card.innerHTML=`
-      <div class="name">${name}</div>
-      <div class="meta">${first.district}</div>
-
+    card.innerHTML = `
+      <div class="name">${item.name} <small style="color:#999;font-weight:normal;">(${item.season})</small></div>
+      <div class="meta">${item.district}</div>
       <table class="price-table">
-        <tr><th></th><th>25分位</th><th>中位數</th><th>75分位</th></tr>
-        ${row("雅房",types.雅房)}
-        ${row("套房",types.套房)}
-        ${row("整層",types.整層)}
+        <tr><th>房型</th><th>租金行情</th></tr>
+        <tr><td>雅房</td><td>${雅房} 元</td></tr>
+        <tr><td>套房</td><td>${套房} 元</td></tr>
+        <tr><td>整層</td><td>${整層} 元</td></tr>
       </table>
     `;
-
     el.appendChild(card);
   });
 }
-
 map.on("moveend",()=>render(getFilteredData()));
 map.on("zoomend",()=>render(getFilteredData()));
 document.getElementById("districtFilter").addEventListener("change",()=>render(getFilteredData()));
