@@ -322,16 +322,20 @@ function getColor(price) {
 
 // --- 修正後的 go 函式 ---
 // --- 合併後的單一 go 函式 ---
-function go(lat, lng, avgPrice) {
+function go(lat, lng, price) {
+  // 清除舊的圓圈
   circleLayer.clearLayers();
+
+  // 繪製新的圓圈
   const circle = L.circle([lat, lng], {
-    radius: 2000,
-    color: getColor(avgPrice),
-    fillColor: getColor(avgPrice),
-    fillOpacity: 0.2,
+    radius: 2000, 
+    color: getColor(price),
+    fillColor: getColor(price),
+    fillOpacity: 0.3,
     weight: 2
   }).addTo(circleLayer);
 
+  // 飛至該點
   map.flyToBounds(circle.getBounds(), {
     paddingTopLeft: [20, 20],
     paddingBottomRight: [20, 400]
@@ -405,9 +409,9 @@ function render(list) {
         L.marker([item.lat, item.lng], { icon }).addTo(markerLayer);
 
         const card = document.createElement("div");
-        card.className = "card";
-        card.onclick = () => go(item.lat, item.lng, item.rents.套房);
-
+card.className = "card";
+// 確保這行代碼正確綁定
+card.onclick = () => go(item.lat, item.lng, item.rents.套房);
         card.innerHTML = `
             <div class="name">${item.name} (${item.season})</div>
             <div class="meta">${item.district}</div>
