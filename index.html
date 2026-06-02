@@ -314,25 +314,28 @@ function quantile(arr,q){
   return arr[b+1]!==undefined?arr[b]+r*(arr[b+1]-arr[b]):arr[b];
 }
 
-function drawRadius(lat,lng){
+function drawRadius(lat, lng){
   circleLayer.clearLayers();
   L.circle([lat,lng],{
-    radius:2000,
-    color:"#60a5fa",
-    fillColor:"#93c5fd",
-    fillOpacity:0.25
+    radius: 2000,
+    color: "#60a5fa",
+    fillColor: "#93c5fd",
+    fillOpacity: 0.25
   }).addTo(circleLayer);
 }
 
+// ✅ 修正後的邏輯：使用 fitBounds 自動適應 2km 範圍
 function go(lat, lng){
   const center = L.latLng(lat, lng);
-  // 計算半徑 2 公里 (2000公尺) 的邊界
+  // 建立 4000 公尺寬的邊界框，確保 2 公里半徑完全顯示
   const bounds = L.latLngBounds(
     center.toBounds(4000).getSouthWest(), 
     center.toBounds(4000).getNorthEast()
   );
   
-  map.fitBounds(bounds, { padding: [20, 20] }); // 加入一點內邊距，看起來比較舒適
+  // fitBounds 會自動調整縮放與中心點
+  map.fitBounds(bounds, { padding: [50, 50] }); 
+  
   drawRadius(lat, lng);
 }
 
