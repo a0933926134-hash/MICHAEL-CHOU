@@ -169,45 +169,7 @@ body {
 
 <script>
 
-const map = L.map('map', { minZoom: 10, maxZoom: 18 }).setView([25.05, 121.45], 11);
-// ⭐ 在這裡加入你的自訂比例尺
-const CustomScale = L.Control.extend({
-  onAdd: function (map) {
-    this._div = L.DomUtil.create('div', 'custom-scale');
-    this.update(map);
-    map.on('move zoom', () => this.update(map));
-    return this._div;
-  },
-
-  update: function (map) {
-    const y = map.getSize().y / 2;
-    const x = map.getSize().x / 2;
-
-    const p1 = map.containerPointToLatLng([x, y]);
-    const p2 = map.containerPointToLatLng([x + 100, y]);
-    const p3 = map.containerPointToLatLng([x + 200, y]);
-
-    const d1 = p1.distanceTo(p2);
-    const d2 = p1.distanceTo(p3);
-
-    this._div.innerHTML = `
-      <div style="
-        background: rgba(255,255,255,0.9);
-        padding:6px 10px;
-        border:1px solid #ddd;
-        border-radius:8px;
-        font-size:12px;
-        box-shadow:0 2px 6px rgba(0,0,0,0.1);
-      ">
-        ${Math.round(d1)} / ${Math.round(d2)} m
-      </div>
-    `;
-  }
-});
-
-// ⭐ 加到 map（左下角）
-new CustomScale({ position: 'bottomleft' }).addTo(map);  
-
+const map = L.map('map').setView([25.05,121.45], 11);
 
 L.tileLayer(
   'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
@@ -288,17 +250,6 @@ function shouldShowLabel(latlng,zoom){
   labelPositions.push(p);
   return true;
 }
-function debounce(func, wait) {
-    let timeout;
-    return function() {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, arguments), wait);
-    };
-}
-
-const updateMap = debounce(() => render(getFilteredData()), 200);
-map.on("moveend", updateMap);
-map.on("zoomend", updateMap);  
 
 function getFilteredData(){
   const d=document.getElementById("districtFilter").value;
@@ -314,38 +265,19 @@ function quantile(arr,q){
   return arr[b+1]!==undefined?arr[b]+r*(arr[b+1]-arr[b]):arr[b];
 }
 
-function drawRadius(lat, lng){
+function drawRadius(lat,lng){
   circleLayer.clearLayers();
   L.circle([lat,lng],{
-    radius: 2000,
-    color: "#60a5fa",
-    fillColor: "#93c5fd",
-    fillOpacity: 0.25
+    radius:2000,
+    color:"#60a5fa",
+    fillColor:"#93c5fd",
+    fillOpacity:0.25
   }).addTo(circleLayer);
 }
 
-// ✅ 修正後的 go 函式
-function go(lat, lng){
-  const center = L.latLng(lat, lng);
-  // 定義一個 2000 公尺的圓形範圍，利用 toBounds 取得邊界框
-  const radiusInMeters = 2000;
-  const bounds = center.toBounds(radiusInMeters * 2);
-  
-  // 自動調整視角以適應邊界，padding 讓圓形不會貼邊
-  map.fitBounds(bounds, { padding: [50, 50] });
-  
-  circleLayer.clearLayers();
-  L.circle([lat, lng], {
-    radius: radiusInMeters,
-    color: "#60a5fa",
-    fillColor: "#93c5fd",
-    fillOpacity: 0.25
-  }).addTo(circleLayer);
-}
-  // fitBounds 會自動調整縮放與中心點
-  map.fitBounds(bounds, { padding: [50, 50] }); 
-  
-  drawRadius(lat, lng);
+function go(lat,lng){
+  map.flyTo([lat,lng],16);
+  drawRadius(lat,lng);
 }
 
 function render(list){
