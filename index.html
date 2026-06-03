@@ -283,44 +283,53 @@ function render(list) {
   uniqueSchools.forEach(item => {
 
     const size = getMarkerSize() * 2;
+const color = getColor(item.stats.套房[1]);
 
 const icon = L.divIcon({
   className: "",
   html: `
     <div style="
-      width:${size}px;
-      height:${size}px;
       display:flex;
       align-items:center;
-      justify-content:center;
-      position:relative;
-      transform: translate(-50%, -50%);
+      gap:8px;
+      transform: translate(-10px, -10px);
+      white-space:nowrap;
     ">
-      
-      <!-- 外圈彈跳球 -->
+
+      <!-- 🎓 圓形 marker -->
       <div style="
         width:${size}px;
         height:${size}px;
-        background: radial-gradient(circle at 30% 30%, #60a5fa, #1d4ed8);
+        background:${color};
         border-radius:50%;
         border:3px solid white;
-        box-shadow:0 6px 14px rgba(0,0,0,.25);
-        animation: bounce 1.8s infinite;
-      "></div>
+        box-shadow:0 4px 10px rgba(0,0,0,.3);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:${size * 0.45}px;
+      ">
+        🎓
+      </div>
 
-      <!-- 小學士帽 -->
+      <!-- 🏷️ 右側標籤 -->
       <div style="
-        position:absolute;
-        font-size:${size * 0.5}px;
-        transform: translateY(-2px);
-      ">🎓</div>
+        background:rgba(255,255,255,.9);
+        padding:4px 8px;
+        border-radius:8px;
+        font-size:12px;
+        font-weight:700;
+        color:#111827;
+        box-shadow:0 2px 6px rgba(0,0,0,.15);
+      ">
+        ${item.name}
+      </div>
 
     </div>
   `,
-  iconSize: [size, size],
-  iconAnchor: [size/2, size/2]
+  iconSize: [200, size],
+  iconAnchor: [size / 2, size / 2]
 });
-
     L.marker([item.lat, item.lng], {icon}).addTo(markerLayer);
 
     const card = document.createElement("div");
