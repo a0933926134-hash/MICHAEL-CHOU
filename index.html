@@ -959,13 +959,16 @@ alert("定位失敗，請確認已允許定位權限");
 
 function getElevation(lat, lon){
 
-    if(!demImage || !demRaster) return null;
+    if(!demImage || !demRaster){
+        return null;
+    }
 
     const minX = demBBox[0];
     const minY = demBBox[1];
     const maxX = demBBox[2];
     const maxY = demBBox[3];
 
+    // 轉成浮點 DEM 座標
     const fx = ((lon - minX) / (maxX - minX)) * demWidth;
     const fy = ((maxY - lat) / (maxY - minY)) * demHeight;
 
