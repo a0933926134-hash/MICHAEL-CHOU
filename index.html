@@ -231,7 +231,15 @@ function getFilteredData(){
   const s = document.getElementById("seasonFilter").value;
   return data.filter(x => (d === "all" || x.district === d) && (s === "all" || x.season === s));
 }
+function getMarkerSize() {
+  const z = map.getZoom();
 
+  if (z <= 11) return 14;
+  if (z <= 13) return 18;
+  if (z <= 15) return 24;
+  if (z <= 17) return 30;
+  return 36;
+}
 function getMarkerSize() {
   const z = map.getZoom();
 
@@ -271,23 +279,22 @@ function render(list) {
   uniqueSchools.forEach(item => {
 
     const size = getMarkerSize();
-    const color = getColor(item.stats.套房[1]);
+const color = getColor(item.stats.套房[1]);
 
-    const icon = L.divIcon({
-      className:"",
-      html:`
-        <div style="
-          width:${size}px;
-          height:${size}px;
-          border-radius:50%;
-          background:${color};
-          border:3px solid white;
-          box-shadow:0 4px 10px rgba(0,0,0,.3);
-        "></div>
-      `,
-      iconSize:[size,size],
-      iconAnchor:[size/2,size/2]
-    });
+const icon = L.divIcon({
+  className: "",
+  html: `
+    <svg width="${size}" height="${size}" viewBox="0 0 64 64">
+      <path d="M32 6 L2 20 L32 34 L62 20 Z"
+        fill="${color}" stroke="white" stroke-width="2"/>
+      <path d="M14 28 v10 c0 6 36 6 36 0 v-10"
+        fill="${color}" stroke="white" stroke-width="2"/>
+      <circle cx="52" cy="20" r="3" fill="white"/>
+    </svg>
+  `,
+  iconSize: [size, size],
+  iconAnchor: [size/2, size/2]
+});
 
     L.marker([item.lat, item.lng], {icon}).addTo(markerLayer);
 
@@ -319,6 +326,11 @@ map.on("moveend zoomend", () => {
 });
 document.getElementById("districtFilter").addEventListener("change", () => render(getFilteredData()));
 document.getElementById("seasonFilter").addEventListener("change", () => render(getFilteredData()));
+// ✅ 加在這裡（同一區塊）
+map.on("zoomend", () => {
+  render(getFilteredData());
+});
+
 render(data);
 
 </script>
