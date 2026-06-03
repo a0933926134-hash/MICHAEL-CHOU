@@ -293,95 +293,46 @@ function render(list) {
   const el = document.getElementById("list");
   el.innerHTML = "";
 
-  // ✅ 加在這裡：去重學校
-  const uniqueSchools = [...new Map(
-    list.map(item => [item.name, item])
-  ).values()];
+  list.forEach(item => {
 
-  uniqueSchools.forEach(item => {
+    const size = getMarkerSize();
+    const color = getColor(item.stats.套房[1]);
 
-    const size = getMarkerSize() * 2;
-const color = getColor(item.stats.套房[1]);
+    const icon = L.divIcon({
+      className: "",
+      html: `
+        <div style="
+          width:${size}px;
+          height:${size}px;
+          background:${color};
+          border-radius:50%;
+          border:2px solid white;
+        "></div>
+      `,
+      iconSize: [size, size],
+      iconAnchor: [size/2, size/2]
+    });
 
-const icon = L.divIcon({
-  className: "",
-  html: `
-    <div style="
-      display:flex;
-      align-items:center;
-      gap:6px;
-      transform: translate(-10px, -10px);
-      white-space:nowrap;
-    ">
-
-      <!-- 🎓 淡黃色 icon -->
-      <div style="
-        width:${size}px;
-        height:${size}px;
-        background:#fde68a; /* 淡黃色 */
-        border-radius:50%;
-        border:2px solid white;
-        box-shadow:0 3px 8px rgba(0,0,0,.2);
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-size:${size * 0.5}px;
-      ">
-        🎓
-      </div>
-
-      <!-- 🏷️ 只有文字（無底、無框） -->
-      <div style="
-  font-size:20px;
-  font-weight:800;
-  color:#1d4ed8;
-  letter-spacing:0.3px;
-
-  /* 立體感關鍵 */
-  text-shadow:
-    0 1px 0 #ffffff,
-    0 2px 4px rgba(0,0,0,.15),
-    0 4px 10px rgba(29,78,216,.20);
-
-  transform: translateY(-0.5px);
-">
-  ${item.name}
-</div>
-    </div>
-  `,
-  iconSize: [200, size],
-  iconAnchor: [size / 2, size / 2]
-});
-    L.marker([item.lat, item.lng], {icon}).addTo(markerLayer);
+    L.marker([item.lat, item.lng], { icon })
+      .addTo(markerLayer);
 
     const card = document.createElement("div");
     card.className = "card";
+
     card.onclick = () => {
-  selectedSchool = item;
-  go(item.lat, item.lng, item.stats.套房[1]);
-};
+      selectedSchool = item;
+      go(item.lat, item.lng, item.stats.套房[1]);
+    };
 
     card.innerHTML = `
       <div class="name">${item.name}</div>
       <div class="meta">${item.district} | ${item.season}</div>
-      <table class="price-table">
-        <thead>
-          <tr><th>房型</th><th>25分位</th><th>中位數</th><th>75分位</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>雅房</td><td>${item.stats.雅房[0]}</td><td>${item.stats.雅房[1]}</td><td>${item.stats.雅房[2]}</td></tr>
-          <tr><td>套房</td><td>${item.stats.套房[0]}</td><td>${item.stats.套房[1]}</td><td>${item.stats.套房[2]}</td></tr>
-          <tr><td>整層</td><td>${item.stats.整層[0]}</td><td>${item.stats.整層[1]}</td><td>${item.stats.整層[2]}</td></tr>
-        </tbody>
-      </table>
     `;
 
     el.appendChild(card);
   });
 }
 
-map.on("moveend zoomend", () => {
-  render(getFilteredData());
 });
 document.getElementById("districtFilter").addEventListener("change", () => render(getFilteredData()));
 document.getElementById("seasonFilter").addEventListener("change", () => render(getFilteredData()));
