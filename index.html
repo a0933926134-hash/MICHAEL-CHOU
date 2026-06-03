@@ -123,12 +123,28 @@ body {
   color: #111827;
   text-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
-const icon = L.divIcon({
-  className: "custom-div-icon",
-  html: `<div class="cute-marker"></div>`,
-  iconSize: [20,20],
-  iconAnchor: [10,10]
-});
+/* 可愛標記點樣式 */
+.google-pin {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  background: #ea4335;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 2px solid white;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+}
+
+.google-pin::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: white;
+  border-radius: 50%;
+  top: 7px;
+  left: 7px;
+}
 
 /* 呼吸動畫 */
 @keyframes pulse {
@@ -269,7 +285,12 @@ function render(list) {
   const el = document.getElementById("list");
   el.innerHTML = "";
   list.forEach(item => {
-    const icon = L.divIcon({ className: "custom-div-icon", html: `<div class="cute-marker"></div>`, iconSize: [20, 20], iconAnchor: [10, 10] });
+  const icon = L.divIcon({
+  className: "",
+  html: `<div class="google-pin"></div>`,
+  iconSize: [28,28],
+  iconAnchor: [14,28]
+});
     L.marker([item.lat, item.lng], {icon}).addTo(markerLayer);
     const card = document.createElement("div");
     card.className = "card";
