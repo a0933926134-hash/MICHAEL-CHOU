@@ -193,7 +193,13 @@ font-weight:bold;
     border-radius: 50%;
     box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
+<style>
+body { margin:0; font-family: Arial, "Microsoft JhengHei"; }
+#map { height:100vh; }
 
+/* ===== 你原本的所有 CSS ===== */
+#panel { ... }
+#resultPanel { ... }
 
 /* =================================================
    ↓↓↓ 這裡開始貼新增 CSS ↓↓↓
@@ -897,10 +903,11 @@ async function loadDEM(){
         demBBox =
             demImage.getBoundingBox();
 
-        demRaster = await demImage.readRasters();
+        demRaster =
+            await demImage.readRasters();
 
-demReady = true;   // 🔥 關鍵
-console.log("DEM 載入完成", demWidth, demHeight);
+        console.log(
+            "DEM 載入完成",
             demWidth,
             demHeight
         );
@@ -950,9 +957,12 @@ alert("定位失敗，請確認已允許定位權限");
    DEM 高程查詢
    ================================== */
 
-function getElevation(lat, lon){
+function getElevation(lat,lon){
 
-    if(!demImage || !demRaster){
+    if(
+        !demImage ||
+        !demRaster
+    ){
         return null;
     }
 
@@ -961,28 +971,31 @@ function getElevation(lat, lon){
     const maxX = demBBox[2];
     const maxY = demBBox[3];
 
-    // 轉成浮點 DEM 座標
-    const fx = ((lon - minX) / (maxX - minX)) * demWidth;
-    const fy = ((maxY - lat) / (maxY - minY)) * demHeight;
+    const x =
+        Math.floor(
+            ((lon-minX)/(maxX-minX))
+            * demWidth
+        );
 
-    const x = Math.floor(fx);
-    const y = Math.floor(fy);
+    const y =
+        Math.floor(
+            ((maxY-lat)/(maxY-minY))
+            * demHeight
+        );
 
-    const x1 = Math.min(x + 1, demWidth - 1);
-    const y1 = Math.min(y + 1, demHeight - 1);
+    if(
+        x<0 ||
+        y<0 ||
+        x>=demWidth ||
+        y>=demHeight
+    ){
+        return null;
+    }
 
-    const q11 = demRaster[0][y * demWidth + x];
-    const q21 = demRaster[0][y * demWidth + x1];
-    const q12 = demRaster[0][y1 * demWidth + x];
-    const q22 = demRaster[0][y1 * demWidth + x1];
+    const index =
+        y * demWidth + x;
 
-    const rx = fx - x;
-    const ry = fy - y;
-
-    const r1 = q11 * (1 - rx) + q21 * rx;
-    const r2 = q12 * (1 - rx) + q22 * rx;
-
-    return r1 * (1 - ry) + r2 * ry;
+    return demRaster[0][index];
 }
 /* 哈弗辛直線距離 */
 function haversine(lat1, lon1, lat2, lon2){
@@ -1095,7 +1108,6 @@ queryBtn.disabled = true;
 queryBtn.innerText = "⌛ 檢索圖資中...";
 
 try {
-    let elevations = [];   // ← ★一定要加這行
     markerLayer.clearLayers();
     if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
     routeInfo.innerText="路線距離：尚未計算";
@@ -1409,12 +1421,6 @@ async function analyzeSlope(){
 
     const slopeInfo = document.getElementById("slopeInfo");
 
-    /* 🔥 保底修正（新增這段） */
-    if (!demRaster || !demImage) {
-        slopeInfo.innerHTML = "DEM 尚未載入完成，請稍後再試";
-        return;
-    }
-
     if(!drawPoints || drawPoints.length < 3){
         alert("請先繪製分析範圍");
         return;
@@ -1442,58 +1448,89 @@ async function analyzeSlope(){
         const maxLat = bbox[3];
 
         /* 採樣密度 */
-        /* 改善版 sampling */
-const sampleStep = 0.0001; // 🔥 放大 2 倍（關鍵）
+        const sampleStep = 0.00005;
 
-const bufferedPoly = turf.buffer(polygon, 0.01, { units: "kilometers" });
+        let elevations = [];
 
-for(let lat = minLat; lat <= maxLat; lat += sampleStep){
+        for(let lat=minLat; lat<=maxLat; lat+=sampleStep){
 
-    for(let lon = minLon; lon <= maxLon; lon += sampleStep){
+            for(let lon=minLon; lon<=maxLon; lon+=sampleStep){
 
-        const pt = turf.point([lon, lat]);
+                const pt = turf.point([lon,lat]);
 
-        /* 用 buffer 避免邊界誤殺 */
-        if(!turf.booleanPointInPolygon(pt, bufferedPoly)) continue;
+                if(turf.booleanPointInPolygon(pt,polygon)){
 
-        const ele = getElevation(lat, lon);
+                    /*
+                       DEM 高程模擬
+                       （目前先用 pseudo DEM）
+                    */
 
-        if(ele == null || isNaN(ele)) continue;
+                    const ele =
+    getElevation(lat,lon);
 
-        elevations.push({
-            lat,
-            lon,
-            ele
-        });
-    }
+if(
+    ele === null ||
+    isNaN(ele)
+){
+    continue;
 }
+
+                    elevations.push({
+                        lat,
+                        lon,
+                        ele
+                    });
+                }
+            }
+        }
 
         if(elevations.length < 2){
             slopeInfo.innerHTML = "採樣點不足";
             return;
         }
 
-        /* 坡度計算（修正版：只計算一次） */
-let slopes = [];
+        /* 坡度計算 */
+        let slopes = [];
 
-for(let i = 1; i < elevations.length; i++){
+        for(let i=1;i<elevations.length;i++){
 
-    const p1 = elevations[i - 1];
-    const p2 = elevations[i];
+    const p1=elevations[i-1];
+    const p2=elevations[i];
 
-    const dist = haversine(
-        p1.lat, p1.lon,
-        p2.lat, p2.lon
+    const dist =
+        haversine(
+            p1.lat,p1.lon,
+            p2.lat,p2.lon
+        );
+
+    if(dist<1) continue;
+
+    const rise =
+        Math.abs(
+            p2.ele-p1.ele
+        );
+
+    slopes.push(
+        (rise/dist)*100
     );
-
-    if(dist <= 0) continue;
-
-    const rise = Math.abs(p2.ele - p1.ele);
-
-    const slope = (rise / dist) * 100;
-
-    slopes.push(slope);
 }
+
+            const p1 = elevations[i-1];
+            const p2 = elevations[i];
+
+            const dist = haversine(
+                p1.lat,p1.lon,
+                p2.lat,p2.lon
+            );
+
+            if(dist <= 0) continue;
+
+            const rise = Math.abs(p2.ele - p1.ele);
+
+            const slope = (rise / dist) * 100;
+
+            slopes.push(slope);
+        }
 
         if(!slopes.length){
             slopeInfo.innerHTML = "無法計算坡度";
