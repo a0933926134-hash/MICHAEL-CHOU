@@ -11,6 +11,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <!-- 前端 SHP 轉檔打包工具 -->
 <script src="https://unpkg.com/shp-write@latest/shpwrite.js"></script>
+<!-- 新增 DEM GeoTIFF -->
+<script src="https://unpkg.com/geotiff/dist-browser/geotiff.js"></script>    
 <!-- 關鍵擴充：引入 JSZip 與 shpjs，讓前端具備真實解碼 SHP 壓縮檔的能力 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
@@ -478,7 +480,7 @@ this._div.innerHTML = `比例尺 1:${rounded.toLocaleString()}`;
 
 scaleControl.addTo(map);
 map.on('zoomend moveend', () => { scaleControl.update(); });
-
+loadDEM();
 let markerLayer=L.layerGroup().addTo(map);
   
 const latInput=document.getElementById("lat");
@@ -494,6 +496,17 @@ let results=[];
 
 let sortState = { distance:true, route:true };
 let routeLayer=null;
+/* ===========================
+   DEM Raster
+   =========================== */
+
+let demImage = null;
+let demRaster = null;
+
+let demWidth = 0;
+let demHeight = 0;
+
+let demBBox = null;    
 
 origin=[25.012098,121.465675];
 
@@ -865,7 +878,48 @@ map.on('click', e => {
     }).addTo(map);
 });
 
+/* ==================================
+   DEM GeoTIFF 載入
+   ================================== */
 
+async function loadDEM(){
+
+    try{
+
+        const tiff =
+            await GeoTIFF.fromUrl(
+                "./dem/NewTaipei_DEM.tif"
+            );
+
+        demImage =
+            await tiff.getImage();
+
+        demWidth =
+            demImage.getWidth();
+
+        demHeight =
+            demImage.getHeight();
+
+        demBBox =
+            demImage.getBoundingBox();
+
+        demRaster =
+            await demImage.readRasters();
+
+        console.log(
+            "DEM 載入完成",
+            demWidth,
+            demHeight
+        );
+
+    }catch(err){
+
+        console.error(
+            "DEM 載入失敗",
+            err
+        );
+    }
+}
 /* 取得現在位置 */
 function getCurrentLocation(){
 if(!navigator.geolocation){
@@ -899,7 +953,50 @@ alert("定位失敗，請確認已允許定位權限");
 { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
 );
 }
+/* ==================================
+   DEM 高程查詢
+   ================================== */
 
+function getElevation(lat,lon){
+
+    if(
+        !demImage ||
+        !demRaster
+    ){
+        return null;
+    }
+
+    const minX = demBBox[0];
+    const minY = demBBox[1];
+    const maxX = demBBox[2];
+    const maxY = demBBox[3];
+
+    const x =
+        Math.floor(
+            ((lon-minX)/(maxX-minX))
+            * demWidth
+        );
+
+    const y =
+        Math.floor(
+            ((maxY-lat)/(maxY-minY))
+            * demHeight
+        );
+
+    if(
+        x<0 ||
+        y<0 ||
+        x>=demWidth ||
+        y>=demHeight
+    ){
+        return null;
+    }
+
+    const index =
+        y * demWidth + x;
+
+    return demRaster[0][index];
+}
 /* 哈弗辛直線距離 */
 function haversine(lat1, lon1, lat2, lon2){
 const R=6371000;
@@ -1369,9 +1466,14 @@ async function analyzeSlope(){
                     */
 
                     const ele =
-                        20 +
-                        (Math.sin(lat*40)*20) +
-                        (Math.cos(lon*40)*20);
+    getElevation(lat,lon);
+
+if(
+    ele === null ||
+    isNaN(ele)
+){
+    continue;
+}
 
                     elevations.push({
                         lat,
@@ -1391,6 +1493,27 @@ async function analyzeSlope(){
         let slopes = [];
 
         for(let i=1;i<elevations.length;i++){
+
+    const p1=elevations[i-1];
+    const p2=elevations[i];
+
+    const dist =
+        haversine(
+            p1.lat,p1.lon,
+            p2.lat,p2.lon
+        );
+
+    if(dist<1) continue;
+
+    const rise =
+        Math.abs(
+            p2.ele-p1.ele
+        );
+
+    slopes.push(
+        (rise/dist)*100
+    );
+}
 
             const p1 = elevations[i-1];
             const p2 = elevations[i];
@@ -1413,7 +1536,19 @@ async function analyzeSlope(){
             slopeInfo.innerHTML = "無法計算坡度";
             return;
         }
+        const elevationsOnly =
+    elevations.map(e=>e.ele);
 
+const minElev =
+    Math.min(...elevationsOnly);
+
+const maxElev =
+    Math.max(...elevationsOnly);
+
+const avgElev =
+    elevationsOnly.reduce(
+        (a,b)=>a+b,0
+    ) / elevationsOnly.length;
         /* 統計 */
         const avgSlope =
             slopes.reduce((a,b)=>a+b,0) / slopes.length;
@@ -1435,13 +1570,19 @@ async function analyzeSlope(){
 
         /* 顯示結果 */
         slopeInfo.innerHTML = `
-        <b>DEM 坡度分析完成</b><br>
-        採樣點數：${elevations.length}<br>
-        平均坡度：${avgSlope.toFixed(2)} %<br>
-        最大坡度：${maxSlope.toFixed(2)} %<br>
-        最小坡度：${minSlope.toFixed(2)} %<br>
-        地形分類：${terrainType}
-        `;
+<b>DEM 坡度分析完成</b><br>
+採樣點數：${elevations.length}<br>
+
+平均高程：${avgElev.toFixed(1)} m<br>
+最低高程：${minElev.toFixed(1)} m<br>
+最高高程：${maxElev.toFixed(1)} m<br>
+
+平均坡度：${avgSlope.toFixed(2)} %<br>
+最大坡度：${maxSlope.toFixed(2)} %<br>
+最小坡度：${minSlope.toFixed(2)} %<br>
+
+地形分類：${terrainType}
+`;
 
         /* 視覺化 */
         elevations.forEach(p=>{
