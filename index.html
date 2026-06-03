@@ -1511,6 +1511,48 @@ panel.style.right = "auto";
 });
 
 document.addEventListener("mouseup", function(){ isDragging = false; });
+/* ==========================
+   坡度面板拖曳
+   ========================== */
+
+let slopeDragging = false;
+let slopeOffsetX = 0;
+let slopeOffsetY = 0;
+
+const slopePanel = document.getElementById("slopePanel");
+const slopeHeader = document.getElementById("slopeHeader");
+
+slopeHeader.addEventListener("mousedown", function(e){
+
+    if(e.target.tagName === "BUTTON") return;
+
+    slopeDragging = true;
+
+    const rect = slopePanel.getBoundingClientRect();
+
+    slopeOffsetX = e.clientX - rect.left;
+    slopeOffsetY = e.clientY - rect.top;
+
+    slopePanel.style.position = "absolute";
+    slopePanel.style.zIndex = 99999;
+});
+
+document.addEventListener("mousemove", function(e){
+
+    if(!slopeDragging) return;
+
+    slopePanel.style.left =
+        (e.clientX - slopeOffsetX) + "px";
+
+    slopePanel.style.top =
+        (e.clientY - slopeOffsetY) + "px";
+});
+
+document.addEventListener("mouseup", function(){
+
+    slopeDragging = false;
+
+});    
 </script>
 
 </body>
