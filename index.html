@@ -6,6 +6,8 @@
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>  
 
 <style>
 body {
@@ -162,6 +164,20 @@ body {
       <option value="2025-Q4">2025 Q4</option>
       <option value="2026-Q1">2026 Q1</option>
     </select>
+    <!-- ✅ 就是插在這裡 -->
+<button id="exportPDFBtn" style="
+  width:100%;
+  padding:8px;
+  border:none;
+  border-radius:8px;
+  background:#1d4ed8;
+  color:white;
+  font-weight:700;
+  cursor:pointer;
+  margin-top:8px;
+">
+  匯出學校半徑 PDF
+</button>
   </div>
 
   <div id="list"></div>
@@ -226,7 +242,7 @@ const data = [
   { name: "醒吾科大", district: "林口", lat: 25.0823, lng: 121.3965, season: "2025-Q1", 
     stats: { 雅房: [8800, 9000, 9200], 套房: [10800, 11000, 11200], 整層: [19800, 20000, 20200] } },
     ];
-
+let selectedSchool = null;
 let markerLayer = L.layerGroup().addTo(map);
 let circleLayer = L.layerGroup().addTo(map);
 
@@ -338,7 +354,10 @@ const icon = L.divIcon({
 
     const card = document.createElement("div");
     card.className = "card";
-    card.onclick = () => go(item.lat, item.lng, item.stats.套房[1]);
+    card.onclick = () => {
+  selectedSchool = item;
+  go(item.lat, item.lng, item.stats.套房[1]);
+};
 
     card.innerHTML = `
       <div class="name">${item.name}</div>
@@ -370,6 +389,35 @@ map.on("zoomend", () => {
 });
 
 render(data);
+// ===== 📄 PDF 匯出功能（核心）=====
+document.getElementById("exportPDFBtn").addEventListener("click", async () => {
+  if (!selectedSchool) {
+    alert("請先選擇一所學校");
+    return;
+  }
+
+  const mapEl = document.getElementById("map");
+
+  const canvas = await html2canvas(mapEl, {
+    useCORS: true,
+    scale: 2
+  });
+
+  const imgData = canvas.toDataURL("image/png");
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF("landscape", "mm", "a4");
+
+  pdf.setFontSize(14);
+  pdf.text(`學校租金分析 - ${selectedSchool.name}`, 10, 10);
+
+  pdf.setFontSize(10);
+  pdf.text(`行政區: ${selectedSchool.district} | 季別: ${selectedSchool.season}`, 10, 16);
+
+  pdf.addImage(imgData, "PNG", 0, 20, 297, 190);
+
+  pdf.save(`${selectedSchool.name}_租金分析.pdf`);
+});  
 
 </script>
 
