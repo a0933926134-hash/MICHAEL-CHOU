@@ -278,31 +278,31 @@ function render(list) {
 
   uniqueSchools.forEach(item => {
 
-    const size = getMarkerSize();
+    const size = getMarkerSize() * 2;
 
 const icon = L.divIcon({
   className: "",
   html: `
-    <svg width="${size * 2}" height="${size * 2}" viewBox="0 0 64 64">
-
-      <!-- 帽頂（黑色） -->
-      <path d="M32 8 L4 22 L32 36 L60 22 Z"
-        fill="#111111" stroke="white" stroke-width="2"/>
-
-      <!-- 帽身 -->
-      <path d="M16 30 v10 c0 6 32 6 32 0 v-10"
-        fill="#111111" stroke="white" stroke-width="2"/>
-
-      <!-- 穗邊（黃色流蘇） -->
-      <circle cx="50" cy="22" r="3" fill="#facc15"/>
-      <line x1="50" y1="25" x2="50" y2="40"
-        stroke="#facc15" stroke-width="2"/>
-      <circle cx="50" cy="42" r="2" fill="#facc15"/>
-
-    </svg>
+    <div style="
+      width:${size}px;
+      height:${size}px;
+      background: linear-gradient(135deg,#34d399,#059669);
+      border-radius:50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border:3px solid white;
+      box-shadow:0 6px 12px rgba(0,0,0,.25);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    ">
+      <div style="
+        transform: rotate(45deg);
+        font-size:${size * 0.45}px;
+      ">🏠</div>
+    </div>
   `,
   iconSize: [size, size],
-  iconAnchor: [size / 2, size / 2]
+  iconAnchor: [size/2, size/2]
 });
 
     L.marker([item.lat, item.lng], {icon}).addTo(markerLayer);
