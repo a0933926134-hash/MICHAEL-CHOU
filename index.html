@@ -147,12 +147,16 @@ body {
 
 <div id="map">
   <div id="gisTitle">
+    <div class="t1">新北市大專院校租金地圖</div>
+    <div class="t2" id="gisSub">初始化中...</div>
   </div>
+</div>
 
 <div id="panel">
   <div id="header">
-    <div id="title">新莊、泰山、林口大專院校租金行情輕鬆查</div>
-    </div>
+    <div id="title">新莊、泰山、林口大專院校租金行情</div>
+    <div id="subtitle">School-based GIS Analysis</div>
+  </div>
 
   <div id="filterBox">
     <select id="districtFilter">
@@ -239,52 +243,6 @@ const data = [
     ];
 
 let markerLayer = L.layerGroup().addTo(map);
-// 新功能：點擊後篩選特定學校
-  function showSchoolHistory(schoolName) {
-    document.getElementById("districtFilter").value = "all";
-    document.getElementById("seasonFilter").value = "all";
-    const filtered = data.filter(x => x.name === schoolName);
-    render(filtered);
-  }
-
-  function render(list) {
-    // 1. 更新地圖：若傳入的是全資料，顯示所有學校點；若傳入的是特定學校，只顯示該點
-    markerLayer.clearLayers();
-    
-    // 取得不重複的學校位置，並在地圖上建立 Marker
-    const uniqueSchools = [...new Map(data.map(item => [item.name, item])).values()];
-    
-    uniqueSchools.forEach(school => {
-      L.marker([school.lat, school.lng])
-       .addTo(markerLayer)
-       .on('click', () => {
-         // 【核心功能】點選後只篩選該學校的資料並重新 render
-         const filtered = data.filter(x => x.name === school.name);
-         render(filtered);
-       });
-    });
-
-    // 2. 更新右側列表
-    const el = document.getElementById("list");
-    el.innerHTML = "";
-    list.forEach(item => {
-      const card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML = `
-        <div class="name">${item.name}</div>
-        <div class="meta">季度: ${item.season} | 行政區: ${item.district}</div>
-        <table class="price-table">
-          <tr><th>房型</th><th>25分位</th><th>中位數</th><th>75分位</th></tr>
-          <tr><td>雅房</td><td>${item.stats.雅房[0]}</td><td>${item.stats.雅房[1]}</td><td>${item.stats.雅房[2]}</td></tr>
-          <tr><td>套房</td><td>${item.stats.套房[0]}</td><td>${item.stats.套房[1]}</td><td>${item.stats.套房[2]}</td></tr>
-          <tr><td>整層</td><td>${item.stats.整層[0]}</td><td>${item.stats.整層[1]}</td><td>${item.stats.整層[2]}</td></tr>
-        </table>`;
-      el.appendChild(card);
-    });
-  }
-
-  // 初始化顯示全部
-  render(data);
 let circleLayer = L.layerGroup().addTo(map);
 
 function getFilteredData(){
