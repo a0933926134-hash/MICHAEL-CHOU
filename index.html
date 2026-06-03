@@ -388,7 +388,35 @@ map.on("zoomend", () => {
 });
 
 render(data);
+// ===== 📄 PDF 匯出功能（核心）=====
+document.getElementById("exportPDFBtn").addEventListener("click", async () => {
+  if (!selectedSchool) {
+    alert("請先選擇一所學校");
+    return;
+  }
 
+  const mapEl = document.getElementById("map");
+
+  const canvas = await html2canvas(mapEl, {
+    useCORS: true,
+    scale: 2
+  });
+
+  const imgData = canvas.toDataURL("image/png");
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF("landscape", "mm", "a4");
+
+  pdf.setFontSize(14);
+  pdf.text(`學校租金分析 - ${selectedSchool.name}`, 10, 10);
+
+  pdf.setFontSize(10);
+  pdf.text(`行政區: ${selectedSchool.district} | 季別: ${selectedSchool.season}`, 10, 16);
+
+  pdf.addImage(imgData, "PNG", 0, 20, 297, 190);
+
+  pdf.save(`${selectedSchool.name}_租金分析.pdf`);
+});
 </script>
 
 </body>
