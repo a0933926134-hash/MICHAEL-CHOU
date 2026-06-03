@@ -957,45 +957,36 @@ alert("定位失敗，請確認已允許定位權限");
    DEM 高程查詢
    ================================== */
 
-function getElevation(lat,lon){
+function getElevation(lat, lon){
 
-    if(
-        !demImage ||
-        !demRaster
-    ){
-        return null;
-    }
+    if(!demImage || !demRaster) return null;
 
     const minX = demBBox[0];
     const minY = demBBox[1];
     const maxX = demBBox[2];
     const maxY = demBBox[3];
 
-    const x =
-        Math.floor(
-            ((lon-minX)/(maxX-minX))
-            * demWidth
-        );
+    const fx = ((lon - minX) / (maxX - minX)) * demWidth;
+    const fy = ((maxY - lat) / (maxY - minY)) * demHeight;
 
-    const y =
-        Math.floor(
-            ((maxY-lat)/(maxY-minY))
-            * demHeight
-        );
+    const x = Math.floor(fx);
+    const y = Math.floor(fy);
 
-    if(
-        x<0 ||
-        y<0 ||
-        x>=demWidth ||
-        y>=demHeight
-    ){
-        return null;
-    }
+    const x1 = Math.min(x + 1, demWidth - 1);
+    const y1 = Math.min(y + 1, demHeight - 1);
 
-    const index =
-        y * demWidth + x;
+    const q11 = demRaster[0][y * demWidth + x];
+    const q21 = demRaster[0][y * demWidth + x1];
+    const q12 = demRaster[0][y1 * demWidth + x];
+    const q22 = demRaster[0][y1 * demWidth + x1];
 
-    return demRaster[0][index];
+    const rx = fx - x;
+    const ry = fy - y;
+
+    const r1 = q11 * (1 - rx) + q21 * rx;
+    const r2 = q12 * (1 - rx) + q22 * rx;
+
+    return r1 * (1 - ry) + r2 * ry;
 }
 /* 哈弗辛直線距離 */
 function haversine(lat1, lon1, lat2, lon2){
