@@ -1415,12 +1415,56 @@ async function analyzeSlope(){
 
     const slopeInfo = document.getElementById("slopeInfo");
 
+    /* 🔥 保底修正（新增這段） */
+    if (!demRaster || !demImage) {
+        slopeInfo.innerHTML = "DEM 尚未載入完成，請稍後再試";
+        return;
+    }
+
     if(!drawPoints || drawPoints.length < 3){
         alert("請先繪製分析範圍");
         return;
     }
 
     slopeInfo.innerHTML = "DEM 分析中...";
+📌 這段「保底修正」在做什麼？
+
+它是在防止這種情況：
+
+❌ DEM 還沒載入完成就點分析
+
+會導致：
+
+demRaster = null
+getElevation() 全部回 null
+elevations 變空
+→ 採樣點不足 / 無法計算坡度
+🚨 為什麼一定要放這裡？
+
+因為 analyzeSlope 流程是：
+
+1. 檢查 DEM（必須先擋）
+2. 檢查 polygon
+3. sampling
+4. slope 計算
+5. 顯示結果
+
+👉 如果 DEM 沒載入還往下跑
+👉 整個結果一定壞
+
+👍 一句話記法
+
+👉 「所有 GIS DEM 計算，一定要先檢查 raster 是否 ready」
+
+🔥 如果你要再升級（建議）
+
+我可以幫你做進階版本：
+
+DEM loading spinner
+loading lock（避免重複點分析）
+raster ready event（真正 GIS app 寫法）
+
+會讓這個圖台變成「ArcGIS 等級 UX」。
 
     try{
 
@@ -1442,41 +1486,31 @@ async function analyzeSlope(){
         const maxLat = bbox[3];
 
         /* 採樣密度 */
-        const sampleStep = 0.00005;
+        /* 改善版 sampling */
+const sampleStep = 0.0001; // 🔥 放大 2 倍（關鍵）
 
-        let elevations = [];
+const bufferedPoly = turf.buffer(polygon, 0.01, { units: "kilometers" });
 
-        for(let lat=minLat; lat<=maxLat; lat+=sampleStep){
+for(let lat = minLat; lat <= maxLat; lat += sampleStep){
 
-            for(let lon=minLon; lon<=maxLon; lon+=sampleStep){
+    for(let lon = minLon; lon <= maxLon; lon += sampleStep){
 
-                const pt = turf.point([lon,lat]);
+        const pt = turf.point([lon, lat]);
 
-                if(turf.booleanPointInPolygon(pt,polygon)){
+        /* 用 buffer 避免邊界誤殺 */
+        if(!turf.booleanPointInPolygon(pt, bufferedPoly)) continue;
 
-                    /*
-                       DEM 高程模擬
-                       （目前先用 pseudo DEM）
-                    */
+        const ele = getElevation(lat, lon);
 
-                    const ele =
-    getElevation(lat,lon);
+        if(ele == null || isNaN(ele)) continue;
 
-if(
-    ele === null ||
-    isNaN(ele)
-){
-    continue;
+        elevations.push({
+            lat,
+            lon,
+            ele
+        });
+    }
 }
-
-                    elevations.push({
-                        lat,
-                        lon,
-                        ele
-                    });
-                }
-            }
-        }
 
         if(elevations.length < 2){
             slopeInfo.innerHTML = "採樣點不足";
