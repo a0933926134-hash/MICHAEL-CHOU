@@ -279,21 +279,30 @@ function render(list) {
   uniqueSchools.forEach(item => {
 
     const size = getMarkerSize();
-const color = getColor(item.stats.套房[1]);
 
 const icon = L.divIcon({
   className: "",
   html: `
     <svg width="${size}" height="${size}" viewBox="0 0 64 64">
-      <path d="M32 6 L2 20 L32 34 L62 20 Z"
-        fill="${color}" stroke="white" stroke-width="2"/>
-      <path d="M14 28 v10 c0 6 36 6 36 0 v-10"
-        fill="${color}" stroke="white" stroke-width="2"/>
-      <circle cx="52" cy="20" r="3" fill="white"/>
+
+      <!-- 帽頂（黑色） -->
+      <path d="M32 8 L4 22 L32 36 L60 22 Z"
+        fill="#111111" stroke="white" stroke-width="2"/>
+
+      <!-- 帽身 -->
+      <path d="M16 30 v10 c0 6 32 6 32 0 v-10"
+        fill="#111111" stroke="white" stroke-width="2"/>
+
+      <!-- 穗邊（黃色流蘇） -->
+      <circle cx="50" cy="22" r="3" fill="#facc15"/>
+      <line x1="50" y1="25" x2="50" y2="40"
+        stroke="#facc15" stroke-width="2"/>
+      <circle cx="50" cy="42" r="2" fill="#facc15"/>
+
     </svg>
   `,
   iconSize: [size, size],
-  iconAnchor: [size/2, size/2]
+  iconAnchor: [size / 2, size / 2]
 });
 
     L.marker([item.lat, item.lng], {icon}).addTo(markerLayer);
