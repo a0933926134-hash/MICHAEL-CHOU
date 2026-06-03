@@ -1483,48 +1483,27 @@ if(
             return;
         }
 
-        /* 坡度計算 */
-        let slopes = [];
+        /* 坡度計算（修正版：只計算一次） */
+let slopes = [];
 
-        for(let i=1;i<elevations.length;i++){
+for(let i = 1; i < elevations.length; i++){
 
-    const p1=elevations[i-1];
-    const p2=elevations[i];
+    const p1 = elevations[i - 1];
+    const p2 = elevations[i];
 
-    const dist =
-        haversine(
-            p1.lat,p1.lon,
-            p2.lat,p2.lon
-        );
-
-    if(dist<1) continue;
-
-    const rise =
-        Math.abs(
-            p2.ele-p1.ele
-        );
-
-    slopes.push(
-        (rise/dist)*100
+    const dist = haversine(
+        p1.lat, p1.lon,
+        p2.lat, p2.lon
     );
+
+    if(dist <= 0) continue;
+
+    const rise = Math.abs(p2.ele - p1.ele);
+
+    const slope = (rise / dist) * 100;
+
+    slopes.push(slope);
 }
-
-            const p1 = elevations[i-1];
-            const p2 = elevations[i];
-
-            const dist = haversine(
-                p1.lat,p1.lon,
-                p2.lat,p2.lon
-            );
-
-            if(dist <= 0) continue;
-
-            const rise = Math.abs(p2.ele - p1.ele);
-
-            const slope = (rise / dist) * 100;
-
-            slopes.push(slope);
-        }
 
         if(!slopes.length){
             slopeInfo.innerHTML = "無法計算坡度";
