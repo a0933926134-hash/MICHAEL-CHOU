@@ -193,13 +193,7 @@ font-weight:bold;
     border-radius: 50%;
     box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
-<style>
-body { margin:0; font-family: Arial, "Microsoft JhengHei"; }
-#map { height:100vh; }
 
-/* ===== 你原本的所有 CSS ===== */
-#panel { ... }
-#resultPanel { ... }
 
 /* =================================================
    ↓↓↓ 這裡開始貼新增 CSS ↓↓↓
@@ -1102,6 +1096,7 @@ queryBtn.disabled = true;
 queryBtn.innerText = "⌛ 檢索圖資中...";
 
 try {
+    let elevations = [];   // ← ★一定要加這行
     markerLayer.clearLayers();
     if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
     routeInfo.innerText="路線距離：尚未計算";
@@ -1427,44 +1422,6 @@ async function analyzeSlope(){
     }
 
     slopeInfo.innerHTML = "DEM 分析中...";
-📌 這段「保底修正」在做什麼？
-
-它是在防止這種情況：
-
-❌ DEM 還沒載入完成就點分析
-
-會導致：
-
-demRaster = null
-getElevation() 全部回 null
-elevations 變空
-→ 採樣點不足 / 無法計算坡度
-🚨 為什麼一定要放這裡？
-
-因為 analyzeSlope 流程是：
-
-1. 檢查 DEM（必須先擋）
-2. 檢查 polygon
-3. sampling
-4. slope 計算
-5. 顯示結果
-
-👉 如果 DEM 沒載入還往下跑
-👉 整個結果一定壞
-
-👍 一句話記法
-
-👉 「所有 GIS DEM 計算，一定要先檢查 raster 是否 ready」
-
-🔥 如果你要再升級（建議）
-
-我可以幫你做進階版本：
-
-DEM loading spinner
-loading lock（避免重複點分析）
-raster ready event（真正 GIS app 寫法）
-
-會讓這個圖台變成「ArcGIS 等級 UX」。
 
     try{
 
