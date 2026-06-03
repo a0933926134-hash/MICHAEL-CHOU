@@ -123,7 +123,11 @@ body {
   color: #111827;
   text-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
-
+/* 動畫：彈跳效果 */
+@keyframes bounce {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
 </style>
 </head>
 
@@ -286,19 +290,31 @@ const icon = L.divIcon({
     <div style="
       width:${size}px;
       height:${size}px;
-      background: linear-gradient(135deg,#34d399,#059669);
-      border-radius:50% 50% 50% 0;
-      transform: rotate(-45deg);
-      border:3px solid white;
-      box-shadow:0 6px 12px rgba(0,0,0,.25);
       display:flex;
       align-items:center;
       justify-content:center;
+      position:relative;
+      transform: translate(-50%, -50%);
     ">
+      
+      <!-- 外圈彈跳球 -->
       <div style="
-        transform: rotate(45deg);
-        font-size:${size * 0.45}px;
-      ">🏠</div>
+        width:${size}px;
+        height:${size}px;
+        background: radial-gradient(circle at 30% 30%, #60a5fa, #1d4ed8);
+        border-radius:50%;
+        border:3px solid white;
+        box-shadow:0 6px 14px rgba(0,0,0,.25);
+        animation: bounce 1.8s infinite;
+      "></div>
+
+      <!-- 小學士帽 -->
+      <div style="
+        position:absolute;
+        font-size:${size * 0.5}px;
+        transform: translateY(-2px);
+      ">🎓</div>
+
     </div>
   `,
   iconSize: [size, size],
