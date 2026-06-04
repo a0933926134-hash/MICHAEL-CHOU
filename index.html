@@ -1073,22 +1073,22 @@ try {
 
     // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
     let turfZonePolygon = null;
-    if (drawPoints && drawPoints.length >= 3) {
-        let ring = drawPoints
-    .filter(p => p && p.length === 2)
-    .map(p => [Number(p[1]), Number(p[0])]);
 
-ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-// ⭐ Debug 就放這裡 ⭐
-console.log("drawPoints:", drawPoints);
-console.log("ring:", ring);
+if (drawPoints && drawPoints.length >= 3) {
 
-if(ring.length < 3){
-    alert("範圍點不足或資料錯誤");
-    return;
+    let ring = drawPoints
+        .filter(p => p && p.length === 2)
+        .map(p => [Number(p[1]), Number(p[0])]);
+
+    ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
+
+    if (ring.length < 3) {
+        alert("範圍點不足或資料錯誤");
+        return;
+    }
+
+    turfZonePolygon = turf.polygon([ring]);  // ✔ 正確：存到外部變數
 }
-
-const polygon = turf.polygon([ring]);
 
 // ⭐ 也可以再加這行（確認 polygon 是否正常） ⭐
 console.log("polygon:", polygon);
@@ -1097,9 +1097,6 @@ if(ring.length < 3){
     alert("範圍點不足或資料錯誤");
     return;
 }
-
-const polygon = turf.polygon([ring]);
-    }
 
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
     if(checkedBoxes.length === 0) {
