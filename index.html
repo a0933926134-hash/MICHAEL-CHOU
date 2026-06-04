@@ -888,44 +888,22 @@ map.on('click', e => {
    ================================== */
 
 async function loadDEM(){
-
     try{
+        const tiff = await GeoTIFF.fromUrl("./dem/NewTaipei_DEM.tif");
+        demImage = await tiff.getImage();
 
-        const tiff =
-            await GeoTIFF.fromUrl(
-                "./dem/NewTaipei_DEM.tif"
-            );
+        demWidth = demImage.getWidth();
+        demHeight = demImage.getHeight();
+        demBBox = demImage.getBoundingBox();
 
-        demImage =
-            await tiff.getImage();
+        demRaster = await demImage.readRasters();
 
-        demWidth =
-            demImage.getWidth();
+        demLoaded = true;
 
-        demHeight =
-            demImage.getHeight();
-
-        demBBox =
-            demImage.getBoundingBox();
-
-        demRaster =
-    await demImage.readRasters();
-
-demLoaded = true;
-
-console.log(
-    "DEM 載入完成",
-    demWidth,
-    demHeight,
-    demBBox
-);
-
+        console.log("DEM 載入完成");
     }catch(err){
-
-        console.error(
-            "DEM 載入失敗",
-            err
-        );
+        console.error("DEM 載入失敗", err);
+        demLoaded = false;
     }
 }
 /* 取得現在位置 */
