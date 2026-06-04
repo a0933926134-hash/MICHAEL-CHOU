@@ -350,12 +350,7 @@ cursor:pointer;
 let map = L.map('map').setView([25.012098, 121.465675], 15);
 
 // ✅ ★★★ 一定要在 loadDEM 之前 ★★★
-let demLoaded = false;
-let demImage = null;
-let demRaster = null;
-let demWidth = 0;
-let demHeight = 0;
-let demBBox = null;    
+let demLoaded = true;   // SRTM 不需 preload  
 /* =========================================================
    GIS 多底圖架構（合法替代 Google Maps）
    ========================================================= */
@@ -881,27 +876,7 @@ map.on('click', e => {
     }).addTo(map);
 });
 
-/* ==================================
-   DEM GeoTIFF 載入
-   ================================== */
 
-async function loadDEM(){
-    try{
-        const tiff = await GeoTIFF.fromUrl("./DSM.tif");
-        demImage = await tiff.getImage();
-
-        demWidth = demImage.getWidth();
-        demHeight = demImage.getHeight();
-        demBBox = demImage.getBoundingBox();
-
-        demRaster = await demImage.readRasters();
-
-        demLoaded = true;
-    }catch(err){
-        console.error(err);
-        demLoaded = false;
-    }
-}
 /* 取得現在位置 */
 function getCurrentLocation(){
 if(!navigator.geolocation){
@@ -939,45 +914,24 @@ alert("定位失敗，請確認已允許定位權限");
    DEM 高程查詢
    ================================== */
 
-function getElevation(lat,lon){
+async function getElevation(lat, lon){
 
-    if(
-        !demImage ||
-        !demRaster
-    ){
+    try {
+        const url = `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if(data.results && data.results.length > 0){
+            return data.results[0].elevation;
+        }
+
+        return null;
+
+    } catch(err){
+        console.error("SRTM error", err);
         return null;
     }
-
-    const minX = demBBox[0];
-    const minY = demBBox[1];
-    const maxX = demBBox[2];
-    const maxY = demBBox[3];
-
-    const x =
-        Math.floor(
-            ((lon-minX)/(maxX-minX))
-            * demWidth
-        );
-
-    const y =
-        Math.floor(
-            ((maxY-lat)/(maxY-minY))
-            * demHeight
-        );
-
-    if(
-        x<0 ||
-        y<0 ||
-        x>=demWidth ||
-        y>=demHeight
-    ){
-        return null;
-    }
-
-    const index =
-        y * demWidth + x;
-
-    return demRaster[0][index];
 }
 /* 哈弗辛直線距離 */
 function haversine(lat1, lon1, lat2, lon2){
@@ -1455,6 +1409,9 @@ let elevations = [];
 
         for(let lat=minLat; lat<=maxLat; lat+=sampleStep){
 
+    for(let lon=minLon; lon<=maxLon; lon+=sampleStep){
+
+        const ele = await getElevation(lat, lon);
             for(let lon=minLon; lon<=maxLon; lon+=sampleStep){
 
                 const pt = turf.point([lon,lat]);
@@ -1466,8 +1423,8 @@ let elevations = [];
                        （目前先用 pseudo DEM）
                     */
 
-                    const ele =
-    getElevation(lat,lon);
+                    const ele = await getElevation(lat, lon);
+                    await new Promise(r => setTimeout(r, 30));
 
 if(
     ele === null ||
