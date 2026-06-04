@@ -506,6 +506,7 @@ let routeLayer=null;
 
 let demImage = null;
 let demRaster = null;
+let demLoaded = false;
 
 let demWidth = 0;
 let demHeight = 0;
@@ -908,13 +909,16 @@ async function loadDEM(){
             demImage.getBoundingBox();
 
         demRaster =
-            await demImage.readRasters();
+    await demImage.readRasters();
 
-        console.log(
-            "DEM 載入完成",
-            demWidth,
-            demHeight
-        );
+demLoaded = true;
+
+console.log(
+    "DEM 載入完成",
+    demWidth,
+    demHeight,
+    demBBox
+);
 
     }catch(err){
 
@@ -1420,7 +1424,10 @@ routeInfo.innerText="路線距離：尚未計算";
 /* =========================================================
    DEM 坡度分析
    ========================================================= */
-
+if(!demLoaded){
+    alert("DEM 尚未載入完成，請稍候再試");
+    return;
+}
 async function analyzeSlope(){
 
     const slopeInfo = document.getElementById("slopeInfo");
@@ -1452,7 +1459,17 @@ async function analyzeSlope(){
         const maxLat = bbox[3];
 
         /* 採樣密度 */
-        const sampleStep = 0.00005;
+        const bboxWidth =
+    maxLon - minLon;
+
+const bboxHeight =
+    maxLat - minLat;
+
+const sampleStep =
+    Math.max(
+        bboxWidth,
+        bboxHeight
+    ) / 50;
 
         let elevations = [];
 
@@ -1488,10 +1505,24 @@ if(
             }
         }
 
-        if(elevations.length < 2){
-            slopeInfo.innerHTML = "採樣點不足";
-            return;
-        }
+        console.log(
+    "有效DEM採樣數:",
+    elevations.length
+);
+
+if(elevations.length < 2){
+
+    slopeInfo.innerHTML = `
+    DEM採樣失敗<br>
+    有效點數：${elevations.length}<br>
+    請確認：
+    <br>1.DEM已載入完成
+    <br>2.範圍位於DEM覆蓋區
+    <br>3.GeoTIFF座標系統正確
+    `;
+
+    return;
+}
 
         /* 坡度計算 */
         let slopes = [];
