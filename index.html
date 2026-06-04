@@ -1424,13 +1424,15 @@ routeInfo.innerText="路線距離：尚未計算";
 /* =========================================================
    DEM 坡度分析
    ========================================================= */
-if(!demLoaded){
-    alert("DEM 尚未載入完成，請稍候再試");
-    return;
-}
 async function analyzeSlope(){
 
-    const slopeInfo = document.getElementById("slopeInfo");
+    if(!demLoaded){
+        alert("DEM 尚未載入完成，請稍候再試");
+        return;
+    }
+
+    const slopeInfo =
+        document.getElementById("slopeInfo");
 
     if(!drawPoints || drawPoints.length < 3){
         alert("請先繪製分析範圍");
