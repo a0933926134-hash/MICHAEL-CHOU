@@ -1076,29 +1076,47 @@ try {
 
 if (drawPoints && drawPoints.length >= 3) {
 
-    let ring = drawPoints
-    .filter(p => Array.isArray(p) && p.length === 2)
-    .map(p => {
-        // 強制轉 number + 正規化
-        const lat = Number(p[0]);
-        const lon = Number(p[1]);
-        return [lon, lat];
-    });
+    // ================================
+// ✅ STEP 1：統一座標（只轉一次）
+// ================================
+let ring = drawPoints.map(p => [
+    Number(p[1]), // lng
+    Number(p[0])  // lat
+]);
 
-// 強制閉合
-if (ring.length > 2) {
-    ring.push(ring[0]);
+// ================================
+// ✅ STEP 2：基本檢查
+// ================================
+if (ring.length < 3) {
+    alert("範圍點不足");
+    return;
 }
 
-ring.push(ring[0]); // 確保閉合
-    ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
+// ================================
+// ✅ STEP 3：避免 double-close
+// ================================
+const first = ring[0];
+const last = ring[ring.length - 1];
 
-    if (ring.length < 3) {
-        alert("範圍點不足或資料錯誤");
-        return;
-    }
+if (first[0] !== last[0] || first[1] !== last[1]) {
+    ring.push(first);
+}
 
-    turfZonePolygon = turf.polygon([ring]);  // ✔ 正確：存到外部變數
+// ================================
+// ✅ STEP 4：修正 polygon（穩定關鍵）
+// ================================
+let polygon = turf.polygon([ring]);
+
+// 👉 自動修正 self-intersection（關鍵）
+const kinks = turf.kinks(polygon);
+if (kinks.features.length > 0) {
+    console.warn("Polygon self-intersection detected, applying convex hull fallback");
+
+    const pts = turf.featureCollection(
+        ring.map(p => turf.point(p))
+    );
+
+    polygon = turf.convex(pts) || polygon;
 }
 
 // ⭐ 也可以再加這行（確認 polygon 是否正常） ⭐
@@ -1482,30 +1500,35 @@ const sampleStep =
 
 let elevations = [];
 
-        for(let lat=minLat; lat<=maxLat; lat+=sampleStep){
+        let elevations = [];
 
-    for(let lon=minLon; lon<=maxLon; lon+=sampleStep){
+let countInside = 0;
 
-        const pt = turf.point([lon,lat]);
+for (let lat = minLat; lat <= maxLat; lat += sampleStep) {
 
-        if(turf.booleanPointInPolygon(pt,polygon)){
+    for (let lon = minLon; lon <= maxLon; lon += sampleStep) {
 
-            const ele = await getElevation(lat, lon);
+        const pt = turf.point([lon, lat]);
 
-            await new Promise(r => setTimeout(r,30));
+        const inside = turf.booleanPointInPolygon(pt, polygon);
 
-            if(ele === null || isNaN(ele)){
-                continue;
-            }
+        if (!inside) continue;
 
-            elevations.push({
-                lat,
-                lon,
-                ele
-            });
-        }
+        countInside++;
+
+        const ele = await getElevation(lat, lon);
+
+        if (ele === null || isNaN(ele)) continue;
+
+        elevations.push({ lat, lon, ele });
+
+        // ✅ 限流（避免 DEM API 爆）
+        await new Promise(r => setTimeout(r, 10));
     }
 }
+
+console.log("inside count:", countInside);
+console.log("elevations:", elevations.length);
                 
 
         console.log(
@@ -1513,18 +1536,28 @@ let elevations = [];
     elevations.length
 );
 
-if(elevations.length < 10){
+if (elevations.length < 5) {
 
     slopeInfo.innerHTML = `
-    採樣點不足<br>
+    ⚠ DEM 採樣不足（自動修正中）<br>
     有效點數：${elevations.length}<br>
-    建議：
-    <br>1.放大分析範圍
-    <br>2.確認DEM覆蓋範圍
-    <br>3.確認GeoTIFF座標系統
+    建議：放大範圍或降低解析度
     `;
 
-    return;
+    // 👉 fallback：強制用 polygon centroid 做單點分析
+    const centroid = turf.centroid(polygon).geometry.coordinates;
+
+    const ele = await getElevation(centroid[1], centroid[0]);
+
+    if (ele !== null) {
+        elevations = [{
+            lat: centroid[1],
+            lon: centroid[0],
+            ele
+        }];
+    } else {
+        return;
+    }
 }
 
         /* 坡度計算 */
