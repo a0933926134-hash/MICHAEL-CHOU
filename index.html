@@ -347,7 +347,7 @@ cursor:pointer;
 <div id="map"></div>
 
 <script>
-let map = L.map('map', ...);
+let map = L.map('map').setView([25.012098, 121.465675], 15);
 
 // ✅ ★★★ 一定要在 loadDEM 之前 ★★★
 let demLoaded = false;
@@ -887,40 +887,18 @@ map.on('click', e => {
 
 async function loadDEM(){
     try{
-        console.log("STEP 1: start loadDEM");
-
         const tiff = await GeoTIFF.fromUrl("./dem/NewTaipei_DEM.tif");
-        console.log("STEP 2: GeoTIFF loaded");
-
         demImage = await tiff.getImage();
-        console.log("STEP 3: image loaded");
 
         demWidth = demImage.getWidth();
         demHeight = demImage.getHeight();
         demBBox = demImage.getBoundingBox();
 
         demRaster = await demImage.readRasters();
-        console.log("STEP 4: raster loaded");
 
         demLoaded = true;
-        console.log("STEP 5: DEM READY");
-
     }catch(err){
-        console.error("DEM 載入失敗", err);
-        demLoaded = false;
-    }
-}
-        /* ⭐ DEBUG 區塊（加在這裡） */
-console.log("DEM READY CHECK:");
-console.log("demLoaded =", demLoaded);
-console.log("demImage =", demImage);
-console.log("demRaster =", demRaster);
-console.log("width =", demWidth, "height =", demHeight);
-console.log("bbox =", demBBox);
-
-        console.log("DEM 載入完成");
-    }catch(err){
-        console.error("DEM 載入失敗", err);
+        console.error(err);
         demLoaded = false;
     }
 }
