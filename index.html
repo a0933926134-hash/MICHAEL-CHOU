@@ -1077,13 +1077,18 @@ try {
 if (drawPoints && drawPoints.length >= 3) {
 
     let ring = drawPoints
-    .filter(p => p && p.length === 2)
-    .map(p => [Number(p[1]), Number(p[0])]); // lon, lat
-    console.log("ring:", ring);
-console.log("polygon valid test:", turf.booleanPointInPolygon(
-    turf.point(ring[0]),
-    turf.polygon([ring])
-));
+    .filter(p => Array.isArray(p) && p.length === 2)
+    .map(p => {
+        // 強制轉 number + 正規化
+        const lat = Number(p[0]);
+        const lon = Number(p[1]);
+        return [lon, lat];
+    });
+
+// 強制閉合
+if (ring.length > 2) {
+    ring.push(ring[0]);
+}
 
 ring.push(ring[0]); // 確保閉合
     ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
@@ -1420,7 +1425,18 @@ routeInfo.innerText="路線距離：尚未計算";
         ring.push([drawPoints[0][1], drawPoints[0][0]]);
 
         const polygon = turf.polygon([ring]);
+        // ⭐⭐⭐ 關鍵 debug 放這裡 ⭐⭐⭐
+console.log("drawPoints:", drawPoints);
+console.log("ring:", ring);
+console.log("polygon:", polygon);
+console.log("bbox:", turf.bbox(polygon));
 
+console.log("test point:", turf.booleanPointInPolygon(
+    turf.point(ring[0]),
+    polygon
+));
+
+console.log("kinks check:", turf.kinks(polygon));
         /* 取得範圍 bbox */
         const bbox = turf.bbox(polygon);
 
