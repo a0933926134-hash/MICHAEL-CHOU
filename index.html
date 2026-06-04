@@ -1420,11 +1420,28 @@ routeInfo.innerText="路線距離：尚未計算";
 
         /* 建立 Polygon */
         let ring = drawPoints
-    .filter(p => p && p.length === 2)
-    .map(p => [Number(p[1]), Number(p[0])]);
-        ring.push([drawPoints[0][1], drawPoints[0][0]]);
+    .filter(p => Array.isArray(p) && p.length === 2)
+    .map(p => {
+        const lat = Number(p[0]);
+        const lon = Number(p[1]);
+        return [lon, lat];
+    });
 
-        const polygon = turf.polygon([ring]);
+if (ring.length < 3) {
+    alert("範圍點不足");
+    return;
+}
+
+ring.push(ring[0]);
+
+let polygon;
+try {
+    polygon = turf.polygon([ring]);
+} catch (err) {
+    console.error(err);
+    alert("Polygon 建立失敗");
+    return;
+}
         // ⭐⭐⭐ 關鍵 debug 放這裡 ⭐⭐⭐
 console.log("drawPoints:", drawPoints);
 console.log("ring:", ring);
