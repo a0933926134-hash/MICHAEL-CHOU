@@ -1074,9 +1074,31 @@ try {
     // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
     let turfZonePolygon = null;
     if (drawPoints && drawPoints.length >= 3) {
-        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-        turfZonePolygon = turf.polygon([ring]);
+        let ring = drawPoints
+    .filter(p => p && p.length === 2)
+    .map(p => [Number(p[1]), Number(p[0])]);
+
+ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
+// ⭐ Debug 就放這裡 ⭐
+console.log("drawPoints:", drawPoints);
+console.log("ring:", ring);
+
+if(ring.length < 3){
+    alert("範圍點不足或資料錯誤");
+    return;
+}
+
+const polygon = turf.polygon([ring]);
+
+// ⭐ 也可以再加這行（確認 polygon 是否正常） ⭐
+console.log("polygon:", polygon);
+// ⭐⭐⭐ 保險檢查（加在這裡）⭐⭐⭐
+if(ring.length < 3){
+    alert("範圍點不足或資料錯誤");
+    return;
+}
+
+const polygon = turf.polygon([ring]);
     }
 
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
@@ -1389,7 +1411,9 @@ routeInfo.innerText="路線距離：尚未計算";
         markerLayer.clearLayers();
 
         /* 建立 Polygon */
-        let ring = drawPoints.map(p => [p[1], p[0]]);
+        let ring = drawPoints
+    .filter(p => p && p.length === 2)
+    .map(p => [Number(p[1]), Number(p[0])]);
         ring.push([drawPoints[0][1], drawPoints[0][0]]);
 
         const polygon = turf.polygon([ring]);
