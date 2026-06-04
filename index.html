@@ -915,8 +915,14 @@ alert("定位失敗，請確認已允許定位權限");
    DEM 高程查詢
    ================================== */
 const elevationCache = {};
+async function getElevation(lat, lon){
 
-    // 暫時使用 SRTM OpenTopoData
+    const cacheKey =
+        lat.toFixed(5)+","+lon.toFixed(5);
+
+    if(elevationCache[cacheKey] !== undefined){
+        return elevationCache[cacheKey];
+    }
 
     try{
 
@@ -924,7 +930,6 @@ const elevationCache = {};
         `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
 
         const res = await fetch(url);
-
         const data = await res.json();
 
         if(
@@ -932,7 +937,10 @@ const elevationCache = {};
             data.results &&
             data.results.length
         ){
-            return data.results[0].elevation;
+            elevationCache[cacheKey] =
+                data.results[0].elevation;
+
+            return elevationCache[cacheKey];
         }
 
         return null;
@@ -1365,14 +1373,7 @@ routeInfo.innerText="路線距離：尚未計算";
    DEM 坡度分析
    ========================================================= */
     async function analyzeSlope(){
-
     
-
-    if(!demLoaded){
-        alert("DEM 尚未載入完成，請稍候再試");
-        return;
-    }
-
     const slopeInfo = document.getElementById("slopeInfo");
 
     if(!drawPoints || drawPoints.length < 3){
