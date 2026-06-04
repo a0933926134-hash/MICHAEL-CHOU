@@ -1077,9 +1077,15 @@ try {
 if (drawPoints && drawPoints.length >= 3) {
 
     let ring = drawPoints
-        .filter(p => p && p.length === 2)
-        .map(p => [Number(p[1]), Number(p[0])]);
+    .filter(p => p && p.length === 2)
+    .map(p => [Number(p[1]), Number(p[0])]); // lon, lat
+    console.log("ring:", ring);
+console.log("polygon valid test:", turf.booleanPointInPolygon(
+    turf.point(ring[0]),
+    turf.polygon([ring])
+));
 
+ring.push(ring[0]); // 確保閉合
     ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
 
     if (ring.length < 3) {
