@@ -1417,29 +1417,24 @@ routeInfo.innerText="路線距離：尚未計算";
 
         /* 清除舊採樣 */
         markerLayer.clearLayers();
-
-        /* 建立 Polygon */
-        let ring = drawPoints
+let ring = drawPoints
     .filter(p => Array.isArray(p) && p.length === 2)
-    .map(p => {
-        const lat = Number(p[0]);
-        const lon = Number(p[1]);
-        return [lon, lat];
-    });
+    .map(p => [Number(p[1]), Number(p[0])]); // 強制 [lon, lat]
 
-if (ring.length < 3) {
-    alert("範圍點不足");
-    return;
+// 強制閉合（避免重複或漏閉）
+if (
+    ring[0][0] !== ring[ring.length - 1][0] ||
+    ring[0][1] !== ring[ring.length - 1][1]
+) {
+    ring.push(ring[0]);
 }
-
-ring.push(ring[0]);
 
 let polygon;
 try {
     polygon = turf.polygon([ring]);
 } catch (err) {
-    console.error(err);
-    alert("Polygon 建立失敗");
+    console.error("Polygon建立失敗:", err, ring);
+    alert("Polygon 建立失敗（座標錯誤）");
     return;
 }
         // ⭐⭐⭐ 關鍵 debug 放這裡 ⭐⭐⭐
