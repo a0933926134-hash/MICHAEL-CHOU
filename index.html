@@ -1563,38 +1563,7 @@ routeInfo.innerText="路線距離：尚未計算";
         slopeInfo.innerHTML = "DEM 坡度分析失敗";
     }
 }
-console.log("inside count:", countInside);
-console.log("elevations:", elevations.length);
-                
 
-        console.log(
-    "有效DEM採樣數:",
-    elevations.length
-);
-
-if (elevations.length < 5) {
-
-    slopeInfo.innerHTML = `
-    ⚠ DEM 採樣不足（自動修正中）<br>
-    有效點數：${elevations.length}<br>
-    建議：放大範圍或降低解析度
-    `;
-
-    // 👉 fallback：強制用 polygon centroid 做單點分析
-    const centroid = turf.centroid(polygon).geometry.coordinates;
-
-    const ele = await getElevation(centroid[1], centroid[0]);
-
-    if (ele !== null) {
-        elevations = [{
-            lat: centroid[1],
-            lon: centroid[0],
-            ele
-        }];
-    } else {
-        return;
-    }
-}
 
         /* 坡度計算 */
         let slopes = [];
