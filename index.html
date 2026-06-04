@@ -350,7 +350,7 @@ cursor:pointer;
 let map = L.map('map').setView([25.012098, 121.465675], 15);
 
 // ✅ ★★★ 一定要在 loadDEM 之前 ★★★
-let demLoaded = true;   // SRTM 不需 preload  
+ 
 /* =========================================================
    GIS 多底圖架構（合法替代 Google Maps）
    ========================================================= */
@@ -914,7 +914,7 @@ alert("定位失敗，請確認已允許定位權限");
 /* ==================================
    DEM 高程查詢
    ================================== */
-async function getElevation(lat, lon){
+const elevationCache = {};
 
     // 暫時使用 SRTM OpenTopoData
 
@@ -1411,8 +1411,8 @@ const bboxHeight =
 /* 改善小範圍採樣不足問題 */
 const sampleStep =
     Math.max(
-        Math.max(bboxWidth,bboxHeight) / 100,
-        0.00001
+        Math.max(bboxWidth,bboxHeight) / 25,
+        0.00005
     );
 
 let elevations = [];
