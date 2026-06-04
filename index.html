@@ -360,9 +360,6 @@ let demBBox = null;
    GIS 多底圖架構（合法替代 Google Maps）
    ========================================================= */
 
-let map = L.map('map', {
-    zoomControl: true
-}).setView([25.012098,121.465675],15);
 
 /* =========================================================
    1. NLSC 電子地圖（預設）
@@ -494,7 +491,7 @@ this._div.innerHTML = `比例尺 1:${rounded.toLocaleString()}`;
 scaleControl.addTo(map);
 map.on('zoomend moveend', () => { scaleControl.update(); });
 
-const demReady = loadDEM();  // ✅ 改成這樣
+loadDEM(); // ✅ 改成這樣
 let markerLayer=L.layerGroup().addTo(map);
   
 const latInput=document.getElementById("lat");
@@ -899,9 +896,6 @@ map.on('click', e => {
 
 async function loadDEM(){
     try{
-        async function loadDEM(){
-    try{
-
         console.log("STEP 1: start loadDEM");
 
         const tiff = await GeoTIFF.fromUrl("./dem/NewTaipei_DEM.tif");
