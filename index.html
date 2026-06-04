@@ -1417,11 +1417,19 @@ routeInfo.innerText="路線距離：尚未計算";
 
         /* 清除舊採樣 */
         markerLayer.clearLayers();
-let ring = drawPoints
-    .filter(p => Array.isArray(p) && p.length === 2)
-    .map(p => [Number(p[1]), Number(p[0])]); // 強制 [lon, lat]
+// ✅ Step 1：統一 drawPoints（不再雙重轉換）
+let ring = drawPoints.map(p => [
+    Number(p[1]), // lng
+    Number(p[0])  // lat
+]);
 
-// 強制閉合（避免重複或漏閉）
+// ❗保證至少 3 點
+if (ring.length < 3) {
+    alert("範圍點不足");
+    return;
+}
+
+// ❗只補一次閉合（避免 double-close）
 if (
     ring[0][0] !== ring[ring.length - 1][0] ||
     ring[0][1] !== ring[ring.length - 1][1]
@@ -1429,12 +1437,13 @@ if (
     ring.push(ring[0]);
 }
 
+// ✅ 建立 polygon（唯一來源）
 let polygon;
 try {
     polygon = turf.polygon([ring]);
 } catch (err) {
-    console.error("Polygon建立失敗:", err, ring);
-    alert("Polygon 建立失敗（座標錯誤）");
+    console.error("Polygon invalid:", err);
+    alert("Polygon 建立失敗（請重新繪製範圍）");
     return;
 }
         // ⭐⭐⭐ 關鍵 debug 放這裡 ⭐⭐⭐
