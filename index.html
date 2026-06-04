@@ -484,9 +484,10 @@ this._div.innerHTML = `比例尺 1:${rounded.toLocaleString()}`;
 };
 
 scaleControl.addTo(map);
-map.on('zoomend moveend', () => { scaleControl.update(); });
+map.on('zoomend moveend', () => {
+    scaleControl.update();
+});
 
-loadDEM(); // ✅ 改成這樣
 let markerLayer=L.layerGroup().addTo(map);
   
 const latInput=document.getElementById("lat");
@@ -914,25 +915,7 @@ alert("定位失敗，請確認已允許定位權限");
    DEM 高程查詢
    ================================== */
 
-async function getElevation(lat, lon){
 
-    try {
-        const url = `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
-
-        const res = await fetch(url);
-        const data = await res.json();
-
-        if(data.results && data.results.length > 0){
-            return data.results[0].elevation;
-        }
-
-        return null;
-
-    } catch(err){
-        console.error("SRTM error", err);
-        return null;
-    }
-}
 /* 哈弗辛直線距離 */
 function haversine(lat1, lon1, lat2, lon2){
 const R=6371000;
@@ -1411,11 +1394,26 @@ let elevations = [];
 
     for(let lon=minLon; lon<=maxLon; lon+=sampleStep){
 
-        const ele = await getElevation(lat, lon);
-            for(let lon=minLon; lon<=maxLon; lon+=sampleStep){
+        const pt = turf.point([lon,lat]);
 
-                const pt = turf.point([lon,lat]);
+        if(turf.booleanPointInPolygon(pt,polygon)){
 
+            const ele = await getElevation(lat, lon);
+
+            await new Promise(r => setTimeout(r,30));
+
+            if(ele === null || isNaN(ele)){
+                continue;
+            }
+
+            elevations.push({
+                lat,
+                lon,
+                ele
+            });
+        }
+    }
+}
                 if(turf.booleanPointInPolygon(pt,polygon)){
 
                     /*
