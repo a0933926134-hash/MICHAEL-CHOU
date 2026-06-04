@@ -1076,47 +1076,29 @@ try {
 
 if (drawPoints && drawPoints.length >= 3) {
 
-    // ================================
-// ✅ STEP 1：統一座標（只轉一次）
-// ================================
-let ring = drawPoints.map(p => [
-    Number(p[1]), // lng
-    Number(p[0])  // lat
-]);
+    let ring = drawPoints
+    .filter(p => Array.isArray(p) && p.length === 2)
+    .map(p => {
+        // 強制轉 number + 正規化
+        const lat = Number(p[0]);
+        const lon = Number(p[1]);
+        return [lon, lat];
+    });
 
-// ================================
-// ✅ STEP 2：基本檢查
-// ================================
-if (ring.length < 3) {
-    alert("範圍點不足");
-    return;
+// 強制閉合
+if (ring.length > 2) {
+    ring.push(ring[0]);
 }
 
-// ================================
-// ✅ STEP 3：避免 double-close
-// ================================
-const first = ring[0];
-const last = ring[ring.length - 1];
+ring.push(ring[0]); // 確保閉合
+    ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
 
-if (first[0] !== last[0] || first[1] !== last[1]) {
-    ring.push(first);
-}
+    if (ring.length < 3) {
+        alert("範圍點不足或資料錯誤");
+        return;
+    }
 
-// ================================
-// ✅ STEP 4：修正 polygon（穩定關鍵）
-// ================================
-let polygon = turf.polygon([ring]);
-
-// 👉 自動修正 self-intersection（關鍵）
-const kinks = turf.kinks(polygon);
-if (kinks.features.length > 0) {
-    console.warn("Polygon self-intersection detected, applying convex hull fallback");
-
-    const pts = turf.featureCollection(
-        ring.map(p => turf.point(p))
-    );
-
-    polygon = turf.convex(pts) || polygon;
+    turfZonePolygon = turf.polygon([ring]);  // ✔ 正確：存到外部變數
 }
 
 // ⭐ 也可以再加這行（確認 polygon 是否正常） ⭐
@@ -1420,165 +1402,131 @@ routeInfo.innerText="路線距離：尚未計算";
 /* =========================================================
    DEM 坡度分析
    ========================================================= */
-    async function analyzeSlope() {
-
+    async function analyzeSlope(){
+    
     const slopeInfo = document.getElementById("slopeInfo");
 
-    if (!drawPoints || drawPoints.length < 3) {
+    if(!drawPoints || drawPoints.length < 3){
         alert("請先繪製分析範圍");
         return;
     }
 
-    slopeInfo.innerHTML = "🌄 DEM 坡度分析中...";
+    slopeInfo.innerHTML = "DEM 分析中...";
 
-    try {
+    try{
 
+        /* 清除舊採樣 */
         markerLayer.clearLayers();
+// ✅ Step 1：統一 drawPoints（不再雙重轉換）
+let ring = drawPoints.map(p => [
+    Number(p[1]), // lng
+    Number(p[0])  // lat
+]);
 
-        // =========================
-        // 1. 建立安全 polygon
-        // =========================
-        let ring = drawPoints.map(p => [p[1], p[0]]); // [lon, lat]
+// ❗保證至少 3 點
+if (ring.length < 3) {
+    alert("範圍點不足");
+    return;
+}
 
-        if (ring.length < 3) {
-            throw new Error("範圍點不足");
-        }
+// ❗只補一次閉合（避免 double-close）
+if (
+    ring[0][0] !== ring[ring.length - 1][0] ||
+    ring[0][1] !== ring[ring.length - 1][1]
+) {
+    ring.push(ring[0]);
+}
 
-        if (ring[0][0] !== ring.at(-1)[0] || ring[0][1] !== ring.at(-1)[1]) {
-            ring.push(ring[0]);
-        }
-
-        let polygon = turf.polygon([ring]);
-
-        // 防 self-intersection crash
-        const kinks = turf.kinks(polygon);
-        if (kinks.features.length > 0) {
-            console.warn("polygon self-intersection -> convex fallback");
-            const pts = turf.featureCollection(ring.map(p => turf.point(p)));
-            polygon = turf.convex(pts) || polygon;
-        }
-
+// ✅ 建立 polygon（唯一來源）
+let polygon;
+try {
+    polygon = turf.polygon([ring]);
+} catch (err) {
+    console.error("Polygon invalid:", err);
+    alert("Polygon 建立失敗（請重新繪製範圍）");
+    return;
+}
+        // ⭐⭐⭐ 關鍵 debug 放這裡 ⭐⭐⭐
+console.log("drawPoints:", drawPoints);
+console.log("ring:", ring);
+console.log("polygon valid check:", turf.kinks(polygon));
+console.log("bbox:", turf.bbox(polygon));
+console.log("test point inside:",
+    turf.booleanPointInPolygon(
+        turf.point(ring[0]),
+        polygon
+    )
+);
+console.log("kinks check:", turf.kinks(polygon));
+        /* 取得範圍 bbox */
         const bbox = turf.bbox(polygon);
-        const [minLon, minLat, maxLon, maxLat] = bbox;
 
-        // =========================
-        // 2. 採樣步距
-        // =========================
-        const step = Math.max(
-            Math.max(maxLon - minLon, maxLat - minLat) / 25,
-            0.00005
-        );
+        const minLon = bbox[0];
+        const minLat = bbox[1];
+        const maxLon = bbox[2];
+        const maxLat = bbox[3];
 
-        let elevations = [];
+        /* 採樣密度 */
+        const bboxWidth =
+    maxLon - minLon;
 
-        // =========================
-        // 3. DEM 採樣（節流）
-        // =========================
-        for (let lat = minLat; lat <= maxLat; lat += step) {
-            for (let lon = minLon; lon <= maxLon; lon += step) {
+const bboxHeight =
+    maxLat - minLat;
 
-                const pt = turf.point([lon, lat]);
-                if (!turf.booleanPointInPolygon(pt, polygon)) continue;
+/* 改善小範圍採樣不足問題 */
+const sampleStep =
+    Math.max(
+        Math.max(bboxWidth,bboxHeight) / 25,
+        0.00005
+    );
 
-                const ele = await getElevation(lat, lon);
-                if (ele == null || isNaN(ele)) continue;
+let elevations = [];
 
-                elevations.push({ lat, lon, ele });
+        for(let lat=minLat; lat<=maxLat; lat+=sampleStep){
 
-                await new Promise(r => setTimeout(r, 8));
-            }
-        }
+    for(let lon=minLon; lon<=maxLon; lon+=sampleStep){
 
-        // =========================
-        // 4. fallback
-        // =========================
-        if (elevations.length < 5) {
+        const pt = turf.point([lon,lat]);
 
-            const c = turf.centroid(polygon).geometry.coordinates;
-            const ele = await getElevation(c[1], c[0]);
+        if(turf.booleanPointInPolygon(pt,polygon)){
 
-            if (ele == null) {
-                slopeInfo.innerHTML = "⚠ DEM 無資料";
-                return;
+            const ele = await getElevation(lat, lon);
+
+            await new Promise(r => setTimeout(r,30));
+
+            if(ele === null || isNaN(ele)){
+                continue;
             }
 
-            elevations = [{ lat: c[1], lon: c[0], ele }];
+            elevations.push({
+                lat,
+                lon,
+                ele
+            });
         }
-
-        // =========================
-        // 5. 坡度計算（唯一版本）
-        // =========================
-        let slopes = [];
-
-        for (let i = 1; i < elevations.length; i++) {
-
-            const p1 = elevations[i - 1];
-            const p2 = elevations[i];
-
-            const dist = haversine(p1.lat, p1.lon, p2.lat, p2.lon);
-            if (dist < 1) continue;
-
-            slopes.push(Math.abs(p2.ele - p1.ele) / dist * 100);
-        }
-
-        // =========================
-        // 6. 統計
-        // =========================
-        const elevs = elevations.map(e => e.ele);
-
-        const minElev = Math.min(...elevs);
-        const maxElev = Math.max(...elevs);
-        const avgElev = elevs.reduce((a, b) => a + b, 0) / elevs.length;
-
-        const avgSlope = slopes.length ? slopes.reduce((a, b) => a + b, 0) / slopes.length : 0;
-        const maxSlope = slopes.length ? Math.max(...slopes) : 0;
-
-        let terrain = "平坦";
-        if (avgSlope > 30) terrain = "陡坡";
-        else if (avgSlope > 15) terrain = "中坡";
-        else if (avgSlope > 5) terrain = "緩坡";
-
-        // =========================
-        // 7. UI
-        // =========================
-        slopeInfo.innerHTML = `
-<b>🌄 坡度分析完成</b><br>
-點數：${elevations.length}<br><br>
-
-平均高程：${avgElev.toFixed(1)} m<br>
-最低高程：${minElev.toFixed(1)} m<br>
-最高高程：${maxElev.toFixed(1)} m<br><br>
-
-平均坡度：${avgSlope.toFixed(2)} %<br>
-最大坡度：${maxSlope.toFixed(2)} %<br><br>
-
-地形：<b>${terrain}</b>
-        `;
-
-        // =========================
-        // 8. 視覺化
-        // =========================
-        elevations.forEach(p => {
-
-            let color = "#22c55e";
-            if (avgSlope > 30) color = "#dc2626";
-            else if (avgSlope > 15) color = "#f97316";
-            else if (avgSlope > 5) color = "#eab308";
-
-            L.circleMarker([p.lat, p.lon], {
-                radius: 4,
-                color,
-                fillColor: color,
-                fillOpacity: 0.9,
-                weight: 1
-            }).addTo(markerLayer);
-        });
-
-    } catch (err) {
-        console.error(err);
-        slopeInfo.innerHTML = "❌ 坡度分析失敗";
     }
 }
+                
+
+        console.log(
+    "有效DEM採樣數:",
+    elevations.length
+);
+
+if(elevations.length < 10){
+
+    slopeInfo.innerHTML = `
+    採樣點不足<br>
+    有效點數：${elevations.length}<br>
+    建議：
+    <br>1.放大分析範圍
+    <br>2.確認DEM覆蓋範圍
+    <br>3.確認GeoTIFF座標系統
+    `;
+
+    return;
+}
+
         /* 坡度計算 */
         let slopes = [];
 
