@@ -1498,33 +1498,77 @@ const sampleStep =
         0.00005
     );
 
-const elevations = [];
-let countInside = 0;
+async function analyzeSlope(){
 
-for (let lat = minLat; lat <= maxLat + sampleStep; lat += sampleStep) {
-    for (let lon = minLon; lon <= maxLon + sampleStep; lon += sampleStep) {
+    const slopeInfo = document.getElementById("slopeInfo");
 
-    for (let lon = minLon; lon <= maxLon; lon += sampleStep) {
-
-        const pt = turf.point([lon, lat]);
-
-        const inside = turf.booleanPointInPolygon(pt, polygon);
-
-        if (!inside) continue;
-
-        countInside++;
-
-        const ele = await getElevation(lat, lon);
-
-        if (ele === null || isNaN(ele)) continue;
-
-        elevations.push({ lat, lon, ele });
-
-        // ✅ 限流（避免 DEM API 爆）
-        await new Promise(r => setTimeout(r, 10));
+    if(!drawPoints || drawPoints.length < 3){
+        alert("請先繪製分析範圍");
+        return;
     }
-}
 
+    slopeInfo.innerHTML = "DEM 分析中...";
+
+    try{
+
+        markerLayer.clearLayers();
+
+        let ring = drawPoints.map(p => [
+            Number(p[1]),
+            Number(p[0])
+        ]);
+
+        if (ring.length < 3) {
+            alert("範圍點不足");
+            return;
+        }
+
+        if (
+            ring[0][0] !== ring[ring.length - 1][0] ||
+            ring[0][1] !== ring[ring.length - 1][1]
+        ) {
+            ring.push(ring[0]);
+        }
+
+        let polygon = turf.polygon([ring]);
+
+        const bbox = turf.bbox(polygon);
+
+        const minLon = bbox[0];
+        const minLat = bbox[1];
+        const maxLon = bbox[2];
+        const maxLat = bbox[3];
+
+        const bboxWidth = maxLon - minLon;
+        const bboxHeight = maxLat - minLat;
+
+        const sampleStep = Math.max(
+            Math.max(bboxWidth, bboxHeight) / 25,
+            0.00005
+        );
+
+        // ✅ 修正：let（因為 fallback 會重建）
+        let elevations = [];
+        let countInside = 0;
+
+        for (let lat = minLat; lat <= maxLat; lat += sampleStep) {
+            for (let lon = minLon; lon <= maxLon; lon += sampleStep) {
+
+                const pt = turf.point([lon, lat]);
+                const inside = turf.booleanPointInPolygon(pt, polygon);
+
+                if (!inside) continue;
+
+                countInside++;
+
+                const ele = await getElevation(lat, lon);
+                if (ele === null || isNaN(ele)) continue;
+
+                elevations.push({ lat, lon, ele });
+
+                await new Promise(r => setTimeout(r, 10));
+            }
+        }
 console.log("inside count:", countInside);
 console.log("elevations:", elevations.length);
                 
