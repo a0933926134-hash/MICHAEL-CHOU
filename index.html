@@ -1420,25 +1420,25 @@ routeInfo.innerText="路線距離：尚未計算";
 /* =========================================================
    DEM 坡度分析
    ========================================================= */
-    async function analyzeSlope(){
+    async function analyzeSlope() {
 
     const slopeInfo = document.getElementById("slopeInfo");
 
-    if(!drawPoints || drawPoints.length < 3){
+    if (!drawPoints || drawPoints.length < 3) {
         alert("請先繪製分析範圍");
         return;
     }
 
-    slopeInfo.innerHTML = "DEM 分析中...";
+    slopeInfo.innerHTML = "🌄 DEM 坡度分析中...";
 
-    try{
+    try {
 
         markerLayer.clearLayers();
 
-        let ring = drawPoints.map(p => [
-            Number(p[1]),
-            Number(p[0])
-        ]);
+        // =========================
+        // 1. 建立 polygon（安全版）
+        // =========================
+        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
 
         if (ring.length < 3) {
             alert("範圍點不足");
@@ -1452,51 +1452,49 @@ routeInfo.innerText="路線距離：尚未計算";
             ring.push(ring[0]);
         }
 
-        let polygon = turf.polygon([ring]);
-
+        const polygon = turf.polygon([ring]);
         const bbox = turf.bbox(polygon);
 
-        const minLon = bbox[0];
-        const minLat = bbox[1];
-        const maxLon = bbox[2];
-        const maxLat = bbox[3];
+        const [minLon, minLat, maxLon, maxLat] = bbox;
 
-        const bboxWidth = maxLon - minLon;
-        const bboxHeight = maxLat - minLat;
-
-        const sampleStep = Math.max(
-            Math.max(bboxWidth, bboxHeight) / 25,
+        // =========================
+        // 2. 自動決定取樣解析度
+        // =========================
+        const step = Math.max(
+            Math.max(maxLon - minLon, maxLat - minLat) / 30,
             0.00005
         );
 
         let elevations = [];
-        let countInside = 0;
+        let insideCount = 0;
 
-        for (let lat = minLat; lat <= maxLat; lat += sampleStep) {
-            for (let lon = minLon; lon <= maxLon; lon += sampleStep) {
+        // =========================
+        // 3. DEM 採樣（有節流避免卡死）
+        // =========================
+        for (let lat = minLat; lat <= maxLat; lat += step) {
+            for (let lon = minLon; lon <= maxLon; lon += step) {
 
                 const pt = turf.point([lon, lat]);
-                const inside = turf.booleanPointInPolygon(pt, polygon);
 
-                if (!inside) continue;
+                if (!turf.booleanPointInPolygon(pt, polygon)) continue;
 
-                countInside++;
+                insideCount++;
 
                 const ele = await getElevation(lat, lon);
+
                 if (ele === null || isNaN(ele)) continue;
 
                 elevations.push({ lat, lon, ele });
 
-                await new Promise(r => setTimeout(r, 10));
+                // 防止 API 過快
+                await new Promise(r => setTimeout(r, 8));
             }
         }
 
+        // =========================
+        // 4. fallback（避免點太少）
+        // =========================
         if (elevations.length < 5) {
-
-            slopeInfo.innerHTML = `
-            ⚠ DEM 採樣不足<br>
-            有效點數：${elevations.length}
-            `;
 
             const centroid = turf.centroid(polygon).geometry.coordinates;
 
@@ -1509,61 +1507,96 @@ routeInfo.innerText="路線距離：尚未計算";
                     ele
                 }];
             } else {
+                slopeInfo.innerHTML = "⚠ DEM 無資料";
                 return;
             }
         }
 
+        // =========================
+        // 5. 坡度計算（只做一次）
+        // =========================
         let slopes = [];
 
-        for(let i=1;i<elevations.length;i++){
+        for (let i = 1; i < elevations.length; i++) {
 
-            const p1=elevations[i-1];
-            const p2=elevations[i];
+            const p1 = elevations[i - 1];
+            const p2 = elevations[i];
 
-            const dist = haversine(p1.lat,p1.lon,p2.lat,p2.lon);
-            if(dist<1) continue;
+            const dist = haversine(p1.lat, p1.lon, p2.lat, p2.lon);
+            if (dist < 1) continue;
 
-            const rise = Math.abs(p2.ele-p1.ele);
+            const rise = Math.abs(p2.ele - p1.ele);
 
-            slopes.push((rise/dist)*100);
+            slopes.push((rise / dist) * 100);
         }
 
-        if(!slopes.length){
-            slopeInfo.innerHTML = "無法計算坡度";
+        if (!slopes.length) {
+            slopeInfo.innerHTML = "⚠ 無法計算坡度";
             return;
         }
 
-        const elevs = elevations.map(e=>e.ele);
+        // =========================
+        // 6. 統計
+        // =========================
+        const elevs = elevations.map(e => e.ele);
 
         const minElev = Math.min(...elevs);
         const maxElev = Math.max(...elevs);
-        const avgElev = elevs.reduce((a,b)=>a+b,0)/elevs.length;
+        const avgElev = elevs.reduce((a, b) => a + b, 0) / elevs.length;
 
-        const avgSlope = slopes.reduce((a,b)=>a+b,0)/slopes.length;
+        const avgSlope = slopes.reduce((a, b) => a + b, 0) / slopes.length;
         const maxSlope = Math.max(...slopes);
         const minSlope = Math.min(...slopes);
 
         let terrainType = "平坦";
-        if(avgSlope > 30) terrainType = "陡坡";
-        else if(avgSlope > 15) terrainType = "中坡";
-        else if(avgSlope > 5) terrainType = "緩坡";
+        if (avgSlope > 30) terrainType = "陡坡";
+        else if (avgSlope > 15) terrainType = "中坡";
+        else if (avgSlope > 5) terrainType = "緩坡";
 
+        // =========================
+        // 7. UI 顯示
+        // =========================
         slopeInfo.innerHTML = `
-<b>DEM 坡度分析完成</b><br>
+<b>🌄 DEM 坡度分析完成</b><br>
+採樣點數：${elevations.length}<br><br>
+
 平均高程：${avgElev.toFixed(1)} m<br>
 最低高程：${minElev.toFixed(1)} m<br>
-最高高程：${maxElev.toFixed(1)} m<br>
+最高高程：${maxElev.toFixed(1)} m<br><br>
+
 平均坡度：${avgSlope.toFixed(2)} %<br>
 最大坡度：${maxSlope.toFixed(2)} %<br>
-地形分類：${terrainType}
-`;
+最小坡度：${minSlope.toFixed(2)} %<br><br>
 
-    }catch(err){
+地形分類：<b>${terrainType}</b>
+        `;
+
+        // =========================
+        // 8. 視覺化
+        // =========================
+        elevations.forEach(p => {
+
+            let color = "#22c55e";
+            if (avgSlope > 30) color = "#dc2626";
+            else if (avgSlope > 15) color = "#f97316";
+            else if (avgSlope > 5) color = "#eab308";
+
+            L.circleMarker([p.lat, p.lon], {
+                radius: 4,
+                color,
+                fillColor: color,
+                fillOpacity: 0.9,
+                weight: 1
+            })
+            .addTo(markerLayer)
+            .bindTooltip(`高程: ${p.ele.toFixed(1)} m`);
+        });
+
+    } catch (err) {
         console.error(err);
-        slopeInfo.innerHTML = "DEM 坡度分析失敗";
+        slopeInfo.innerHTML = "❌ DEM 坡度分析失敗";
     }
 }
-
 
         /* 坡度計算 */
         let slopes = [];
