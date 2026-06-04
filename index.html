@@ -914,7 +914,36 @@ alert("定位失敗，請確認已允許定位權限");
 /* ==================================
    DEM 高程查詢
    ================================== */
+async function getElevation(lat, lon){
 
+    // 暫時使用 SRTM OpenTopoData
+
+    try{
+
+        const url =
+        `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
+
+        const res = await fetch(url);
+
+        const data = await res.json();
+
+        if(
+            data &&
+            data.results &&
+            data.results.length
+        ){
+            return data.results[0].elevation;
+        }
+
+        return null;
+
+    }catch(err){
+
+        console.error(err);
+
+        return null;
+    }
+}
 
 /* 哈弗辛直線距離 */
 function haversine(lat1, lon1, lat2, lon2){
@@ -1337,9 +1366,7 @@ routeInfo.innerText="路線距離：尚未計算";
    ========================================================= */
     async function analyzeSlope(){
 
-    if(!demLoaded){
-        await loadDEM();
-    }
+    
 
     if(!demLoaded){
         alert("DEM 尚未載入完成，請稍候再試");
@@ -1414,31 +1441,7 @@ let elevations = [];
         }
     }
 }
-                if(turf.booleanPointInPolygon(pt,polygon)){
-
-                    /*
-                       DEM 高程模擬
-                       （目前先用 pseudo DEM）
-                    */
-
-                    const ele = await getElevation(lat, lon);
-                    await new Promise(r => setTimeout(r, 30));
-
-if(
-    ele === null ||
-    isNaN(ele)
-){
-    continue;
-}
-
-                    elevations.push({
-                        lat,
-                        lon,
-                        ele
-                    });
-                }
-            }
-        }
+                
 
         console.log(
     "有效DEM採樣數:",
