@@ -1467,13 +1467,14 @@ async function analyzeSlope(){
 const bboxHeight =
     maxLat - minLat;
 
+/* 改善小範圍採樣不足問題 */
 const sampleStep =
     Math.max(
-        bboxWidth,
-        bboxHeight
-    ) / 50;
+        Math.max(bboxWidth,bboxHeight) / 100,
+        0.00001
+    );
 
-        let elevations = [];
+let elevations = [];
 
         for(let lat=minLat; lat<=maxLat; lat+=sampleStep){
 
