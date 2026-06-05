@@ -1072,41 +1072,36 @@ try {
     let parts=[];
 
     // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
-    let turfZonePolygon = null;
+   let turfZonePolygon = null;
 
 if (drawPoints && drawPoints.length >= 3) {
 
     let ring = drawPoints
     .filter(p => Array.isArray(p) && p.length === 2)
     .map(p => {
-        // 強制轉 number + 正規化
         const lat = Number(p[0]);
         const lon = Number(p[1]);
         return [lon, lat];
     });
 
-// 強制閉合
-if (ring.length > 2) {
-    ring.push(ring[0]);
-}
+    if (
+        ring.length > 2 &&
+        (
+            ring[0][0] !== ring[ring.length - 1][0] ||
+            ring[0][1] !== ring[ring.length - 1][1]
+        )
+    ) {
+        ring.push(ring[0]);
+    }
 
-ring.push(ring[0]); // 確保閉合
-    ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-
-    if (ring.length < 3) {
+    if (ring.length < 4) {
         alert("範圍點不足或資料錯誤");
         return;
     }
 
-    turfZonePolygon = turf.polygon([ring]);  // ✔ 正確：存到外部變數
-}
+    turfZonePolygon = turf.polygon([ring]);
 
-// ⭐ 也可以再加這行（確認 polygon 是否正常） ⭐
-console.log("polygon:", polygon);
-// ⭐⭐⭐ 保險檢查（加在這裡）⭐⭐⭐
-if(ring.length < 3){
-    alert("範圍點不足或資料錯誤");
-    return;
+    console.log("polygon:", turfZonePolygon);
 }
 
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
