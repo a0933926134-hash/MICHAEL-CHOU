@@ -954,6 +954,22 @@ async function getElevation(lat, lon){
 
 /* 哈弗辛直線距離 */
 function haversine(lat1, lon1, lat2, lon2){
+function isValidJunctionFeature(item){
+    // 只允許真正可能是入口的匝道
+    if(!item) return false;
+
+    const t = item.原始類型;
+
+    // 排除明顯出口型 link（OSM 有些會標 -1）
+    if(item.tags?.oneway === "-1") return false;
+
+    // 只保留可能入口類型
+    return (
+        t === "motorway_junction" ||
+        t === "motorway_link" ||
+        t === "trunk_link"
+    );
+}    
 const R=6371000;
 const toRad=x=>x*Math.PI/180;
 const dLat=toRad(lat2-lat1);
@@ -972,9 +988,9 @@ if(!origin) return null;
 
 let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 
-if(isJunction) {
-    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
-}
+let url =
+`https://router.project-osrm.org/route/v1/driving/` +
+`${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
 const res = await fetch(url);
 const data = await res.json();
@@ -1000,14 +1016,43 @@ if(item.在範圍內) {
     return;
 }
 
-let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
+let isJunction = isValidJunctionFeature(item); || item.原始類型 === "ramp";
 
 let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
 if(isJunction) {
     url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=full&geometries=geojson&radiuses=50;unlimited`;
 }
+// STEP 4：交流道正確方向距離修正
+if(isJunction){
 
+    // 1. 基礎方向過濾
+    const valid = isValidJunctionDirection(
+        origin[0], origin[1],
+        to[0], to[1],
+        item
+    );
+
+    // 2. 如果方向不合理 → 改用直線 + 懲罰係數
+    if(!valid){
+
+        const penaltyDist = Math.round(
+            haversine(origin[0], origin[1], to[0], to[1]) * 1.3
+        );
+
+        routeInfo.innerText =
+            "路線距離：" + penaltyDist + " m (交流道方向修正)";
+
+        if(routeLayer) map.removeLayer(routeLayer);
+        routeLayer = L.polyline([origin, to], {
+            color: "#f59e0b",
+            weight: 3,
+            dashArray: "4,6"
+        }).addTo(map);
+
+        return { value: penaltyDist, isFallback: true };
+    }
+}
 const res=await fetch(url);
 const data=await res.json();
 
@@ -1275,10 +1320,17 @@ e.tags?.amenity === "post_office" ||
             gates.push({ lat: lat2, lon: lon2 });
         } else {
             let typeName = rawType;
-            if(
-    rawType === "motorway_link" ||
-    rawType === "trunk_link"
+            if(rawType === "motorway_link" ||
+              rawType === "trunk_link" ||
+             rawType === "motorway_junction"
 ){
+    typeName = "交流道路口";
+
+    // ❗排除明顯出口型匝道
+    if(e.tags?.oneway === "-1"){
+        return; // 直接不要進 results
+    }
+}
     typeName = "交流道路口";
 }
             if(rawType === "post_office"){
