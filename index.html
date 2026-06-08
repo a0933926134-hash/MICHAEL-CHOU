@@ -929,21 +929,47 @@ async function getElevation(lat, lon){
         const url =
         `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
 
+        async function getElevation(lat, lon){
+
+    const cacheKey = lat.toFixed(5)+","+lon.toFixed(5);
+
+    if(elevationCache[cacheKey] !== undefined){
+        return elevationCache[cacheKey];
+    }
+
+    try {
+        const url =
+        `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
+
         const res = await fetch(url);
+
+        // ✅ ★新增：HTTP錯誤檢查
+        if(!res.ok){
+            console.warn("DEM HTTP錯誤:", res.status);
+            return null;
+        }
+
         const data = await res.json();
 
-        if(
-            data &&
-            data.results &&
-            data.results.length
-        ){
-            elevationCache[cacheKey] =
-                data.results[0].elevation;
+        // ✅ ★新增：API error防呆
+        if(data.error){
+            console.warn("DEM API error:", data.error);
+            return null;
+        }
 
-            return elevationCache[cacheKey];
+        if(data?.results?.length > 0){
+            const val = data.results[0].elevation;
+            elevationCache[cacheKey] = val;
+            return val;
         }
 
         return null;
+
+    } catch(err){
+        console.error("DEM fetch failed:", err);
+        return null;
+    }
+}
 
     }catch(err){
 
