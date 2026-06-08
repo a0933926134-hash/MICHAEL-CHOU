@@ -1467,32 +1467,35 @@ routeInfo.innerText="路線距離：尚未計算";
     Math.max(maxLon - minLon, maxLat - minLat) / 15,
     0.00015
 );
+        let sampleCount = 0;
+const MAX_SAMPLES = 80;
         let elevations = [];
         let insideCount = 0;
 
         // =========================
         // 3. DEM 採樣（有節流避免卡死）
         // =========================
-        for (let lat = minLat; lat <= maxLat; lat += step) {
-            for (let lon = minLon; lon <= maxLon; lon += step) {
+       for (let lat = minLat; lat <= maxLat; lat += step) {
+    for (let lon = minLon; lon <= maxLon; lon += step) {
 
-                const pt = turf.point([lon, lat]);
+        const pt = turf.point([lon, lat]);
 
-                if (!turf.booleanPointInPolygon(pt, polygon)) continue;
+        if (!turf.booleanPointInPolygon(pt, polygon)) continue;
 
-                insideCount++;
+        insideCount++;
 
-                const ele = await getElevation(lat, lon);
+        const ele = await getElevation(lat, lon);
 
-                if (ele === null || isNaN(ele)) continue;
+        if (ele === null || isNaN(ele)) continue;
 
-                elevations.push({ lat, lon, ele });
+        elevations.push({ lat, lon, ele });
 
-                // 防止 API 過快
-                await new Promise(r => setTimeout(r, 8));
-            }
-        }
-
+        sampleCount++;
+if (sampleCount >= MAX_SAMPLES) break;
+        // ✅ ★這裡才是正確位置（限流 API）
+        await new Promise(r => setTimeout(r, 120));
+    }
+}
         // =========================
         // 4. fallback（避免點太少）
         // =========================
