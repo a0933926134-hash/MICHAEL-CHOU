@@ -196,14 +196,7 @@ font-weight:bold;
 
 /* ===== 新增坡度面板 CSS ===== */
 
-body {
-    margin:0;
-    font-family: Arial, "Microsoft JhengHei";
-}
 
-#map {
-    height:100vh;
-}
 
 
 /* =================================================
@@ -1177,6 +1170,10 @@ selectItem(item);
 }  
 
 function selectItem(item){
+if (routeLayer) {
+    map.removeLayer(routeLayer);
+    routeLayer = null;
+}
 drawRoute(item.座標, item);
 document.querySelectorAll("#tbody tr").forEach(r=>{ r.classList.remove("highlight"); });
 const row=document.querySelector(`#tbody tr[data-id="${item.id}"]`);
@@ -1268,8 +1265,7 @@ if (drawPoints && drawPoints.length >= 3) {
 
 parts.push(`
 
-way["highway"="motorway_link"]
-(around:${radius},${lat},${lon});
+nwr["highway"="motorway_link"](around:${radius},${lat},${lon});
 
 `);
 
@@ -1528,9 +1524,14 @@ let rampName = getRampName(e.tags, lat2, lon2);
     for (const item of results.slice(0,80)) {
         if (item.在範圍內) continue; // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
         
-        let isJunc =
-item.原始類型==="motorway_link";
-        const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
+        if (isJunc) {
+    console.log("交流道匝道優化路徑");
+}
+        const routeRes = await getRouteDistance(
+    item.座標,
+    item.距離,
+    item.在範圍內
+);
 
         item.路線距離數值 = routeRes.value;
         item.路線距離 = routeRes.value + " m" + routeRes.msg;
@@ -1609,10 +1610,10 @@ routeInfo.innerText="路線距離：尚未計算";
         // =========================
         let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
 
-        if (ring.length < 3) {
-            alert("範圍點不足");
-            return;
-        }
+        if (ring.length < 4) {
+    alert("範圍點不足（需至少3點並閉合）");
+    return;
+}
 
         if (
             ring[0][0] !== ring[ring.length - 1][0] ||
