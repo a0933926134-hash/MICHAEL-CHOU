@@ -1010,32 +1010,58 @@ return firstDist < lastDist
     : [last.lat, last.lon];
 }
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
-async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
-if(isInZone) {
-    return { value: 0, isFallback: false, msg: "" };
+async function getRouteDistance(to, straightDist, isInZone = false){
+
+    // 在範圍內 → 直接 0
+    if(isInZone) {
+        return {
+            value: 0,
+            isFallback: false,
+            msg: ""
+        };
+    }
+
+    try {
+
+        if(!origin) return null;
+
+        // ✔ 統一順向路網（OSRM）
+        const url =
+        `https://router.project-osrm.org/route/v1/driving/` +
+        `${origin[1]},${origin[0]};${to[1]},${to[0]}` +
+        `?overview=false`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        // ✔ 成功取得路線距離
+        if(data.routes && data.routes.length > 0) {
+
+            return {
+                value: Math.round(data.routes[0].distance),
+                isFallback: false,
+                msg: ""
+            };
+        }
+
+        // fallback：直線距離
+        return {
+            value: straightDist,
+            isFallback: true,
+            msg: " (直線備援)"
+        };
+
+    } catch(err) {
+
+        console.error("OSRM 路由異常:", err);
+
+        return {
+            value: straightDist,
+            isFallback: true,
+            msg: " (直線備援)"
+        };
+    }
 }
-try{
-if(!origin) return null;
-
-let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
-
-if(isJunction) {
-    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
-}
-
-const res = await fetch(url);
-const data = await res.json();
-
-if(data.routes && data.routes.length > 0) {
-    return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
-}
-
-return { value: straightDist, isFallback: true, msg: " (直線備援)" };
-}catch(err){
-console.error("OSRM 路由異常:", err);
-return { value: straightDist, isFallback: true, msg: " (直線備援)" };
-}
-}  
 
 async function drawRoute(to, item){
 try{
