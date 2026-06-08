@@ -1283,8 +1283,28 @@ out geom;`;
     const dedup = new Set();
 
     data.elements.forEach(e=>{
-        let lat2=e.center?.lat ?? e.lat;
-        let lon2=e.center?.lon ?? e.lon;
+        let lat2;
+let lon2;
+
+if(
+e.tags?.highway==="motorway_link"
+){
+
+const rampPoint =
+getRampEntrancePoint(e);
+
+if(!rampPoint) return;
+
+lat2=rampPoint[0];
+lon2=rampPoint[1];
+
+}
+else{
+
+lat2=e.center?.lat ?? e.lat;
+lon2=e.center?.lon ?? e.lon;
+
+}
         if(lat2 == null || lon2 == null) return;
         
         const key = `${e.type}-${e.id}`;
