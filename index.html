@@ -1130,9 +1130,8 @@ if (drawPoints && drawPoints.length >= 3) {
     else if(t==="motorway_junction"){
     parts.push(`
     node["highway"="motorway_junction"](around:${radius},${lat},${lon});
-    nwr["highway"="ramp"](around:${radius},${lat},${lon});
     `);
-    }
+}
     else if(t==="parking"){
     parts.push(`
     nwr["amenity"="parking"](around:${radius},${lat},${lon});
@@ -1255,8 +1254,13 @@ e.tags?.amenity === "post_office" ||
         } else if(rawType === "main" || rawType === "school_entrance" || rawType === "gate" || e.tags?.entrance === "main") {
             gates.push({ lat: lat2, lon: lon2 });
         } else {
-            let typeName = rawType;
-            if(rawType === "motorway_junction" || rawType === "ramp") typeName = "交流道入口(平面路口)";
+            // 修正前
+let typeName = rawType;
+if(rawType === "motorway_junction" || rawType === "ramp") typeName = "交流道入口(平面路口)";
+
+// 修正後
+let typeName = rawType;
+if(rawType === "motorway_junction") typeName = "交流道主路口";
             if(rawType === "post_office"){
     typeName = "郵局";
 }
