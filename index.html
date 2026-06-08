@@ -964,9 +964,10 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
+/* OSRM 路由服務（修正版：完全移除逆向邏輯，避免平面道路錯亂） */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
 
-    // 若在自訂範圍內 → 直接回傳 0
+    // 範圍內直接歸零
     if(isInZone) {
         return { value: 0, isFallback: false, msg: "" };
     }
@@ -974,16 +975,9 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
     try {
         if(!origin) return null;
 
-        // 一般路線（origin → destination）
-        let url = `https://router.project-osrm.org/route/v1/driving/` +
-                  `${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
-
-        // ⭐ 修正重點：只保留「交流道入口」概念，不再做反向或 ramp 特例
-        // 原本 ramp / exit 會造成錯誤繞路，因此已移除
-        if(isJunction) {
-            url = `https://router.project-osrm.org/route/v1/driving/` +
-                  `${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false&radiuses=50;500`;
-        }
+        // ⭐ 統一方向：origin → to（不再反向）
+        const url = `https://router.project-osrm.org/route/v1/driving/` +
+                    `${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -996,7 +990,7 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
             };
         }
 
-        // fallback → 直線距離
+        // fallback：直線距離
         return {
             value: straightDist,
             isFallback: true,
