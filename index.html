@@ -1363,35 +1363,31 @@ rawType === "trunk_link"
     queryBtn.innerText = "🚗 計算路網距離中...";
 
     /* 背景非同步更新路網距離 */
-    for (const item of results.slice(0,80)) {
+    /* 背景非同步更新路線距離 */
+for (const item of results.slice(0, 80)) {
     if (item.在範圍內) continue;
 
     try {
         const to = item.座標;
 
-        const url = `https://router.project-osrm.org/route/v1/driving/
-${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+        const url =
+        `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 
         const res = await fetch(url);
         const data = await res.json();
 
         if (data.routes?.length) {
-            const dist = Math.round(data.routes[0].distance);
-
-            item.路線距離數值 = dist;
-            item.路線距離 = dist + " m";
+            item.路線距離數值 = Math.round(data.routes[0].distance);
+            item.路線距離 = item.路線距離數值 + " m";
         }
+
     } catch (e) {
-        console.warn(e);
+        console.warn("route error", e);
     }
 }
-        item.路線距離 = routeRes.value + " m" + routeRes.msg;
 
-        const cell = document.getElementById(`route-${item.id}`);
-        if(cell) cell.innerText = item.路線距離;
-    }
-
-} catch(err) {
+/* 更新表格顯示 */
+renderTable();
     console.error(err);
     alert("查詢發生異常，請稍後再試。");
 } finally {
