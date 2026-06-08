@@ -967,7 +967,28 @@ Math.sin(dLon/2)**2;
 
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
+function getRampName(tags, lat, lon){
 
+    // ✔ 優先抓 OSM name
+    if(tags?.name) return tags.name;
+
+    // ✔ motorway_link 判斷
+    if(tags?.highway === "motorway_link"){
+        return "高速公路入口匝道";
+    }
+
+    // ✔ ramp / junction
+    if(tags?.highway === "ramp"){
+        return "匝道連接道路";
+    }
+
+    if(tags?.highway === "motorway_junction"){
+        return "交流道節點";
+    }
+
+    // ✔ fallback（GIS語意）
+    return "交流道入口";
+}
 /* ==================================
    交流道入口匝道判斷
    ================================== */
@@ -1399,8 +1420,18 @@ e.tags?.amenity === "post_office" ||
             gates.push({ lat: lat2, lon: lon2 });
         } else {
             let typeName = rawType;
-            if(rawType==="motorway_link")
-typeName="交流道入口匝道";
+
+// ✔ 交流道入口系統升級
+if(
+    rawType === "motorway_junction" ||
+    rawType === "ramp" ||
+    rawType === "motorway_link"
+){
+    typeName = "交流道入口/匝道系統";
+}
+
+// ✔ 匝道名稱（GIS語意核心）
+let rampName = getRampName(e.tags, lat2, lon2);
             if(rawType === "post_office"){
     typeName = "郵局";
 }
@@ -1412,19 +1443,35 @@ typeName="交流道入口匝道";
             }
 
             results.push({
-                id: results.length,
-                名稱: name || (rawType === "ramp" ? "交流道平面路口/匝道端" : "周邊設施"),
-                類型: typeName,
-                原始類型: rawType,
-                座標: [lat2, lon2],
-                在範圍內: inside,
-                距離: inside ? 0 : Math.round(haversine(lat, lon, lat2, lon2)),
-                直線距離顯示: inside ? "0 (位於區段範圍內)" : Math.round(haversine(lat, lon, lat2, lon2)),
-                路線距離: inside ? "0 (位於區段範圍內)" : "計算中...",
-                路線距離數值: inside ? 0 : null
-            });
-        }
-    });
+    id: results.length,
+
+    // ✔ 核心升級：顯示匝道名稱
+    名稱:
+        rawType === "motorway_link" ||
+        rawType === "motorway_junction" ||
+        rawType === "ramp"
+        ? (rampName + (name ? ` (${name})` : ""))
+        : (name || "周邊設施"),
+
+    類型: typeName,
+    原始類型: rawType,
+
+    座標: [lat2, lon2],
+    在範圍內: inside,
+
+    距離: inside ? 0 : Math.round(haversine(lat, lon, lat2, lon2)),
+
+    直線距離顯示:
+        inside ? "0 (位於區段範圍內)"
+        : Math.round(haversine(lat, lon, lat2, lon2)),
+
+    路線距離:
+        inside ? "0 (位於區段範圍內)"
+        : "計算中...",
+
+    路線距離數值:
+        inside ? 0 : null
+});
 
     rawSchools.forEach(sch => {
         let finalLat = sch.lat;
