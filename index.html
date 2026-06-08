@@ -1358,37 +1358,36 @@ e.tags?.amenity === "post_office" ||
                 inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
             }
 
-            results.push({
-                id: results.length,
-                名稱: name || (rawType === "ramp" ? "交流道平面路口/匝道端" : "周邊設施"),
-                類型: typeName,
-                原始類型: rawType,
-                let finalLat = lat2;
+            let finalLat = lat2;
 let finalLon = lon2;
 
-// ⭐ 如果是交流道類型 → 改用真正入口
-if(rawType === "motorway_junction" || rawType === "ramp"){
-
-    const entry = pickBestEntryPoint(origin, candidates)
-        [lat, lon],
-        [{lat: lat2, lon: lon2}]
+// ⭐ 如果是交流道類型 → 改用入口
+if (rawType === "motorway_junction" || rawType === "ramp") {
+    const entry = pickBestEntryPoint(
+        origin,
+        [{ lat: lat2, lon: lon2 }]
     );
 
-    if(entry){
+    if (entry) {
         finalLat = entry.lat;
         finalLon = entry.lon;
     }
 }
 
-座標: [finalLat, finalLon],
-                在範圍內: inside,
-                距離: inside ? 0 : Math.round(haversine(lat, lon, lat2, lon2)),
-                直線距離顯示: inside ? "0 (位於區段範圍內)" : Math.round(haversine(lat, lon, lat2, lon2)),
-                路線距離: inside ? "0 (位於區段範圍內)" : "計算中...",
-                路線距離數值: inside ? 0 : null
-            });
-        }
-    });
+results.push({
+    id: results.length,
+    名稱: name || "周邊設施",
+    類型: typeName,
+    原始類型: rawType,
+
+    座標: [finalLat, finalLon],
+
+    在範圍內: inside,
+    距離: inside ? 0 : Math.round(haversine(lat, lon, finalLat, finalLon)),
+    直線距離顯示: inside ? "0 (位於區段範圍內)" : Math.round(haversine(lat, lon, finalLat, finalLon)),
+    路線距離: inside ? "0 (位於區段範圍內)" : "計算中...",
+    路線距離數值: inside ? 0 : null
+});
 
     rawSchools.forEach(sch => {
         let finalLat = sch.lat;
