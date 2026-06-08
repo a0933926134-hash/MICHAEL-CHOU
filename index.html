@@ -965,31 +965,54 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
-if(isInZone) {
-    return { value: 0, isFallback: false, msg: "" };
+
+    // 若在自訂範圍內 → 直接回傳 0
+    if(isInZone) {
+        return { value: 0, isFallback: false, msg: "" };
+    }
+
+    try {
+        if(!origin) return null;
+
+        // 一般路線（origin → destination）
+        let url = `https://router.project-osrm.org/route/v1/driving/` +
+                  `${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+
+        // ⭐ 修正重點：只保留「交流道入口」概念，不再做反向或 ramp 特例
+        // 原本 ramp / exit 會造成錯誤繞路，因此已移除
+        if(isJunction) {
+            url = `https://router.project-osrm.org/route/v1/driving/` +
+                  `${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false&radiuses=50;500`;
+        }
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if(data.routes && data.routes.length > 0) {
+            return {
+                value: Math.round(data.routes[0].distance),
+                isFallback: false,
+                msg: ""
+            };
+        }
+
+        // fallback → 直線距離
+        return {
+            value: straightDist,
+            isFallback: true,
+            msg: " (直線備援)"
+        };
+
+    } catch(err) {
+        console.error("OSRM 路由異常:", err);
+
+        return {
+            value: straightDist,
+            isFallback: true,
+            msg: " (直線備援)"
+        };
+    }
 }
-try{
-if(!origin) return null;
-
-let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
-
-if(isJunction) {
-    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
-}
-
-const res = await fetch(url);
-const data = await res.json();
-
-if(data.routes && data.routes.length > 0) {
-    return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
-}
-
-return { value: straightDist, isFallback: true, msg: " (直線備援)" };
-}catch(err){
-console.error("OSRM 路由異常:", err);
-return { value: straightDist, isFallback: true, msg: " (直線備援)" };
-}
-}  
 
 async function drawRoute(to, item){
 try{
@@ -1001,7 +1024,7 @@ if(item.在範圍內) {
     return;
 }
 
-let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
+let isJunction = item.原始類型 === "motorway_junction";
 
 let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
@@ -1128,11 +1151,11 @@ if (drawPoints && drawPoints.length >= 3) {
     parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
     }
     else if(t==="motorway_junction"){
-    parts.push(`
-    node["highway"="motorway_junction"](around:${radius},${lat},${lon});
-    nwr["highway"="ramp"](around:${radius},${lat},${lon});
-    `);
-    }
+parts.push(`
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+node["highway"="motorway_junction"]["junction"!="exit"](around:${radius},${lat},${lon});
+`);
+}
     else if(t==="parking"){
     parts.push(`
     nwr["amenity"="parking"](around:${radius},${lat},${lon});
@@ -1256,7 +1279,9 @@ e.tags?.amenity === "post_office" ||
             gates.push({ lat: lat2, lon: lon2 });
         } else {
             let typeName = rawType;
-            if(rawType === "motorway_junction" || rawType === "ramp") typeName = "交流道入口(平面路口)";
+            if(rawType === "motorway_junction") {
+    typeName = "交流道入口(平面路口)";
+}
             if(rawType === "post_office"){
     typeName = "郵局";
 }
