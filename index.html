@@ -1201,13 +1201,11 @@ if (drawPoints && drawPoints.length >= 3) {
     let t=e.value;
     if(t==="station"){
     parts.push(`
-    nwr["railway"="station"](around:${radius},${lat},${lon});
-    nwr["railway"="station"]["station"="train"](around:${radius},${lat},${lon});
-    nwr["railway"="station"]["train"="yes"](around:${radius},${lat},${lon});
-    nwr["railway"="halt"](around:${radius},${lat},${lon});
-    nwr["railway"="subway_entrance"](around:${radius},${lat},${lon});
-    nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
-    `);
+nwr["railway"="station"](around:${radius},${lat},${lon});
+nwr["railway"="halt"](around:${radius},${lat},${lon});
+nwr["railway"="subway_entrance"](around:${radius},${lat},${lon});
+nwr["amenity"="bus_station"](around:${radius},${lat},${lon});
+`);
     }
     else if(t==="bus_stop"){
     parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
@@ -1303,7 +1301,11 @@ nwr["office"="government"](around:${radius},${lat},${lon});
     }
     });
 
-    const query=`[out:json][timeout:60];(${parts.join("\n")});out center;`;
+    const query = `[out:json][timeout:60];
+(
+${parts.join("\n")}
+);
+out center;`;
     const res=await fetch("https://overpass-api.de/api/interpreter",{
     method:"POST",
     body:"data="+encodeURIComponent(query),
