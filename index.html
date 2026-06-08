@@ -1127,17 +1127,17 @@ if (drawPoints && drawPoints.length >= 3) {
     else if(t==="bus_stop"){
     parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
     }
-    else if(t==="motorway_junction"){
+   else if(t==="motorway_junction"){
 parts.push(`
 
-/* 交流道聯絡道 */
-way["highway"="motorway_link"](around:${radius},${lat},${lon});
+/* 國道交流道入口 */
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 
-/* 匝道 */
-way["highway"="trunk_link"](around:${radius},${lat},${lon});
+/* 國道入口 */
+node["highway"="motorway_link"](around:${radius},${lat},${lon});
 
-/* 名稱含交流道 */
-nwr["name"~"交流道",i](around:${radius},${lat},${lon});
+/* 快速道路入口 */
+node["highway"="trunk_link"](around:${radius},${lat},${lon});
 
 `);
 }
@@ -1220,7 +1220,7 @@ nwr["office"="government"](around:${radius},${lat},${lon});
     }
     });
 
-    const query=`[out:json][timeout:60];(${parts.join("\n")});out center;`;
+    const query=`[out:json][timeout:60];(${parts.join("\n")});out geom;`;
     const res=await fetch("https://overpass-api.de/api/interpreter",{
     method:"POST",
     body:"data="+encodeURIComponent(query),
@@ -1238,8 +1238,20 @@ nwr["office"="government"](around:${radius},${lat},${lon});
     const dedup = new Set();
 
     data.elements.forEach(e=>{
-        let lat2=e.center?.lat ?? e.lat;
-        let lon2=e.center?.lon ?? e.lon;
+        let lat2;
+let lon2;
+
+if(
+    e.tags?.highway==="motorway_link" ||
+    e.tags?.highway==="trunk_link"
+){
+    lat2 = e.geometry[0].lat;
+    lon2 = e.geometry[0].lon;
+}
+else{
+    lat2 = e.center?.lat ?? e.lat;
+    lon2 = e.center?.lon ?? e.lon;
+}
         if(lat2 == null || lon2 == null) return;
         
         const key = `${e.type}-${e.id}`;
@@ -1355,10 +1367,10 @@ rawType === "trunk_link"
     for (const item of results.slice(0,80)) {
         if (item.在範圍內) continue; // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
         
-        let isJunc =
-item.原始類型 === "motorway_link" ||
-item.原始類型 === "trunk_link";
-        const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
+        url =
+https://router.project-osrm.org/route/v1/driving/
+${to[1]},${to[0]};
+${origin[1]},${origin[0]}
 
         item.路線距離數值 = routeRes.value;
         item.路線距離 = routeRes.value + " m" + routeRes.msg;
