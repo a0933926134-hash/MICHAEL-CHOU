@@ -1343,8 +1343,8 @@ if(rawType === "motorway_junction") typeName = "交流道主路口";
     for (const item of results.slice(0,80)) {
         if (item.在範圍內) continue; // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
         
-        let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
-        const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
+        let isJunc = item.原始類型 === "motorway_junction"; 
+const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
 
         item.路線距離數值 = routeRes.value;
         item.路線距離 = routeRes.value + " m" + routeRes.msg;
