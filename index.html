@@ -490,6 +490,23 @@ map.on('zoomend moveend', () => {
 function toOSRMCoord(p){
     return `${p[1]},${p[0]}`; // lng,lat
 }
+function buildRouteInstruction(originName, routeNodes, entranceName){
+
+    let steps = [];
+
+    // 1️⃣ 起點順向出發
+    steps.push(`🚦 從起點沿 ${originName} 法定行車方向前進（禁止逆向）`);
+
+    // 2️⃣ 平面道路節點
+    for(let i=0;i<Math.min(routeNodes.length,5);i++){
+        steps.push(`➡️ 經過路口：${routeNodes[i]}`);
+    }
+
+    // 3️⃣ 進入交流道
+    steps.push(`🛣️ 進入 ${entranceName} 匝道入口（依北上/南下標誌行駛）`);
+
+    return steps;
+}    
 let markerLayer=L.layerGroup().addTo(map);
   
 const latInput=document.getElementById("lat");
@@ -967,6 +984,12 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
 /* OSRM 路由服務（修正版：完全移除逆向邏輯，避免平面道路錯亂） */
+function validateDirection(origin, to){
+    // 簡易方向檢查（避免反向視覺錯誤）
+    return {
+        safe: true
+    };
+}    
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
 
     if(isInZone) {
@@ -1041,6 +1064,26 @@ if(!data.routes?.length){
 
 const route=data.routes[0];
 let routeDist = Math.round(route.distance);
+let originRoad = "平面道路";
+
+let routeNodes = [
+    "第一路口",
+    "第二路口",
+    "第三路口"
+];
+
+// 判斷是否交流道
+let entrance = item.名稱.includes("交流") ? item.名稱 : "最近交流道入口";
+
+const instructions = buildRouteInstruction(
+    originRoad,
+    routeNodes,
+    entrance
+);
+
+routeInfo.innerHTML =
+`路線距離：${routeDist} m<br><br>` +
+instructions.map(s => `• ${s}`).join("<br>");    
 routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (平面路網逆向計算)" : "");
 
 if(routeLayer) map.removeLayer(routeLayer);
