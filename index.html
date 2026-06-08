@@ -487,7 +487,9 @@ scaleControl.addTo(map);
 map.on('zoomend moveend', () => {
     scaleControl.update();
 });
-
+function toOSRMCoord(p){
+    return `${p[1]},${p[0]}`; // lng,lat
+}
 let markerLayer=L.layerGroup().addTo(map);
   
 const latInput=document.getElementById("lat");
@@ -967,7 +969,6 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 /* OSRM 路由服務（修正版：完全移除逆向邏輯，避免平面道路錯亂） */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
 
-    // 範圍內直接歸零
     if(isInZone) {
         return { value: 0, isFallback: false, msg: "" };
     }
@@ -975,9 +976,10 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
     try {
         if(!origin) return null;
 
-        // ⭐ 統一方向：origin → to（不再反向）
-        const url = `https://router.project-osrm.org/route/v1/driving/` +
-                    `${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+        // ⭐ 統一座標輸出（關鍵修正）
+        const url =
+        `https://router.project-osrm.org/route/v1/driving/` +
+        `${toOSRMCoord(origin)};${toOSRMCoord(to)}?overview=false`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -990,7 +992,6 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
             };
         }
 
-        // fallback：直線距離
         return {
             value: straightDist,
             isFallback: true,
@@ -998,7 +999,7 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
         };
 
     } catch(err) {
-        console.error("OSRM 路由異常:", err);
+        console.error(err);
 
         return {
             value: straightDist,
@@ -1020,7 +1021,9 @@ if(item.在範圍內) {
 
 let isJunction = item.原始類型 === "motorway_junction";
 
-let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+let url =
+`https://router.project-osrm.org/route/v1/driving/` +
+`${toOSRMCoord(origin)};${toOSRMCoord(to)}?overview=full&geometries=geojson`;
 
 if(isJunction) {
     url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=full&geometries=geojson&radiuses=50;unlimited`;
