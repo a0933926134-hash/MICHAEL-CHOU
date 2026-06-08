@@ -18,7 +18,6 @@
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 
 <style>
-body { margin:0; font-family: Arial, "Microsoft JhengHei"; }
 #map { height:100vh; }
 
 /* UI 面板 */
@@ -1365,14 +1364,27 @@ rawType === "trunk_link"
 
     /* 背景非同步更新路網距離 */
     for (const item of results.slice(0,80)) {
-        if (item.在範圍內) continue; // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
-        
-        url =
-https://router.project-osrm.org/route/v1/driving/
-${to[1]},${to[0]};
-${origin[1]},${origin[0]}
+    if (item.在範圍內) continue;
 
-        item.路線距離數值 = routeRes.value;
+    try {
+        const to = item.座標;
+
+        const url = `https://router.project-osrm.org/route/v1/driving/
+${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.routes?.length) {
+            const dist = Math.round(data.routes[0].distance);
+
+            item.路線距離數值 = dist;
+            item.路線距離 = dist + " m";
+        }
+    } catch (e) {
+        console.warn(e);
+    }
+}
         item.路線距離 = routeRes.value + " m" + routeRes.msg;
 
         const cell = document.getElementById(`route-${item.id}`);
