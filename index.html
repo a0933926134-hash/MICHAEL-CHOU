@@ -965,31 +965,33 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
-if(isInZone) {
-    return { value: 0, isFallback: false, msg: "" };
+    if(isInZone) {
+        return { value: 0, isFallback: false, msg: "" };
+    }
+    try{
+        if(!origin) return null;
+
+        // 若是交流道 (isJunction 為 true)，OSRM 路徑方向改為從設施端計算回起點
+        // 這能解決部分交流道單行道限制導致路網無法規劃的問題
+        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+
+        if(isJunction) {
+            url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
+        }
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if(data.routes && data.routes.length > 0) {
+            return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
+        }
+
+        return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+    }catch(err){
+        console.error("OSRM 路由異常:", err);
+        return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+    }
 }
-try{
-if(!origin) return null;
-
-let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
-
-if(isJunction) {
-    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
-}
-
-const res = await fetch(url);
-const data = await res.json();
-
-if(data.routes && data.routes.length > 0) {
-    return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
-}
-
-return { value: straightDist, isFallback: true, msg: " (直線備援)" };
-}catch(err){
-console.error("OSRM 路由異常:", err);
-return { value: straightDist, isFallback: true, msg: " (直線備援)" };
-}
-}  
 
 async function drawRoute(to, item){
 try{
