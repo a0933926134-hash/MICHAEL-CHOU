@@ -965,31 +965,17 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
-    if(isInZone) {
-        return { value: 0, isFallback: false, msg: "" };
-    }
-    try{
-        if(!origin) return null;
-
-        // 若是交流道 (isJunction 為 true)，OSRM 路徑方向改為從設施端計算回起點
-        // 這能解決部分交流道單行道限制導致路網無法規劃的問題
-        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
-
-        if(isJunction) {
-            url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
-        }
-
-        const res = await fetch(url);
-        const data = await res.json();
-
-        if(data.routes && data.routes.length > 0) {
-            return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
-        }
-
-        return { value: straightDist, isFallback: true, msg: " (直線備援)" };
-    }catch(err){
-        console.error("OSRM 路由異常:", err);
-        return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+        if(isInZone) return { value: 0, isFallback: false, msg: "" };
+        try{
+            let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+            if(isJunction) {
+                url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
+            }
+            const res = await fetch(url);
+            const data = await res.json();
+            if(data.routes && data.routes.length > 0) return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
+            return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+        } catch(err) { return { value: straightDist, isFallback: true, msg: " (直線備援)" }; }
     }
 }
 
@@ -1053,25 +1039,53 @@ row.scrollIntoView({ behavior:"smooth", block:"center" });
 
 /* Overpass API 查詢與幾何相交拓撲核心 */
 async function runQuery(){
-const lat=parseFloat(latInput.value);
-const lon=parseFloat(lonInput.value);
-const radius=parseFloat(radiusInput.value);
+        const lat = parseFloat(document.getElementById("lat").value);
+        const lon = parseFloat(document.getElementById("lon").value);
+        const radius = parseFloat(document.getElementById("radius").value);
+        const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
+        
+        let parts = [];
+        checkedBoxes.forEach(e => {
+            if(e.value === "motorway_junction"){
+                parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
+            } else if(e.value === "school") {
+                parts.push(`nwr["amenity"="school"](around:${radius},${lat},${lon});`);
+            }
+        });
 
-if(radius > 3000){
-alert("半徑超過3000m可能造成系統過慢");
-return;
-}
+        const query = `[out:json][timeout:60];(${parts.join("\n")});out center;`;
+        const res = await fetch("https://overpass-api.de/api/interpreter", {
+            method: "POST", body: "data=" + encodeURIComponent(query)
+        });
+        const data = await res.json();
+        
+        results = [];
+        data.elements.forEach(e => {
+            let lat2 = e.center?.lat ?? e.lat;
+            let lon2 = e.center?.lon ?? e.lon;
+            let rawType = e.tags?.highway || e.tags?.amenity || "未知";
+            
+            let typeName = rawType;
+            if(rawType === "motorway_junction") typeName = "交流道主路口";
 
-queryBtn.disabled = true;
-queryBtn.innerText = "⌛ 檢索圖資中...";
+            results.push({
+                名稱: e.tags?.name || "周邊設施",
+                類型: typeName,
+                原始類型: rawType,
+                座標: [lat2, lon2],
+                距離: Math.round(111000 * Math.sqrt(Math.pow(lat - lat2, 2) + Math.pow(lon - lon2, 2)))
+            });
+        });
 
-try {
-    markerLayer.clearLayers();
-    if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
-    routeInfo.innerText="路線距離：尚未計算";
-    tbody.innerHTML="";
-    results=[];
-    let parts=[];
+        renderTable();
+
+        for (const item of results) {
+            let isJunc = (item.原始類型 === "motorway_junction");
+            const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, false);
+            item.路線距離 = routeRes.value + " m" + routeRes.msg;
+            renderTable(); // 即時更新
+        }
+    }
 
     // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
    let turfZonePolygon = null;
@@ -1381,19 +1395,12 @@ renderTable();
 
 /* 重新渲染表格 */
 function renderTable(){
-tbody.innerHTML="";
-results.forEach(item=>{
-const tr=document.createElement("tr");
-tr.dataset.id=item.id;
-tr.innerHTML=`
-<td onclick='selectItemById(${item.id})' style="cursor:pointer;color:blue">${item.名稱}</td>
-<td>${item.類型}</td>
-<td>${item.直線距離顯示}</td>
-<td id="route-${item.id}">${item.路線距離}</td>
-`;
-tbody.appendChild(tr);
-});
-}  
+        const tbody = document.getElementById("tbody");
+        tbody.innerHTML = "";
+        results.forEach(item => {
+            tbody.innerHTML += `<tr><td>${item.名稱}</td><td>${item.類型}</td><td>${item.距離}m</td><td>${item.路線距離 || "計算中..."}</td></tr>`;
+        });
+    }
 
 /* 清除路網藍線 */
 function clearRoute(){
@@ -1582,14 +1589,11 @@ routeInfo.innerText="路線距離：尚未計算";
 }
 /* 匯出 Excel */
 function exportExcel(){
-if(!results.length){ alert("無資料"); return; }
-const ws = XLSX.utils.json_to_sheet(results.map(r=>({
-名稱:r.名稱, 類型:r.類型, 直線距離:r.直線距離顯示, 路線距離:r.路線距離 || "", 緯度:r.座標[0], 經度:r.座標[1]
-})));
-const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, "GIS");
-XLSX.writeFile(wb, "GIS查詢結果.xlsx");
-}
+        const ws = XLSX.utils.json_to_sheet(results);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "GIS");
+        XLSX.writeFile(wb, "查詢結果.xlsx");
+    }
 
 /* 表格視窗拖曳 */
 let isDragging = false;
