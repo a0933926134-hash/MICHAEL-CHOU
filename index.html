@@ -1064,45 +1064,88 @@ async function getRouteDistance(to, straightDist, isInZone = false){
 }
 
 async function drawRoute(to, item){
-try{
-if(!origin) return;
 
-if(item.在範圍內) {
-    routeInfo.innerText = "路線距離：0 m (此設施位於您編輯的範圍區段內部)";
-    if(routeLayer) map.removeLayer(routeLayer);
-    return;
-}
+    try {
 
-let isJunc =
-item.原始類型==="motorway_link";
+        if(!origin) return;
 
-let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+        // ✔ 在範圍內直接返回
+        if(item.在範圍內) {
 
-if(isJunction) {
-    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=full&geometries=geojson&radiuses=50;unlimited`;
-}
+            routeInfo.innerText =
+            "路線距離：0 m (此設施位於您編輯的範圍區段內部)";
 
-const res=await fetch(url);
-const data=await res.json();
+            if(routeLayer)
+                map.removeLayer(routeLayer);
 
-if(!data.routes?.length){
-    routeInfo.innerText = "路線距離：" + item.距離 + " m (採直線路徑示意)";
-    if(routeLayer) map.removeLayer(routeLayer);
-    routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
-    return;
-}
+            return;
+        }
 
-const route=data.routes[0];
-let routeDist = Math.round(route.distance);
-routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (平面路網逆向計算)" : "");
+        // ❌ 已移除 isJunction（不再需要）
 
-if(routeLayer) map.removeLayer(routeLayer);
-routeLayer=L.geoJSON(route.geometry,{ style:{color: isJunction ? "#059669" : "blue", weight:5} }).addTo(map);
-}catch(err){
-routeInfo.innerText="路線服務異常，改繪直線";
-if(routeLayer) map.removeLayer(routeLayer);
-routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
-}
+        // ✔ 統一路線：origin → motorway_link入口
+        const url =
+        `https://router.project-osrm.org/route/v1/driving/` +
+        `${origin[1]},${origin[0]};${to[1]},${to[0]}` +
+        `?overview=full&geometries=geojson`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        // fallback（直線）
+        if(!data.routes || !data.routes.length){
+
+            routeInfo.innerText =
+            "路線距離：" + item.距離 + " m (採直線路徑示意)";
+
+            if(routeLayer)
+                map.removeLayer(routeLayer);
+
+            routeLayer =
+            L.polyline([origin, to], {
+                color: "red",
+                weight: 3,
+                dashArray: "5, 10"
+            }).addTo(map);
+
+            return;
+        }
+
+        // ✔ 正常路線
+        const route = data.routes[0];
+        const routeDist = Math.round(route.distance);
+
+        routeInfo.innerText =
+        "路線距離：" + routeDist + " m";
+
+        if(routeLayer)
+            map.removeLayer(routeLayer);
+
+        routeLayer =
+        L.geoJSON(route.geometry, {
+            style: {
+                color: "#2563eb",
+                weight: 5
+            }
+        }).addTo(map);
+
+    } catch(err) {
+
+        console.error(err);
+
+        routeInfo.innerText =
+        "路線服務異常，改繪直線";
+
+        if(routeLayer)
+            map.removeLayer(routeLayer);
+
+        routeLayer =
+        L.polyline([origin, to], {
+            color: "red",
+            weight: 3,
+            dashArray: "5, 10"
+        }).addTo(map);
+    }
 }
 
 /* 表格選取連動 */
