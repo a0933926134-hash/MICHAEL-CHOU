@@ -490,6 +490,28 @@ map.on('zoomend moveend', () => {
 function toOSRMCoord(p){
     return `${p[1]},${p[0]}`; // lng,lat
 }
+function pickBestEntryPoint(origin, candidates){
+
+    let best = null;
+    let min = Infinity;
+
+    for(let c of candidates){
+
+        if(!c || !c.lat || !c.lon) continue;
+
+        let d = haversine(origin[0], origin[1], c.lat, c.lon);
+
+        // ⚠️ 避免 junction（非入口）
+        if(c.rawType === "motorway_junction") continue;
+
+        if(d < min){
+            min = d;
+            best = c;
+        }
+    }
+
+    return best;
+}    
 function buildRouteInstruction(originName, routeNodes, entranceName){
 
     let steps = [];
@@ -1337,7 +1359,24 @@ e.tags?.amenity === "post_office" ||
                 名稱: name || (rawType === "ramp" ? "交流道平面路口/匝道端" : "周邊設施"),
                 類型: typeName,
                 原始類型: rawType,
-                座標: [lat2, lon2],
+                let finalLat = lat2;
+let finalLon = lon2;
+
+// ⭐ 如果是交流道類型 → 改用真正入口
+if(rawType === "motorway_junction" || rawType === "ramp"){
+
+    const entry = pickBestEntry(
+        [lat, lon],
+        [{lat: lat2, lon: lon2}]
+    );
+
+    if(entry){
+        finalLat = entry.lat;
+        finalLon = entry.lon;
+    }
+}
+
+座標: [finalLat, finalLon],
                 在範圍內: inside,
                 距離: inside ? 0 : Math.round(haversine(lat, lon, lat2, lon2)),
                 直線距離顯示: inside ? "0 (位於區段範圍內)" : Math.round(haversine(lat, lon, lat2, lon2)),
