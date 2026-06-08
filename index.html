@@ -1047,7 +1047,8 @@ if(item.在範圍內) {
     return;
 }
 
-let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
+let isJunc =
+item.原始類型==="motorway_link";
 
 let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
@@ -1411,7 +1412,8 @@ typeName="交流道入口匝道";
     for (const item of results.slice(0,80)) {
         if (item.在範圍內) continue; // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
         
-        let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
+        let isJunc =
+item.原始類型==="motorway_link";
         const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
 
         item.路線距離數值 = routeRes.value;
