@@ -959,10 +959,56 @@ const R=6371000;
 const toRad=x=>x*Math.PI/180;
 const dLat=toRad(lat2-lat1);
 const dLon=toRad(lon2-lon1);
-const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+const a=
+Math.sin(dLat/2)**2 +
+Math.cos(toRad(lat1)) *
+Math.cos(toRad(lat2)) *
+Math.sin(dLon/2)**2;
+
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
+/* ==================================
+   交流道入口匝道判斷
+   ================================== */
+function getRampEntrancePoint(way){
+
+if(!way.geometry || way.geometry.length < 2){
+    return null;
+}
+
+const first = way.geometry[0];
+const last  = way.geometry[way.geometry.length - 1];
+
+/*
+    motorway_link 的 geometry
+    第一點與最後一點擇一作為入口端
+*/
+
+const firstDist =
+haversine(
+    origin[0],
+    origin[1],
+    first.lat,
+    first.lon
+);
+
+const lastDist =
+haversine(
+    origin[0],
+    origin[1],
+    last.lat,
+    last.lon
+);
+
+/*
+    取較接近平面道路的一端
+*/
+
+return firstDist < lastDist
+    ? [first.lat, first.lon]
+    : [last.lat, last.lon];
+}
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
 if(isInZone) {
@@ -1128,11 +1174,15 @@ if (drawPoints && drawPoints.length >= 3) {
     parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
     }
     else if(t==="motorway_junction"){
-    parts.push(`
-    node["highway"="motorway_junction"](around:${radius},${lat},${lon});
-    nwr["highway"="ramp"](around:${radius},${lat},${lon});
-    `);
-    }
+
+parts.push(`
+
+way["highway"="motorway_link"]
+(around:${radius},${lat},${lon});
+
+`);
+
+}
     else if(t==="parking"){
     parts.push(`
     nwr["amenity"="parking"](around:${radius},${lat},${lon});
@@ -1212,7 +1262,10 @@ nwr["office"="government"](around:${radius},${lat},${lon});
     }
     });
 
-    const query=`[out:json][timeout:60];(${parts.join("\n")});out center;`;
+    const query=
+`[out:json][timeout:60];
+(${parts.join("\n")});
+out geom;`;
     const res=await fetch("https://overpass-api.de/api/interpreter",{
     method:"POST",
     body:"data="+encodeURIComponent(query),
