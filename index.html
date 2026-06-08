@@ -1071,7 +1071,7 @@ let url =
 `${toOSRMCoord(origin)};${toOSRMCoord(to)}?overview=full&geometries=geojson`;
 
 if(isJunction) {
-    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=full&geometries=geojson&radiuses=50;unlimited`;
+    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=full&geometries=geojson&radiuses=50;50`;
 }
 
 const res=await fetch(url);
@@ -1214,8 +1214,12 @@ if (drawPoints && drawPoints.length >= 3) {
     }
     else if(t==="motorway_junction"){
 parts.push(`
-node["highway"="motorway_junction"](around:${radius},${lat},${lon});
-node["highway"="motorway_junction"]["junction"!="exit"](around:${radius},${lat},${lon});
+node["highway"="motorway_link"]
+node["entrance"="yes"]
+way["highway"="motorway_link"](around:${radius},${lat},${lon});
+node["highway"="motorway_link"]
+node["entrance"="yes"]
+way["highway"="motorway_link"]["junction"!="exit"](around:${radius},${lat},${lon});
 `);
 }
     else if(t==="parking"){
@@ -1365,7 +1369,7 @@ let finalLon = lon2;
 // ⭐ 如果是交流道類型 → 改用真正入口
 if(rawType === "motorway_junction" || rawType === "ramp"){
 
-    const entry = pickBestEntry(
+    const entry = pickBestEntryPoint(origin, candidates)
         [lat, lon],
         [{lat: lat2, lon: lon2}]
     );
