@@ -915,6 +915,7 @@ alert("定位失敗，請確認已允許定位權限");
    DEM 高程查詢
    ================================== */
 const elevationCache = {};
+
 async function getElevation(lat, lon){
 
     const cacheKey = lat.toFixed(5)+","+lon.toFixed(5);
@@ -955,14 +956,7 @@ async function getElevation(lat, lon){
     }
 }
 
-        const data = await res.json();
-
-        // ✅ ★新增：API error防呆
-        if(data.error){
-            console.warn("DEM API error:", data.error);
-            return null;
-        }
-
+        
         if(data?.results?.length > 0){
             const val = data.results[0].elevation;
             elevationCache[cacheKey] = val;
