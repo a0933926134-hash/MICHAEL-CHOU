@@ -1464,10 +1464,9 @@ routeInfo.innerText="路線距離：尚未計算";
         // 2. 自動決定取樣解析度
         // =========================
         const step = Math.max(
-            Math.max(maxLon - minLon, maxLat - minLat) / 30,
-            0.00005
-        );
-
+    Math.max(maxLon - minLon, maxLat - minLat) / 15,
+    0.00015
+);
         let elevations = [];
         let insideCount = 0;
 
@@ -1497,23 +1496,26 @@ routeInfo.innerText="路線距離：尚未計算";
         // =========================
         // 4. fallback（避免點太少）
         // =========================
-        if (elevations.length < 5) {
+        if (elevations.length < 3) {
 
-            const centroid = turf.centroid(polygon).geometry.coordinates;
+    const centroid = turf.centroid(polygon).geometry.coordinates;
+    const ele = await getElevation(centroid[1], centroid[0]);
 
-            const ele = await getElevation(centroid[1], centroid[0]);
+    if (ele === null) {
 
-            if (ele !== null) {
-                elevations = [{
-                    lat: centroid[1],
-                    lon: centroid[0],
-                    ele
-                }];
-            } else {
-                slopeInfo.innerHTML = "⚠ DEM 無資料";
-                return;
-            }
-        }
+        slopeInfo.innerHTML = `
+⚠ DEM 資料來源暫時無回應（API 限流或網路問題）<br>
+請稍後再試，或縮小分析範圍
+        `;
+        return;
+    }
+
+    elevations = [{
+        lat: centroid[1],
+        lon: centroid[0],
+        ele
+    }];
+}
 
         // =========================
         // 5. 坡度計算（只做一次）
