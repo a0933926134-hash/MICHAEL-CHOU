@@ -1480,7 +1480,13 @@ const MAX_SAMPLES = 80;
 
         const pt = turf.point([lon, lat]);
 
-        if (!turf.booleanPointInPolygon(pt, polygon)) continue;
+        let inside = true;
+try {
+    inside = turf.booleanPointInPolygon(pt, polygon);
+} catch (e) {
+    inside = true; // fallback，避免整段掛掉
+}
+if (!inside) continue;
 
         insideCount++;
 
@@ -1539,9 +1545,21 @@ if (sampleCount >= MAX_SAMPLES) break;
         }
 
         if (!slopes.length) {
-            slopeInfo.innerHTML = "⚠ 無法計算坡度";
-            return;
-            }
+
+    // fallback：用 elevation range 當坡度 proxy
+    const elevs = elevations.map(e => e.ele);
+    const min = Math.min(...elevs);
+    const max = Math.max(...elevs);
+
+    const fakeSlope = (max - min) / 50; // 粗略估算
+
+    slopeInfo.innerHTML = `
+⚠ 坡度樣本不足（改用高度差估算）<br>
+高程差：約 ${(max - min).toFixed(1)} m<br>
+估算坡度：約 ${fakeSlope.toFixed(2)} %
+    `;
+    return;
+}
         }
 console.log("=== DEM DEBUG ===");
 console.log("elevations count:", elevations.length);
