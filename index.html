@@ -1214,12 +1214,14 @@ if (drawPoints && drawPoints.length >= 3) {
     }
     else if(t==="motorway_junction"){
 parts.push(`
-node["highway"="motorway_link"]
-node["entrance"="yes"]
-way["highway"="motorway_link"](around:${radius},${lat},${lon});
-node["highway"="motorway_link"]
-node["entrance"="yes"]
-way["highway"="motorway_link"]["junction"!="exit"](around:${radius},${lat},${lon});
+(
+  way["highway"="motorway_link"](around:${radius},${lat},${lon});
+  node["highway"="motorway_link"](around:${radius},${lat},${lon});
+
+  node["entrance"="yes"](around:${radius},${lat},${lon});
+
+  way["highway"="motorway_link"]["junction"!="exit"](around:${radius},${lat},${lon});
+);
 `);
 }
     else if(t==="parking"){
