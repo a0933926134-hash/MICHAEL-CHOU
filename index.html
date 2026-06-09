@@ -936,8 +936,14 @@ async function getElevation(lat, lon){
         `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
 
         const res = await fetch(url,{
-            signal:controller.signal
-        });
+    signal:controller.signal
+});
+
+console.log(
+    "DEM HTTP:",
+    res.status,
+    url
+);
 
         clearTimeout(timeout);
 
@@ -949,7 +955,11 @@ async function getElevation(lat, lon){
             return null;
         }
 
-        const data = await res.json();
+        const text = await res.text();
+
+console.log("DEM RAW:", text);
+
+const data = JSON.parse(text);
 
         if(
             data &&
