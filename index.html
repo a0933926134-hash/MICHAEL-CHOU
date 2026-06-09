@@ -926,19 +926,40 @@ async function getElevation(lat, lon){
 
     try{
 
+        const controller = new AbortController();
+
+        const timeout = setTimeout(()=>{
+            controller.abort();
+        },10000);
+
         const url =
         `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
 
-        const res = await fetch(url);
+        const res = await fetch(url,{
+            signal:controller.signal
+        });
+
+        clearTimeout(timeout);
+
+        if(!res.ok){
+            console.error(
+                "DEM HTTP Error:",
+                res.status
+            );
+            return null;
+        }
+
         const data = await res.json();
 
         if(
             data &&
             data.results &&
-            data.results.length
+            data.results.length &&
+            data.results[0].elevation !== null
         ){
+
             elevationCache[cacheKey] =
-                data.results[0].elevation;
+                Number(data.results[0].elevation);
 
             return elevationCache[cacheKey];
         }
@@ -947,7 +968,10 @@ async function getElevation(lat, lon){
 
     }catch(err){
 
-        console.error(err);
+        console.error(
+            "DEM API Error:",
+            err
+        );
 
         return null;
     }
@@ -1443,7 +1467,8 @@ routeInfo.innerText="路線距離：尚未計算";
         );
 
         let elevations = [];
-        let insideCount = 0;
+let insideCount = 0;
+let failedCount = 0;
 
         // =========================
         // 3. DEM 採樣（有節流避免卡死）
@@ -1459,12 +1484,19 @@ routeInfo.innerText="路線距離：尚未計算";
 
                 const ele = await getElevation(lat, lon);
 
-                if (ele === null || isNaN(ele)) continue;
+               if (ele === null || isNaN(ele)) {
+
+    failedCount++;
+
+    continue;
+}
 
                 elevations.push({ lat, lon, ele });
 
                 // 防止 API 過快
-                await new Promise(r => setTimeout(r, 8));
+                await new Promise(
+    r => setTimeout(r,30)
+);
             }
         }
 
@@ -1473,21 +1505,59 @@ routeInfo.innerText="路線距離：尚未計算";
         // =========================
         if (elevations.length < 5) {
 
-            const centroid = turf.centroid(polygon).geometry.coordinates;
+    console.warn(
+        "DEM有效點不足:",
+        elevations.length,
+        "Polygon內點數:",
+        insideCount,
+        "失敗次數:",
+        failedCount
+    );
 
-            const ele = await getElevation(centroid[1], centroid[0]);
+    const centroid =
+        turf.centroid(polygon)
+        .geometry.coordinates;
 
-            if (ele !== null) {
-                elevations = [{
-                    lat: centroid[1],
-                    lon: centroid[0],
-                    ele
-                }];
-            } else {
-                slopeInfo.innerHTML = "⚠ DEM 無資料";
-                return;
-            }
-        }
+    const ele =
+        await getElevation(
+            centroid[1],
+            centroid[0]
+        );
+
+    if (
+        ele !== null &&
+        !isNaN(ele)
+    ){
+
+        elevations = [{
+            lat: centroid[1],
+            lon: centroid[0],
+            ele
+        }];
+
+    } else {
+
+        slopeInfo.innerHTML = `
+        ⚠ DEM 無資料<br><br>
+
+        Polygon內採樣點：
+        ${insideCount}<br>
+
+        成功高程點：
+        ${elevations.length}<br>
+
+        DEM失敗次數：
+        ${failedCount}<br><br>
+
+        可能原因：<br>
+        1. OpenTopoData服務異常<br>
+        2. 網路阻擋API<br>
+        3. DEM資料缺漏
+        `;
+
+        return;
+    }
+}
 
         // =========================
         // 5. 坡度計算（只做一次）
