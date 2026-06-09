@@ -915,53 +915,35 @@ alert("定位失敗，請確認已允許定位權限");
    DEM 高程查詢
    ================================== */
 const elevationCache = {};
+async function getElevation(lat, lon){
 
-    try {
+    const cacheKey =
+        lat.toFixed(5)+","+lon.toFixed(5);
+
+    if(elevationCache[cacheKey] !== undefined){
+        return elevationCache[cacheKey];
+    }
+
+    try{
+
         const url =
         `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
 
         const res = await fetch(url);
-
-        if(!res.ok){
-            console.warn("DEM HTTP錯誤:", res.status);
-            return null;
-        }
-
         const data = await res.json();
 
-        if(data.error){
-            console.warn("DEM API error:", data.error);
-            return null;
-        }
+        if(
+            data &&
+            data.results &&
+            data.results.length
+        ){
+            elevationCache[cacheKey] =
+                data.results[0].elevation;
 
-        if(data?.results?.length > 0){
-            const val = data.results[0].elevation;
-            elevationCache[cacheKey] = val;
-            return val;
-        }
-
-        return null;
-
-    } catch(err){
-        console.error("DEM fetch failed:", err);
-        return null;
-    }
-}
-
-        
-        if(data?.results?.length > 0){
-            const val = data.results[0].elevation;
-            elevationCache[cacheKey] = val;
-            return val;
+            return elevationCache[cacheKey];
         }
 
         return null;
-
-    } catch(err){
-        console.error("DEM fetch failed:", err);
-        return null;
-    }
-}
 
     }catch(err){
 
@@ -1372,6 +1354,7 @@ e.tags?.amenity === "post_office" ||
     queryBtn.disabled = false;
     queryBtn.innerText = "查詢";
 }
+}
 
 /* 點擊欄位排序 */
 function sortResults(type){
@@ -1455,67 +1438,56 @@ routeInfo.innerText="路線距離：尚未計算";
         // 2. 自動決定取樣解析度
         // =========================
         const step = Math.max(
-    Math.max(maxLon - minLon, maxLat - minLat) / 15,
-    0.00015
-);
-        let sampleCount = 0;
-const MAX_SAMPLES = 80;
+            Math.max(maxLon - minLon, maxLat - minLat) / 30,
+            0.00005
+        );
+
         let elevations = [];
         let insideCount = 0;
 
         // =========================
         // 3. DEM 採樣（有節流避免卡死）
         // =========================
-       for (let lat = minLat; lat <= maxLat; lat += step) {
-    for (let lon = minLon; lon <= maxLon; lon += step) {
+        for (let lat = minLat; lat <= maxLat; lat += step) {
+            for (let lon = minLon; lon <= maxLon; lon += step) {
 
-        const pt = turf.point([lon, lat]);
+                const pt = turf.point([lon, lat]);
 
-        let inside = true;
-try {
-    inside = turf.booleanPointInPolygon(pt, polygon);
-} catch (e) {
-    inside = true; // fallback，避免整段掛掉
-}
-if (!inside) continue;
+                if (!turf.booleanPointInPolygon(pt, polygon)) continue;
 
-        insideCount++;
+                insideCount++;
 
-        const ele = await getElevation(lat, lon);
+                const ele = await getElevation(lat, lon);
 
-        if (ele === null || isNaN(ele)) continue;
+                if (ele === null || isNaN(ele)) continue;
 
-        elevations.push({ lat, lon, ele });
+                elevations.push({ lat, lon, ele });
 
-        sampleCount++;
-if (sampleCount >= MAX_SAMPLES) break;
-        // ✅ ★這裡才是正確位置（限流 API）
-        await new Promise(r => setTimeout(r, 120));
-    }
-}
+                // 防止 API 過快
+                await new Promise(r => setTimeout(r, 8));
+            }
+        }
+
         // =========================
         // 4. fallback（避免點太少）
         // =========================
-        if (elevations.length < 3) {
+        if (elevations.length < 5) {
 
-    const centroid = turf.centroid(polygon).geometry.coordinates;
-    const ele = await getElevation(centroid[1], centroid[0]);
+            const centroid = turf.centroid(polygon).geometry.coordinates;
 
-    if (ele === null) {
+            const ele = await getElevation(centroid[1], centroid[0]);
 
-        slopeInfo.innerHTML = `
-⚠ DEM 資料來源暫時無回應（API 限流或網路問題）<br>
-請稍後再試，或縮小分析範圍
-        `;
-        return;
-    }
-
-    elevations = [{
-        lat: centroid[1],
-        lon: centroid[0],
-        ele
-    }];
-}
+            if (ele !== null) {
+                elevations = [{
+                    lat: centroid[1],
+                    lon: centroid[0],
+                    ele
+                }];
+            } else {
+                slopeInfo.innerHTML = "⚠ DEM 無資料";
+                return;
+            }
+        }
 
         // =========================
         // 5. 坡度計算（只做一次）
@@ -1536,24 +1508,10 @@ if (sampleCount >= MAX_SAMPLES) break;
         }
 
         if (!slopes.length) {
+            slopeInfo.innerHTML = "⚠ 無法計算坡度";
+            return;
+        }
 
-    // fallback：用 elevation range 當坡度 proxy
-    const elevs = elevations.map(e => e.ele);
-    const min = Math.min(...elevs);
-    const max = Math.max(...elevs);
-
-    const fakeSlope = (max - min) / 50; // 粗略估算
-
-    slopeInfo.innerHTML = `
-⚠ 坡度樣本不足（改用高度差估算）<br>
-高程差：約 ${(max - min).toFixed(1)} m<br>
-估算坡度：約 ${fakeSlope.toFixed(2)} %
-    `;
-    return;
-}
-console.log("=== DEM DEBUG ===");
-console.log("elevations count:", elevations.length);
-console.log("sample data:", elevations.slice(0, 5));
         // =========================
         // 6. 統計
         // =========================
