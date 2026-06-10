@@ -959,6 +959,15 @@ console.log(
 
 console.log("DEM RAW:", text);
 
+/* ===== 新增開始 ===== */
+
+if(
+    text.includes("Too Many Requests")
+){
+    console.warn("DEM API Rate Limit");
+    return null;
+}
+
 let data;
 
 try{
@@ -967,19 +976,21 @@ try{
 catch(err){
 
     console.error(
-        "DEM JSON Error:",
+        "DEM JSON Parse Error:",
         text
     );
 
     return null;
 }
 
-        if(
-            data &&
-            data.results &&
-            data.results.length &&
-            data.results[0].elevation !== null
-        ){
+/* ===== 新增結束 ===== */
+
+if(
+    data &&
+    data.results &&
+    data.results.length &&
+    data.results[0].elevation !== null
+){
 
             elevationCache[cacheKey] =
                 Number(data.results[0].elevation);
