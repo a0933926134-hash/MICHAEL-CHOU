@@ -20,6 +20,14 @@
 <style>
 body { margin:0; font-family: Arial, "Microsoft JhengHei"; }
 #map { height:100vh; }
+/* 工具列 CSS */
+    .draw-control-bar {
+        background: white; padding: 10px; border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        display: flex; flex-direction: column; gap: 8px;
+    }
+    .btn { padding: 8px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; font-weight: bold; }
+    .active { background: #ef4444; color: white; }    
 
 /* UI 面板 */
 #panel{
@@ -348,6 +356,84 @@ cursor:pointer;
 
 <script>
 let map = L.map('map').setView([25.012098, 121.465675], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // --- 核心邏輯 ---
+    let allPolygons = [];      // 存放所有已完成的多邊形資料
+    let currentDrawingPoints = []; // 當前正在繪製的點
+    let isDrawing = false;
+    let previewLine = null;
+    let polygonLayerGroup = L.layerGroup().addTo(map);
+
+    // 建立工具列
+    const drawControl = L.control({ position: 'topleft' });
+    drawControl.onAdd = function() {
+        const div = L.DomUtil.create('div', 'draw-control-bar');
+        div.innerHTML = `
+            <button id="btn-draw" class="btn" onclick="toggleDraw()">📐 繪製範圍</button>
+            <button class="btn" style="background:#10b981; color:white;" onclick="finishPolygon()">✓ 完成此面</button>
+            <button class="btn" style="background:#4f46e5; color:white;" onclick="exportAll()">📥 匯出全部</button>
+            <button class="btn" onclick="clearAll()">✕ 清除地圖</button>
+        `;
+        return div;
+    };
+    drawControl.addTo(map);
+
+    function toggleDraw() {
+        isDrawing = !isDrawing;
+        document.getElementById('btn-draw').classList.toggle('active');
+        currentDrawingPoints = [];
+    }
+
+    map.on('click', e => {
+        if (!isDrawing) return;
+        currentDrawingPoints.push([e.latlng.lat, e.latlng.lng]);
+        // 簡單繪製預覽點
+        L.circleMarker(e.latlng, {radius: 4, color: 'red'}).addTo(polygonLayerGroup);
+    });
+
+    function finishPolygon() {
+        if (currentDrawingPoints.length < 3) return alert("請至少點選3個點");
+        
+        // 儲存至集合
+        allPolygons.push([...currentDrawingPoints]);
+        
+        // 重新繪製地圖上所有面
+        renderAllPolygons();
+        
+        currentDrawingPoints = [];
+    }
+
+    function renderAllPolygons() {
+        polygonLayerGroup.clearLayers();
+        allPolygons.forEach(pts => {
+            L.polygon(pts, {color: 'blue', weight: 2}).addTo(polygonLayerGroup);
+        });
+    }
+
+    function exportAll() {
+        const features = allPolygons.map(pts => {
+            let ring = pts.map(p => [p[1], p[0]]);
+            ring.push(ring[0]); // 閉合
+            return {
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [ring] },
+                properties: { name: 'Area' }
+            };
+        });
+
+        const geojson = { type: "FeatureCollection", features: features };
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
+        const a = document.createElement('a');
+        a.href = dataStr;
+        a.download = "all_polygons.geojson";
+        a.click();
+    }
+
+    function clearAll() {
+        allPolygons = [];
+        polygonLayerGroup.clearLayers();
+    }
 
 // ✅ ★★★ 一定要在 loadDEM 之前 ★★★
  
@@ -524,9 +610,9 @@ interactive:false
     ★ 多邊形繪製與二次編輯核心
    ==================================================================== */
 let isDrawingPolygon = false;
-let drawPoints = [];       
+let allPolygons = []; // 存放 {id: Date.now(), points: [...]}       
 let previewPolyline = null;
-let finalPolygon = null;
+
 let drawMarkers = L.layerGroup().addTo(map);  
 
 const drawControl = L.control({ position: 'topleft' });
@@ -588,10 +674,20 @@ function clearPolygon() {
 }
 
 function finishPolygon() {
-    if (drawPoints.length < 3) {
-        alert("請至少點選 3 個以上的頂點才能閉合範圍！");
-        return;
-    }
+    if (drawPoints.length < 3) return;
+
+    // 儲存當前繪製的面
+    allPolygons.push({
+        id: Date.now(),
+        points: [...drawPoints]
+    });
+
+    // 重新渲染所有面
+    renderAllPolygons();
+
+    // 重置當前繪製狀態
+    clearDrawingSession(); 
+}
     if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
     
     renderEditablePolygon();
