@@ -760,80 +760,112 @@ function importPolygonSHP(event) {
 }
 
 function processImportedGeoJSON(geojson) {
-    let feature = null;
-    if (geojson.type === "FeatureCollection" && geojson.features.length > 0) {
-        feature = geojson.features[0];
-    } else if (geojson.type === "Feature") {
-        feature = geojson;
-    } else if (geojson.geometry && geojson.geometry.type === "Polygon") {
-        feature = geojson;
-    }
 
-    if (!feature || !feature.geometry) {
-    alert("無法辨識 GeoJSON 幾何結構");
-    return;
-}
+    let features = [];
 
-let rings = null;
-
-/* Polygon */
-if (feature.geometry.type === "Polygon") {
-    rings = feature.geometry.coordinates[0];
-}
-
-/* MultiPolygon */
-else if (feature.geometry.type === "MultiPolygon") {
-    rings = feature.geometry.coordinates[0][0];
-}
-
-/* GeometryCollection */
-else if (feature.geometry.type === "GeometryCollection") {
-
-    const poly = feature.geometry.geometries.find(g =>
-        g.type === "Polygon" || g.type === "MultiPolygon"
-    );
-
-    if (!poly) {
-        alert("GeometryCollection 中找不到 Polygon");
+    // =========================
+    // 1. 統一轉 FeatureArray
+    // =========================
+    if (geojson.type === "FeatureCollection") {
+        features = geojson.features;
+    } 
+    else if (geojson.type === "Feature") {
+        features = [geojson];
+    } 
+    else if (geojson.geometry) {
+        features = [{ type: "Feature", geometry: geojson.geometry }];
+    } 
+    else {
+        alert("無法辨識 GeoJSON 結構");
         return;
     }
 
-    if (poly.type === "Polygon") {
-        rings = poly.coordinates[0];
-    } else {
-        rings = poly.coordinates[0][0];
+    drawPoints = [];
+
+    // =========================
+    // 2. 逐一處理所有 feature
+    // =========================
+    let allRings = [];
+
+    features.forEach(f => {
+
+        if (!f.geometry) return;
+
+        const g = f.geometry;
+
+        // ---- Polygon ----
+        if (g.type === "Polygon") {
+            allRings.push(g.coordinates[0]);
+        }
+
+        // ---- MultiPolygon ----
+        else if (g.type === "MultiPolygon") {
+            g.coordinates.forEach(poly => {
+                allRings.push(poly[0]);
+            });
+        }
+
+        // ---- GeometryCollection ----
+        else if (g.type === "GeometryCollection") {
+            g.geometries.forEach(gg => {
+                if (gg.type === "Polygon") {
+                    allRings.push(gg.coordinates[0]);
+                }
+                if (gg.type === "MultiPolygon") {
+                    gg.coordinates.forEach(poly => {
+                        allRings.push(poly[0]);
+                    });
+                }
+            });
+        }
+    });
+
+    if (allRings.length === 0) {
+        alert("沒有可用的 Polygon");
+        return;
     }
-}
 
-if (!rings || rings.length < 3) {
-    alert("Polygon 節點不足");
-    return;
-}
-    
-    if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
-        rings.pop();
-    }
-    const invalidCoord = rings.some(coord =>
-    Math.abs(coord[1]) > 90 ||
-    Math.abs(coord[0]) > 180
-);
+    // =========================
+    // 3. 合併所有面成 drawPoints
+    // =========================
+    drawPoints = [];
 
-if (invalidCoord) {
-    alert("此 SHP 可能不是 WGS84(EPSG:4326) 座標系統，請先轉換座標。");
-    return;
-}
-    drawPoints = rings.map(coord => [coord[1], coord[0]]);
+    allRings.forEach(ring => {
 
+        if (ring.length < 3) return;
+
+        // 確保閉合
+        if (
+            ring[0][0] !== ring[ring.length - 1][0] ||
+            ring[0][1] !== ring[ring.length - 1][1]
+        ) {
+            ring.push(ring[0]);
+        }
+
+        // 將 [lng,lat] → [lat,lng]
+        ring.forEach(p => {
+            drawPoints.push([p[1], p[0]]);
+        });
+
+        // 分隔（避免畫線串起來）
+        drawPoints.push(null);
+    });
+
+    // 移除最後 null
+    drawPoints = drawPoints.filter(p => p !== null);
+
+    // =========================
+    // 4. 繪製（支援多面）
+    // =========================
     renderEditablePolygon();
     updateCentroidByPoints(drawPoints);
-    
-    if (drawPoints.length > 0) {
-        map.panTo(drawPoints[0]);
-    }
+
+    map.panTo(drawPoints[0]);
 
     document.getElementById('btn-export-shp').style.display = 'block';
     document.getElementById('btn-clear-draw').style.display = 'block';
-    alert("🎉 成功！已實時解壓縮讀取檔案內容，並 100% 完美還原您繪製的範圍形狀。");
+
+    alert("🎉 已成功匯入多面 SHP / GeoJSON（支援 MultiPolygon）");
 }
 
 
