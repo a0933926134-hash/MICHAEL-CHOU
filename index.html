@@ -615,7 +615,7 @@ function clearPolygon() {
     document.getElementById('btn-clear-draw').style.display = 'none';
 }
 
-function finishPolygon() {
+ffunction finishPolygon() {
 
     if (drawPoints.length < 3) {
         alert("請至少3點");
@@ -624,63 +624,34 @@ function finishPolygon() {
 
     createNewPolygon();
 
-    document.getElementById('btn-export-shp').style.display = 'block';
-} 
-    if (drawPoints.length < 3) {
-        alert("請至少點選 3 個以上的頂點才能閉合範圍！");
-        return;
+    const active =
+        polygons.find(p => p.id === activePolygonId);
+
+    if (active) {
+        updateCentroidByPoints(active.points);
     }
-    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-    
-    createNewPolygon();
 
-const active =
-    polygons.find(
-        p => p.id === activePolygonId
-    );
-
-if(active){
-    updateCentroidByPoints(active.points);
-}
-    
     isDrawingPolygon = false;
+
     const btn = document.getElementById('btn-start-draw');
     btn.classList.remove('active');
     btn.innerText = "📐 繪製範圍";
+
     document.getElementById('btn-end-draw').style.display = 'none';
     document.getElementById('btn-export-shp').style.display = 'block';
 }
 
 
-    drawPoints.forEach((pt, index) => {
-        let marker = L.marker(pt, {
-            icon: L.divIcon({
-                className: '',
-                html: '<div class="edit-handle"></div>',
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
-            }),
-            draggable: true
-        });
-        
-        marker.on('drag', function(e) {
-            let newLatLng = e.target.getLatLng();
-            drawPoints[index] = [newLatLng.lat, newLatLng.lng];
-            finalPolygon.setLatLngs(drawPoints);
-        });
-        
-        marker.on('dragend', function() {
-            updateCentroidByPoints(drawPoints);
-        });
-
-        marker.addTo(drawMarkers);
-    });
-}
+    
 
 function updateCentroidByPoints(pts) {
     if (!pts || pts.length < 3) return;
     
-    let coordinates = pts.map(p => [p[1], p[0]]);
+    let coordinates = pts..map(p => {
+    if (!p) return null;
+    return [p[1], p[0]];
+})
+.filter(p => p !== null);
     if (coordinates[0][0] !== coordinates[coordinates.length-1][0] || coordinates[0][1] !== coordinates[coordinates.length-1][1]) {
         coordinates.push([pts[0][1], pts[0][0]]);
     }
@@ -733,7 +704,30 @@ function selectPolygon(id) {
     });
 }
     function enableEditPolygon(polygonObj) {
+drawPoints.forEach((pt, index) => {
+        let marker = L.marker(pt, {
+            icon: L.divIcon({
+                className: '',
+                html: '<div class="edit-handle"></div>',
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            }),
+            draggable: true
+        });
+        
+        marker.on('drag', function(e) {
+            let newLatLng = e.target.getLatLng();
+            drawPoints[index] = [newLatLng.lat, newLatLng.lng];
+            finalPolygon.setLatLngs(drawPoints);
+        });
+        
+        marker.on('dragend', function() {
+            updateCentroidByPoints(drawPoints);
+        });
 
+        marker.addTo(drawMarkers);
+    });
+}
     polygonObj.layer.eachLayer(layer => {
 
         layer.dragging = new L.Handler.PathDrag(layer);
