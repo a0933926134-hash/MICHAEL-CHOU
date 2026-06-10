@@ -939,15 +939,19 @@ async function getElevation(lat, lon){
     signal:controller.signal
 });
 
+const text = await res.text();
+
 console.log(
-    "DEM HTTP:",
+    "DEM RESPONSE:",
     res.status,
-    url
+    text.substring(0,300)
 );
 
-        clearTimeout(timeout);
+clearTimeout(timeout);
 
-        if(!res.ok){
+if(!res.ok){
+    return null;
+}
             console.error(
                 "DEM HTTP Error:",
                 res.status
