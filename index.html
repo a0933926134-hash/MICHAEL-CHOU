@@ -1206,6 +1206,38 @@ function displayResults() {
         row.id = `result-${idx}`;
     });
 }
+async function computeRouteDistances(){
+
+    if(!origin) return;
+
+    if(results.length===0) return;
+
+    const [lat1,lon1] = origin;
+
+    for(const r of results){
+
+        try{
+
+            r.route = await getRouteDistance(
+                lat1,
+                lon1,
+                r.lat,
+                r.lon
+            );
+
+        }catch(err){
+
+            console.error(err);
+
+            r.route = null;
+
+        }
+
+        displayResults();
+
+    }
+
+}    
 
 function clearRoute() {
     routeInfo.innerText = "路線距離：尚未計算";
@@ -1215,14 +1247,46 @@ function clearRoute() {
 
 function getCurrentLocation() {
     if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            latInput.value = lat.toFixed(6);
-            lonInput.value = lon.toFixed(6);
-            origin = [lat, lon];
-            map.setView([lat, lon], 15);
-        });
+        navigator.geolocation.getCurrentPosition(
+
+function(position) {
+
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+
+    latInput.value = lat.toFixed(6);
+    lonInput.value = lon.toFixed(6);
+
+    origin = [lat, lon];
+
+    if(userMarker){
+        map.removeLayer(userMarker);
+    }
+
+    userMarker = L.marker([lat, lon]).addTo(map);
+
+    map.setView([lat, lon], 15);
+
+},
+
+function(error){
+
+    console.error(error);
+
+    alert(
+        "定位失敗：\n" +
+        error.message
+    );
+
+},
+
+{
+    enableHighAccuracy:true,
+    timeout:10000,
+    maximumAge:0
+}
+
+);
     } else {
         alert("瀏覽器不支援地理位置功能");
     }
