@@ -1210,7 +1210,16 @@ try {
         "out center;";
 
         const res = await fetch(overpassUrl);
-        const data = await res.json();
+
+const text = await res.text();   // ✅ 先抓原始內容
+
+// 🔥 防止 HTML / XML 直接炸掉
+if(text.trim().startsWith("<")){
+    console.error("Overpass 回傳非 JSON：", text);
+    throw new Error("Overpass 回傳 XML/HTML，查詢可能失敗或語法錯誤");
+}
+
+const data = JSON.parse(text);    // ✅ 再手動解析 JSON
 
         for(const el of data.elements){
 
