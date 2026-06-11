@@ -524,15 +524,10 @@ interactive:false
     ★ 多邊形繪製與二次編輯核心
    ==================================================================== */
 let isDrawingPolygon = false;
-
-let drawPoints = [];
-
+let drawPoints = [];       
 let previewPolyline = null;
-
-let polygons = [];          // 所有範圍
-let selectedPolygon = null; // 目前選取範圍
-
-let drawMarkers = L.layerGroup().addTo(map); 
+let finalPolygon = null;
+let drawMarkers = L.layerGroup().addTo(map);  
 
 const drawControl = L.control({ position: 'topleft' });
 drawControl.onAdd = function() {
@@ -573,65 +568,6 @@ function toggleDrawMode(btn) {
         }
     }
 }
-function createPolygon(points){
-
-    const polygon = L.polygon(points,{
-        color:"#dc2626",
-        weight:3,
-        fillColor:"#dc2626",
-        fillOpacity:0.25
-    }).addTo(map);
-
-    polygon.gisId =
-        "POLY_" + Date.now();
-
-    polygons.push({
-        id: polygon.gisId,
-        layer: polygon,
-        points: [...points]
-    });
-
-    polygon.on("click",function(){
-
-        selectPolygon(
-            polygon.gisId
-        );
-
-    });
-
-    selectPolygon(
-        polygon.gisId
-    );
-
-} 
-function selectPolygon(id){
-
-    polygons.forEach(p=>{
-
-        p.layer.setStyle({
-            color:"#dc2626",
-            fillOpacity:0.25
-        });
-
-    });
-
-    const poly =
-        polygons.find(
-            p=>p.id===id
-        );
-
-    if(!poly) return;
-
-    poly.layer.setStyle({
-        color:"#2563eb",
-        fillOpacity:0.4
-    });
-
-    selectedPolygon=poly;
-
-    renderEditHandles(poly);
-
-}    
 
 function clearPolygonData() {
     drawPoints = [];
@@ -641,52 +577,25 @@ function clearPolygonData() {
     document.getElementById('btn-export-shp').style.display = 'none';
 }
 
-function clearPolygon(){
-
-    if(!selectedPolygon){
-
-        alert("請先選取範圍");
-
-        return;
-    }
-
-    map.removeLayer(
-        selectedPolygon.layer
-    );
-
-    polygons=
-        polygons.filter(
-            p=>p.id!==selectedPolygon.id
-        );
-
-    drawMarkers.clearLayers();
-
-    selectedPolygon=null;
-
+function clearPolygon() {
+    clearPolygonData();
+    isDrawingPolygon = false;
+    const btn = document.getElementById('btn-start-draw');
+    btn.classList.remove('active');
+    btn.innerText = "📐 繪製範圍";
+    document.getElementById('btn-end-draw').style.display = 'none';
+    document.getElementById('btn-clear-draw').style.display = 'none';
 }
 
 function finishPolygon() {
-
-    if(drawPoints.length < 3){
-        alert("至少3點");
+    if (drawPoints.length < 3) {
+        alert("請至少點選 3 個以上的頂點才能閉合範圍！");
         return;
     }
-
-    createPolygon(drawPoints);
-
-    drawPoints=[];
-
-    if(previewPolyline){
-        map.removeLayer(previewPolyline);
-        previewPolyline=null;
-    }
-
-    isDrawingPolygon=false;
-
-    document.getElementById('btn-start-draw')
-    .classList.remove('active');
-
-}
+    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
+    
+    renderEditablePolygon();
+    updateCentroidByPoints(drawPoints);
     
     isDrawingPolygon = false;
     const btn = document.getElementById('btn-start-draw');
@@ -696,41 +605,40 @@ function finishPolygon() {
     document.getElementById('btn-export-shp').style.display = 'block';
 }
 
-function renderEditHandles(poly){
-
+function renderEditablePolygon() {
+    if (finalPolygon) { map.removeLayer(finalPolygon); }
     drawMarkers.clearLayers();
 
-    poly.points.forEach((pt,index)=>{
+    finalPolygon = L.polygon(drawPoints, {
+        color: '#dc2626',
+        weight: 3,
+        fillColor: '#dc2626',
+        fillOpacity: 0.25
+    }).addTo(map);
 
-        const marker=L.marker(pt,{
-            draggable:true,
-            icon:L.divIcon({
-                className:'',
-                html:'<div class="edit-handle"></div>',
-                iconSize:[12,12]
-            })
+    drawPoints.forEach((pt, index) => {
+        let marker = L.marker(pt, {
+            icon: L.divIcon({
+                className: '',
+                html: '<div class="edit-handle"></div>',
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            }),
+            draggable: true
         });
-
-        marker.on("drag",e=>{
-
-            const ll=
-                e.target.getLatLng();
-
-            poly.points[index]=[
-                ll.lat,
-                ll.lng
-            ];
-
-            poly.layer.setLatLngs(
-                poly.points
-            );
-
+        
+        marker.on('drag', function(e) {
+            let newLatLng = e.target.getLatLng();
+            drawPoints[index] = [newLatLng.lat, newLatLng.lng];
+            finalPolygon.setLatLngs(drawPoints);
+        });
+        
+        marker.on('dragend', function() {
+            updateCentroidByPoints(drawPoints);
         });
 
         marker.addTo(drawMarkers);
-
     });
-
 }
 
 function updateCentroidByPoints(pts) {
@@ -917,9 +825,7 @@ if (invalidCoord) {
     drawPoints = rings.map(coord => [coord[1], coord[0]]);
 
     renderEditablePolygon();
-    updateCentroidByPoints(
-    selectedPolygon.points
-)
+    updateCentroidByPoints(drawPoints);
     
     if (drawPoints.length > 0) {
         map.panTo(drawPoints[0]);
@@ -1199,51 +1105,38 @@ try {
     results=[];
     let parts=[];
 
-    /* =====================================================
-   多 Polygon 空間分析
-   ===================================================== */
+    // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
+   let turfZonePolygon = null;
 
-let turfZonePolygons = [];
+if (drawPoints && drawPoints.length >= 3) {
 
-polygons.forEach(poly => {
-
-    if (!poly.points || poly.points.length < 3)
-        return;
-
-    let ring = poly.points
+    let ring = drawPoints
     .filter(p => Array.isArray(p) && p.length === 2)
     .map(p => {
-
         const lat = Number(p[0]);
         const lon = Number(p[1]);
-
         return [lon, lat];
-
     });
 
     if (
         ring.length > 2 &&
         (
-            ring[0][0] !== ring[ring.length-1][0] ||
-            ring[0][1] !== ring[ring.length-1][1]
+            ring[0][0] !== ring[ring.length - 1][0] ||
+            ring[0][1] !== ring[ring.length - 1][1]
         )
-    ){
+    ) {
         ring.push(ring[0]);
     }
 
-    if(ring.length < 4)
+    if (ring.length < 4) {
+        alert("範圍點不足或資料錯誤");
         return;
+    }
 
-    turfZonePolygons.push(
-        turf.polygon([ring])
-    );
+    turfZonePolygon = turf.polygon([ring]);
 
-});
-
-console.log(
-    "Polygon Count:",
-    turfZonePolygons.length
-);
+    console.log("polygon:", turfZonePolygon);
+}
 
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
     if(checkedBoxes.length === 0) {
