@@ -220,6 +220,8 @@ font-weight:bold;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    cursor: grab;
+    user-select: none;
 }
 
 #polygonList {
@@ -287,47 +289,57 @@ font-weight:bold;
     color: white;
 }
 
-/* ===== 坡度面板 CSS ===== */
+/* ===== 坡度面板 CSS (可拖曳) ===== */
 #slopePanel{
-position:absolute;
-top:12px;
-left:12px;
-width:260px;
-background:#ffffff;
-border-radius:12px;
-box-shadow:0 10px 25px rgba(0,0,0,0.25);
-z-index:1200;
-overflow:hidden;
-font-size:12px;
+    position: fixed;
+    top: 250px;
+    right: 20px;
+    width: 280px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    z-index: 1050;
+    overflow: hidden;
+    font-size: 12px;
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
 #slopeHeader{
-background:#7c3aed;
-color:white;
-padding:8px;
-font-weight:bold;
-cursor:grab;
-display:flex;
-justify-content:space-between;
-align-items:center;
-user-select:none;
+    background: #7c3aed;
+    color: white;
+    padding: 8px 10px;
+    font-weight: bold;
+    cursor: grab;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#slopeHeader:active {
+    cursor: grabbing;
 }
 
 #slopeHeader button{
-background:#10b981;
-border:none;
-color:white;
-padding:4px 8px;
-border-radius:6px;
-cursor:pointer;
-font-size:11px;
+    background: #10b981;
+    border: none;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+#slopeHeader button:hover {
+    background: #059669;
 }
 
 #slopeContent{
-padding:8px;
-background:#f3e8ff;
-color:#5b21b6;
-line-height:1.6;
+    padding: 10px;
+    background: #f3e8ff;
+    color: #5b21b6;
+    line-height: 1.6;
 }
 
 </style>
@@ -409,12 +421,12 @@ cursor:pointer;
 </div>
 </div>
 
+<!-- 地形坡度分析面板 - 可自由拖曳移動 -->
 <div id="slopePanel">
     <div id="slopeHeader">
-        🌄 地形坡度分析（可拖曳）
-        <button onclick="analyzeSlope()">執行</button>
+        🌄 地形坡度分析
+        <button onclick="analyzeSlopeAction()">執行</button>
     </div>
-
     <div id="slopeContent">
         <div id="slopeInfo">尚未分析坡度</div>
     </div>
@@ -598,9 +610,52 @@ drawControl.addTo(map);
 const resPanel = document.getElementById("resultPanel");
 const sidePanel = document.getElementById("panel");
 const polyPanel = document.getElementById("polygonPanel");
+const slopePanel = document.getElementById("slopePanel");
 L.DomEvent.disableClickPropagation(resPanel);
 L.DomEvent.disableClickPropagation(sidePanel);
 L.DomEvent.disableClickPropagation(polyPanel);
+L.DomEvent.disableClickPropagation(slopePanel);
+
+/* ====================================================================
+    ★ 面板拖曳功能
+   ==================================================================== */
+
+function makePanelDraggable(panelId, headerId) {
+    const panel = document.getElementById(panelId);
+    const header = document.getElementById(headerId);
+    let isMouseDown = false;
+    let offset = { x: 0, y: 0 };
+
+    header.addEventListener('mousedown', (e) => {
+        isMouseDown = true;
+        offset.x = e.clientX - panel.offsetLeft;
+        offset.y = e.clientY - panel.offsetTop;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isMouseDown) return;
+        
+        let newX = e.clientX - offset.x;
+        let newY = e.clientY - offset.y;
+        
+        // 限制邊界
+        newX = Math.max(0, Math.min(newX, window.innerWidth - panel.offsetWidth));
+        newY = Math.max(0, Math.min(newY, window.innerHeight - panel.offsetHeight));
+        
+        panel.style.left = newX + 'px';
+        panel.style.top = newY + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+        isMouseDown = false;
+    });
+}
+
+// 為地形坡度面板啟用拖曳
+makePanelDraggable('slopePanel', 'slopeHeader');
+
+// 為多邊形管理面板啟用拖曳
+makePanelDraggable('polygonPanel', 'polygonHeader');
 
 function toggleDrawMode(btn) {
     isDrawingPolygon = !isDrawingPolygon;
@@ -1100,6 +1155,7 @@ function processImportedGeoJSONMulti(geojson) {
     alert("🎉 成功匯入 " + features.length + " 個範圍！");
 }
 
+
 /* 地圖點擊事件 */
 map.on('click', e => {
     const lat = e.latlng.lat;
@@ -1408,8 +1464,8 @@ function clearRoute() {
     routeInfo.innerHTML = "路線距離：尚未計算";
 }
 
-function analyzeSlope() {
-    alert("坡度分析功能開發中");
+function analyzeSlopeAction() {
+    alert("坡度分析功能開發中。此面板現已支援自由拖曳移動！");
 }
 
 </script>
