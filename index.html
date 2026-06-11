@@ -593,14 +593,27 @@ function clearPolygon() {
 }
 
 function finishPolygon() {
-    if (drawPoints.length < 3) {
-        alert("請至少點選 3 個以上的頂點才能閉合範圍！");
+
+    if(drawPoints.length < 3){
+        alert("至少3點");
         return;
     }
-    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-    
-    renderEditablePolygon();
-    updateCentroidByPoints(drawPoints);
+
+    createPolygon(drawPoints);
+
+    drawPoints=[];
+
+    if(previewPolyline){
+        map.removeLayer(previewPolyline);
+        previewPolyline=null;
+    }
+
+    isDrawingPolygon=false;
+
+    document.getElementById('btn-start-draw')
+    .classList.remove('active');
+
+}
     
     isDrawingPolygon = false;
     const btn = document.getElementById('btn-start-draw');
