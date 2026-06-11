@@ -1148,17 +1148,12 @@ results.forEach(r => {
 
 /* Overpass API 查詢 */
 async function runQuery(){
-const lat=parseFloat(latInput.value);
-const lon=parseFloat(lonInput.value);
-const radius=parseFloat(radiusInput.value);
+const lat = parseFloat(latInput.value);
+const lon = parseFloat(lonInput.value);
+const radius = parseFloat(radiusInput.value);
 
 if(isNaN(lat) || isNaN(lon) || isNaN(radius)){
     alert("請輸入有效的經緯度和半徑");
-    return;
-}
-
-if(radius > 3000){
-    alert("半徑超過3000m可能造成系統過慢");
     return;
 }
 
@@ -1166,107 +1161,112 @@ queryBtn.disabled = true;
 queryBtn.innerText = "⌛ 檢索圖資中...";
 
 try {
+
     markerLayer.clearLayers();
     if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
-    routeInfo.innerText="路線距離：尚未計算";
-    tbody.innerHTML="";
-    results=[];
-    let idCounter = 0;   // ✅ ★加在這裡（每次查詢重置）
-    let parts=[];
 
-    // 檢查繪製的多邊形
-    let turfZonePolygon = null;
-    if (drawPoints && drawPoints.length >= 3) {
-        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
-            ring.push(ring[0]);
-        }
-        if (ring.length >= 4) {
-            turfZonePolygon = turf.polygon([ring]);
-        }
-    }
+    tbody.innerHTML = "";
+    results = [];
+
+    let idCounter = 0;
 
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
-    if(checkedBoxes.length === 0) {
+    if(checkedBoxes.length === 0){
         alert("請至少勾選一個分析類型！");
         queryBtn.disabled = false;
         queryBtn.innerText = "查詢";
         return;
     }
 
-    checkedBoxes.forEach(box => {
+    for(const box of checkedBoxes){
 
-    const type = box.value;   // ✅ 固定保存，不直接用 box.value
+        let query = "";
 
-    if(type === "station"){
-        parts.push(`nwr["railway"="station"](around:${radius},${lat},${lon});`);
-    } else if(type === "bus_stop"){
-        parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
-    } else if(type === "motorway_junction"){
-        parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
-    } else if(type === "parking"){
-        parts.push(`nwr["amenity"="parking"](around:${radius},${lat},${lon});`);
-    } else if(type === "marketplace"){
-        parts.push(`nwr["shop"="supermarket"](around:${radius},${lat},${lon});`);
-    } else if(type === "park"){
-        parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
-    } else if(type === "school"){
-        parts.push(`nwr["amenity"="school"](around:${radius},${lat},${lon});`);
+        if(box.value === "station"){
+            query = `nwr["railway"="station"](around:${radius},${lat},${lon});`;
+        }
+        else if(box.value === "bus_stop"){
+            query = `nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`;
+        }
+        else if(box.value === "motorway_junction"){
+            query = `node["highway"="motorway_junction"](around:${radius},${lat},${lon});`;
+        }
+        else if(box.value === "parking"){
+            query = `nwr["amenity"="parking"](around:${radius},${lat},${lon});`;
+        }
+        else if(box.value === "marketplace"){
+            query = `nwr["shop"="supermarket"](around:${radius},${lat},${lon});`;
+        }
+        else if(box.value === "park"){
+            query = `nwr["leisure"="park"](around:${radius},${lat},${lon});`;
+        }
+        else if(box.value === "school"){
+            query = `nwr["amenity"="school"](around:${radius},${lat},${lon});`;
+        }
+
+        const overpassUrl =
+        "https://overpass-api.de/api/interpreter?data=[out:json];" +
+        query +
+        "out center;";
+
+        const res = await fetch(overpassUrl);
+        const data = await res.json();
+
+        for(const el of data.elements){
+
+            const lat_el = el.lat || el.center?.lat;
+            const lon_el = el.lon || el.center?.lon;
+
+            if(!lat_el || !lon_el) continue;
+
+            const distance = Math.round(
+                haversine(lat, lon, lat_el, lon_el)
+            );
+
+            const inZone = false; // 如果你有 polygon 再補
+
+            const item = {
+                id: idCounter++,
+                名稱: el.tags?.name || "未命名",
+                類型: el.tags?.amenity || el.tags?.railway || "unknown",
+                距離: distance,
+                座標: [lat_el, lon_el],
+                路線距離: 0,
+                在範圍內: inZone
+            };
+
+            results.push(item);
+
+            L.circleMarker([lat_el, lon_el], {
+                radius: 6,
+                color: inZone ? "green" : "blue",
+                fillColor: inZone ? "lightgreen" : "lightblue",
+                fillOpacity: 0.7,
+                weight: 2
+            }).addTo(markerLayer);
+
+            if(!inZone){
+                getRouteDistance([lat_el, lon_el], distance).then(routeRes=>{
+                    item.路線距離 = routeRes.value;
+
+                    const row = document.querySelector(
+                        `#tbody tr[data-id="${item.id}"]`
+                    );
+                    if(row){
+                        row.cells[3].innerText = routeRes.value + " m";
+                    }
+                });
+            }
+        }
     }
 
-   data.elements.forEach(el => {
-
-    const lat_el = el.lat || el.center?.lat;
-    const lon_el = el.lon || el.center?.lon;
-
-    if(!lat_el || !lon_el) return;
-
-    const distance = Math.round(
-        haversine(lat, lon, lat_el, lon_el)
-    );
-
-    const item = {
-        id: idCounter++,
-        名稱: el.tags?.name || "未命名",
-        類型: el.tags?.amenity || "unknown",
-        距離: distance,
-        座標: [lat_el, lon_el],
-        路線距離: 0,
-        在範圍內: inZone
-    };
-
-    results.push(item);
-});
-    results.push(item);
-
-        results.push(item);
-        
-        L.circleMarker([lat_el, lon_el], {
-            radius: 6,
-            color: inZone ? "green" : "blue",
-            fillColor: inZone ? "lightgreen" : "lightblue",
-            fillOpacity: 0.7,
-            weight: 2
-        }).bindPopup(name).addTo(markerLayer);
-
-        if(!inZone){
-            getRouteDistance([lat_el, lon_el], distance).then(routeRes => {
-                item.路線距離 = routeRes.value;
-                const row = document.querySelector(`#tbody tr[data-id="${item.id}"]`);
-                if(row) row.cells[3].innerText = routeRes.value + " m";
-            });
-        } else {
-            item.路線距離 = 0;
-        }
-    });
-
     renderResults();
-    queryBtn.disabled = false;
-    queryBtn.innerText = "查詢";
 
-} catch(err){
+}catch(err){
     console.error("查詢失敗:", err);
     alert("查詢失敗: " + err.message);
+}
+finally{
     queryBtn.disabled = false;
     queryBtn.innerText = "查詢";
 }
