@@ -486,7 +486,7 @@ let origin=null;
 let results=[];
 let sortState = { distance:true, route:true };
 let routeLayer=null;
-
+let queryCircle = null;   // ←新增
 origin=[25.012098,121.465675];
 userMarker=L.marker(origin,{
     icon:L.divIcon({className:'',html: `<div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,iconSize:[18,18],iconAnchor:[9,9]}),
@@ -1131,7 +1131,22 @@ function runQuery() {
     // 🔥 新增：自動計算路線距離
 computeRouteDistances();
     // 顯示查詢圓形範圍
-    L.circle([lat, lon], { radius: radius, color: '#ef4444', fillOpacity: 0.1 }).addTo(markerLayer);
+
+if(queryCircle){
+    markerLayer.removeLayer(queryCircle);
+}
+
+queryCircle = L.circle(
+    [lat, lon],
+    {
+        radius: radius,
+        color: '#ef4444',
+        weight: 2,
+        fillOpacity: 0.1
+    }
+);
+
+queryCircle.addTo(markerLayer);
 }
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -1240,11 +1255,24 @@ async function computeRouteDistances(){
 }    
 
 function clearRoute() {
-    routeInfo.innerText = "路線距離：尚未計算";
-    results.forEach(r => r.route = null);
-    displayResults();
-}
 
+    routeInfo.innerText = "路線距離：尚未計算";
+
+    results.forEach(r => r.route = null);
+
+    if(routeLayer){
+        map.removeLayer(routeLayer);
+        routeLayer = null;
+    }
+
+    if(queryCircle){
+        markerLayer.removeLayer(queryCircle);
+        queryCircle = null;
+    }
+
+    displayResults();
+
+}
 function getCurrentLocation() {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
