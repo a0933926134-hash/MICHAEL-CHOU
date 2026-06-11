@@ -844,6 +844,17 @@ function clearAllPolygons() {
     centroidMarkers.clearLayers();
     polygonLabels.clearLayers();
     
+    // 重置繪製狀態
+    isDrawingPolygon = false;
+    drawPoints = [];
+    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
+    drawMarkers.clearLayers();
+    
+    const btn = document.getElementById('btn-start-draw');
+    btn.classList.remove('active');
+    btn.innerText = "📐 繪製新範圍";
+    document.getElementById('btn-end-draw').style.display = 'none';
+    document.getElementById('btn-clear-draw').style.display = 'none';
     document.getElementById('btn-export-all-shp').style.display = 'none';
     document.getElementById('btn-export-all-geojson').style.display = 'none';
     document.getElementById('clear-all-polygons-btn').style.display = 'none';
@@ -922,7 +933,7 @@ map.on('click', function(e) {
     }
 });
 
-/* ======================== OSM 地標資料庫 ======================== */
+/* ======================== 查詢和距離計算函數 ======================== */
 const landmarkDatabase = {
     station: {
         name: '大型車站',
@@ -998,76 +1009,53 @@ const landmarkDatabase = {
         features: [
             {name: '台灣銀行總行', lat: 25.0419, lon: 121.5131},
             {name: '新光醫療中心', lat: 25.0332, lon: 121.5653},
-            {name: '臺大醫院', lat: 25.0143, lon: 121.5200},
-            {name: '郵局', lat: 25.0494, lon: 121.5148}
+            {name: '榮總醫院', lat: 25.0615, lon: 121.5638},
+            {name: '郵局(中山)', lat: 25.0531, lon: 121.5413}
         ]
     },
     gas: {
-        name: '電業/燃氣設施',
-        description: '特殊設施-電業設施及公用氣體燃料設施',
+        name: '電業設施',
+        description: '特殊設施-電業設施及公用氣體燃料設施之有無及接近程度',
         features: [
-            {name: '台電變電所', lat: 25.0500, lon: 121.5200}
+            {name: '台電變電所(信義)', lat: 25.0376, lon: 121.5732}
         ]
     },
     cemetery: {
         name: '殯葬設施',
         description: '特殊建設-殯葬設施之有無及接近程度',
         features: [
-            {name: '八德園區', lat: 25.0500, lon: 121.4500}
+            {name: '第一殯儀館', lat: 25.0827, lon: 121.4972}
         ]
     },
     waste_disposal: {
-        name: '廢棄物處理設施',
+        name: '廢棄物處理',
         description: '特殊建設-廢棄物處理設施之有無及接近程度',
         features: [
-            {name: '內湖垃圾焚化廠', lat: 25.0720, lon: 121.6000}
+            {name: '焚化爐(南港)', lat: 25.0627, lon: 121.6051}
         ]
     },
     pollution: {
-        name: '污染源',
-        description: '環境污染-水污染、噪音污染、廢氣污染',
+        name: '污染區域',
+        description: '環境汙染-各類污染之有無及接近程度',
         features: [
-            {name: '產業區域', lat: 25.0500, lon: 121.4700}
+            {name: '工業區(南港)', lat: 25.0627, lon: 121.6051}
         ]
     }
 };
 
-function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-}
-
-async function getRouteDistance(lat1, lon1, lat2, lon2) {
-    try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`;
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.routes && data.routes.length > 0) {
-            return data.routes[0].distance;
-        }
-    } catch (error) {
-        console.log('路線計算失敗');
-    }
-    return null;
-}
-
-async function runQuery() {
-    results = [];
+function runQuery() {
     const lat = parseFloat(latInput.value);
     const lon = parseFloat(lonInput.value);
     const radius = parseFloat(radiusInput.value);
     
     if (isNaN(lat) || isNaN(lon) || isNaN(radius)) {
-        alert('請輸入有效的緯度、經度和半徑！');
+        alert("請輸入有效的緯度、經度和半徑");
         return;
     }
     
     origin = [lat, lon];
     
+    // 更新使用者位置
     if (userMarker) map.removeLayer(userMarker);
     userMarker = L.marker([lat, lon], {
         icon: L.divIcon({
@@ -1079,226 +1067,179 @@ async function runQuery() {
         interactive: false
     }).addTo(map);
     
-    const checkedTypes = Array.from(document.querySelectorAll('#panel input[type="checkbox"]:checked')).map(el => el.value);
+    // 清除舊結果
+    markerLayer.clearLayers();
+    tbody.innerHTML = '';
+    results = [];
     
-    if (checkedTypes.length === 0) {
-        alert('請選擇至少一個類型！');
+    // 獲取選中的類型
+    const checkboxes = document.querySelectorAll('#panel input[type="checkbox"]:checked');
+    const selectedTypes = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (selectedTypes.length === 0) {
+        alert("請選擇至少一個類型");
         return;
     }
     
-    let totalResults = 0;
-    for (const type of checkedTypes) {
-        if (landmarkDatabase[type] && landmarkDatabase[type].features.length > 0) {
-            for (const feature of landmarkDatabase[type].features) {
+    // 查詢地標
+    selectedTypes.forEach(type => {
+        if (landmarkDatabase[type] && landmarkDatabase[type].features) {
+            landmarkDatabase[type].features.forEach(feature => {
                 const distance = calculateDistance(lat, lon, feature.lat, feature.lon);
+                
                 if (distance <= radius) {
-                    const result = {
+                    results.push({
                         name: feature.name,
                         type: landmarkDatabase[type].name,
+                        lat: feature.lat,
+                        lon: feature.lon,
                         distance: distance,
                         route: null
-                    };
-                    results.push(result);
-                    totalResults++;
+                    });
+                    
+                    // 在地圖上添加標記
+                    const marker = L.circleMarker([feature.lat, feature.lon], {
+                        radius: 6,
+                        fillColor: '#3b82f6',
+                        color: '#1e40af',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.7
+                    }).addTo(markerLayer).bindPopup(`<b>${feature.name}</b><br>${landmarkDatabase[type].name}`);
                 }
-            }
-        }
-    }
-    
-    results.sort((a, b) => a.distance - b.distance);
-    
-    displayResults();
-    
-    markerLayer.clearLayers();
-    results.forEach(result => {
-        const feature = null;
-        for (const type of checkedTypes) {
-            const found = landmarkDatabase[type].features.find(f => f.name === result.name);
-            if (found) {
-                L.marker([found.lat, found.lon], {
-                    icon: L.icon({
-                        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-blue.png`,
-                        iconSize: [25, 41],
-                        iconAnchor: [12, 41],
-                        popupAnchor: [1, -34]
-                    })
-                }).bindPopup(`<b>${result.name}</b><br>${result.type}<br>距離: ${result.distance.toFixed(0)}m`).addTo(markerLayer);
-                break;
-            }
+            });
         }
     });
+    
+    // 排序並顯示結果
+    sortResults('distance');
+    
+    // 顯示查詢圓形範圍
+    L.circle([lat, lon], { radius: radius, color: '#ef4444', fillOpacity: 0.1 }).addTo(markerLayer);
 }
 
-function displayResults() {
-    tbody.innerHTML = '';
-    results.forEach((result, index) => {
-        const row = tbody.insertRow();
-        row.id = `result-${index}`;
-        row.innerHTML = `
-            <td>${result.name}</td>
-            <td>${result.type}</td>
-            <td>${result.distance.toFixed(0)}</td>
-            <td>${result.route ? result.route.toFixed(0) : '-'}</td>
-        `;
-    });
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // 地球半徑（米）
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c);
 }
 
 function sortResults(field) {
     sortState[field] = !sortState[field];
+    
     if (field === 'distance') {
         results.sort((a, b) => sortState[field] ? a.distance - b.distance : b.distance - a.distance);
     } else if (field === 'route') {
         results.sort((a, b) => {
-            const aVal = a.route === null ? Infinity : a.route;
-            const bVal = b.route === null ? Infinity : b.route;
-            return sortState[field] ? aVal - bVal : bVal - aVal;
+            const aRoute = a.route || Infinity;
+            const bRoute = b.route || Infinity;
+            return sortState[field] ? aRoute - bRoute : bRoute - aRoute;
         });
     }
+    
     displayResults();
 }
 
-function exportExcel() {
-    if (results.length === 0) {
-        alert('沒有資料可匯出！');
-        return;
-    }
-    const ws = XLSX.utils.json_to_sheet(results);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '查詢結果');
-    XLSX.writeFile(wb, '查詢結果.xlsx');
+function displayResults() {
+    tbody.innerHTML = '';
+    results.forEach((result, idx) => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${result.name}</td>
+            <td>${result.type}</td>
+            <td>${result.distance.toLocaleString()}</td>
+            <td>${result.route ? result.route.toLocaleString() : '-'}</td>
+        `;
+        row.id = `result-${idx}`;
+    });
 }
 
 function clearRoute() {
-    if (routeLayer) {
-        map.removeLayer(routeLayer);
-        routeLayer = null;
-    }
-    results.forEach(result => { result.route = null; });
-    routeInfo.innerHTML = '路線距離：尚未計算';
+    routeInfo.innerText = "路線距離：尚未計算";
+    results.forEach(r => r.route = null);
     displayResults();
 }
 
 function getCurrentLocation() {
     if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(position => {
+        navigator.geolocation.getCurrentPosition(function(position) {
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
             latInput.value = lat.toFixed(6);
             lonInput.value = lon.toFixed(6);
+            origin = [lat, lon];
+            map.setView([lat, lon], 15);
         });
     } else {
-        alert('瀏覽器不支援地理位置功能！');
+        alert("瀏覽器不支援地理位置功能");
     }
 }
 
-function exportAllPolygonsSHP() {
-    if (polygonsList.length === 0) {
-        alert('沒有範圍可匯出！');
+function exportExcel() {
+    if (results.length === 0) {
+        alert("沒有結果可匯出");
         return;
     }
-    const features = polygonsList.map((polygon, idx) => ({
-        type: 'Feature',
-        properties: { name: `範圍_${idx + 1}` },
-        geometry: {
-            type: 'Polygon',
-            coordinates: [polygon.points.map(p => [p[1], p[0]])]
-        }
+    
+    const data = results.map(r => ({
+        '名稱': r.name,
+        '類型': r.type,
+        '直線距離(m)': r.distance,
+        '路線距離(m)': r.route || '-'
     }));
-    const geojson = { type: 'FeatureCollection', features };
-    const options = { folder: 'shapefiles', filename: 'polygons' };
-    shpwrite.download(geojson, options);
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "查詢結果");
+    XLSX.writeFile(wb, "查詢結果.xlsx");
+}
+
+function analyzeSlopeAction() {
+    alert("地形坡度分析功能開發中...");
+}
+
+function exportAllPolygonsSHP() {
+    alert("SHP 匯出功能開發中...");
 }
 
 function exportAllPolygonsGeoJSON() {
     if (polygonsList.length === 0) {
-        alert('沒有範圍可匯出！');
+        alert("沒有範圍可匯出");
         return;
     }
-    const features = polygonsList.map((polygon, idx) => ({
-        type: 'Feature',
-        properties: { name: `範圍_${idx + 1}` },
+    
+    const features = polygonsList.map(polygon => ({
+        type: "Feature",
+        properties: { id: polygon.id },
         geometry: {
-            type: 'Polygon',
+            type: "Polygon",
             coordinates: [polygon.points.map(p => [p[1], p[0]])]
         }
     }));
-    const geojson = { type: 'FeatureCollection', features };
+    
+    const geojson = {
+        type: "FeatureCollection",
+        features: features
+    };
+    
     const dataStr = JSON.stringify(geojson, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = 'polygons.geojson';
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '範圍.geojson';
+    link.click();
 }
 
 function importPolygonSHP(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            let geojson = null;
-            if (file.name.endsWith('.zip')) {
-                shp(e.target.result).then(data => {
-                    geojson = data;
-                    loadGeoJSONPolygons(geojson);
-                });
-            } else {
-                geojson = JSON.parse(e.target.result);
-                loadGeoJSONPolygons(geojson);
-            }
-        } catch (error) {
-            alert('檔案解析失敗！');
-            console.error(error);
-        }
-    };
-    if (file.name.endsWith('.zip')) {
-        reader.readAsArrayBuffer(file);
-    } else {
-        reader.readAsText(file);
-    }
-    event.target.value = '';
-}
-
-function loadGeoJSONPolygons(geojson) {
-    if (!geojson || !geojson.features) {
-        alert('無效的 GeoJSON 檔案！');
-        return;
-    }
-    geojson.features.forEach(feature => {
-        if (feature.geometry.type === 'Polygon') {
-            const coords = feature.geometry.coordinates[0];
-            const points = coords.map(c => [c[1], c[0]]);
-            const polygonId = Date.now() + Math.random();
-            const newPolygon = {
-                id: polygonId,
-                points: points,
-                centroid: null,
-                polygon: null,
-                markers: L.layerGroup(),
-                isSelected: false,
-                label: null,
-                labelMarker: null
-            };
-            calculateCentroid(newPolygon);
-            renderPolygon(newPolygon);
-            polygonsList.push(newPolygon);
-        }
-    });
-    if (polygonsList.length > 0) {
-        document.getElementById('btn-export-all-shp').style.display = 'block';
-        document.getElementById('btn-export-all-geojson').style.display = 'block';
-        document.getElementById('clear-all-polygons-btn').style.display = 'block';
-        selectPolygon(polygonsList[0].id);
-    }
-}
-
-function analyzeSlopeAction() {
-    alert('坡度分析功能開發中...');
+    alert("SHP/GeoJSON 匯入功能開發中...");
 }
 
 </script>
-
 </body>
 </html>
