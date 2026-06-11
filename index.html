@@ -573,6 +573,65 @@ function toggleDrawMode(btn) {
         }
     }
 }
+function createPolygon(points){
+
+    const polygon = L.polygon(points,{
+        color:"#dc2626",
+        weight:3,
+        fillColor:"#dc2626",
+        fillOpacity:0.25
+    }).addTo(map);
+
+    polygon.gisId =
+        "POLY_" + Date.now();
+
+    polygons.push({
+        id: polygon.gisId,
+        layer: polygon,
+        points: [...points]
+    });
+
+    polygon.on("click",function(){
+
+        selectPolygon(
+            polygon.gisId
+        );
+
+    });
+
+    selectPolygon(
+        polygon.gisId
+    );
+
+} 
+function selectPolygon(id){
+
+    polygons.forEach(p=>{
+
+        p.layer.setStyle({
+            color:"#dc2626",
+            fillOpacity:0.25
+        });
+
+    });
+
+    const poly =
+        polygons.find(
+            p=>p.id===id
+        );
+
+    if(!poly) return;
+
+    poly.layer.setStyle({
+        color:"#2563eb",
+        fillOpacity:0.4
+    });
+
+    selectedPolygon=poly;
+
+    renderEditHandles(poly);
+
+}    
 
 function clearPolygonData() {
     drawPoints = [];
@@ -582,14 +641,28 @@ function clearPolygonData() {
     document.getElementById('btn-export-shp').style.display = 'none';
 }
 
-function clearPolygon() {
-    clearPolygonData();
-    isDrawingPolygon = false;
-    const btn = document.getElementById('btn-start-draw');
-    btn.classList.remove('active');
-    btn.innerText = "📐 繪製範圍";
-    document.getElementById('btn-end-draw').style.display = 'none';
-    document.getElementById('btn-clear-draw').style.display = 'none';
+function clearPolygon(){
+
+    if(!selectedPolygon){
+
+        alert("請先選取範圍");
+
+        return;
+    }
+
+    map.removeLayer(
+        selectedPolygon.layer
+    );
+
+    polygons=
+        polygons.filter(
+            p=>p.id!==selectedPolygon.id
+        );
+
+    drawMarkers.clearLayers();
+
+    selectedPolygon=null;
+
 }
 
 function finishPolygon() {
@@ -623,40 +696,41 @@ function finishPolygon() {
     document.getElementById('btn-export-shp').style.display = 'block';
 }
 
-function renderEditablePolygon() {
-    if (finalPolygon) { map.removeLayer(finalPolygon); }
+function renderEditHandles(poly){
+
     drawMarkers.clearLayers();
 
-    finalPolygon = L.polygon(drawPoints, {
-        color: '#dc2626',
-        weight: 3,
-        fillColor: '#dc2626',
-        fillOpacity: 0.25
-    }).addTo(map);
+    poly.points.forEach((pt,index)=>{
 
-    drawPoints.forEach((pt, index) => {
-        let marker = L.marker(pt, {
-            icon: L.divIcon({
-                className: '',
-                html: '<div class="edit-handle"></div>',
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
-            }),
-            draggable: true
+        const marker=L.marker(pt,{
+            draggable:true,
+            icon:L.divIcon({
+                className:'',
+                html:'<div class="edit-handle"></div>',
+                iconSize:[12,12]
+            })
         });
-        
-        marker.on('drag', function(e) {
-            let newLatLng = e.target.getLatLng();
-            drawPoints[index] = [newLatLng.lat, newLatLng.lng];
-            finalPolygon.setLatLngs(drawPoints);
-        });
-        
-        marker.on('dragend', function() {
-            updateCentroidByPoints(drawPoints);
+
+        marker.on("drag",e=>{
+
+            const ll=
+                e.target.getLatLng();
+
+            poly.points[index]=[
+                ll.lat,
+                ll.lng
+            ];
+
+            poly.layer.setLatLngs(
+                poly.points
+            );
+
         });
 
         marker.addTo(drawMarkers);
+
     });
+
 }
 
 function updateCentroidByPoints(pts) {
@@ -843,7 +917,9 @@ if (invalidCoord) {
     drawPoints = rings.map(coord => [coord[1], coord[0]]);
 
     renderEditablePolygon();
-    updateCentroidByPoints(drawPoints);
+    updateCentroidByPoints(
+    selectedPolygon.points
+)
     
     if (drawPoints.length > 0) {
         map.panTo(drawPoints[0]);
