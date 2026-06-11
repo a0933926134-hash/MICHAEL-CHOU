@@ -1199,38 +1199,51 @@ try {
     results=[];
     let parts=[];
 
-    // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
-   let turfZonePolygon = null;
+    /* =====================================================
+   多 Polygon 空間分析
+   ===================================================== */
 
-if (drawPoints && drawPoints.length >= 3) {
+let turfZonePolygons = [];
 
-    let ring = drawPoints
+polygons.forEach(poly => {
+
+    if (!poly.points || poly.points.length < 3)
+        return;
+
+    let ring = poly.points
     .filter(p => Array.isArray(p) && p.length === 2)
     .map(p => {
+
         const lat = Number(p[0]);
         const lon = Number(p[1]);
+
         return [lon, lat];
+
     });
 
     if (
         ring.length > 2 &&
         (
-            ring[0][0] !== ring[ring.length - 1][0] ||
-            ring[0][1] !== ring[ring.length - 1][1]
+            ring[0][0] !== ring[ring.length-1][0] ||
+            ring[0][1] !== ring[ring.length-1][1]
         )
-    ) {
+    ){
         ring.push(ring[0]);
     }
 
-    if (ring.length < 4) {
-        alert("範圍點不足或資料錯誤");
+    if(ring.length < 4)
         return;
-    }
 
-    turfZonePolygon = turf.polygon([ring]);
+    turfZonePolygons.push(
+        turf.polygon([ring])
+    );
 
-    console.log("polygon:", turfZonePolygon);
-}
+});
+
+console.log(
+    "Polygon Count:",
+    turfZonePolygons.length
+);
 
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
     if(checkedBoxes.length === 0) {
