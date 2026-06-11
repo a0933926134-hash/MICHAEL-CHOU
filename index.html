@@ -1214,16 +1214,29 @@ try {
         parts.push(`nwr["amenity"="school"](around:${radius},${lat},${lon});`);
     }
 
+   data.elements.forEach(el => {
+
+    const lat_el = el.lat || el.center?.lat;
+    const lon_el = el.lon || el.center?.lon;
+
+    if(!lat_el || !lon_el) return;
+
+    const distance = Math.round(
+        haversine(lat, lon, lat_el, lon_el)
+    );
+
     const item = {
         id: idCounter++,
-        名稱: name,
-        類型: type,   // ✅ 改這裡
+        名稱: el.tags?.name || "未命名",
+        類型: el.tags?.amenity || "unknown",
         距離: distance,
         座標: [lat_el, lon_el],
         路線距離: 0,
         在範圍內: inZone
     };
 
+    results.push(item);
+});
     results.push(item);
 
         results.push(item);
