@@ -1052,7 +1052,22 @@ function runQuery() {
         alert("請輸入有效的緯度、經度和半徑");
         return;
     }
-    
+    async function computeRouteDistances() {
+    const [lat1, lon1] = origin;
+
+    const batchSize = 5;
+
+    for (let i = 0; i < results.length; i += batchSize) {
+        const batch = results.slice(i, i + batchSize);
+
+        await Promise.all(batch.map(async (r, idx) => {
+            const route = await getRouteDistance(lat1, lon1, r.lat, r.lon);
+            results[i + idx].route = route;
+        }));
+
+        displayResults();
+    }
+}
     origin = [lat, lon];
     
     // 更新使用者位置
@@ -1113,7 +1128,8 @@ function runQuery() {
     
     // 排序並顯示結果
     sortResults('distance');
-    
+    // 🔥 新增：自動計算路線距離
+computeRouteDistances();
     // 顯示查詢圓形範圍
     L.circle([lat, lon], { radius: radius, color: '#ef4444', fillOpacity: 0.1 }).addTo(markerLayer);
 }
@@ -1128,6 +1144,38 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return Math.round(R * c);
 }
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // 地球半徑（米）
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c);
+}
+
+// ===== 新增在這裡 =====
+async function getRouteDistance(lat1, lon1, lat2, lon2) {
+    try {
+        const url =
+            `https://router.project-osrm.org/route/v1/driving/` +
+            `${lon1},${lat1};${lon2},${lat2}?overview=false`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data.routes || data.routes.length === 0) {
+            return null;
+        }
+
+        return Math.round(data.routes[0].distance);
+
+    } catch (err) {
+        console.error("OSRM error:", err);
+        return null;
+    }
+}    
 
 function sortResults(field) {
     sortState[field] = !sortState[field];
@@ -1153,7 +1201,7 @@ function displayResults() {
             <td>${result.name}</td>
             <td>${result.type}</td>
             <td>${result.distance.toLocaleString()}</td>
-            <td>${result.route ? result.route.toLocaleString() : '-'}</td>
+            <td>${result.route != null ? result.route.toLocaleString() : '計算中...'}</td>
         `;
         row.id = `result-${idx}`;
     });
