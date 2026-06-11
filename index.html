@@ -1193,70 +1193,37 @@ try {
         return;
     }
 
-    checkedBoxes.forEach(e => {
-        let t = e.value;
-        if(t === "station"){
-            parts.push(`nwr["railway"="station"](around:${radius},${lat},${lon});`);
-        } else if(t === "bus_stop"){
-            parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
-        } else if(t === "motorway_junction"){
-            parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
-        } else if(t === "parking"){
-            parts.push(`nwr["amenity"="parking"](around:${radius},${lat},${lon});`);
-        } else if(t === "marketplace"){
-            parts.push(`nwr["shop"="supermarket"](around:${radius},${lat},${lon});`);
-        } else if(t === "park"){
-            parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
-        } else if(t === "school"){
-            parts.push(`nwr["amenity"="school"](around:${radius},${lat},${lon});`);
-        }
-    });
+    checkedBoxes.forEach(box => {
 
-    if(parts.length === 0){
-        queryBtn.disabled = false;
-        queryBtn.innerText = "查詢";
-        return;
+    const type = box.value;   // ✅ 固定保存，不直接用 box.value
+
+    if(type === "station"){
+        parts.push(`nwr["railway"="station"](around:${radius},${lat},${lon});`);
+    } else if(type === "bus_stop"){
+        parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
+    } else if(type === "motorway_junction"){
+        parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
+    } else if(type === "parking"){
+        parts.push(`nwr["amenity"="parking"](around:${radius},${lat},${lon});`);
+    } else if(type === "marketplace"){
+        parts.push(`nwr["shop"="supermarket"](around:${radius},${lat},${lon});`);
+    } else if(type === "park"){
+        parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
+    } else if(type === "school"){
+        parts.push(`nwr["amenity"="school"](around:${radius},${lat},${lon});`);
     }
 
-    const query = `[out:json][timeout:60];(${parts.join("")});out center;`;
-    const res = await fetch("https://overpass-api.de/api/interpreter", {
-        method:"POST",
-        body:"data=" + encodeURIComponent(query),
-        headers:{"Content-Type":"application/x-www-form-urlencoded"}
-    });
-    
-    const data = await res.json();
-    if(!data.elements){
-        queryBtn.disabled = false;
-        queryBtn.innerText = "查詢";
-        return;
-    }
+    const item = {
+        id: idCounter++,
+        名稱: name,
+        類型: type,   // ✅ 改這裡
+        距離: distance,
+        座標: [lat_el, lon_el],
+        路線距離: 0,
+        在範圍內: inZone
+    };
 
-    let idCounter = 0;
-    data.elements.forEach(el => {
-        const name = el.tags?.name || "未命名";
-        const lat_el = el.lat || (el.center?.lat);
-        const lon_el = el.lon || (el.center?.lon);
-        
-        if(!lat_el || !lon_el) return;
-
-        const distance = Math.round(haversine(lat, lon, lat_el, lon_el));
-        
-        let inZone = false;
-        if(turfZonePolygon){
-            const point = turf.point([lon_el, lat_el]);
-            inZone = turf.booleanPointInPolygon(point, turfZonePolygon);
-        }
-
-        const item = {
-            id: idCounter++,
-            名稱: name,
-            類型: e.value,
-            距離: distance,
-            座標: [lat_el, lon_el],
-            路線距離: 0,
-            在範圍內: inZone
-        };
+    results.push(item);
 
         results.push(item);
         
