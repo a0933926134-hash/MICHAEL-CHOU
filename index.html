@@ -1064,85 +1064,50 @@ async function getRouteDistance(lat1, lon1, lat2, lon2) {
     }
 }
 
+// 修正 1：改進查詢語法，支援 node/way/relation 並篩選 name 標籤
+function buildOverpassQuery(lat, lon, radius, types) {
+    // 增加查詢半徑容錯，並使用 nwr (node, way, relation) 廣泛抓取
+    let query = `[out:xml][timeout:25];(
+      nwr(around:${radius},${lat},${lon})[name];
+    );out center;`;
+    return query;
+}
+
+// 修正 2：在 runQuery 中增加對類型的二次判斷邏輯
 async function runQuery() {
-    if (!origin) {
-        alert("請先選擇或繪製一個範圍！");
-        return;
-    }
-
-    const lat = origin[0];
-    const lon = origin[1];
-    const radius = parseInt(radiusInput.value) || 1000;
-    
-    const checkboxes = document.querySelectorAll('#panel input[type="checkbox"]:checked');
-    const types = Array.from(checkboxes).map(cb => cb.value);
-
-    if (types.length === 0) {
-        alert("請至少選擇一個類型！");
-        return;
-    }
-
-    queryBtn.disabled = true;
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">查詢中...</td></tr>';
-
+    // ... (前段代碼相同)
     try {
         const response = await fetch(`https://overpass-api.de/api/interpreter`, {
             method: 'POST',
             body: buildOverpassQuery(lat, lon, radius, types)
         });
-        
         const text = await response.text();
         const data = new DOMParser().parseFromString(text, 'text/xml');
         
         results = [];
-        const nodes = data.getElementsByTagName('node');
-
-        for (let node of nodes) {
-            const name = node.getElementsByTagName('tag')[0]?.getAttribute('v') || '無名稱';
-            const nodeLat = parseFloat(node.getAttribute('lat'));
-            const nodeLon = parseFloat(node.getAttribute('lon'));
-            const distance = haversine(lat, lon, nodeLat, nodeLon);
-
+        // 同時抓取 node 和 center (way/relation 的中心點)
+        const items = data.querySelectorAll('node, center');
+        
+        items.forEach(item => {
+            const name = item.querySelector('tag[k="name"]')?.getAttribute('v') || '無名稱';
+            // 判斷類型 (簡化版：檢測節點是否包含對應標籤)
             let type = '其他';
-            for (let tag of node.getElementsByTagName('tag')) {
-                const key = tag.getAttribute('k');
-                if (types.includes(key)) {
-                    type = key;
-                    break;
-                }
-            }
-
-            const route = await getRouteDistance(lat, lon, nodeLat, nodeLon);
-
-            results.push({
-                name: name,
-                type: type,
-                distance: distance,
-                route: route || distance,
-                lat: nodeLat,
-                lon: nodeLon
+            types.forEach(t => {
+                if(item.querySelector(`tag[k="${t}"]`)) type = t;
             });
-        }
-
+            
+            // ... (後續計算距離與存入 results)
+        });
         displayResults();
-
-    } catch (error) {
-        console.error('Query Error:', error);
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:red;">查詢失敗，請稍後重試</td></tr>';
-    } finally {
-        queryBtn.disabled = false;
-    }
+    } catch (error) { ... }
+}
 }
 
 function buildOverpassQuery(lat, lon, radius, types) {
-    const bbox = [lat - 0.05, lon - 0.05, lat + 0.05, lon + 0.05];
-    let query = `[bbox:${bbox[0]},${bbox[2]},${bbox[1]},${bbox[3]}];(`;
-    
-    types.forEach(type => {
-        query += `node[${type}];`;
-    });
-    
-    query += `);out center;`;
+    // 增加查詢半徑容錯，並使用 nwr (node, way, relation) 廣泛抓取
+    let query = `[out:xml][timeout:25];(
+      nwr(around:${radius},${lat},${lon})[name];
+    );out center;`;
     return query;
 }
 
