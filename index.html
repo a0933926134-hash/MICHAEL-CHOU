@@ -344,16 +344,6 @@ cursor:pointer;
         <div id="slopeInfo">尚未分析坡度</div>
     </div>
 </div>
-<div id="slopeInfo"
-style="
-margin-top:10px;
-max-height:400px;
-overflow:auto;
-font-size:13px;
-line-height:1.6;
-">
-尚未分析
-</div>    
 <div id="map"></div>
 
 <script>
@@ -920,6 +910,81 @@ alert("定位失敗，請確認已允許定位權限");
 },
 { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
 );
+}
+/* ==================================
+   DEM 高程查詢
+   ================================== */
+const elevationCache = {};
+async function getElevation(lat, lon){
+
+    const cacheKey =
+        lat.toFixed(5)+","+lon.toFixed(5);
+
+    if(elevationCache[cacheKey] !== undefined){
+        return elevationCache[cacheKey];
+    }
+
+    try{
+
+        const controller = new AbortController();
+
+        const timeout = setTimeout(()=>{
+            controller.abort();
+        },10000);
+
+        const url =
+        `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
+
+        const res = await fetch(url,{
+    signal:controller.signal
+});
+
+console.log(
+    "DEM HTTP:",
+    res.status,
+    url
+);
+
+        clearTimeout(timeout);
+
+        if(!res.ok){
+            console.error(
+                "DEM HTTP Error:",
+                res.status
+            );
+            return null;
+        }
+
+        const text = await res.text();
+
+console.log("DEM RAW:", text);
+
+const data = JSON.parse(text);
+
+        if(
+            data &&
+            data.results &&
+            data.results.length &&
+            data.results[0].elevation !== null
+        ){
+
+            elevationCache[cacheKey] =
+                Number(data.results[0].elevation);
+
+            return elevationCache[cacheKey];
+        }
+
+        return null;
+
+    }catch(err){
+
+        console.error(
+            "DEM API Error:",
+            err
+        );
+
+        return null;
+    }
 }
 
 /* 哈弗辛直線距離 */
