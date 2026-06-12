@@ -1095,12 +1095,44 @@ async function runQuery() {
         const data = new DOMParser().parseFromString(text, 'text/xml');
         
         results = [];
-        const nodes = data.getElementsByTagName('node');
+        const elements = [
 
-        for (let node of nodes) {
-            const name = node.getElementsByTagName('tag')[0]?.getAttribute('v') || '無名稱';
-            const nodeLat = parseFloat(node.getAttribute('lat'));
-            const nodeLon = parseFloat(node.getAttribute('lon'));
+...data.getElementsByTagName('node'),
+...data.getElementsByTagName('way')
+];
+
+for(let node of elements){
+            let name="無名稱";
+
+for(let tag of node.getElementsByTagName('tag')){
+
+    if(tag.getAttribute('k')==="name"){
+
+        name=tag.getAttribute('v');
+        break;
+    }
+}
+            let nodeLat,nodeLon;
+
+if(node.tagName==="node"){
+
+    nodeLat=parseFloat(node.getAttribute('lat'));
+    nodeLon=parseFloat(node.getAttribute('lon'));
+
+}else{
+
+    nodeLat=parseFloat(
+        node.getAttribute('lat')
+        ||
+        node.getAttribute('center_lat')
+    );
+
+    nodeLon=parseFloat(
+        node.getAttribute('lon')
+        ||
+        node.getAttribute('center_lon')
+    );
+}
             const distance = haversine(lat, lon, nodeLat, nodeLon);
 
             let type = '其他';
@@ -1134,15 +1166,59 @@ async function runQuery() {
     }
 }
 
-function buildOverpassQuery(lat, lon, radius, types) {
-    const bbox = [lat - 0.05, lon - 0.05, lat + 0.05, lon + 0.05];
-    let query = `[bbox:${bbox[0]},${bbox[2]},${bbox[1]},${bbox[3]}];(`;
-    
-    types.forEach(type => {
-        query += `node[${type}];`;
+function buildOverpassQuery(lat, lon, radius, types){
+
+    const osmMapping = {
+
+        station:'railway=station',
+        bus_stop:'highway=bus_stop',
+        motorway_junction:'highway=motorway_junction',
+        school:'amenity=school',
+        marketplace:'amenity=marketplace',
+        park:'leisure=park',
+        tourism:'tourism',
+        parking:'amenity=parking',
+        bank:'amenity=bank',
+        gas:'amenity=fuel',
+        cemetery:'landuse=cemetery',
+        waste_disposal:'amenity=waste_disposal'
+    };
+
+    let query = `
+[out:xml][timeout:30];
+(
+`;
+
+    types.forEach(type=>{
+
+        const tag=osmMapping[type];
+
+        if(!tag) return;
+
+        if(tag.includes('=')){
+
+            const [k,v]=tag.split('=');
+
+            query += `
+node["${k}"="${v}"](around:${radius},${lat},${lon});
+way["${k}"="${v}"](around:${radius},${lat},${lon});
+`;
+
+        }else{
+
+            query += `
+node["${tag}"](around:${radius},${lat},${lon});
+way["${tag}"](around:${radius},${lat},${lon});
+`;
+        }
+
     });
-    
-    query += `);out center;`;
+
+    query += `
+);
+out center;
+`;
+
     return query;
 }
 
