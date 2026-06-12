@@ -611,7 +611,28 @@ function finishPolygon() {
     document.getElementById('btn-end-draw').style.display = 'none';
     document.getElementById('btn-export-shp').style.display = 'block';
 }
+function makeDraggable(panelId, headerId) {
+    const panel = document.getElementById(panelId);
+    const header = document.getElementById(headerId);
+    let isDragging = false;
+    let offsetX, offsetY;
 
+    header.onmousedown = function(e) {
+        isDragging = true;
+        offsetX = e.clientX - panel.offsetLeft;
+        offsetY = e.clientY - panel.offsetTop;
+        document.onmousemove = function(e) {
+            if (isDragging) {
+                panel.style.left = (e.clientX - offsetX) + 'px';
+                panel.style.top = (e.clientY - offsetY) + 'px';
+            }
+        };
+        document.onmouseup = () => isDragging = false;
+    };
+}
+
+makeDraggable('resultPanel', 'resultHeader');
+makeDraggable('slopePanel', 'slopeHeader');
 function renderAllPolygons() {
     // 清除所有舊的多邊形和標記
     polygonArray.forEach(p => {
