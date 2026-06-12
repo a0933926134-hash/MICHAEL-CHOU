@@ -1285,7 +1285,82 @@ finally{
 function analyzeSlope(){
     alert("坡度分析功能正在開發中...");
 }
+/* ======================================================
+   通用面板拖曳系統
+   ====================================================== */
 
+function makeDraggable(panelId, handleId){
+
+    const panel =
+        document.getElementById(panelId);
+
+    const handle =
+        document.getElementById(handleId);
+
+    if(!panel || !handle) return;
+
+    let dragging = false;
+
+    let startX = 0;
+    let startY = 0;
+
+    let originLeft = 0;
+    let originTop = 0;
+
+    handle.addEventListener("mousedown",(e)=>{
+
+        dragging = true;
+
+        startX = e.clientX;
+        startY = e.clientY;
+
+        const rect =
+            panel.getBoundingClientRect();
+
+        originLeft = rect.left;
+        originTop = rect.top;
+
+        panel.style.left =
+            originLeft + "px";
+
+        panel.style.top =
+            originTop + "px";
+
+        panel.style.right = "auto";
+
+        document.body.style.userSelect =
+            "none";
+
+    });
+
+    document.addEventListener("mousemove",(e)=>{
+
+        if(!dragging) return;
+
+        const dx =
+            e.clientX - startX;
+
+        const dy =
+            e.clientY - startY;
+
+        panel.style.left =
+            (originLeft + dx) + "px";
+
+        panel.style.top =
+            (originTop + dy) + "px";
+
+    });
+
+    document.addEventListener("mouseup",()=>{
+
+        dragging = false;
+
+        document.body.style.userSelect =
+            "";
+
+    });
+
+}
 </script>
 </body>
 </html>
