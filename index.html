@@ -594,29 +594,49 @@ function finishCurrentPolygon() {
 function selectPolygon(id) {
     activePolygonId = id;
     
-    // 重置所有樣式
+    // 1. 重置所有多邊形樣式
     allPolygons.forEach(p => p.layer.setStyle({ color: '#3b82f6', fillOpacity: 0.3 }));
     
-    // 高亮選中
+    // 2. 獲取選中的目標
     const target = allPolygons.find(p => p.id === id);
     if (!target) return;
     target.layer.setStyle({ color: '#dc2626', fillOpacity: 0.5 });
 
-    // 計算距離分析
-    const polyGeo = turf.polygon([target.latlngs.map(p => [p[1], p[0]])]);
-    const perimeter = turf.length(turf.lineString(polyGeo.geometry.coordinates[0]), { units: 'kilometers' });
-    
-    // 假設 origin 是全局變數 [lat, lon]
-    let distToOrigin = 0;
-    if (typeof origin !== 'undefined') {
-        const centroid = turf.centroid(polyGeo);
-        distToOrigin = turf.distance(
-            [origin[1], origin[0]], 
-            centroid.geometry.coordinates, 
-            { units: 'kilometers' }
-        );
+    // 3. 確保坐標格式正確 (Turf.js 需要 [Lon, Lat] 順序，且必須閉合)
+    let coords = target.latlngs.map(p => [p.lng, p.lat]);
+    if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
+        coords.push(coords[0]); // 強制閉合
     }
 
+    // 4. 計算距離與數據
+    const polyGeo = turf.polygon([coords]);
+    
+    // 計算周長 (路線距離)
+    const perimeter = turf.length(turf.lineString(coords), { units: 'kilometers' });
+    
+    // 計算與原點直線距離
+    let distToOrigin = 0;
+    if (typeof origin !== 'undefined' && origin && origin.length === 2) {
+        // origin 通常是 [lat, lon]，轉換為 turf 需要的 [lon, lat]
+        const originPoint = turf.point([origin[1], origin[0]]);
+        const centroid = turf.centroid(polyGeo);
+        distToOrigin = turf.distance(originPoint, centroid, { units: 'kilometers' });
+    }
+
+    // 5. 更新介面
+    if(typeof resPanel !== 'undefined') {
+        resPanel.innerHTML = `
+            <div style="padding:10px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;">
+                <h4 style="margin:0 0 8px;">📍 範圍分析</h4>
+                <div style="font-size:13px;">
+                    <p style="margin:2px 0;">路線長度(周長): <b>${perimeter.toFixed(3)} km</b></p>
+                    <p style="margin:2px 0;">至原點直線: <b>${distToOrigin.toFixed(3)} km</b></p>
+                </div>
+                <button onclick="removeSelectedPolygon()" style="margin-top:10px; background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; width:100%;">刪除此範圍</button>
+            </div>
+        `;
+    }
+}
     // 顯示資訊 (請確保您的頁面有 resultPanel 元素)
     if(typeof resPanel !== 'undefined') {
         resPanel.innerHTML = `
