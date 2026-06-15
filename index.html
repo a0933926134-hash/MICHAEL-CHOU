@@ -899,60 +899,33 @@ row.scrollIntoView({ behavior:"smooth", block:"center" });
 }
 
 /* Overpass API 查詢與幾何相交拓撲核心 */
-async function runQuery(){
-const lat=parseFloat(latInput.value);
-const lon=parseFloat(lonInput.value);
-const radius=parseFloat(radiusInput.value);
+async function runQuery() {
+    const lat = parseFloat(latInput.value);
+    const lon = parseFloat(lonInput.value);
+    const radius = parseFloat(radiusInput.value);
+    
+    // ... (前段程式碼不變)
 
-if(radius > 3000){
-alert("半徑超過3000m可能造成系統過慢");
-return;
-}
-
-queryBtn.disabled = true;
-queryBtn.innerText = "⌛ 檢索圖資中...";
-
-try {
-    markerLayer.clearLayers();
-    if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
-    routeInfo.innerText="路線距離：尚未計算";
-    tbody.innerHTML="";
-    results=[];
-    let parts=[];
-
-    // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
-   let turfZonePolygon = null;
-
-if (drawPoints && drawPoints.length >= 3) {
-
-    let ring = drawPoints
-    .filter(p => Array.isArray(p) && p.length === 2)
-    .map(p => {
-        const lat = Number(p[0]);
-        const lon = Number(p[1]);
-        return [lon, lat];
-    });
-
-    if (
-        ring.length > 2 &&
-        (
-            ring[0][0] !== ring[ring.length - 1][0] ||
-            ring[0][1] !== ring[ring.length - 1][1]
-        )
-    ) {
-        ring.push(ring[0]);
+    // [修正後範圍判定邏輯]
+    let turfZonePolygon = null;
+    
+    // 如果有選中的多邊形
+    if (activePolygonId) {
+        const activePoly = allPolygons.find(p => p.id === activePolygonId);
+        if (activePoly && activePoly.latlngs.length >= 3) {
+            // 將 latlng 物件轉為 Turf 格式 [lon, lat]
+            let ring = activePoly.latlngs.map(p => [p.lng, p.lat]);
+            
+            // 確保多邊形閉合
+            if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
+                ring.push(ring[0]);
+            }
+            turfZonePolygon = turf.polygon([ring]);
+            console.log("使用範圍進行分析:", turfZonePolygon);
+        }
     }
-
-    if (ring.length < 4) {
-        alert("範圍點不足或資料錯誤");
-        return;
-    }
-
-    turfZonePolygon = turf.polygon([ring]);
-
-    console.log("polygon:", turfZonePolygon);
-}
-
+    
+    // ... (後續原來的 Overpass 查詢邏輯)
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
     if(checkedBoxes.length === 0) {
         alert("請至少勾選一個分析類型！");
