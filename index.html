@@ -596,43 +596,59 @@ function selectPolygon(id) {
     // 1. 重置樣式
     allPolygons.forEach(p => p.layer.setStyle({ color: '#3b82f6', fillOpacity: 0.3 }));
     const target = allPolygons.find(p => p.id === id);
-    if (!target) {
-        console.error("找不到該多邊形 ID:", id);
-        return;
-    }
+    if (!target) return;
     target.layer.setStyle({ color: '#dc2626', fillOpacity: 0.5 });
 
-    // 2. 獲取座標 (確保使用 leaflet 的 getLatLngs() 方法)
-    const latlngs = target.layer.getLatLngs()[0]; 
+    // 2. 獲取座標並確保閉合
+    const latlngs = target.layer.getLatLngs()[0];
     const coords = latlngs.map(p => [p.lng, p.lat]);
+    const closedCoords = [...coords, coords[0]]; 
 
-    // 3. 計算形心
-    const polyGeo = turf.polygon([[...coords, coords[0]]]); // 閉合座標
+    // 3. 建立 GeoJSON 對象
+    const polyGeo = turf.polygon([closedCoords]);
+    const lineGeo = turf.lineString(closedCoords);
     const centroid = turf.centroid(polyGeo);
     const [cLon, cLat] = centroid.geometry.coordinates;
 
-    // 4. 強制更新形心標記 (修正點)
-    if (typeof userMarker !== 'undefined' && userMarker) {
-        map.removeLayer(userMarker);
-    }
+    // 4. 計算測量數值
+    // 路線距離 (即周長)
+    const perimeter = turf.length(lineGeo, { units: 'kilometers' });
     
-    // 建立新標記並明確加入地圖
-    userMarker = L.marker([cLat, cLon], {
-        icon: L.divIcon({
-            className: '',
-            html: `<div style="width:18px; height:18px; background:#ef4444; border:3px solid #ffffff; border-radius:50%; box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
-            iconSize: [18, 18],
-            iconAnchor: [9, 9]
-        })
-    }).addTo(map);
+    // 直線距離 (至 origin)
+    let distToOrigin = 0;
+    // 確保 origin 是 [lat, lon] 陣列且已定義
+    if (typeof origin !== 'undefined' && Array.isArray(origin) && origin.length === 2) {
+        // turf.distance 需要 [lon, lat]
+        const originPoint = turf.point([origin[1], origin[0]]);
+        distToOrigin = turf.distance(originPoint, centroid, { units: 'kilometers' });
+    } else {
+        console.warn("Origin 未設定或格式錯誤");
+    }
 
-    // 5. 更新 UI
+    // 5. 更新形心標記
+    if (typeof userMarker !== 'undefined') {
+        if (map.hasLayer(userMarker)) map.removeLayer(userMarker);
+        userMarker = L.marker([cLat, cLon], {
+            icon: L.divIcon({
+                className: '',
+                html: `<div style="width:18px; height:18px; background:#ef4444; border:3px solid #ffffff; border-radius:50%; box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            })
+        }).addTo(map);
+    }
+
+    // 6. 更新 UI 面板
     if (typeof resPanel !== 'undefined') {
         resPanel.innerHTML = `
-            <div style="padding:10px; background:#f9fafb; border-radius:8px;">
-                <h4>📍 範圍分析</h4>
-                <p>形心位置: ${cLat.toFixed(5)}, ${cLon.toFixed(5)}</p>
-                <button onclick="removeSelectedPolygon()">刪除此範圍</button>
+            <div style="padding:10px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;">
+                <h4 style="margin:0 0 8px;">📍 範圍分析</h4>
+                <div style="font-size:13px; line-height:1.6;">
+                    <div>路線距離 (周長): <b>${perimeter.toFixed(3)} km</b></div>
+                    <div>直線距離 (至原點): <b>${distToOrigin.toFixed(3)} km</b></div>
+                    <div>形心位置: <b>${cLat.toFixed(5)}, ${cLon.toFixed(5)}</b></div>
+                </div>
+                <button onclick="removeSelectedPolygon()" style="margin-top:10px; background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; width:100%; cursor:pointer;">刪除此範圍</button>
             </div>
         `;
     }
