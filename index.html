@@ -642,16 +642,22 @@ function selectPolygon(id) {
     }
 
     // 6. 更新 UI 面板
-    if (typeof resPanel !== 'undefined') {
+    if (typeof resPanel !== 'undefined' && resPanel) {
         resPanel.innerHTML = `
-            <div style="padding:10px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;">
-                <h4 style="margin:0 0 8px;">📍 範圍分析</h4>
-                <div style="font-size:13px; line-height:1.6;">
-                    <div>路線距離 (周長): <b>${perimeter.toFixed(3)} km</b></div>
-                    <div>直線距離 (至原點): <b>${distToOrigin.toFixed(3)} km</b></div>
-                    <div>形心位置: <b>${cLat.toFixed(5)}, ${cLon.toFixed(5)}</b></div>
+            <div id="resultHeader">
+                查詢結果
+                <button onclick="exportExcel()">Excel</button>
+            </div>
+            <div id="resultTableWrapper">
+                <div style="padding:10px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;">
+                    <h4 style="margin:0 0 8px;">📍 範圍分析</h4>
+                    <div style="font-size:13px; line-height:1.6;">
+                        <div>路線距離 (周長): <b>${perimeter.toFixed(3)} km</b></div>
+                        <div>直線距離 (至原點): <b>${distToOrigin.toFixed(3)} km</b></div>
+                        <div>形心位置: <b>${cLat.toFixed(5)}, ${cLon.toFixed(5)}</b></div>
+                    </div>
+                    <button onclick="removeSelectedPolygon()" style="margin-top:10px; background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; width:100%; cursor:pointer;">刪除此範圍</button>
                 </div>
-                <button onclick="removeSelectedPolygon()" style="margin-top:10px; background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; width:100%; cursor:pointer;">刪除此範圍</button>
             </div>
         `;
     }
@@ -903,28 +909,27 @@ row.scrollIntoView({ behavior:"smooth", block:"center" });
 
 /* Overpass API 查詢與幾何相交拓撲核心 */
 async function runQuery() {
+    // 檢查按鈕狀態
+    queryBtn.disabled = true;
+    queryBtn.innerText = "查詢中...";
+
     const lat = parseFloat(latInput.value);
     const lon = parseFloat(lonInput.value);
     const radius = parseFloat(radiusInput.value);
     
-    // ... (前段程式碼不變)
-
-    // [修正後範圍判定邏輯]
-    let turfZonePolygon = null;
+    // 定義 parts 陣列
+    let parts = [];
     
-    // 如果有選中的多邊形
+    // 範圍判定邏輯
+    let turfZonePolygon = null;
     if (activePolygonId) {
         const activePoly = allPolygons.find(p => p.id === activePolygonId);
         if (activePoly && activePoly.latlngs.length >= 3) {
-            // 將 latlng 物件轉為 Turf 格式 [lon, lat]
             let ring = activePoly.latlngs.map(p => [p.lng, p.lat]);
-            
-            // 確保多邊形閉合
             if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
                 ring.push(ring[0]);
             }
             turfZonePolygon = turf.polygon([ring]);
-            console.log("使用範圍進行分析:", turfZonePolygon);
         }
     }
     
