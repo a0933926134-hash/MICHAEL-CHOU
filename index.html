@@ -594,33 +594,41 @@ function finishCurrentPolygon() {
 function selectPolygon(id) {
     activePolygonId = id;
     
-    // 1. 重置所有多邊形樣式
+    // 1. 重置樣式
     allPolygons.forEach(p => p.layer.setStyle({ color: '#3b82f6', fillOpacity: 0.3 }));
-    
-    // 2. 獲取選中的目標
     const target = allPolygons.find(p => p.id === id);
     if (!target) return;
     target.layer.setStyle({ color: '#dc2626', fillOpacity: 0.5 });
 
-    // 3. 確保坐標格式正確 (Turf.js 需要 [Lon, Lat] 順序，且必須閉合)
+    // 2. 準備座標 (Leaflet LatLng -> Turf [Lon, Lat])
     let coords = target.latlngs.map(p => [p.lng, p.lat]);
     if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
-        coords.push(coords[0]); // 強制閉合
+        coords.push(coords[0]);
     }
 
-    // 4. 計算距離與數據
+    // 3. 計算形心與距離
     const polyGeo = turf.polygon([coords]);
-    
-    // 計算周長 (路線距離)
+    const centroid = turf.centroid(polyGeo); // 計算形心
+    const [cLon, cLat] = centroid.geometry.coordinates; // Turf 回傳為 [Lon, Lat]
+
     const perimeter = turf.length(turf.lineString(coords), { units: 'kilometers' });
-    
-    // 計算與原點直線距離
     let distToOrigin = 0;
     if (typeof origin !== 'undefined' && origin && origin.length === 2) {
-        // origin 通常是 [lat, lon]，轉換為 turf 需要的 [lon, lat]
-        const originPoint = turf.point([origin[1], origin[0]]);
-        const centroid = turf.centroid(polyGeo);
-        distToOrigin = turf.distance(originPoint, centroid, { units: 'kilometers' });
+        distToOrigin = turf.distance(turf.point([origin[1], origin[0]]), centroid, { units: 'kilometers' });
+    }
+
+    // 4. 更新地圖上的形心標記 (利用您原有的 userMarker 或新增一個)
+    if (typeof userMarker !== 'undefined') {
+        if (map.hasLayer(userMarker)) map.removeLayer(userMarker);
+        
+        userMarker = L.marker([cLat, cLon], {
+            icon: L.divIcon({
+                className: '',
+                html: `<div style="width:18px; height:18px; background:#ef4444; border:3px solid #ffffff; border-radius:50%; box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            })
+        }).addTo(map);
     }
 
     // 5. 更新介面
@@ -629,8 +637,9 @@ function selectPolygon(id) {
             <div style="padding:10px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;">
                 <h4 style="margin:0 0 8px;">📍 範圍分析</h4>
                 <div style="font-size:13px;">
-                    <p style="margin:2px 0;">路線長度(周長): <b>${perimeter.toFixed(3)} km</b></p>
+                    <p style="margin:2px 0;">周長: <b>${perimeter.toFixed(3)} km</b></p>
                     <p style="margin:2px 0;">至原點直線: <b>${distToOrigin.toFixed(3)} km</b></p>
+                    <p style="margin:2px 0;">形心坐標: <b>${cLat.toFixed(5)}, ${cLon.toFixed(5)}</b></p>
                 </div>
                 <button onclick="removeSelectedPolygon()" style="margin-top:10px; background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; width:100%;">刪除此範圍</button>
             </div>
