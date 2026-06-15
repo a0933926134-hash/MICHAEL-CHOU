@@ -521,360 +521,152 @@ interactive:false
 
 
 /* ====================================================================
-    ★ 多邊形繪製與二次編輯核心
+   ★ 多邊形集合管理與分析核心
    ==================================================================== */
 let isDrawingPolygon = false;
-let drawPoints = [];       
+let currentDrawingPoints = [];     // 當前正在繪製的點
 let previewPolyline = null;
-let finalPolygon = null;
-let drawMarkers = L.layerGroup().addTo(map);  
+let allPolygons = [];              // 儲存所有多邊形物件: { id, latlngs, layer }
+let activePolygonId = null;        // 當前選中的多邊形 ID
+let drawMarkers = L.layerGroup().addTo(map);
 
+// 初始化控制項
 const drawControl = L.control({ position: 'topleft' });
 drawControl.onAdd = function() {
     const div = L.DomUtil.create('div', 'draw-control-bar');
     div.innerHTML = `
-        <button id="btn-start-draw" class="draw-btn" onclick="toggleDrawMode(this)">📐 繪製範圍</button>
-        <button id="btn-end-draw" class="draw-btn" onclick="finishPolygon()" style="display:none; background:#10b981; color:white;">✓ 完成閉合</button>
-        <button id="btn-export-shp" class="draw-btn shp-btn" onclick="exportPolygonSHP()" style="display:none;">📥 匯出範圍 SHP</button>
-        <label id="lbl-import-shp" class="shp-import-label">📤 匯入範圍 (支援 SHP.zip 或 GeoJSON)
-            <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" style="display:none;" onchange="importPolygonSHP(event)">
-        </label>
-        <button id="btn-clear-draw" class="draw-btn" onclick="clearPolygon()" style="display:none; background:#6b7280; color:white;">✕ 清除範圍</button>
+        <button id="btn-start-draw" class="draw-btn" onclick="toggleDrawMode(this)">📐 開始繪製</button>
+        <button id="btn-end-draw" class="draw-btn" onclick="finishCurrentPolygon()" style="display:none; background:#10b981; color:white;">✓ 建立此範圍</button>
+        <button id="btn-clear-all" class="draw-btn" onclick="clearAllPolygons()" style="display:none; background:#ef4444; color:white;">✕ 清除全部</button>
     `;
     L.DomEvent.disableClickPropagation(div);
     return div;
 };
 drawControl.addTo(map);
 
-const resPanel = document.getElementById("resultPanel");
-const sidePanel = document.getElementById("panel");
-L.DomEvent.disableClickPropagation(resPanel);
-L.DomEvent.disableClickPropagation(sidePanel);
-
+// --- 繪製控制 ---
 function toggleDrawMode(btn) {
     isDrawingPolygon = !isDrawingPolygon;
     if (isDrawingPolygon) {
         btn.classList.add('active');
-        btn.innerText = "🛑 停止點選";
+        btn.innerText = "🛑 停止繪製";
         document.getElementById('btn-end-draw').style.display = 'block';
-        document.getElementById('btn-clear-draw').style.display = 'block';
-        clearPolygonData();
+        document.getElementById('btn-clear-all').style.display = 'block';
     } else {
         btn.classList.remove('active');
-        btn.innerText = "📐 繪製範圍";
-        if (drawPoints.length === 0) {
-            document.getElementById('btn-end-draw').style.display = 'none';
-            document.getElementById('btn-clear-draw').style.display = 'none';
-        }
+        btn.innerText = "📐 開始繪製";
+        document.getElementById('btn-end-draw').style.display = 'none';
     }
 }
 
-function clearPolygonData() {
-    drawPoints = [];
-    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-    if (finalPolygon) { map.removeLayer(finalPolygon); finalPolygon = null; }
-    drawMarkers.clearLayers();
-    document.getElementById('btn-export-shp').style.display = 'none';
-}
-
-function clearPolygon() {
-    clearPolygonData();
-    isDrawingPolygon = false;
-    const btn = document.getElementById('btn-start-draw');
-    btn.classList.remove('active');
-    btn.innerText = "📐 繪製範圍";
-    document.getElementById('btn-end-draw').style.display = 'none';
-    document.getElementById('btn-clear-draw').style.display = 'none';
-}
-
-function finishPolygon() {
-    if (drawPoints.length < 3) {
-        alert("請至少點選 3 個以上的頂點才能閉合範圍！");
-        return;
-    }
-    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
+// --- 建立多邊形 ---
+function finishCurrentPolygon() {
+    if (currentDrawingPoints.length < 3) return alert("請至少點選 3 個點！");
     
-    renderEditablePolygon();
-    updateCentroidByPoints(drawPoints);
-    
-    isDrawingPolygon = false;
-    const btn = document.getElementById('btn-start-draw');
-    btn.classList.remove('active');
-    btn.innerText = "📐 繪製範圍";
-    document.getElementById('btn-end-draw').style.display = 'none';
-    document.getElementById('btn-export-shp').style.display = 'block';
-}
-
-function renderEditablePolygon() {
-    if (finalPolygon) { map.removeLayer(finalPolygon); }
-    drawMarkers.clearLayers();
-
-    finalPolygon = L.polygon(drawPoints, {
-        color: '#dc2626',
+    const polyId = Date.now();
+    const newLayer = L.polygon(currentDrawingPoints, {
+        color: '#3b82f6',
         weight: 3,
-        fillColor: '#dc2626',
-        fillOpacity: 0.25
+        fillColor: '#3b82f6',
+        fillOpacity: 0.3
     }).addTo(map);
 
-    drawPoints.forEach((pt, index) => {
-        let marker = L.marker(pt, {
-            icon: L.divIcon({
-                className: '',
-                html: '<div class="edit-handle"></div>',
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
-            }),
-            draggable: true
-        });
-        
-        marker.on('drag', function(e) {
-            let newLatLng = e.target.getLatLng();
-            drawPoints[index] = [newLatLng.lat, newLatLng.lng];
-            finalPolygon.setLatLngs(drawPoints);
-        });
-        
-        marker.on('dragend', function() {
-            updateCentroidByPoints(drawPoints);
-        });
+    const polyObj = { id: polyId, latlngs: [...currentDrawingPoints], layer: newLayer };
+    allPolygons.push(polyObj);
 
-        marker.addTo(drawMarkers);
+    // 綁定點擊選取事件
+    newLayer.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        selectPolygon(polyId);
     });
-}
 
-function updateCentroidByPoints(pts) {
-    if (!pts || pts.length < 3) return;
+    // 清理繪製狀態
+    currentDrawingPoints = [];
+    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
+    drawMarkers.clearLayers();
     
-    let coordinates = pts.map(p => [p[1], p[0]]);
-    if (coordinates[0][0] !== coordinates[coordinates.length-1][0] || coordinates[0][1] !== coordinates[coordinates.length-1][1]) {
-        coordinates.push([pts[0][1], pts[0][0]]);
-    }
+    // 自動選取剛建立的
+    selectPolygon(polyId);
+    toggleDrawMode(document.getElementById('btn-start-draw'));
+}
+
+// --- 核心：選取與計算 ---
+function selectPolygon(id) {
+    activePolygonId = id;
     
-    let turfPoly = turf.polygon([coordinates]);
-    let centroid = turf.centroid(turfPoly);
+    // 重置所有樣式
+    allPolygons.forEach(p => p.layer.setStyle({ color: '#3b82f6', fillOpacity: 0.3 }));
     
-    const cLon = centroid.geometry.coordinates[0];
-    const cLat = centroid.geometry.coordinates[1];
+    // 高亮選中
+    const target = allPolygons.find(p => p.id === id);
+    if (!target) return;
+    target.layer.setStyle({ color: '#dc2626', fillOpacity: 0.5 });
 
-    latInput.value = cLat.toFixed(6);
-    lonInput.value = cLon.toFixed(6);
-    origin = [cLat, cLon];
-
-    if (userMarker) map.removeLayer(userMarker);
-    userMarker = L.marker([cLat, cLon], {
-        icon: L.divIcon({
-            className: '',
-            html: `<div style="width:18px; height:18px; background:#ef4444; border:3px solid #ffffff; border-radius:50%; box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
-            iconSize: [18, 18],
-            iconAnchor: [9, 9]
-        }),
-        interactive: false
-    }).addTo(map);
-
-    finalPolygon.bindPopup(`
-        <div style="font-size:12px; line-height:1.4;">
-            <b style="color:#dc2626;">📐 範圍與節點更新完成</b><br>
-            已動態重算幾何形心並帶入中心點。<br>您可直接**拖曳邊界上的白色圓點**再次微調範圍，或點擊左側面板「查詢」進行量距。
-        </div>
-    `).openPopup([cLat, cLon]);
-}
-
-function exportPolygonSHP() {
-    if (!drawPoints || drawPoints.length < 3) {
-        alert("目前沒有完整的繪製範圍可供匯出！");
-        return;
-    }
-    try {
-        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-        
-        let tempPoly = turf.polygon([ring]);
-        let areaSqm = Math.round(turf.area(tempPoly));
-
-        let featureLayer = [
-            {
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [ring]
-                },
-                properties: {
-                    Name: "Zone_Area",
-                    Area_Sqm: areaSqm
-                }
-            }
-        ];
-
-        shpwrite.download(featureLayer);
-        
-    } catch (err) {
-        console.error("SHP Export Error:", err);
-        
-        let ringBackup = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ringBackup.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
-        let geojsonObj = {
-            type: "FeatureCollection",
-            features: [{
-                type: "Feature",
-                geometry: { type: "Polygon", coordinates: [ringBackup] },
-                properties: { Name: "Zone_Area", Area_Sqm: Math.round(turf.area(turf.polygon([ringBackup]))) }
-            }]
-        };
-        let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojsonObj));
-        let downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", "Estimated_Boundary_Backup.geojson");
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        
-        alert("提示：由於網頁快取防護阻擋，系統已為您自動下載為高相容性的 .geojson 向量格式圖資。");
-    }
-}
-
-function importPolygonSHP(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
+    // 計算距離分析
+    const polyGeo = turf.polygon([target.latlngs.map(p => [p[1], p[0]])]);
+    const perimeter = turf.length(turf.lineString(polyGeo.geometry.coordinates[0]), { units: 'kilometers' });
     
-    if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
-        reader.onload = function(e) {
-            try {
-                const geojson = JSON.parse(e.target.result);
-                processImportedGeoJSON(geojson);
-            } catch (err) {
-                alert("GeoJSON 解析失敗，請確認檔案格式正確。");
-            }
-        };
-        reader.readAsText(file);
-    } else if (file.name.endsWith('.zip')) {
-        reader.onload = function(e) {
-            shp(e.target.result).then(function(geojson) {
-                processImportedGeoJSON(geojson);
-            }).catch(function(err) {
-                console.error(err);
-                alert("SHP 解壓縮解碼失敗，請確保該 .zip 內含有同名的 .shp, .shx, .dbf 檔案。");
-            });
-        };
-        reader.readAsArrayBuffer(file);
+    // 假設 origin 是全局變數 [lat, lon]
+    let distToOrigin = 0;
+    if (typeof origin !== 'undefined') {
+        const centroid = turf.centroid(polyGeo);
+        distToOrigin = turf.distance(
+            [origin[1], origin[0]], 
+            centroid.geometry.coordinates, 
+            { units: 'kilometers' }
+        );
+    }
+
+    // 顯示資訊 (請確保您的頁面有 resultPanel 元素)
+    if(typeof resPanel !== 'undefined') {
+        resPanel.innerHTML = `
+            <div style="padding:10px; background:#f9fafb; border-radius:8px;">
+                <h4 style="margin:0 0 5px;">📍 範圍分析</h4>
+                <p>路線總長(周長): <b>${perimeter.toFixed(3)} km</b></p>
+                <p>距起始點直線: <b>${distToOrigin.toFixed(3)} km</b></p>
+                <button onclick="removeSelectedPolygon()" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">刪除此範圍</button>
+            </div>
+        `;
     }
 }
 
-function processImportedGeoJSON(geojson) {
-    let feature = null;
-    if (geojson.type === "FeatureCollection" && geojson.features.length > 0) {
-        feature = geojson.features[0];
-    } else if (geojson.type === "Feature") {
-        feature = geojson;
-    } else if (geojson.geometry && geojson.geometry.type === "Polygon") {
-        feature = geojson;
-    }
-
-    if (!feature || !feature.geometry) {
-    alert("無法辨識 GeoJSON 幾何結構");
-    return;
-}
-
-let rings = null;
-
-/* Polygon */
-if (feature.geometry.type === "Polygon") {
-    rings = feature.geometry.coordinates[0];
-}
-
-/* MultiPolygon */
-else if (feature.geometry.type === "MultiPolygon") {
-    rings = feature.geometry.coordinates[0][0];
-}
-
-/* GeometryCollection */
-else if (feature.geometry.type === "GeometryCollection") {
-
-    const poly = feature.geometry.geometries.find(g =>
-        g.type === "Polygon" || g.type === "MultiPolygon"
-    );
-
-    if (!poly) {
-        alert("GeometryCollection 中找不到 Polygon");
-        return;
-    }
-
-    if (poly.type === "Polygon") {
-        rings = poly.coordinates[0];
-    } else {
-        rings = poly.coordinates[0][0];
+// --- 輔助功能 ---
+function removeSelectedPolygon() {
+    if (!activePolygonId) return;
+    const idx = allPolygons.findIndex(p => p.id === activePolygonId);
+    if (idx > -1) {
+        map.removeLayer(allPolygons[idx].layer);
+        allPolygons.splice(idx, 1);
+        activePolygonId = null;
+        if(resPanel) resPanel.innerHTML = "";
     }
 }
 
-if (!rings || rings.length < 3) {
-    alert("Polygon 節點不足");
-    return;
-}
-    
-    if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
-        rings.pop();
-    }
-    const invalidCoord = rings.some(coord =>
-    Math.abs(coord[1]) > 90 ||
-    Math.abs(coord[0]) > 180
-);
-
-if (invalidCoord) {
-    alert("此 SHP 可能不是 WGS84(EPSG:4326) 座標系統，請先轉換座標。");
-    return;
-}
-    drawPoints = rings.map(coord => [coord[1], coord[0]]);
-
-    renderEditablePolygon();
-    updateCentroidByPoints(drawPoints);
-    
-    if (drawPoints.length > 0) {
-        map.panTo(drawPoints[0]);
-    }
-
-    document.getElementById('btn-export-shp').style.display = 'block';
-    document.getElementById('btn-clear-draw').style.display = 'block';
-    alert("🎉 成功！已實時解壓縮讀取檔案內容，並 100% 完美還原您繪製的範圍形狀。");
+function clearAllPolygons() {
+    allPolygons.forEach(p => map.removeLayer(p.layer));
+    allPolygons = [];
+    currentDrawingPoints = [];
+    drawMarkers.clearLayers();
+    if(resPanel) resPanel.innerHTML = "";
+    alert("已清除所有範圍");
 }
 
-
-/* 地圖點擊事件 */
+// --- 地圖點擊 (繪製邏輯) ---
 map.on('click', e => {
-    const lat = e.latlng.lat;
-    const lon = e.latlng.lng;
-
     if (isDrawingPolygon) {
-        drawPoints.push([lat, lon]);
+        currentDrawingPoints.push([e.latlng.lat, e.latlng.lng]);
+        L.circleMarker([e.latlng.lat, e.latlng.lng], { radius: 4, color: '#3b82f6' }).addTo(drawMarkers);
         
-        L.circleMarker([lat, lon], {
-            radius: 5,
-            color: '#dc2626',
-            fillColor: '#fff',
-            fillOpacity: 1,
-            weight: 2
-        }).addTo(drawMarkers);
-
         if (previewPolyline) {
-            previewPolyline.setLatLngs(drawPoints);
+            previewPolyline.setLatLngs(currentDrawingPoints);
         } else {
-            previewPolyline = L.polyline(drawPoints, { color: '#dc2626', weight: 2, dashArray: '5, 8' }).addTo(map);
+            previewPolyline = L.polyline(currentDrawingPoints, { color: '#3b82f6', dashArray: '5, 5' }).addTo(map);
         }
-        return; 
+    } else {
+        // 非繪製模式下點擊空白處，取消選取
+        activePolygonId = null;
+        allPolygons.forEach(p => p.layer.setStyle({ color: '#3b82f6', fillOpacity: 0.3 }));
     }
-
-    latInput.value = lat.toFixed(6);
-    lonInput.value = lon.toFixed(6);
-    origin = [lat, lon];
-
-    if (userMarker) map.removeLayer(userMarker);
-    userMarker = L.marker([lat, lon], {
-        icon: L.divIcon({
-            className: '',
-            html: `<div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
-            iconSize:[18,18],
-            iconAnchor:[9,9]
-        }),
-        interactive:false
-    }).addTo(map);
 });
 
 
