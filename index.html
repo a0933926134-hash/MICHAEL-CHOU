@@ -908,39 +908,75 @@ row.scrollIntoView({ behavior:"smooth", block:"center" });
 
 /* Overpass API 查詢與幾何相交拓撲核心 */
 async function runQuery() {
-    // 檢查按鈕狀態
-    queryBtn.disabled = true;
-    queryBtn.innerText = "查詢中...";
+    // 1. UI 狀態更新
+    const queryBtn = document.getElementById("btn-query"); // 請確保按鈕 ID 正確
+    if (queryBtn) {
+        queryBtn.disabled = true;
+        queryBtn.innerText = "查詢中...";
+    }
 
     const lat = parseFloat(latInput.value);
     const lon = parseFloat(lonInput.value);
     const radius = parseFloat(radiusInput.value);
     
-    // 定義 parts 陣列
-    let parts = [];
-    
-    // 範圍判定邏輯
-    let turfZonePolygon = null;
-    if (activePolygonId) {
-        const activePoly = allPolygons.find(p => p.id === activePolygonId);
-        if (activePoly && activePoly.latlngs.length >= 3) {
-            let ring = activePoly.latlngs.map(p => [p.lng, p.lat]);
-            if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
-                ring.push(ring[0]);
-            }
-            turfZonePolygon = turf.polygon([ring]);
-        }
-    }
-    
-    // ... (後續原來的 Overpass 查詢邏輯)
+    // 2. 定義 Overpass 查詢的 Filter
+    let parts = []; 
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
-    if(checkedBoxes.length === 0) {
-        alert("請至少勾選一個分析類型！");
-        queryBtn.disabled = false;
-        queryBtn.innerText = "查詢";
+    checkedBoxes.forEach(checkbox => {
+        parts.push(checkbox.value);
+    });
+
+    if (parts.length === 0) {
+        alert("請至少選擇一個查詢項目！");
+        if (queryBtn) { queryBtn.disabled = false; queryBtn.innerText = "查詢"; }
         return;
     }
 
+    const filter = parts.join('|');
+    
+    // 3. 範圍判定邏輯 (修正版)
+    let queryArea = "";
+    if (activePolygonId) {
+        const activePoly = allPolygons.find(p => p.id === activePolygonId);
+        if (activePoly && activePoly.latlngs.length >= 3) {
+            // 將 LatLng 物件轉換為 Overpass 需要的 "lat lon" 字串格式
+            const coords = activePoly.latlngs.map(p => `${p.lat} ${p.lng}`).join(" ");
+            queryArea = `(poly:"${coords}")`;
+        }
+    }
+
+    // 若沒有選取多邊形，則使用點位+半徑查詢
+    if (!queryArea) {
+        if (!lat || !lon || !radius) {
+            alert("請先選取範圍或設定中心點與半徑！");
+            if (queryBtn) { queryBtn.disabled = false; queryBtn.innerText = "查詢"; }
+            return;
+        }
+        queryArea = `(around:${radius},${lat},${lon})`;
+    }
+
+    // 4. 發送 Overpass 查詢請求
+    const query = `[out:json];(node[~"^(${filter})$"~"."]${queryArea};way[~"^(${filter})$"~"."]${queryArea};relation[~"^(${filter})$"~"."]${queryArea};);out body;>;out skel qt;`;
+    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        // 這裡接續您原本處理 data 的邏輯
+        // 例如: displayResults(data); 
+        console.log("查詢成功", data);
+
+    } catch (error) {
+        console.error("查詢失敗:", error);
+        alert("查詢請求失敗，請檢查網路連接或 API 限制。");
+    } finally {
+        if (queryBtn) { 
+            queryBtn.disabled = false; 
+            queryBtn.innerText = "查詢"; 
+        }
+    }
+}
     checkedBoxes.forEach(e=>{
     let t=e.value;
     if(t==="station"){
