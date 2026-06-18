@@ -504,23 +504,11 @@ let results=[];
 let sortState = { distance:true, route:true };
 let routeLayer=null;
 /* ===========================
-   國道交流道入口快取
-   =========================== */
-
-let allEntrances = [];
-
-const INTERCHANGE_SEARCH_STEPS = [
-    3000,
-    5000,
-    8000,
-    10000
-];    
-/* ===========================
    DEM Raster
    =========================== */
 
 origin=[25.012098,121.465675];
-loadInterchangeEntrances();
+
 userMarker=L.marker(origin,{
 icon:L.divIcon({
 className:'',
@@ -935,161 +923,7 @@ async function getElevation(lat, lon){
     if(elevationCache[cacheKey] !== undefined){
         return elevationCache[cacheKey];
     }
-/* ==================================================
-   載入全台交流道入口
-   ================================================== */
 
-async function loadInterchangeEntrances(){
-
-    try{
-
-        const query = `
-[out:json][timeout:120];
-
-(
- way["highway"="motorway_link"](20,118,27,123);
-);
-
-out center tags;
-`;
-
-        const res = await fetch(
-            "https://overpass-api.de/api/interpreter",
-            {
-                method:"POST",
-                body:"data="+encodeURIComponent(query),
-                headers:{
-                    "Content-Type":"application/x-www-form-urlencoded"
-                }
-            }
-        );
-
-        const data = await res.json();
-
-        allEntrances = [];
-
-        data.elements.forEach(e=>{
-
-            if(!e.center) return;
-
-            if(!isEntranceRamp(e.tags || {}))
-                return;
-
-            allEntrances.push({
-
-                id:e.id,
-
-                name:
-                    e.tags.name ||
-                    e.tags.ref ||
-                    "交流道入口",
-
-                lat:e.center.lat,
-                lon:e.center.lon
-
-            });
-
-        });
-
-        console.log(
-            "交流道入口數量:",
-            allEntrances.length
-        );
-
-    }catch(err){
-
-        console.error(
-            "交流道入口載入失敗",
-            err
-        );
-    }
-}
- /* ==================================================
-   找最近交流道入口
-   ================================================== */
-
-function findNearestEntrances(
-    lat,
-    lon,
-    count=20
-)
-/* ==================================================
-   OSRM One-To-Many
-   ================================================== */
-
-async function getOSRMTableDistances(
-    originLat,
-    originLon,
-    targets
-)
-function getETA(distance){
-
-    const minutes =
-        Math.max(
-            1,
-            Math.round(
-                distance / 600
-            )
-        );
-
-    return minutes+" 分";
-}
-{
-
-    try{
-
-        const coords = [
-
-            `${originLon},${originLat}`,
-
-            ...targets.map(
-                t =>
-                `${t.lon},${t.lat}`
-            )
-
-        ].join(";");
-
-        const url =
-        `https://router.project-osrm.org/table/v1/driving/${coords}?sources=0`;
-
-        const res =
-            await fetch(url);
-
-        const data =
-            await res.json();
-
-        return data.distances?.[0] || [];
-
-    }
-    catch(err){
-
-        console.error(err);
-
-        return [];
-    }
-}    
-{
-
-    return allEntrances
-        .map(e=>({
-
-            ...e,
-
-            straight:
-            haversine(
-                lat,
-                lon,
-                e.lat,
-                e.lon
-            )
-
-        }))
-        .sort(
-            (a,b)=>
-            a.straight-b.straight
-        )
-        .slice(0,count);
-}   
     try{
 
         const controller = new AbortController();
@@ -1162,21 +996,34 @@ const dLon=toRad(lon2-lon1);
 const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
-/* ==================================================
-   判斷 motorway_link 是否為入口匝道
-   ================================================== */
 
-function isEntranceRamp(tags){
-
-    const oneway = tags.oneway;
-
-    if(oneway === "-1"){
-        return false;
-    }
-
-    return true;
-}
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
+async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
+if(isInZone) {
+    return { value: 0, isFallback: false, msg: "" };
+}
+try{
+if(!origin) return null;
+
+let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+
+if(isJunction) {
+    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
+}
+
+const res = await fetch(url);
+const data = await res.json();
+
+if(data.routes && data.routes.length > 0) {
+    return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
+}
+
+return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+}catch(err){
+console.error("OSRM 路由異常:", err);
+return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+}
+}  
 
 async function drawRoute(to, item){
 try{
@@ -1188,9 +1035,7 @@ if(item.在範圍內) {
     return;
 }
 
-let isJunction =
-item.原始類型 ===
-"motorway_entrance";
+let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
 
 let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
 
@@ -1317,50 +1162,11 @@ if (drawPoints && drawPoints.length >= 3) {
     parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
     }
     else if(t==="motorway_junction"){
-
-    const nearest =
-        findNearestEntrances(
-            lat,
-            lon,
-            20
-        );
-
-    nearest.forEach(e=>{
-
-        results.push({
-
-            id:results.length,
-
-            名稱:e.name,
-
-            類型:"交流道入口",
-
-            原始類型:"motorway_entrance",
-
-            座標:[
-                e.lat,
-                e.lon
-            ],
-
-            距離:
-                Math.round(
-                    e.straight
-                ),
-
-            直線距離顯示:
-                Math.round(
-                    e.straight
-                ),
-
-            路線距離:"計算中...",
-
-            路線距離數值:null
-
-        });
-
-    });
-
-}
+    parts.push(`
+    node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+    nwr["highway"="ramp"](around:${radius},${lat},${lon});
+    `);
+    }
     else if(t==="parking"){
     parts.push(`
     nwr["amenity"="parking"](around:${radius},${lat},${lon});
@@ -1562,61 +1368,18 @@ e.tags?.amenity === "post_office" ||
     queryBtn.innerText = "🚗 計算路網距離中...";
 
     /* 背景非同步更新路網距離 */
-   const junctions =
-results.filter(
-    x =>
-    x.原始類型 ===
-    "motorway_entrance"
-);
+    for (const item of results.slice(0,80)) {
+        if (item.在範圍內) continue; // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
+        
+        let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
+        const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
 
-if(junctions.length){
+        item.路線距離數值 = routeRes.value;
+        item.路線距離 = routeRes.value + " m" + routeRes.msg;
 
-    const distances =
-    await getOSRMTableDistances(
-        lat,
-        lon,
-        junctions.map(j=>({
-
-            lat:j.座標[0],
-            lon:j.座標[1]
-
-        }))
-    );
-
-    junctions.forEach(
-        (item,index)=>{
-
-            const routeDist =
-                Math.round(
-                    distances[index+1]
-                );
-
-            item.路線距離數值 =
-                routeDist;
-
-            item.路線距離 =
-                routeDist +
-                " m";
-
-            item.ETA =
-                getETA(
-                    routeDist
-                );
-
-            const cell =
-            document.getElementById(
-                `route-${item.id}`
-            );
-
-            if(cell){
-
-                cell.innerText =
-                    item.路線距離;
-            }
-
-        }
-    );
-}
+        const cell = document.getElementById(`route-${item.id}`);
+        if(cell) cell.innerText = item.路線距離;
+    }
 
 } catch(err) {
     console.error(err);
