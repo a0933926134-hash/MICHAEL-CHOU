@@ -504,11 +504,23 @@ let results=[];
 let sortState = { distance:true, route:true };
 let routeLayer=null;
 /* ===========================
+   國道交流道入口快取
+   =========================== */
+
+let allEntrances = [];
+
+const INTERCHANGE_SEARCH_STEPS = [
+    3000,
+    5000,
+    8000,
+    10000
+];    
+/* ===========================
    DEM Raster
    =========================== */
 
 origin=[25.012098,121.465675];
-
+loadInterchangeEntrances();
 userMarker=L.marker(origin,{
 icon:L.divIcon({
 className:'',
@@ -923,7 +935,105 @@ async function getElevation(lat, lon){
     if(elevationCache[cacheKey] !== undefined){
         return elevationCache[cacheKey];
     }
+/* ==================================================
+   載入全台交流道入口
+   ================================================== */
 
+async function loadInterchangeEntrances(){
+
+    try{
+
+        const query = `
+[out:json][timeout:120];
+
+(
+ way["highway"="motorway_link"](20,118,27,123);
+);
+
+out center tags;
+`;
+
+        const res = await fetch(
+            "https://overpass-api.de/api/interpreter",
+            {
+                method:"POST",
+                body:"data="+encodeURIComponent(query),
+                headers:{
+                    "Content-Type":"application/x-www-form-urlencoded"
+                }
+            }
+        );
+
+        const data = await res.json();
+
+        allEntrances = [];
+
+        data.elements.forEach(e=>{
+
+            if(!e.center) return;
+
+            if(!isEntranceRamp(e.tags || {}))
+                return;
+
+            allEntrances.push({
+
+                id:e.id,
+
+                name:
+                    e.tags.name ||
+                    e.tags.ref ||
+                    "交流道入口",
+
+                lat:e.center.lat,
+                lon:e.center.lon
+
+            });
+
+        });
+
+        console.log(
+            "交流道入口數量:",
+            allEntrances.length
+        );
+
+    }catch(err){
+
+        console.error(
+            "交流道入口載入失敗",
+            err
+        );
+    }
+}
+ /* ==================================================
+   找最近交流道入口
+   ================================================== */
+
+function findNearestEntrances(
+    lat,
+    lon,
+    count=20
+){
+
+    return allEntrances
+        .map(e=>({
+
+            ...e,
+
+            straight:
+            haversine(
+                lat,
+                lon,
+                e.lat,
+                e.lon
+            )
+
+        }))
+        .sort(
+            (a,b)=>
+            a.straight-b.straight
+        )
+        .slice(0,count);
+}   
     try{
 
         const controller = new AbortController();
@@ -996,7 +1106,20 @@ const dLon=toRad(lon2-lon1);
 const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
+/* ==================================================
+   判斷 motorway_link 是否為入口匝道
+   ================================================== */
 
+function isEntranceRamp(tags){
+
+    const oneway = tags.oneway;
+
+    if(oneway === "-1"){
+        return false;
+    }
+
+    return true;
+}
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
 if(isInZone) {
