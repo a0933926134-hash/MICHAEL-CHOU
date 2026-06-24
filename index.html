@@ -936,53 +936,38 @@ async function getElevation(lat, lon){
         `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
 
         const res = await fetch(url,{
-    signal:controller.signal
-});
-
-console.log(
-    "DEM HTTP:",
-    res.status,
-    url
-);
+            signal:controller.signal
+        });
 
         clearTimeout(timeout);
 
+        console.log("DEM HTTP:", res.status, url);
+
         if(!res.ok){
-            console.error(
-                "DEM HTTP Error:",
-                res.status
-            );
             return null;
         }
 
         const text = await res.text();
 
-console.log("DEM RAW:", text);
+        console.log("DEM RAW:", text);
 
-const data = JSON.parse(text);
+        const data = JSON.parse(text);
 
-        if(
-            data &&
-            data.results &&
-            data.results.length &&
-            data.results[0].elevation !== null
-        ){
+        const ele =
+            data?.results?.[0]?.elevation;
 
-            elevationCache[cacheKey] =
-                Number(data.results[0].elevation);
+        if(ele !== null && ele !== undefined && !isNaN(ele)){
 
+            elevationCache[cacheKey] = Number(ele);
             return elevationCache[cacheKey];
+
         }
 
         return null;
 
-    }catch(err){
+    } catch(err){
 
-        console.error(
-            "DEM API Error:",
-            err
-        );
-
+        console.error("DEM ERROR:", err);
         return null;
     }
 }
