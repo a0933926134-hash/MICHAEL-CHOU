@@ -915,63 +915,32 @@ alert("定位失敗，請確認已允許定位權限");
    DEM 高程查詢
    ================================== */
 const elevationCache = {};
-async function getElevation(lat, lon){
+async function getElevation(lat, lon) {
 
-    const cacheKey =
-        lat.toFixed(5)+","+lon.toFixed(5);
+    const url =
+        `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
 
-    if(elevationCache[cacheKey] !== undefined){
-        return elevationCache[cacheKey];
-    }
+    try {
 
-    try{
-
-        const controller = new AbortController();
-
-        const timeout = setTimeout(()=>{
-            controller.abort();
-        },10000);
-
-        const url =
-        `https://michael-chou.pages.dev/?lat=${lat}&lon=${lon}`;
-
-        const res = await fetch(url,{
-            signal:controller.signal
-        });
-
-        clearTimeout(timeout);
-
-        console.log("DEM HTTP:", res.status, url);
-
-        if(!res.ok){
-            return null;
-        }
+        const res = await fetch(url);
 
         const text = await res.text();
 
-        console.log("DEM RAW:", text);
+        console.log("DEM RAW RESPONSE:", text);
 
         const data = JSON.parse(text);
 
-        const ele =
-            data?.results?.[0]?.elevation;
-
-        if(ele !== null && ele !== undefined && !isNaN(ele)){
-
-            elevationCache[cacheKey] = Number(ele);
-            return elevationCache[cacheKey];
-
+        if (!data || !data.results || !data.results[0]) {
+            return null;
         }
 
-        return null;
+        return data.results[0].elevation;
 
-    } catch(err){
-
-        console.error("DEM ERROR:", err);
+    } catch (err) {
+        console.error("getElevation failed:", err);
         return null;
     }
 }
-
 /* 哈弗辛直線距離 */
 function haversine(lat1, lon1, lat2, lon2){
 const R=6371000;
