@@ -348,6 +348,7 @@ cursor:pointer;
 
 <script>
 let map = L.map('map').setView([25.012098, 121.465675], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);    
 
 // ✅ ★★★ 一定要在 loadDEM 之前 ★★★
  
@@ -678,10 +679,12 @@ function updateCentroidByPoints(pts) {
     `).openPopup([cLat, cLon]);
 }
 
-function exportPolygonSHP() {
-    if (!drawPoints || drawPoints.length < 3) {
-        alert("目前沒有完整的繪製範圍可供匯出！");
-        return;
+// 匯出功能
+    function exportAllPolygons() {
+        if (drawnItems.getLayers().length === 0) return alert("沒有繪製範圍");
+        let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(drawnItems.toGeoJSON()));
+        let a = document.createElement('a');
+        a.href = dataStr; a.download = "zones.geojson"; a.click();
     }
     try {
         let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
