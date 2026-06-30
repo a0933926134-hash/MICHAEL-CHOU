@@ -527,11 +527,12 @@ let isDrawingPolygon = false;
 let currentPoints = [];
 let previewPolyline = null;
 let polygons = [];   // 存放多個多邊形
-let drawMarkers = L.layerGroup().addTo(map);
 let selectedPolygon = null;
 
 const map = L.map('map').setView([25.0330, 121.5654], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+let drawMarkers = L.layerGroup().addTo(map);
 
 const drawControl = L.control({ position: 'topleft' });
 drawControl.onAdd = function() {
@@ -637,6 +638,7 @@ function clearAllPolygons() {
     document.getElementById('btn-clear-draw').style.display = 'none';
 }
 
+// 匯出功能
 function exportPolygonsSHP() {
     if (polygons.length === 0) {
         alert("目前沒有完整的繪製範圍可供匯出！");
