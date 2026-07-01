@@ -250,13 +250,21 @@ font-weight:bold;
 
 <h3>類型</h3>
 
-<label><input type="checkbox" value="station">交通運輸-接近大型車站</label>
-<label><input type="checkbox" value="bus_stop">交通運輸-站牌接近程度</label>
-<label><input type="checkbox" value="school" checked>公共建設-接近學校</label>
-<label><input type="checkbox" value="marketplace">公共建設-接近市場</label>
-<label><input type="checkbox" value="park">公共建設-接近公園</label>
-<label><input type="checkbox" value="parking">公共建設-停車場</label>
-<label><input type="checkbox" value="bank">公共建設-服務性設施</label>
+<label><input type="checkbox" value="station">交通運輸-接近大型車站之程度</label>
+<label><input type="checkbox" value="bus_stop">交通運輸-站牌之接近程度或密集程度</label>
+<label><input type="checkbox" value="motorway_junction">交通運輸-交流道之有無及接近交流道之程度</label>
+
+<label><input type="checkbox" value="school" checked>公共建設-接近學校之程度(門牌大門優先)</label>
+<label><input type="checkbox" value="marketplace">公共建設-接近市場之程度(傳統市場、超級市場、超大型購物中心)</label>
+<label><input type="checkbox" value="park">公共建設-接近公園(里鄰公園、一般公園)、廣場、徒步區之程度</label>
+<label><input type="checkbox" value="tourism">公共建設-接近觀光遊憩設施之程度</label>
+<label><input type="checkbox" value="parking">公共建設-停車場地之便利程度</label>
+<label><input type="checkbox" value="bank">公共建設-接近服務性設施的程度(郵局、銀行、醫院、機關等設施)</label>
+<label><input type="checkbox" value="gas">特殊設施-電業設施及公用氣體燃料設施之有無極接近程度</label>
+<label><input type="checkbox" value="cemetery">特殊建設-殯葬設施之有無及接近程度</label>  
+<label><input type="checkbox" value="waste_disposal">特殊建設-廢棄物處理設施之有無及接近程度</label>
+<label><input type="checkbox" value="pollution">環境汙染-水汙染、噪音汙染、廢氣汙染、廢棄物汙染等之有無及接近程度</label>
+
 <button id="query-btn" onclick="runQuery()">查詢</button>
 <div id="routeInfo">狀態：就緒</div>
 </div>
@@ -461,11 +469,17 @@ async function queryOverpassAPI(lat, lon, radius, type) {
     const tagMap = {
         'station': 'railway=station',
         'bus_stop': 'highway=bus_stop',
+        'motorway_junction': 'highway=motorway_junction',
         'school': 'amenity=school',
         'marketplace': 'shop=supermarket|amenity=marketplace',
         'park': 'leisure=park',
+        'tourism': 'tourism=attraction|tourism=museum',
         'parking': 'amenity=parking',
-        'bank': 'amenity=bank|amenity=bank'
+        'bank': 'amenity=bank|amenity=post_office|amenity=hospital',
+        'gas': 'power=plant|utility=gas',
+        'cemetery': 'amenity=grave_yard',
+        'waste_disposal': 'amenity=waste_transfer_station',
+        'pollution': 'man_made=pollution_indicator'
     };
     
     // 轉換為邊界框
