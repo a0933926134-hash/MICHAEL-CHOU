@@ -499,10 +499,11 @@ interactive:false
 /* ====================================================================
     ★ 多邊形繪製與二次編輯核心
    ==================================================================== */
-let isDrawingPolygon = false;
-let drawPoints = [];       
+let isDrawingPolygon = false;  
 let previewPolyline = null;
-let finalPolygon = null;
+let polygons = [];          // 所有 Polygon
+let currentDrawing = [];    // 正在畫的 Polygon
+let selectedPolygonId = null;    
 let drawMarkers = L.layerGroup().addTo(map);  
 
 const drawControl = L.control({ position: 'topleft' });
@@ -521,30 +522,63 @@ drawControl.onAdd = function() {
     return div;
 };
 drawControl.addTo(map);
-
 const resPanel = document.getElementById("resultPanel");
 const sidePanel = document.getElementById("panel");
 L.DomEvent.disableClickPropagation(resPanel);
 L.DomEvent.disableClickPropagation(sidePanel);
 
+/* ==========================================================
+   繪製模式切換（Multi Polygon）
+   ========================================================== */
 function toggleDrawMode(btn) {
-    isDrawingPolygon = !isDrawingPolygon;
-    if (isDrawingPolygon) {
-        btn.classList.add('active');
-        btn.innerText = "🛑 停止點選";
-        document.getElementById('btn-end-draw').style.display = 'block';
-        document.getElementById('btn-clear-draw').style.display = 'block';
-        clearPolygonData();
-    } else {
-        btn.classList.remove('active');
-        btn.innerText = "📐 繪製範圍";
-        if (drawPoints.length === 0) {
-            document.getElementById('btn-end-draw').style.display = 'none';
-            document.getElementById('btn-clear-draw').style.display = 'none';
-        }
-    }
-}
 
+    isDrawingPolygon = !isDrawingPolygon;
+
+    if (isDrawingPolygon) {
+
+        // 開始新的 Polygon
+        currentDrawing = [];
+
+        // 若有暫存折線先移除
+        if (previewPolyline) {
+            map.removeLayer(previewPolyline);
+            previewPolyline = null;
+        }
+
+        btn.classList.add("active");
+        btn.innerText = "🛑 停止點選";
+
+        document.getElementById("btn-end-draw").style.display = "block";
+        document.getElementById("btn-clear-draw").style.display = "block";
+
+    } else {
+
+        btn.classList.remove("active");
+        btn.innerText = "📐 繪製範圍";
+
+        // 若此次沒有任何點，直接取消
+        if (currentDrawing.length === 0) {
+
+            document.getElementById("btn-end-draw").style.display = "none";
+
+            // 若系統中沒有任何 Polygon
+            if (polygons.length === 0) {
+                document.getElementById("btn-clear-draw").style.display = "none";
+            }
+
+            if (previewPolyline) {
+                map.removeLayer(previewPolyline);
+                previewPolyline = null;
+            }
+
+            return;
+        }
+
+        // 若已有點但尚未閉合
+        alert("目前多邊形尚未完成，請按【完成閉合】或重新開始。");
+    }
+
+}
 function clearPolygonData() {
     drawPoints = [];
     if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
