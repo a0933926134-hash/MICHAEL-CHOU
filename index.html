@@ -984,32 +984,37 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
+
 if(isInZone) {
     return { value: 0, isFallback: false, msg: "" };
 }
+
 try{
 if(!origin) return null;
 
-let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+const baseUrl = `https://router.project-osrm.org/route/v1/driving`;
 
-if(isJunction) {
-    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
-}
+let url1 = `${baseUrl}/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+let url2 = `${baseUrl}/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false`;
 
-const res = await fetch(url);
-const data = await res.json();
+const [r1, r2] = await Promise.all([
+  fetch(url1).then(r => r.json()),
+  fetch(url2).then(r => r.json())
+]);
 
-if(data.routes && data.routes.length > 0) {
-    return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
+if(r1.routes?.length && r2.routes?.length) {
+  const d1 = r1.routes[0].distance;
+  const d2 = r2.routes[0].distance;
+  return { value: Math.round((d1 + d2)/2), isFallback: false, msg: "" };
 }
 
 return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+
 }catch(err){
-console.error("OSRM 路由異常:", err);
+console.error(err);
 return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 }
-}  
-
+}
 async function drawRoute(to, item){
 try{
 if(!origin) return;
