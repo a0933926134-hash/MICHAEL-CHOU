@@ -496,15 +496,26 @@ interactive:false
 }).addTo(map);
 
 
-/* ====================================================================
-    ★ 多邊形繪製與二次編輯核心
-   ==================================================================== */
-let isDrawingPolygon = false;
-let drawPoints = [];       
-let previewPolyline = null;
-let finalPolygon = null;
-let drawMarkers = L.layerGroup().addTo(map);  
+/* ==========================================================
+   Multi Polygon 全域變數
+   ========================================================== */
 
+let isDrawingPolygon = false;
+
+// 所有 Polygon
+let polygons = [];
+
+// 正在繪製中的 Polygon
+let currentDrawing = [];
+
+// 目前被選取的 Polygon
+let selectedPolygonId = null;
+
+// 繪製時的預覽線
+let previewPolyline = null;
+
+// Polygon ID 自動流水號
+let polygonIdSeed = 1;
 const drawControl = L.control({ position: 'topleft' });
 drawControl.onAdd = function() {
     const div = L.DomUtil.create('div', 'draw-control-bar');
@@ -544,7 +555,23 @@ function toggleDrawMode(btn) {
         }
     }
 }
+function createPolygonObject(points){
 
+    return {
+
+        id: polygonIdSeed++,
+
+        points: [...points],
+
+        layer: null,
+
+        markerLayer: L.layerGroup(),
+
+        centroid: null
+
+    };
+
+}
 function clearPolygonData() {
     drawPoints = [];
     if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
