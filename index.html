@@ -1204,9 +1204,15 @@ nwr["office"="government"](around:${radius},${lat},${lon});
 }
     else if(t==="cemetery"){
     parts.push(`
-    nwr["landuse"="cemetery"](around:${radius},${lat},${lon});
-    nwr["name"~"親儀|生命紀念|納骨|火化"](around:${radius},${lat},${lon});
-    `);
+    // 1. 墓園（最準）
+  nwr["landuse"="cemetery"](around:R,lat,lon);
+
+  // 2. 殯葬設施分類（OSM 正規）
+  nwr["amenity"~"grave_yard|crematorium"](around:R,lat,lon);
+
+  // 3. 納骨塔 / 殯儀館（補強）
+  nwr["building"~"funeral_hall|mortuary"](around:R,lat,lon);
+);
     }
     else if(t==="school"){
     parts.push(`
