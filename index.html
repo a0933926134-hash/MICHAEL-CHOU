@@ -1266,7 +1266,7 @@ async function runQuery() {
     try {
 
         // ======================================================
-        // ⭐ 取得 active polygon（核心修正）
+        // ⭐ 取得 active polygon
         // ======================================================
         const activePolygon =
             polygons.find(p => p.id === selectedPolygonId);
@@ -1276,51 +1276,45 @@ async function runQuery() {
             return;
         }
 
-        if (!activePolygon.centroid) {
-            updateCentroidByPoints(activePolygon);
-        }
-
-        // ======================================================
-        // ⭐ 建立 turf polygon（安全版）
-        // ======================================================
-        let turfZonePolygon = null;
-
-        if (activePolygon.points &&
-            activePolygon.points.length >= 3) {
-
-            let ring = activePolygon.points
-                .filter(p => Array.isArray(p) && p.length === 2)
-                .map(p => {
-                    const lat = Number(p[0]);
-                    const lon = Number(p[1]);
-                    return [lon, lat];
-                });
-
-            // 閉合
-            if (
-                ring.length > 2 &&
-                (
-                    ring[0][0] !== ring[ring.length - 1][0] ||
-                    ring[0][1] !== ring[ring.length - 1][1]
-                )
-            ) {
-                ring.push(ring[0]);
-            }
-
-            if (ring.length < 4) {
-                alert("範圍點不足或資料錯誤");
-                return;
-            }
-
-            turfZonePolygon = turf.polygon([ring]);
-
-        } else {
+        if (!activePolygon.points || activePolygon.points.length < 3) {
             alert("Polygon 資料不足");
             return;
         }
 
+        // centroid 防呆
+        if (!activePolygon.centroid) {
+            updateCentroidByPoints(activePolygon);
+        }
+
+        if (!activePolygon.centroid) {
+            alert("無法計算中心點");
+            return;
+        }
+
         // ======================================================
-        // ⭐ checkbox 檢查（提前）
+        // ⭐ turf polygon
+        // ======================================================
+        let ring = activePolygon.points
+            .filter(p => Array.isArray(p) && p.length === 2)
+            .map(p => [Number(p[1]), Number(p[0])]);
+
+        if (ring.length < 3) {
+            alert("範圍點不足");
+            return;
+        }
+
+        // 閉合
+        if (
+            ring[0][0] !== ring[ring.length - 1][0] ||
+            ring[0][1] !== ring[ring.length - 1][1]
+        ) {
+            ring.push(ring[0]);
+        }
+
+        const turfZonePolygon = turf.polygon([ring]);
+
+        // ======================================================
+        // checkbox
         // ======================================================
         const checkedBoxes =
             document.querySelectorAll("input[type=checkbox]:checked");
@@ -1331,7 +1325,7 @@ async function runQuery() {
         }
 
         // ======================================================
-        // ⭐ 清理 UI（放在驗證後）
+        // UI reset（只在成功前）
         // ======================================================
         markerLayer.clearLayers();
 
@@ -1344,7 +1338,7 @@ async function runQuery() {
         tbody.innerHTML = "";
         results = [];
 
-        // 👉 後續 Overpass query 保持不變
+        // 👉 Overpass query here
 
     } catch (err) {
 
@@ -1353,9 +1347,9 @@ async function runQuery() {
 
     } finally {
 
+        // ⭐ 這一行是你現在缺的（關鍵）
         queryBtn.disabled = false;
         queryBtn.innerText = "查詢";
-
     }
 }
     checkedBoxes.forEach(e=>{
