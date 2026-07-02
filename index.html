@@ -591,21 +591,48 @@ function clearPolygon() {
 }
 
 function finishPolygon() {
-    if (drawPoints.length < 3) {
+
+    if (currentDrawing.length < 3) {
         alert("請至少點選 3 個以上的頂點才能閉合範圍！");
         return;
     }
-    if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-    
-    renderEditablePolygon();
-    updateCentroidByPoints(drawPoints);
-    
+
+    // 移除預覽線
+    if (previewPolyline) {
+        map.removeLayer(previewPolyline);
+        previewPolyline = null;
+    }
+
+    // 建立 Polygon 物件
+    const polygon = createPolygonObject(currentDrawing);
+
+    // 加入管理陣列
+    polygons.push(polygon);
+
+    // 設定為目前選取
+    selectedPolygonId = polygon.id;
+
+    // 建立 Leaflet Polygon、Marker
+    renderEditablePolygon(polygon);
+
+    // 計算形心
+    updateCentroidByPoints(polygon);
+
+    // 清空目前繪製中的點
+    currentDrawing = [];
+
+    // 離開繪圖模式
     isDrawingPolygon = false;
-    const btn = document.getElementById('btn-start-draw');
-    btn.classList.remove('active');
+
+    const btn = document.getElementById("btn-start-draw");
+
+    btn.classList.remove("active");
     btn.innerText = "📐 繪製範圍";
-    document.getElementById('btn-end-draw').style.display = 'none';
-    document.getElementById('btn-export-shp').style.display = 'block';
+
+    document.getElementById("btn-end-draw").style.display = "none";
+    document.getElementById("btn-export-shp").style.display = "block";
+    document.getElementById("btn-clear-draw").style.display = "block";
+
 }
 
 function renderEditablePolygon() {
