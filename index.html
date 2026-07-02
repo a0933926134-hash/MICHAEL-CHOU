@@ -1259,17 +1259,44 @@ row.scrollIntoView({ behavior:"smooth", block:"center" });
 }
 }
 
-async function runQuery(mode = "point") {
+async function runQuery() {
 
     const lat = parseFloat(latInput.value);
     const lon = parseFloat(lonInput.value);
     const radius = parseFloat(radiusInput.value);
 
-    if (radius > 3000) {
-        alert("半徑超過3000m可能造成系統過慢");
-        return;
-    }
+    const activePolygon = polygons.find(p => p.id === selectedPolygonId);
 
+    let turfZonePolygon = null;
+
+    // =========================
+    // ★ Polygon 模式優先
+    // =========================
+    if (activePolygon && activePolygon.points.length >= 3) {
+
+        let ring = activePolygon.points
+            .map(p => [Number(p[1]), Number(p[0])]);
+
+        if (
+            ring[0][0] !== ring.at(-1)[0] ||
+            ring[0][1] !== ring.at(-1)[1]
+        ) {
+            ring.push(ring[0]);
+        }
+
+        turfZonePolygon = turf.polygon([ring]);
+
+        console.log("使用 Polygon 查詢模式");
+    }
+    else {
+
+        console.log("使用點 + 半徑查詢模式");
+
+        if (radius > 3000) {
+            alert("半徑超過3000m可能造成系統過慢");
+            return;
+        }
+    }
     queryBtn.disabled = true;
     queryBtn.innerText = "⌛ 檢索圖資中...";
 
