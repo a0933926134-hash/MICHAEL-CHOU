@@ -575,8 +575,8 @@ function createPolygonObject(points){
 function clearPolygonData() {
     polygon.points = [];
     if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
-    if (finalPolygon) { map.removeLayer(finalPolygon); finalPolygon = null; }
-    drawMarkers.clearLayers();
+    if (polygon.layer) { map.removeLayer(polygon.layer); polygon.layer = null; }
+    polygon.markerLayer.clearLayers();
     document.getElementById('btn-export-shp').style.display = 'none';
 }
 
@@ -636,10 +636,10 @@ function finishPolygon() {
 }
 
 function renderEditablePolygon(polygon){
-    if (finalPolygon) { map.removeLayer(finalPolygon); }
-    drawMarkers.clearLayers();
+    if (polygon.layer) { map.removeLayer(polygon.layer); }
+    polygon.markerLayer.clearLayers();
 
-    finalPolygon = L.polygon(polygon.points, {
+    polygon.layer = L.polygon(polygon.points, {
         color: '#dc2626',
         weight: 3,
         fillColor: '#dc2626',
@@ -660,14 +660,14 @@ function renderEditablePolygon(polygon){
         marker.on('drag', function(e) {
             let newLatLng = e.target.getLatLng();
             polygon.points[index] = [newLatLng.lat, newLatLng.lng];
-            finalPolygon.setLatLngs(polygon.points);
+            polygon.layer.setLatLngs(polygon.points);
         });
         
         marker.on('dragend', function() {
             updateCentroidByPoints(polygon.points);
         });
 
-        marker.addTo(drawMarkers);
+        marker.addTo(polygon.markerLayer);
     });
 }
 
@@ -700,7 +700,7 @@ function updateCentroidByPoints(pts) {
         interactive: false
     }).addTo(map);
 
-    finalPolygon.bindPopup(`
+    polygon.layer.bindPopup(`
         <div style="font-size:12px; line-height:1.4;">
             <b style="color:#dc2626;">📐 範圍與節點更新完成</b><br>
             已動態重算幾何形心並帶入中心點。<br>您可直接**拖曳邊界上的白色圓點**再次微調範圍，或點擊左側面板「查詢」進行量距。
@@ -881,7 +881,7 @@ map.on('click', e => {
             fillColor: '#fff',
             fillOpacity: 1,
             weight: 2
-        }).addTo(drawMarkers);
+        }).addTo(polygon.markerLayer);
 
         if (previewPolyline) {
             previewPolyline.setLatLngs(polygon.points);
