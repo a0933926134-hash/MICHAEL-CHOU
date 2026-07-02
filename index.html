@@ -16,9 +16,11 @@
 <!-- 關鍵擴充：引入 JSZip 與 shpjs，讓前端具備真實解碼 SHP 壓縮檔的能力 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+
 <style>
 body { margin:0; font-family: Arial, "Microsoft JhengHei"; }
 #map { height:100vh; }
+
 /* UI 面板 */
 #panel{
 position:absolute;
@@ -33,7 +35,9 @@ box-shadow:0 10px 25px rgba(0,0,0,0.25);
 font-size:13px;
 border:1px solid #fcd34d;
 }  
+
 #panel h3{margin:0 0 8px 0;color:#1e3a8a;}
+
 #panel input{
 width:95%;
 padding:6px;
@@ -41,6 +45,7 @@ margin:3px 0;
 border-radius:8px;
 border:1px solid #cbd5e1;
 }
+
 #panel label{
 display:grid;
 grid-template-columns: 18px 1fr;
@@ -50,7 +55,9 @@ padding:4px 6px;
 border-radius:8px;
 cursor:pointer;
 }
+
 #panel label:hover{background:#e0ecff;}
+
 #panel button{
 width:100%;
 margin-top:6px;
@@ -61,13 +68,16 @@ cursor:pointer;
 font-weight:bold;
 background:#2563eb;color:white;
 }
+
 #panel button:disabled {
 background:#94a3b8;
 cursor:not-allowed;
 }
+
 #panel button.clear-btn{
 background:#10b981;
 }
+
 #resultPanel{
 position:absolute;
 top:120px;
@@ -80,6 +90,7 @@ box-shadow:0 10px 25px rgba(0,0,0,0.25);
 z-index:999;
 overflow:hidden;
 }
+
 #resultHeader{
 background:#2563eb;
 color:white;
@@ -91,6 +102,7 @@ display:flex;
 justify-content:space-between;
 align-items:center;
 }
+
 #resultHeader button{
 background:#10b981;
 border:none;
@@ -100,30 +112,36 @@ border-radius:6px;
 cursor:pointer;
 font-size:12px;
 }
+
 #resultTableWrapper{
 max-height:180px;
 overflow-y:auto;
 }
+
 table{
 width:100%;
 border-collapse: collapse;
 font-size:12px;
 table-layout: fixed;
 }
+
 td,th{
 border:1px solid #e5e7eb;
 padding:6px;
 text-align:center;
 vertical-align:middle;
 }
+
 th{
 background:#dbeafe;
 position:sticky;
 top:0;
 }
+
 .highlight{
 background:#fde68a !important;
 }
+
 #routeInfo{
 margin-top:10px;
 padding:8px;
@@ -132,6 +150,7 @@ border-radius:10px;
 color:#1d4ed8;
 font-weight:bold;
 }
+
 /* 繪製控制項工具列擴充 */
 .draw-control-bar {
     background: white;
@@ -164,6 +183,7 @@ font-weight:bold;
     font-size: 12px; font-weight: bold; text-align: center;
 }
 .shp-import-label:hover { background: #047857; }
+
 /* 拖曳編輯控制點樣式 */
 .edit-handle {
     width: 12px;
@@ -173,7 +193,9 @@ font-weight:bold;
     border-radius: 50%;
     box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
+
 /* ===== 新增坡度面板 CSS ===== */
+
 body {
     margin:0;
     font-family: Arial, "Microsoft JhengHei";
@@ -182,6 +204,8 @@ body {
 #map {
     height:100vh;
 }
+
+
 /* =================================================
    ↓↓↓ 這裡開始貼新增 CSS ↓↓↓
    ================================================= */
@@ -499,26 +523,12 @@ interactive:false
 /* ====================================================================
     ★ 多邊形繪製與二次編輯核心
    ==================================================================== */
-/* ==========================================================
-   Multi Polygon 全域變數
-   ========================================================== */
-
 let isDrawingPolygon = false;
-
-// 所有 Polygon
-let polygons = [];
-
-// 正在繪製中的 Polygon
-let currentDrawing = [];
-
-// 目前被選取的 Polygon
-let selectedPolygonId = null;
-
-// 繪製時的預覽線
+let drawPoints = [];       
 let previewPolyline = null;
+let finalPolygon = null;
+let drawMarkers = L.layerGroup().addTo(map);  
 
-// Polygon ID 自動流水號
-let polygonIdSeed = 1;
 const drawControl = L.control({ position: 'topleft' });
 drawControl.onAdd = function() {
     const div = L.DomUtil.create('div', 'draw-control-bar');
@@ -535,80 +545,30 @@ drawControl.onAdd = function() {
     return div;
 };
 drawControl.addTo(map);
+
 const resPanel = document.getElementById("resultPanel");
 const sidePanel = document.getElementById("panel");
 L.DomEvent.disableClickPropagation(resPanel);
 L.DomEvent.disableClickPropagation(sidePanel);
 
-/* ==========================================================
-   繪製模式切換（Multi Polygon）
-   ========================================================== */
 function toggleDrawMode(btn) {
-
     isDrawingPolygon = !isDrawingPolygon;
-
     if (isDrawingPolygon) {
-
-        // 開始新的 Polygon
-        currentDrawing = [];
-
-        // 若有暫存折線先移除
-        if (previewPolyline) {
-            map.removeLayer(previewPolyline);
-            previewPolyline = null;
-        }
-
-        btn.classList.add("active");
+        btn.classList.add('active');
         btn.innerText = "🛑 停止點選";
-
-        document.getElementById("btn-end-draw").style.display = "block";
-        document.getElementById("btn-clear-draw").style.display = "block";
-
+        document.getElementById('btn-end-draw').style.display = 'block';
+        document.getElementById('btn-clear-draw').style.display = 'block';
+        clearPolygonData();
     } else {
-
-        btn.classList.remove("active");
+        btn.classList.remove('active');
         btn.innerText = "📐 繪製範圍";
-
-        // 若此次沒有任何點，直接取消
-        if (currentDrawing.length === 0) {
-
-            document.getElementById("btn-end-draw").style.display = "none";
-
-            // 若系統中沒有任何 Polygon
-            if (polygons.length === 0) {
-                document.getElementById("btn-clear-draw").style.display = "none";
-            }
-
-            if (previewPolyline) {
-                map.removeLayer(previewPolyline);
-                previewPolyline = null;
-            }
-
-            return;
+        if (drawPoints.length === 0) {
+            document.getElementById('btn-end-draw').style.display = 'none';
+            document.getElementById('btn-clear-draw').style.display = 'none';
         }
-
-        // 若已有點但尚未閉合
-        alert("目前多邊形尚未完成，請按【完成閉合】或重新開始。");
     }
-
 }
-function createPolygonObject(points){
 
-    return {
-
-        id: polygonIdSeed++,
-
-        points: [...points],
-
-        layer: null,
-
-        markerLayer: L.layerGroup(),
-
-        centroid: null
-
-    };
-
-}    
 function clearPolygonData() {
     drawPoints = [];
     if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
