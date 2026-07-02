@@ -1629,7 +1629,14 @@ routeInfo.innerText="路線距離：尚未計算";
    ========================================================= */
     async function analyzeSlope() {
 console.log("STEP 1 進入 analyzeSlope");
-        console.log("STEP 2 採樣點數:", polygon.points.length);
+        const activePolygon = polygons.find(p => p.id === selectedPolygonId);
+
+if (!activePolygon) {
+    alert("請先選擇 Polygon");
+    return;
+}
+
+console.log("STEP 2 採樣點數:", activePolygon.points.length);
         console.log("STEP 3 elevations:", elevations.length);
     const slopeInfo = document.getElementById("slopeInfo");
 
@@ -1691,6 +1698,14 @@ let failedCount = 0;
                 insideCount++;
 
                 const ele = await getElevation(lat, lon);
+
+if (ele !== null) {
+    elevations.push({
+        lat,
+        lon,
+        ele
+    });
+}
 
 console.log(
     "DEM:",
