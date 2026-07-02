@@ -1265,11 +1265,7 @@ async function runQuery() {
 
     try {
 
-        // ======================================================
-        // ⭐ 取得 active polygon
-        // ======================================================
-        const activePolygon =
-            polygons.find(p => p.id === selectedPolygonId);
+        const activePolygon = polygons.find(p => p.id === selectedPolygonId);
 
         if (!activePolygon) {
             alert("請先選擇查詢範圍（Polygon）");
@@ -1281,41 +1277,18 @@ async function runQuery() {
             return;
         }
 
-        // centroid 防呆
-        if (!activePolygon.centroid) {
-            updateCentroidByPoints(activePolygon);
-        }
-
-        if (!activePolygon.centroid) {
-            alert("無法計算中心點");
-            return;
-        }
-
-        // ======================================================
-        // ⭐ turf polygon
-        // ======================================================
         let ring = activePolygon.points
-            .filter(p => Array.isArray(p) && p.length === 2)
             .map(p => [Number(p[1]), Number(p[0])]);
 
-        if (ring.length < 3) {
-            alert("範圍點不足");
-            return;
-        }
+        if (ring.length < 3) return;
 
-        // 閉合
-        if (
-            ring[0][0] !== ring[ring.length - 1][0] ||
-            ring[0][1] !== ring[ring.length - 1][1]
-        ) {
+        if (ring[0][0] !== ring.at(-1)[0] || ring[0][1] !== ring.at(-1)[1]) {
             ring.push(ring[0]);
         }
 
         const turfZonePolygon = turf.polygon([ring]);
 
-        // ======================================================
-        // checkbox
-        // ======================================================
+        // ✅ FIX：這段必須放進來
         const checkedBoxes =
             document.querySelectorAll("input[type=checkbox]:checked");
 
@@ -1324,35 +1297,52 @@ async function runQuery() {
             return;
         }
 
-        // ======================================================
-        // UI reset（只在成功前）
-        // ======================================================
-        markerLayer.clearLayers();
+        let parts = [];
 
-        if (routeLayer) {
-            map.removeLayer(routeLayer);
-            routeLayer = null;
-        }
+        checkedBoxes.forEach(e => {
+            let t = e.value;
 
-        routeInfo.innerText = "路線距離：尚未計算";
-        tbody.innerHTML = "";
-        results = [];
+            if (t === "station") {
+                parts.push(`
+nwr["railway"="station"](around:${radius},${lat},${lon});
+nwr["railway"="halt"](around:${radius},${lat},${lon});
+`);
+            }
 
-        // 👉 Overpass query here
+            else if (t === "bus_stop") {
+                parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
+            }
+
+            else if (t === "motorway_junction") {
+                parts.push(`
+node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+nwr["highway"="ramp"](around:${radius},${lat},${lon});
+`);
+            }
+        });
+
+        const query = `[out:json][timeout:60];(${parts.join("\n")});out center;`;
+
+        const res = await fetch("https://overpass-api.de/api/interpreter", {
+            method: "POST",
+            body: "data=" + encodeURIComponent(query),
+            headers: { "Content-Type": "application/x-www-form-urlencoded" }
+        });
+
+        const data = await res.json();
+
+        if (!data.elements) return;
+
+        // 👉 後面你原本解析邏輯保留
 
     } catch (err) {
-
         console.error(err);
-        alert("查詢發生異常，請稍後再試。");
-
+        alert("查詢失敗");
     } finally {
-
-        // ⭐ 這一行是你現在缺的（關鍵）
         queryBtn.disabled = false;
         queryBtn.innerText = "查詢";
     }
 }
-    checkedBoxes.forEach(e=>{
     let t=e.value;
     if(t==="station"){
     parts.push(`
