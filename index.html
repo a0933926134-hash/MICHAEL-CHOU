@@ -1211,19 +1211,11 @@ nwr["office"="government"](around:${radius},${lat},${lon});
     else if (t === "school") {
   parts.push(`
   (
-  // 1. POI（排除幼兒園）
-  nwr["amenity"~"school|university|college"]
-      (around:R,lat,lon);
+ (
+  nwr["amenity"~"school|university|college"](around:R,lat,lon);
 
-  // 2. 教育機構（保留，但不含幼兒園/補習班）
-  nwr["office"="educational_institution"]
-      (around:R,lat,lon);
+  nwr["office"="educational_institution"](around:R,lat,lon);
 
-  // 補習班（OSM 常見 tagging：補習班/安親班）
-  nwr["amenity"="tuition"]
-      (around:R,lat,lon);
-
-  // 3. 校園面
   way["landuse"="education"](around:R,lat,lon);
   relation["landuse"="education"](around:R,lat,lon);
 );
