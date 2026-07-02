@@ -896,111 +896,148 @@ function exportPolygonSHP() {
     }
 }
 function importPolygonSHP(event) {
+
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    
-    if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
-        reader.onload = function(e) {
+
+    // ===== GeoJSON / JSON =====
+    if (file.name.endsWith(".geojson") || file.name.endsWith(".json")) {
+
+        reader.onload = function (e) {
+
             try {
+
                 const geojson = JSON.parse(e.target.result);
+
                 processImportedGeoJSON(geojson);
+
             } catch (err) {
-                alert("GeoJSON 解析失敗，請確認檔案格式正確。");
-            }
-        };
-        reader.readAsText(file);
-    } else if (file.name.endsWith('.zip')) {
-        reader.onload = function(e) {
-            shp(e.target.result).then(function(geojson) {
-                processImportedGeoJSON(geojson);
-            }).catch(function(err) {
+
                 console.error(err);
-                alert("SHP 解壓縮解碼失敗，請確保該 .zip 內含有同名的 .shp, .shx, .dbf 檔案。");
-            });
+                alert("GeoJSON 解析失敗，請確認檔案格式");
+
+            }
+
         };
+
+        reader.readAsText(file);
+    }
+
+    // ===== SHP ZIP =====
+    else if (file.name.endsWith(".zip")) {
+
+        reader.onload = function (e) {
+
+            shp(e.target.result).then(function (geojson) {
+
+                processImportedGeoJSON(geojson);
+
+            }).catch(function (err) {
+
+                console.error(err);
+
+                alert("SHP 解壓失敗，請確認 zip 內含 shp/shx/dbf");
+
+            });
+
+        };
+
         reader.readAsArrayBuffer(file);
     }
+
 }
 
 function processImportedGeoJSON(geojson) {
-    let feature = null;
-    if (geojson.type === "FeatureCollection" && geojson.features.length > 0) {
-        feature = geojson.features[0];
-    } else if (geojson.type === "Feature") {
-        feature = geojson;
-    } else if (geojson.geometry && geojson.geometry.type === "Polygon") {
-        feature = geojson;
+
+    // ===== 清空現有 polygons =====
+    polygons.forEach(p => {
+        if (p.layer) map.removeLayer(p.layer);
+        if (p.markerLayer) map.removeLayer(p.markerLayer);
+    });
+
+    polygons = [];
+
+    let features = [];
+
+    // ===== normalize =====
+    if (geojson.type === "FeatureCollection") {
+        features = geojson.features;
+    }
+    else if (geojson.type === "Feature") {
+        features = [geojson];
+    }
+    else if (geojson.type === "GeometryCollection") {
+        features = geojson.geometries.map(g => ({
+            type: "Feature",
+            geometry: g,
+            properties: {}
+        }));
     }
 
-    if (!feature || !feature.geometry) {
-    alert("無法辨識 GeoJSON 幾何結構");
-    return;
-}
+    features.forEach((feature, idx) => {
 
-let rings = null;
+        if (!feature.geometry) return;
 
-/* Polygon */
-if (feature.geometry.type === "Polygon") {
-    rings = feature.geometry.coordinates[0];
-}
+        let polygonsArray = [];
 
-/* MultiPolygon */
-else if (feature.geometry.type === "MultiPolygon") {
-    rings = feature.geometry.coordinates[0][0];
-}
+        // ===== Polygon =====
+        if (feature.geometry.type === "Polygon") {
+            polygonsArray = [feature.geometry.coordinates[0]];
+        }
 
-/* GeometryCollection */
-else if (feature.geometry.type === "GeometryCollection") {
+        // ===== MultiPolygon =====
+        else if (feature.geometry.type === "MultiPolygon") {
+            polygonsArray = feature.geometry.coordinates.map(p => p[0]);
+        }
 
-    const poly = feature.geometry.geometries.find(g =>
-        g.type === "Polygon" || g.type === "MultiPolygon"
-    );
+        // ===== each polygon =====
+        polygonsArray.forEach(rings => {
 
-    if (!poly) {
-        alert("GeometryCollection 中找不到 Polygon");
-        return;
+            if (!rings || rings.length < 3) return;
+
+            // 檢查座標
+            const invalid = rings.some(c =>
+                Math.abs(c[0]) > 180 || Math.abs(c[1]) > 90
+            );
+
+            if (invalid) {
+                console.warn("跳過非 WGS84 座標");
+                return;
+            }
+
+            // 轉換成 Leaflet format
+            const points = rings.map(c => [c[1], c[0]]);
+
+            const polygon = createPolygonObject(points);
+
+            polygon.id = polygonIdSeed++;
+
+            polygons.push(polygon);
+
+            renderEditablePolygon(polygon);
+
+            updateCentroidByPoints(polygon);
+
+        });
+
+    });
+
+    // ===== 選取第一個 =====
+    if (polygons.length > 0) {
+
+        selectedPolygonId = polygons[0].id;
+
+        polygons.forEach(p => renderEditablePolygon(p));
+
+        map.panTo(polygons[0].centroid || polygons[0].points[0]);
+
     }
 
-    if (poly.type === "Polygon") {
-        rings = poly.coordinates[0];
-    } else {
-        rings = poly.coordinates[0][0];
-    }
+    alert("🎉 匯入完成，共載入 " + polygons.length + " 個範圍");
+
 }
-
-if (!rings || rings.length < 3) {
-    alert("Polygon 節點不足");
-    return;
-}
-    
-    if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
-        rings.pop();
-    }
-    const invalidCoord = rings.some(coord =>
-    Math.abs(coord[1]) > 90 ||
-    Math.abs(coord[0]) > 180
-);
-
-if (invalidCoord) {
-    alert("此 SHP 可能不是 WGS84(EPSG:4326) 座標系統，請先轉換座標。");
-    return;
-}
-    polygon.points = rings.map(coord => [coord[1], coord[0]]);
-
-    renderEditablePolygon();
-    updateCentroidByPoints(polygon.points);
-    
-    if (polygon.points.length > 0) {
-        map.panTo(polygon.points[0]);
-    }
-
-    document.getElementById('btn-export-shp').style.display = 'block';
-    document.getElementById('btn-clear-draw').style.display = 'block';
-    alert("🎉 成功！已實時解壓縮讀取檔案內容，並 100% 完美還原您繪製的範圍形狀。");
-}
-
 
 /* ==========================================================
    地圖點擊新增頂點
