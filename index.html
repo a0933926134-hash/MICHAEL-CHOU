@@ -797,80 +797,104 @@ function updateCentroidByPoints(polygon) {
     }
 
 }
-function exportPolygonSHP(){
+function exportPolygonSHP() {
 
-    if(polygons.length===0){
+    try {
 
-        alert("目前沒有可匯出的範圍");
+        if (!polygons || polygons.length === 0) {
+            alert("目前沒有可匯出的範圍");
+            return;
+        }
 
-        return;
+        const features = [];
 
-    }
+        polygons.forEach(polygon => {
 
-    const featureLayer=[];
+            let ring = polygon.points.map(pt => [
+                Number(pt[1]),
+                Number(pt[0])
+            ]);
 
-    polygons.forEach(polygon=>{
+            // 閉合
+            ring.push([
+                Number(polygon.points[0][1]),
+                Number(polygon.points[0][0])
+            ]);
 
-        let ring=polygon.points.map(pt=>[
-            Number(pt[1]),
-            Number(pt[0])
-        ]);
-
-        ring.push([
-            Number(polygon.points[0][1]),
-            Number(polygon.points[0][0])
-        ]);
-
-        featureLayer.push({
-
-            geometry:{
-                type:"Polygon",
-                coordinates:[ring]
-            },
-
-            properties:{
-
-                PolygonID:polygon.id,
-
-                Area_Sqm:Math.round(
-                    turf.area(
-                        turf.polygon([ring])
-                    )
+            const area = Math.round(
+                turf.area(
+                    turf.polygon([ring])
                 )
+            );
 
-            }
+            features.push({
+                type: "Feature",
+                geometry: {
+                    type: "Polygon",
+                    coordinates: [ring]
+                },
+                properties: {
+                    PolygonID: polygon.id,
+                    Area_Sqm: area
+                }
+            });
 
         });
 
-    });
-
-    shpwrite.download(featureLayer);
-
-} catch (err) {
-        console.error("SHP Export Error:", err);
-        
-        let ringBackup = polygon.points.map(p => [Number(p[1]), Number(p[0])]);
-        ringBackup.push([Number(polygon.points[0][1]), Number(polygon.points[0][0])]);
-        let geojsonObj = {
+        const geojson = {
             type: "FeatureCollection",
-            features: [{
-                type: "Feature",
-                geometry: { type: "Polygon", coordinates: [ringBackup] },
-                properties: { Name: "Zone_Area", Area_Sqm: Math.round(turf.area(turf.polygon([ringBackup]))) }
-            }]
+            features: features
         };
-        let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojsonObj));
-        let downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", "Estimated_Boundary_Backup.geojson");
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        
-        alert("提示：由於網頁快取防護阻擋，系統已為您自動下載為高相容性的 .geojson 向量格式圖資。");
+
+        shpwrite.download(geojson);
+
+    } catch (err) {
+
+        console.error("SHP Export Error:", err);
+
+        // fallback：改成 GeoJSON 匯出（全部 polygons）
+        const backup = {
+            type: "FeatureCollection",
+            features: polygons.map(polygon => {
+
+                let ring = polygon.points.map(pt => [
+                    Number(pt[1]),
+                    Number(pt[0])
+                ]);
+
+                ring.push([
+                    Number(polygon.points[0][1]),
+                    Number(polygon.points[0][0])
+                ]);
+
+                return {
+                    type: "Feature",
+                    geometry: {
+                        type: "Polygon",
+                        coordinates: [ring]
+                    },
+                    properties: {
+                        PolygonID: polygon.id
+                    }
+                };
+
+            })
+        };
+
+        const dataStr =
+            "data:text/json;charset=utf-8," +
+            encodeURIComponent(JSON.stringify(backup));
+
+        const a = document.createElement("a");
+        a.href = dataStr;
+        a.download = "backup_polygons.geojson";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        alert("SHP 匯出失敗，已改用 GeoJSON 備份下載");
     }
 }
-
 function importPolygonSHP(event) {
     const file = event.target.files[0];
     if (!file) return;
