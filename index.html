@@ -797,34 +797,56 @@ function updateCentroidByPoints(polygon) {
     }
 
 }
-function exportPolygonSHP() {
-    if (!polygon.points || polygon.points.length < 3) {
-        alert("目前沒有完整的繪製範圍可供匯出！");
+function exportPolygonSHP(){
+
+    if(polygons.length===0){
+
+        alert("目前沒有可匯出的範圍");
+
         return;
+
     }
-    try {
-        let ring = polygon.points.map(p => [Number(p[1]), Number(p[0])]);
-        ring.push([Number(polygon.points[0][1]), Number(polygon.points[0][0])]);
-        
-        let tempPoly = turf.polygon([ring]);
-        let areaSqm = Math.round(turf.area(tempPoly));
 
-        let featureLayer = [
-            {
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [ring]
-                },
-                properties: {
-                    Name: "Zone_Area",
-                    Area_Sqm: areaSqm
-                }
+    const featureLayer=[];
+
+    polygons.forEach(polygon=>{
+
+        let ring=polygon.points.map(pt=>[
+            Number(pt[1]),
+            Number(pt[0])
+        ]);
+
+        ring.push([
+            Number(polygon.points[0][1]),
+            Number(polygon.points[0][0])
+        ]);
+
+        featureLayer.push({
+
+            geometry:{
+                type:"Polygon",
+                coordinates:[ring]
+            },
+
+            properties:{
+
+                PolygonID:polygon.id,
+
+                Area_Sqm:Math.round(
+                    turf.area(
+                        turf.polygon([ring])
+                    )
+                )
+
             }
-        ];
 
-        shpwrite.download(featureLayer);
-        
-    } catch (err) {
+        });
+
+    });
+
+    shpwrite.download(featureLayer);
+
+} catch (err) {
         console.error("SHP Export Error:", err);
         
         let ringBackup = polygon.points.map(p => [Number(p[1]), Number(p[0])]);
