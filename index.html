@@ -955,46 +955,37 @@ if (invalidCoord) {
 }
 
 
-/* 地圖點擊事件 */
-map.on('click', e => {
-    const lat = e.latlng.lat;
-    const lon = e.latlng.lng;
+/* ==========================================================
+   地圖點擊新增頂點
+   ========================================================== */
+map.on("click", function(e) {
 
-    if (isDrawingPolygon) {
-        polygon.points.push([lat, lon]);
-        
-        L.circleMarker([lat, lon], {
-            radius: 5,
-            color: '#dc2626',
-            fillColor: '#fff',
-            fillOpacity: 1,
-            weight: 2
-        }).addTo(polygon.markerLayer);
+    if (!isDrawingPolygon) return;
 
-        if (previewPolyline) {
-            previewPolyline.setLatLngs(polygon.points);
-        } else {
-            previewPolyline = L.polyline(polygon.points, { color: '#dc2626', weight: 2, dashArray: '5, 8' }).addTo(map);
-        }
-        return; 
+    const point = [
+        e.latlng.lat,
+        e.latlng.lng
+    ];
+
+    // 加入目前正在繪製的 Polygon
+    currentDrawing.push(point);
+
+    // 更新預覽線
+    if (previewPolyline) {
+        map.removeLayer(previewPolyline);
     }
 
-    latInput.value = lat.toFixed(6);
-    lonInput.value = lon.toFixed(6);
-    origin = [lat, lon];
+    previewPolyline = L.polyline(currentDrawing, {
 
-    if (userMarker) map.removeLayer(userMarker);
-    userMarker = L.marker([lat, lon], {
-        icon: L.divIcon({
-            className: '',
-            html: `<div style="width:18px;height:18px;background:#ef4444;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
-            iconSize:[18,18],
-            iconAnchor:[9,9]
-        }),
-        interactive:false
+        color: "#2563eb",
+
+        weight: 3,
+
+        dashArray: "6,4"
+
     }).addTo(map);
-});
 
+});
 
 /* 取得現在位置 */
 function getCurrentLocation(){
