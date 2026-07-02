@@ -1375,15 +1375,7 @@ nwr["highway"="ramp"](around:${radius},${lat},${lon});
         });
 
         const query = `[out:json][timeout:60];(${parts.join("\n")});out center;`;
-
-        const res = await fetch("https://overpass-api.de/api/interpreter", {
-            method: "POST",
-            body: "data=" + encodeURIComponent(query),
-            headers: { "Content-Type": "application/x-www-form-urlencoded" }
-        });
-
-        const data = await res.json();
-
+       
         if (!data.elements) return;
 
         // 👉 後面你原本解析邏輯保留
@@ -1396,13 +1388,7 @@ nwr["highway"="ramp"](around:${radius},${lat},${lon});
         queryBtn.innerText = "查詢";
     }
 
-    const res=await fetch("https://overpass-api.de/api/interpreter",{
-    method:"POST",
-    body:"data="+encodeURIComponent(query),
-    headers:{"Content-Type":"application/x-www-form-urlencoded"}
-    });
-    const data=await res.json();
-    if(!data.elements) {
+        if(!data.elements) {
         queryBtn.disabled = false;
         queryBtn.innerText = "查詢";
         return;
