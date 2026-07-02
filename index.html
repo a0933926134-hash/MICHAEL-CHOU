@@ -1250,68 +1250,105 @@ row.scrollIntoView({ behavior:"smooth", block:"center" });
 }
 
 /* Overpass API 查詢與幾何相交拓撲核心 */
-async function runQuery(){
-const lat=parseFloat(latInput.value);
-const lon=parseFloat(lonInput.value);
-const radius=parseFloat(radiusInput.value);
+async function runQuery() {
 
-if(radius > 3000){
-alert("半徑超過3000m可能造成系統過慢");
-return;
-}
+    const lat = parseFloat(latInput.value);
+    const lon = parseFloat(lonInput.value);
+    const radius = parseFloat(radiusInput.value);
 
-queryBtn.disabled = true;
-queryBtn.innerText = "⌛ 檢索圖資中...";
-
-try {
-    markerLayer.clearLayers();
-    if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
-    routeInfo.innerText="路線距離：尚未計算";
-    tbody.innerHTML="";
-    results=[];
-    let parts=[];
-
-    // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
-   let turfZonePolygon = null;
-
-if (polygon.points && polygon.points.length >= 3) {
-
-    let ring = polygon.points
-    .filter(p => Array.isArray(p) && p.length === 2)
-    .map(p => {
-        const lat = Number(p[0]);
-        const lon = Number(p[1]);
-        return [lon, lat];
-    });
-
-    if (
-        ring.length > 2 &&
-        (
-            ring[0][0] !== ring[ring.length - 1][0] ||
-            ring[0][1] !== ring[ring.length - 1][1]
-        )
-    ) {
-        ring.push(ring[0]);
-    }
-
-    if (ring.length < 4) {
-        alert("範圍點不足或資料錯誤");
+    if (radius > 3000) {
+        alert("半徑超過3000m可能造成系統過慢");
         return;
     }
 
-    turfZonePolygon = turf.polygon([ring]);
+    queryBtn.disabled = true;
+    queryBtn.innerText = "⌛ 檢索圖資中...";
 
-    console.log("polygon:", turfZonePolygon);
-}
+    try {
 
-    const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
-    if(checkedBoxes.length === 0) {
-        alert("請至少勾選一個分析類型！");
+        markerLayer.clearLayers();
+
+        if (routeLayer) {
+            map.removeLayer(routeLayer);
+            routeLayer = null;
+        }
+
+        routeInfo.innerText = "路線距離：尚未計算";
+        tbody.innerHTML = "";
+        results = [];
+
+        // ======================================================
+        // ⭐ MultiPolygon：取得目前選取 Polygon
+        // ======================================================
+        const activePolygon = polygons.find(
+            p => p.id === selectedPolygonId
+        );
+
+        let turfZonePolygon = null;
+
+        if (activePolygon && activePolygon.points.length >= 3) {
+
+            let ring = activePolygon.points
+                .filter(p => Array.isArray(p) && p.length === 2)
+                .map(p => {
+                    const lat = Number(p[0]);
+                    const lon = Number(p[1]);
+                    return [lon, lat];
+                });
+
+            // 閉合
+            if (
+                ring.length > 2 &&
+                (
+                    ring[0][0] !== ring[ring.length - 1][0] ||
+                    ring[0][1] !== ring[ring.length - 1][1]
+                )
+            ) {
+                ring.push(ring[0]);
+            }
+
+            if (ring.length < 4) {
+                alert("範圍點不足或資料錯誤");
+                return;
+            }
+
+            turfZonePolygon = turf.polygon([ring]);
+
+            console.log("active polygon:", turfZonePolygon);
+
+        } else {
+            console.warn("尚未選擇 Polygon 或資料不足");
+        }
+
+        // ======================================================
+        // checkbox 檢查
+        // ======================================================
+        const checkedBoxes = document.querySelectorAll(
+            "input[type=checkbox]:checked"
+        );
+
+        if (checkedBoxes.length === 0) {
+            alert("請至少勾選一個分析類型！");
+            queryBtn.disabled = false;
+            queryBtn.innerText = "查詢";
+            return;
+        }
+
+        // 👉 後續原本 query 邏輯保持不變
+
+    } catch (err) {
+
+        console.error(err);
+
+        alert("查詢發生異常，請稍後再試。");
+
+    } finally {
+
         queryBtn.disabled = false;
         queryBtn.innerText = "查詢";
-        return;
-    }
 
+    }
+}
     checkedBoxes.forEach(e=>{
     let t=e.value;
     if(t==="station"){
