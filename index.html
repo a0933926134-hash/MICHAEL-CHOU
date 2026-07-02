@@ -1097,12 +1097,23 @@ async function getSafeRouteDistance(to, straightDist, isJunction = false, isInZo
 }
 async function routeEngine(to, straightDist, isJunction, isInZone){
 
-  if(useNewEngine){
-    return getSafeRouteDistance(to, straightDist, isJunction, isInZone);
+  const key = getCacheKey(origin, to);
+
+  if(routeCache.has(key)){
+    return routeCache.get(key);
   }
 
-  return routeEngine(to, straightDist, isJunction, isInZone);
-}    
+  let result;
+
+  if(useNewEngine){
+    result = await getSafeRouteDistance(to, straightDist, isJunction, isInZone);
+  }else{
+    result = await getRouteDistance(to, straightDist, isJunction, isInZone);
+  }
+
+  routeCache.set(key, result);
+  return result;
+}
 async function drawRoute(to, item){
 try{
 if(!origin) return;
