@@ -1262,20 +1262,21 @@ row.scrollIntoView({ behavior:"smooth", block:"center" });
 async function runQuery() {
 
     const lat = parseFloat(latInput.value);
-    const lon = parseFloat(lonInput.value);
-    const radius = parseFloat(radiusInput.value);
-    const activePolygon = polygons.find(p => p.id === selectedPolygonId);
+const lon = parseFloat(lonInput.value);
+const radius = parseFloat(radiusInput.value);
 
-// ✔ 這裡建立 turf 多邊形（給空間判斷用）
+const activePolygon = polygons.find(p => p.id === selectedPolygonId);
+
+// 建立 polygon turf geometry
 let turfZonePolygon = null;
 
 if (activePolygon && activePolygon.points.length >= 3) {
+
     let ring = activePolygon.points.map(p => [p[1], p[0]]);
 
-    // 閉合 polygon
     if (
-        ring[0][0] !== ring[ring.length - 1][0] ||
-        ring[0][1] !== ring[ring.length - 1][1]
+        ring[0][0] !== ring.at(-1)[0] ||
+        ring[0][1] !== ring.at(-1)[1]
     ) {
         ring.push(ring[0]);
     }
