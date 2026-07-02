@@ -1211,10 +1211,22 @@ nwr["office"="government"](around:${radius},${lat},${lon});
     else if (t === "school") {
   parts.push(`
   (
-    nwr["amenity"~"school|university|college|kindergarten"](around:${radius},${lat},${lon});
-    nwr["landuse"="education"](around:${radius},${lat},${lon});
-    nwr["office"="educational_institution"](around:${radius},${lat},${lon});
-  );
+  // 1. POI（排除幼兒園）
+  nwr["amenity"~"school|university|college"]
+      (around:R,lat,lon);
+
+  // 2. 教育機構（保留，但不含幼兒園/補習班）
+  nwr["office"="educational_institution"]
+      (around:R,lat,lon);
+
+  // 補習班（OSM 常見 tagging：補習班/安親班）
+  nwr["amenity"="tuition"]
+      (around:R,lat,lon);
+
+  // 3. 校園面
+  way["landuse"="education"](around:R,lat,lon);
+  relation["landuse"="education"](around:R,lat,lon);
+);
   `);
 }
     else if(t==="gas"){
