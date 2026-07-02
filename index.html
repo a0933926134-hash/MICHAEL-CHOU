@@ -549,7 +549,7 @@ function toggleDrawMode(btn) {
     } else {
         btn.classList.remove('active');
         btn.innerText = "📐 繪製範圍";
-        if (drawPoints.length === 0) {
+        if (polygon.points.length === 0) {
             document.getElementById('btn-end-draw').style.display = 'none';
             document.getElementById('btn-clear-draw').style.display = 'none';
         }
@@ -573,7 +573,7 @@ function createPolygonObject(points){
 
 }
 function clearPolygonData() {
-    drawPoints = [];
+    polygon.points = [];
     if (previewPolyline) { map.removeLayer(previewPolyline); previewPolyline = null; }
     if (finalPolygon) { map.removeLayer(finalPolygon); finalPolygon = null; }
     drawMarkers.clearLayers();
@@ -639,14 +639,14 @@ function renderEditablePolygon(polygon){
     if (finalPolygon) { map.removeLayer(finalPolygon); }
     drawMarkers.clearLayers();
 
-    finalPolygon = L.polygon(drawPoints, {
+    finalPolygon = L.polygon(polygon.points, {
         color: '#dc2626',
         weight: 3,
         fillColor: '#dc2626',
         fillOpacity: 0.25
     }).addTo(map);
 
-    drawPoints.forEach((pt, index) => {
+    polygon.points.forEach((pt, index) => {
         let marker = L.marker(pt, {
             icon: L.divIcon({
                 className: '',
@@ -659,12 +659,12 @@ function renderEditablePolygon(polygon){
         
         marker.on('drag', function(e) {
             let newLatLng = e.target.getLatLng();
-            drawPoints[index] = [newLatLng.lat, newLatLng.lng];
-            finalPolygon.setLatLngs(drawPoints);
+            polygon.points[index] = [newLatLng.lat, newLatLng.lng];
+            finalPolygon.setLatLngs(polygon.points);
         });
         
         marker.on('dragend', function() {
-            updateCentroidByPoints(drawPoints);
+            updateCentroidByPoints(polygon.points);
         });
 
         marker.addTo(drawMarkers);
@@ -709,13 +709,13 @@ function updateCentroidByPoints(pts) {
 }
 
 function exportPolygonSHP() {
-    if (!drawPoints || drawPoints.length < 3) {
+    if (!polygon.points || polygon.points.length < 3) {
         alert("目前沒有完整的繪製範圍可供匯出！");
         return;
     }
     try {
-        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ring.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
+        let ring = polygon.points.map(p => [Number(p[1]), Number(p[0])]);
+        ring.push([Number(polygon.points[0][1]), Number(polygon.points[0][0])]);
         
         let tempPoly = turf.polygon([ring]);
         let areaSqm = Math.round(turf.area(tempPoly));
@@ -738,8 +738,8 @@ function exportPolygonSHP() {
     } catch (err) {
         console.error("SHP Export Error:", err);
         
-        let ringBackup = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
-        ringBackup.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
+        let ringBackup = polygon.points.map(p => [Number(p[1]), Number(p[0])]);
+        ringBackup.push([Number(polygon.points[0][1]), Number(polygon.points[0][0])]);
         let geojsonObj = {
             type: "FeatureCollection",
             features: [{
@@ -852,13 +852,13 @@ if (invalidCoord) {
     alert("此 SHP 可能不是 WGS84(EPSG:4326) 座標系統，請先轉換座標。");
     return;
 }
-    drawPoints = rings.map(coord => [coord[1], coord[0]]);
+    polygon.points = rings.map(coord => [coord[1], coord[0]]);
 
     renderEditablePolygon();
-    updateCentroidByPoints(drawPoints);
+    updateCentroidByPoints(polygon.points);
     
-    if (drawPoints.length > 0) {
-        map.panTo(drawPoints[0]);
+    if (polygon.points.length > 0) {
+        map.panTo(polygon.points[0]);
     }
 
     document.getElementById('btn-export-shp').style.display = 'block';
@@ -873,7 +873,7 @@ map.on('click', e => {
     const lon = e.latlng.lng;
 
     if (isDrawingPolygon) {
-        drawPoints.push([lat, lon]);
+        polygon.points.push([lat, lon]);
         
         L.circleMarker([lat, lon], {
             radius: 5,
@@ -884,9 +884,9 @@ map.on('click', e => {
         }).addTo(drawMarkers);
 
         if (previewPolyline) {
-            previewPolyline.setLatLngs(drawPoints);
+            previewPolyline.setLatLngs(polygon.points);
         } else {
-            previewPolyline = L.polyline(drawPoints, { color: '#dc2626', weight: 2, dashArray: '5, 8' }).addTo(map);
+            previewPolyline = L.polyline(polygon.points, { color: '#dc2626', weight: 2, dashArray: '5, 8' }).addTo(map);
         }
         return; 
     }
@@ -1123,9 +1123,9 @@ try {
     // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
    let turfZonePolygon = null;
 
-if (drawPoints && drawPoints.length >= 3) {
+if (polygon.points && polygon.points.length >= 3) {
 
-    let ring = drawPoints
+    let ring = polygon.points
     .filter(p => Array.isArray(p) && p.length === 2)
     .map(p => {
         const lat = Number(p[0]);
@@ -1448,11 +1448,11 @@ routeInfo.innerText="路線距離：尚未計算";
    ========================================================= */
     async function analyzeSlope() {
 console.log("STEP 1 進入 analyzeSlope");
-        console.log("STEP 2 採樣點數:", drawPoints.length);
+        console.log("STEP 2 採樣點數:", polygon.points.length);
         console.log("STEP 3 elevations:", elevations.length);
     const slopeInfo = document.getElementById("slopeInfo");
 
-    if (!drawPoints || drawPoints.length < 3) {
+    if (!polygon.points || polygon.points.length < 3) {
         alert("請先繪製分析範圍");
         return;
     }
@@ -1466,7 +1466,7 @@ console.log("STEP 1 進入 analyzeSlope");
         // =========================
         // 1. 建立 polygon（安全版）
         // =========================
-        let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
+        let ring = polygon.points.map(p => [Number(p[1]), Number(p[0])]);
 
         if (ring.length < 3) {
             alert("範圍點不足");
