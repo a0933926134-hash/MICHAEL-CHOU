@@ -1584,7 +1584,32 @@ tr.innerHTML=`
 tbody.appendChild(tr);
 });
 }  
+function processSchoolGate(results, turfZonePolygon, lat, lon) {
 
+    const schools = results.filter(r =>
+        r.原始類型 === "school" ||
+        r.原始類型 === "university"
+    );
+
+    for (const sch of schools) {
+
+        let inside = false;
+
+        if (turfZonePolygon) {
+            inside = turf.booleanPointInPolygon(
+                turf.point([sch.座標[1], sch.座標[0]]),
+                turfZonePolygon
+            );
+        }
+
+        sch.在範圍內 = inside;
+        if (inside) {
+            sch.距離 = 0;
+            sch.直線距離顯示 = "0 (範圍內)";
+            sch.路線距離數值 = 0;
+        }
+    }
+}
 /* 清除路網藍線 */
 function clearRoute(){
 if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
