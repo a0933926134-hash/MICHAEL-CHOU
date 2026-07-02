@@ -635,40 +635,95 @@ function finishPolygon() {
 
 }
 
-function renderEditablePolygon(polygon){
-    if (polygon.layer) { map.removeLayer(polygon.layer); }
+/* ==========================================================
+   建立 / 重繪 Polygon（Multi Polygon）
+   ========================================================== */
+function renderEditablePolygon(polygon) {
+
+    // 若已有 Polygon 先移除
+    if (polygon.layer) {
+        map.removeLayer(polygon.layer);
+    }
+
+    // 清除舊控制點
     polygon.markerLayer.clearLayers();
 
+    // 建立 Polygon
     polygon.layer = L.polygon(polygon.points, {
-        color: '#dc2626',
-        weight: 3,
-        fillColor: '#dc2626',
-        fillOpacity: 0.25
+
+        color: polygon.id === selectedPolygonId ? "#2563eb" : "#dc2626",
+
+        weight: polygon.id === selectedPolygonId ? 4 : 3,
+
+        fillColor: polygon.id === selectedPolygonId ? "#2563eb" : "#dc2626",
+
+        fillOpacity: polygon.id === selectedPolygonId ? 0.30 : 0.25
+
     }).addTo(map);
 
+    // Marker Layer 加到地圖
+    polygon.markerLayer.addTo(map);
+
+    // 點選 Polygon
+    polygon.layer.on("click", function () {
+
+        selectedPolygonId = polygon.id;
+
+        // 重畫全部 Polygon（更新選取樣式）
+        polygons.forEach(p => renderEditablePolygon(p));
+
+        // 更新中心點
+        updateCentroidByPoints(polygon);
+
+    });
+
+    // 建立每個頂點控制點
     polygon.points.forEach((pt, index) => {
-        let marker = L.marker(pt, {
+
+        const marker = L.marker(pt, {
+
             icon: L.divIcon({
-                className: '',
+
+                className: "",
+
                 html: '<div class="edit-handle"></div>',
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
+
+                iconSize: [12,12],
+
+                iconAnchor:[6,6]
+
             }),
-            draggable: true
+
+            draggable:true
+
         });
-        
-        marker.on('drag', function(e) {
-            let newLatLng = e.target.getLatLng();
-            polygon.points[index] = [newLatLng.lat, newLatLng.lng];
+
+        marker.on("drag", function(e){
+
+            const latlng = e.target.getLatLng();
+
+            polygon.points[index] = [
+
+                latlng.lat,
+
+                latlng.lng
+
+            ];
+
             polygon.layer.setLatLngs(polygon.points);
+
         });
-        
-        marker.on('dragend', function() {
-            updateCentroidByPoints(polygon.points);
+
+        marker.on("dragend", function(){
+
+            updateCentroidByPoints(polygon);
+
         });
 
         marker.addTo(polygon.markerLayer);
+
     });
+
 }
 
 function updateCentroidByPoints(pts) {
