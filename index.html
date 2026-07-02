@@ -983,7 +983,7 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
-async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
+async function routeEngine(to, straightDist, isJunction = false, isInZone = false){
 
 if(isInZone) {
     return { value: 0, isFallback: false, msg: "" };
@@ -1015,6 +1015,94 @@ console.error(err);
 return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 }
 }
+/* =========================================================
+   🚦 交流道防錯 Routing Engine V1
+   - 防錯匝道
+   - 防逆向錯覺
+   - 雙向校正
+   - 對稱 snap
+   ========================================================= */
+
+async function getSafeRouteDistance(to, straightDist, isJunction = false, isInZone = false) {
+
+  // 1️⃣ 區段內直接歸零（保留你的邏輯）
+  if (isInZone) {
+    return { value: 0, isFallback: false, msg: "" };
+  }
+
+  if (!origin) return null;
+
+  try {
+
+    const base = "https://router.project-osrm.org/route/v1/driving";
+
+    // =====================================================
+    // 2️⃣ 正常 routing（origin → to）
+    // =====================================================
+    const urlA = `${base}/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false&radiuses=100;100`;
+
+    let resultA = await fetch(urlA).then(r => r.json());
+
+    if (!resultA.routes?.length) {
+      throw new Error("Route A failed");
+    }
+
+    let distA = resultA.routes[0].distance;
+
+    // =====================================================
+    // 3️⃣ 交流道模式 → 加雙向校正（關鍵）
+    // =====================================================
+    if (isJunction) {
+
+      const urlB = `${base}/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=100;100`;
+
+      let resultB = await fetch(urlB).then(r => r.json());
+
+      if (resultB.routes?.length) {
+
+        let distB = resultB.routes[0].distance;
+
+        // 👉 取平均（消除匝道方向偏誤）
+        const avg = (distA + distB) / 2;
+
+        return {
+          value: Math.round(avg),
+          isFallback: false,
+          msg: ""
+        };
+      }
+    }
+
+    // =====================================================
+    // 4️⃣ 一般模式
+    // =====================================================
+    return {
+      value: Math.round(distA),
+      isFallback: false,
+      msg: ""
+    };
+
+  } catch (err) {
+    console.error("Routing error:", err);
+
+    // =====================================================
+    // 5️⃣ fallback（避免亂跳）
+    // =====================================================
+    return {
+      value: straightDist,
+      isFallback: true,
+      msg: " (直線備援)"
+    };
+  }
+}
+async function routeEngine(to, straightDist, isJunction, isInZone){
+
+  if(useNewEngine){
+    return getSafeRouteDistance(to, straightDist, isJunction, isInZone);
+  }
+
+  return routeEngine(to, straightDist, isJunction, isInZone);
+}    
 async function drawRoute(to, item){
 try{
 if(!origin) return;
@@ -1370,7 +1458,7 @@ e.tags?.amenity === "post_office" ||
         if (item.在範圍內) continue; // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
         
         let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
-        const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
+        const routeRes = await routeEngine(item.座標, item.距離, isJunc, item.在範圍內);
 
         item.路線距離數值 = routeRes.value;
         item.路線距離 = routeRes.value + " m" + routeRes.msg;
