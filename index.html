@@ -726,43 +726,76 @@ function renderEditablePolygon(polygon) {
 
 }
 
-function updateCentroidByPoints(pts) {
-    if (!pts || pts.length < 3) return;
-    
-    let coordinates = pts.map(p => [p[1], p[0]]);
-    if (coordinates[0][0] !== coordinates[coordinates.length-1][0] || coordinates[0][1] !== coordinates[coordinates.length-1][1]) {
-        coordinates.push([pts[0][1], pts[0][0]]);
+/* ==========================================================
+   更新 Polygon 形心
+   ========================================================== */
+function updateCentroidByPoints(polygon) {
+
+    if (!polygon || polygon.points.length < 3) return;
+
+    // 建立 Turf Polygon
+    let coordinates = polygon.points.map(p => [p[1], p[0]]);
+
+    // 首尾閉合
+    if (
+        coordinates[0][0] !== coordinates[coordinates.length - 1][0] ||
+        coordinates[0][1] !== coordinates[coordinates.length - 1][1]
+    ) {
+        coordinates.push([...coordinates[0]]);
     }
-    
-    let turfPoly = turf.polygon([coordinates]);
-    let centroid = turf.centroid(turfPoly);
-    
+
+    const turfPoly = turf.polygon([coordinates]);
+    const centroid = turf.centroid(turfPoly);
+
     const cLon = centroid.geometry.coordinates[0];
     const cLat = centroid.geometry.coordinates[1];
 
-    latInput.value = cLat.toFixed(6);
-    lonInput.value = cLon.toFixed(6);
-    origin = [cLat, cLon];
+    // 儲存到 Polygon
+    polygon.centroid = [cLat, cLon];
 
-    if (userMarker) map.removeLayer(userMarker);
-    userMarker = L.marker([cLat, cLon], {
-        icon: L.divIcon({
-            className: '',
-            html: `<div style="width:18px; height:18px; background:#ef4444; border:3px solid #ffffff; border-radius:50%; box-shadow:0 0 0 2px rgba(239,68,68,0.35);"></div>`,
-            iconSize: [18, 18],
-            iconAnchor: [9, 9]
-        }),
-        interactive: false
-    }).addTo(map);
+    // 若為目前選取 Polygon，更新查詢中心
+    if (polygon.id === selectedPolygonId) {
 
-    polygon.layer.bindPopup(`
-        <div style="font-size:12px; line-height:1.4;">
-            <b style="color:#dc2626;">📐 範圍與節點更新完成</b><br>
-            已動態重算幾何形心並帶入中心點。<br>您可直接**拖曳邊界上的白色圓點**再次微調範圍，或點擊左側面板「查詢」進行量距。
-        </div>
-    `).openPopup([cLat, cLon]);
+        latInput.value = cLat.toFixed(6);
+        lonInput.value = cLon.toFixed(6);
+
+        origin = [cLat, cLon];
+
+        if (userMarker) {
+            map.removeLayer(userMarker);
+        }
+
+        userMarker = L.marker([cLat, cLon], {
+            icon: L.divIcon({
+                className: "",
+                html: `
+                    <div style="
+                        width:18px;
+                        height:18px;
+                        background:#ef4444;
+                        border:3px solid white;
+                        border-radius:50%;
+                        box-shadow:0 0 0 2px rgba(239,68,68,.35);
+                    "></div>
+                `,
+                iconSize: [18,18],
+                iconAnchor: [9,9]
+            }),
+            interactive: false
+        }).addTo(map);
+
+        polygon.layer.bindPopup(`
+            <div style="font-size:12px;line-height:1.4">
+                <b style="color:#2563eb">
+                    Polygon ${polygon.id}
+                </b><br>
+                已更新形心，可直接查詢距離。
+            </div>
+        `);
+
+    }
+
 }
-
 function exportPolygonSHP() {
     if (!polygon.points || polygon.points.length < 3) {
         alert("目前沒有完整的繪製範圍可供匯出！");
