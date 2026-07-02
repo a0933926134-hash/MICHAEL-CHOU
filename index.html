@@ -981,7 +981,31 @@ const dLon=toRad(lon2-lon1);
 const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
+async function promisePool(tasks, poolSize = 5) {
 
+    let index = 0;
+    const results = [];
+
+    const workers = new Array(poolSize).fill(null).map(async () => {
+
+        while (index < tasks.length) {
+
+            const currentIndex = index++;
+            const task = tasks[currentIndex];
+
+            try {
+                results[currentIndex] = await task();
+            } catch (err) {
+                console.error("Pool task error:", err);
+                results[currentIndex] = null;
+            }
+        }
+    });
+
+    await Promise.all(workers);
+
+    return results;
+}
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
 if(isInZone) {
@@ -1278,27 +1302,40 @@ nwr["highway"="ramp"](around:${radius},${lat},${lon});
         // =========================
         queryBtn.innerText = "🚗 計算路網距離...";
 
-        for (const item of results.slice(0, 80)) {
+       async function updateRouteWithPool(results) {
 
-            if (item.在範圍內) continue;
+    queryBtn.innerText = "🚗 路網加速計算中...";
 
-            const isJunc =
-                item.原始類型 === "motorway_junction" ||
-                item.原始類型 === "ramp";
+    const tasks = results
+        .slice(0, 80)
+        .filter(item => !item.在範圍內)
+        .map(item => {
 
-            const routeRes = await getRouteDistance(
-                item.座標,
-                item.距離,
-                isJunc,
-                item.在範圍內
-            );
+            return async () => {
 
-            item.路線距離 = routeRes.value + " m";
+                const isJunc =
+                    item.原始類型 === "motorway_junction" ||
+                    item.原始類型 === "ramp";
 
-            const cell = document.getElementById(`route-${item.id}`);
-            if (cell) cell.innerText = item.路線距離;
-        }
+                const routeRes = await getRouteDistance(
+                    item.座標,
+                    item.距離,
+                    isJunc,
+                    item.在範圍內
+                );
 
+                item.路線距離數值 = routeRes.value;
+                item.路線距離 = routeRes.value + " m";
+
+                const cell = document.getElementById(`route-${item.id}`);
+                if (cell) cell.innerText = item.路線距離;
+            };
+        });
+
+    await promisePool(tasks, 5); // ⭐ 核心：同時5條
+
+    queryBtn.innerText = "查詢";
+}
     } catch (err) {
         console.error(err);
         alert("查詢失敗：" + err.message);
@@ -1530,18 +1567,7 @@ e.tags?.amenity === "post_office" ||
     queryBtn.innerText = "🚗 計算路網距離中...";
 
     /* 背景非同步更新路網距離 */
-    for (const item of results.slice(0,80)) {
-        if (item.在範圍內) continue; // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
-        
-        let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
-        const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
-
-        item.路線距離數值 = routeRes.value;
-        item.路線距離 = routeRes.value + " m" + routeRes.msg;
-
-        const cell = document.getElementById(`route-${item.id}`);
-        if(cell) cell.innerText = item.路線距離;
-    }
+    await updateRouteWithPool(results);
 
 } catch(err) {
     console.error(err);
