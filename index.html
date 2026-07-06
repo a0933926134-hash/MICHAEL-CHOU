@@ -755,17 +755,14 @@ async function routeEngine(to, straightDist, isJunction = false, isInZone = fals
         let distA = resultA.routes[0].distance;
 
         // 交流道模式 → 雙向校正 (消除匝道單向偏誤)
-        if (isJunction) {
-            const urlB = `${base}/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=100;100`;
-            let resultB = await fetch(urlB).then(r => r.json());
-            if (resultB.routes?.length) {
-                let distB = resultB.routes[0].distance;
-                const avg = Math.round((distA + distB) / 2);
-                const res = { value: avg, isFallback: false, msg: "" };
-                routeCache.set(key, res);
-                return res;
-            }
-        }
+        if(isJunction){
+
+    const entrance =
+        await findEntrance(to);
+
+    to = entrance;
+
+}
 
         const res = { value: Math.round(distA), isFallback: false, msg: "" };
         routeCache.set(key, res);
