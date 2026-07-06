@@ -701,7 +701,27 @@ async function getElevation(lat, lon){
         return null;
     }
 }
+async function findEntrance(junction){
 
+    const key = junction[0].toFixed(6)+","+junction[1].toFixed(6);
+
+    if(entranceCache.has(key))
+        return entranceCache.get(key);
+
+    // 第一階段：
+    // 半徑120公尺搜尋motorway_link
+
+    // 第二階段：
+    // 找距離junction最近且可以開車進入的點
+
+    // 第三階段：
+    // Cache
+
+    entranceCache.set(key, entrance);
+
+    return entrance;
+
+}
 function haversine(lat1, lon1, lat2, lon2){
     const R=6371000;
     const toRad=x=>x*Math.PI/180;
