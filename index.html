@@ -785,9 +785,22 @@ async function drawRoute(to, item){
         }
         let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
         let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
-        if(isJunction) {
-            url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=full&geometries=geojson&radiuses=50;unlimited`;
-        }
+        let target = to;
+
+if(isJunction){
+
+    target = await findEntrance(to);
+
+}
+
+const url =
+`https://router.project-osrm.org/route/v1/driving/
+
+${origin[1]},${origin[0]};
+
+${target[1]},${target[0]}
+
+?overview=full&geometries=geojson`;
         const res=await fetch(url);
         const data=await res.json();
         if(!data.routes?.length){
