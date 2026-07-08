@@ -981,6 +981,64 @@ const dLon=toRad(lon2-lon1);
 const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
+function calculateBearing(lat1,lon1,lat2,lon2){
+
+    const toRad = d=>d*Math.PI/180;
+    const toDeg = r=>r*180/Math.PI;
+
+    const y =
+        Math.sin(toRad(lon2-lon1))
+        *
+        Math.cos(toRad(lat2));
+
+    const x =
+        Math.cos(toRad(lat1))
+        *
+        Math.sin(toRad(lat2))
+        -
+        Math.sin(toRad(lat1))
+        *
+        Math.cos(toRad(lat2))
+        *
+        Math.cos(toRad(lon2-lon1));
+
+    return (toDeg(Math.atan2(y,x))+360)%360;
+
+}
+    function scoreEntrance(tags){
+
+    let score = 0;
+
+    if(tags.highway==="motorway_link")
+        score += 40;
+
+    if(tags.oneway==="yes")
+        score += 20;
+
+    if(tags.destination)
+        score += 10;
+
+    if(tags["destination:ref"])
+        score += 10;
+
+    if(tags.ref)
+        score += 5;
+
+    if(tags.name)
+        score += 5;
+
+    if(tags.access!=="no")
+        score += 5;
+
+    if(tags.bridge==="yes")
+        score += 3;
+
+    if(tags.layer)
+        score += 2;
+
+    return score;
+
+}
 /* =========================================================
    交流道入口 Candidate Builder
    ========================================================= */
