@@ -981,7 +981,157 @@ const dLon=toRad(lon2-lon1);
 const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
+/* =========================================================
+   交流道入口 Candidate Builder
+   ========================================================= */
 
+async function buildEntranceCandidates(junction){
+
+    const SEARCH_RADIUS = 300;   // 公尺
+
+    const lat = junction[0];
+    const lon = junction[1];
+
+    const query = `
+[out:json][timeout:25];
+
+(
+way
+["highway"="motorway_link"]
+(around:${SEARCH_RADIUS},${lat},${lon});
+);
+
+out body;
+>;
+out skel qt;
+`;
+
+    try{
+
+        const res = await fetch(
+            "https://overpass-api.de/api/interpreter",
+            {
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/x-www-form-urlencoded"
+                },
+                body:"data="+encodeURIComponent(query)
+            }
+        );
+
+        const data = await res.json();
+
+        if(!data.elements)
+            return [];
+
+        //----------------------------------------------------
+        // Nodes
+        //----------------------------------------------------
+
+        const nodeMap = new Map();
+
+        data.elements
+        .filter(e=>e.type==="node")
+        .forEach(n=>{
+
+            nodeMap.set(n.id,{
+                lat:n.lat,
+                lon:n.lon
+            });
+
+        });
+
+        //----------------------------------------------------
+        // Ways
+        //----------------------------------------------------
+
+        const candidates = [];
+
+        data.elements
+        .filter(e=>e.type==="way")
+        .forEach(w=>{
+
+            if(!w.nodes || w.nodes.length<2)
+                return;
+
+            //------------------------------------------------
+            // 入口第一個節點
+            //------------------------------------------------
+
+            const firstNode =
+                nodeMap.get(w.nodes[0]);
+
+            if(!firstNode)
+                return;
+
+            //------------------------------------------------
+            // bearing
+            //------------------------------------------------
+
+            const secondNode =
+                nodeMap.get(w.nodes[1]);
+
+            let bearing = null;
+
+            if(secondNode){
+
+                bearing =
+                    calculateBearing(
+                        firstNode.lat,
+                        firstNode.lon,
+                        secondNode.lat,
+                        secondNode.lon
+                    );
+
+            }
+
+            //------------------------------------------------
+            // Score
+            //------------------------------------------------
+
+            const score =
+                scoreEntrance(w.tags || {});
+
+            candidates.push({
+
+                wayId : w.id,
+
+                coordinate : [
+                    firstNode.lat,
+                    firstNode.lon
+                ],
+
+                bearing,
+
+                score,
+
+                tags : w.tags || {}
+
+            });
+
+        });
+
+        //----------------------------------------------------
+        // Score 排序
+        //----------------------------------------------------
+
+        candidates.sort((a,b)=>
+            b.score-a.score
+        );
+
+        return candidates;
+
+    }catch(err){
+
+        console.error(
+            "Candidate Builder Error",
+            err
+        );
+
+        return [];
+    }
+
+}
 /* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
 if(isInZone) {
