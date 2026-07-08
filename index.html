@@ -1005,36 +1005,195 @@ function calculateBearing(lat1,lon1,lat2,lon2){
     return (toDeg(Math.atan2(y,x))+360)%360;
 
 }
-    function scoreEntrance(tags){
+    /* =========================================================
+   交流道入口可信度評分（Entrance Score）
+   ========================================================= */
+
+function scoreEntrance(candidate){
+
+    const tags = candidate.tags || {};
 
     let score = 0;
 
-    if(tags.highway==="motorway_link")
+    /* ----------------------------------
+       1. 必須是 motorway_link
+       ---------------------------------- */
+
+    if(tags.highway === "motorway_link"){
+
         score += 40;
 
-    if(tags.oneway==="yes")
+    }else{
+
+        return 0;
+
+    }
+
+    /* ----------------------------------
+       2. 單行道
+       ---------------------------------- */
+
+    if(tags.oneway === "yes"){
+
         score += 20;
 
-    if(tags.destination)
+    }
+
+    /* ----------------------------------
+       3. destination
+       ---------------------------------- */
+
+    if(tags.destination){
+
         score += 10;
 
-    if(tags["destination:ref"])
-        score += 10;
+    }
 
-    if(tags.ref)
+    if(tags["destination:ref"]){
+
+        score += 8;
+
+    }
+
+    /* ----------------------------------
+       4. ref
+       ---------------------------------- */
+
+    if(tags.ref){
+
         score += 5;
 
-    if(tags.name)
+    }
+
+    /* ----------------------------------
+       5. motorroad
+       ---------------------------------- */
+
+    if(tags.motorroad === "yes"){
+
         score += 5;
 
-    if(tags.access!=="no")
-        score += 5;
+    }
 
-    if(tags.bridge==="yes")
+    /* ----------------------------------
+       6. lane
+       ---------------------------------- */
+
+    if(tags.lanes){
+
         score += 3;
 
-    if(tags.layer)
+    }
+
+    /* ----------------------------------
+       7. bridge
+       ---------------------------------- */
+
+    if(tags.bridge === "yes"){
+
         score += 2;
+
+    }
+
+    /* ----------------------------------
+       8. layer
+       ---------------------------------- */
+
+    if(tags.layer){
+
+        score += 2;
+
+    }
+
+    /* ----------------------------------
+       9. access
+       ---------------------------------- */
+
+    if(tags.access === "private"){
+
+        score -= 50;
+
+    }
+
+    if(tags.access === "no"){
+
+        score -= 100;
+
+    }
+
+    /* ----------------------------------
+       10. service
+       ---------------------------------- */
+
+    if(tags.service){
+
+        score -= 20;
+
+    }
+
+    /* ----------------------------------
+       11. Area
+       ---------------------------------- */
+
+    if(tags.area === "yes"){
+
+        score -= 100;
+
+    }
+
+    /* ----------------------------------
+       12. construction
+       ---------------------------------- */
+
+    if(tags.highway === "construction"){
+
+        score -= 100;
+
+    }
+
+    /* ----------------------------------
+       13. name
+       ---------------------------------- */
+
+    if(tags.name){
+
+        score += 3;
+
+    }
+
+    /* ----------------------------------
+       14. destination 包含國道
+       ---------------------------------- */
+
+    if(tags.destination){
+
+        const d = tags.destination;
+
+        if(
+            d.includes("國道") ||
+            d.includes("Freeway") ||
+            d.includes("高速公路")
+        ){
+
+            score += 15;
+        }
+    }
+
+    /* ----------------------------------
+       15. destination:ref
+       ---------------------------------- */
+
+    if(tags["destination:ref"]){
+
+        score += 5;
+
+    }
+
+    /* ----------------------------------
+       上限100
+       ---------------------------------- */
+
+    score = Math.min(score,100);
 
     return score;
 
