@@ -1276,61 +1276,67 @@ out skel qt;
             //------------------------------------------------
 
             const firstNode =
-                nodeMap.get(w.nodes[0]);
+    nodeMap.get(w.nodes[0]);
 
-            if(!firstNode)
-                return;
+const secondNode =
+    nodeMap.get(w.nodes[1]);
 
-            //------------------------------------------------
-            // bearing
-            //------------------------------------------------
+if(!firstNode) return;
 
-            const secondNode =
-                nodeMap.get(w.nodes[1]);
+const bearing =
+secondNode
+?
+calculateBearing(
+    firstNode.lat,
+    firstNode.lon,
+    secondNode.lat,
+    secondNode.lon
+)
+:
+null;
 
-            let bearing = null;
 
-            if(secondNode){
+/* ==============================
+   Topology
+============================== */
 
-                bearing =
-                    calculateBearing(
-                        firstNode.lat,
-                        firstNode.lon,
-                        secondNode.lat,
-                        secondNode.lon
-                    );
+const topology =
+analyseTopology(
+    w,
+    data.elements
+);
 
-            }
 
-            //------------------------------------------------
-            // Score
-            //------------------------------------------------
+/* ==============================
+   Candidate
+============================== */
 
-            const score =
-    scoreEntrance({
+const candidate={
 
-        tags : w.tags || {}
+    wayId:w.id,
 
-    });
+    coordinate:[
+        firstNode.lat,
+        firstNode.lon
+    ],
 
-            candidates.push({
+    bearing,
 
-                wayId : w.id,
+    topology,
 
-                coordinate : [
-                    firstNode.lat,
-                    firstNode.lon
-                ],
+    tags:w.tags||{}
 
-                bearing,
+};
 
-                score,
 
-                tags : w.tags || {}
+/* ==============================
+   Score
+============================== */
 
-            });
+candidate.score =
+scoreEntrance(candidate);
 
-        });
+candidates.push(candidate);
 
         //----------------------------------------------------
         // Score 排序
