@@ -981,6 +981,87 @@ const dLon=toRad(lon2-lon1);
 const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
+    /* =========================================================
+   分析 motorway_link 拓樸
+   ========================================================= */
+
+function analyseTopology(way,elements){
+
+    const topology={
+
+        fromRoad:null,
+
+        toRoad:null,
+
+        connectedMotorway:false,
+
+        connectedPrimary:false,
+
+        connectedTrunk:false
+
+    };
+
+    if(!way.nodes)
+        return topology;
+
+    const firstNode=way.nodes[0];
+
+    const lastNode=
+        way.nodes[
+            way.nodes.length-1
+        ];
+
+    elements
+    .filter(e=>e.type==="way")
+    .forEach(other=>{
+
+        if(other.id===way.id)
+            return;
+
+        if(!other.nodes)
+            return;
+
+        const shareFirst=
+            other.nodes.includes(firstNode);
+
+        const shareLast=
+            other.nodes.includes(lastNode);
+
+        if(!(shareFirst||shareLast))
+            return;
+
+        const hw=
+            other.tags?.highway;
+
+        if(hw==="motorway"){
+
+            topology.connectedMotorway=true;
+
+            topology.toRoad="motorway";
+
+        }
+
+        if(hw==="primary"){
+
+            topology.connectedPrimary=true;
+
+            topology.fromRoad="primary";
+
+        }
+
+        if(hw==="trunk"){
+
+            topology.connectedTrunk=true;
+
+            topology.fromRoad="trunk";
+
+        }
+
+    });
+
+    return topology;
+
+}
 function calculateBearing(lat1,lon1,lat2,lon2){
 
     const toRad = d=>d*Math.PI/180;
@@ -1114,6 +1195,27 @@ function scoreEntrance(candidate){
         score -= 50;
 
     }
+    /* ==============================
+   Topology
+============================== */
+
+if(candidate.topology.connectedMotorway){
+
+    score+=20;
+
+}
+
+if(candidate.topology.connectedPrimary){
+
+    score+=15;
+
+}
+
+if(candidate.topology.connectedTrunk){
+
+    score+=15;
+
+}
 
     if(tags.access === "no"){
 
