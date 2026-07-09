@@ -1281,7 +1281,7 @@ out skel qt;
     }
 
 }
-/* OSRM 路由服務 (已調整為平面道路優先) */
+/* OSRM 路由服務 (修正版：強制平面道路優先，避免繞行) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
     if(isInZone) {
         return { value: 0, isFallback: false, msg: "" };
@@ -1289,8 +1289,7 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
     try{
         if(!origin) return null;
         
-        // 【修正重點】加入 exclude=motorway 參數，強迫 OSRM 優先尋找平面道路
-        // 將 to 作為終點，確保計算的是前往入口的路徑
+        // 【關鍵修改】一律正向計算 (origin -> to)，並加入 exclude=motorway 排除高速公路
         let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false&exclude=motorway`;
         
         const res = await fetch(url);
@@ -1299,6 +1298,7 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
         if(data.routes && data.routes.length > 0) {
             return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
         }
+        // 若無法計算則回傳直線備援
         return { value: straightDist, isFallback: true, msg: " (直線備援)" };
     } catch(err) {
         console.error("OSRM 路由異常:", err);
@@ -1316,13 +1316,14 @@ async function drawRoute(to, item){
             return;
         }
 
-        // 【修正重點】同樣加入 exclude=motorway 確保繪製的路徑為平面道路
+        // 【關鍵修改】統一正向路由，並加入 exclude=motorway 確保走平面道路
         let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson&exclude=motorway`;
         
         const res = await fetch(url);
         const data = await res.json();
         
         if(!data.routes?.length){
+            // 如果無法規劃路線，則顯示直線示意
             routeInfo.innerText = "路線距離：" + item.距離 + " m (採直線路徑示意)";
             if(routeLayer) map.removeLayer(routeLayer);
             routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
@@ -1336,8 +1337,10 @@ async function drawRoute(to, item){
         if(routeLayer) map.removeLayer(routeLayer);
         
         // 繪製路徑
-        const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
-        routeLayer = L.polyline(coords, {color: "blue", weight: 5, opacity: 0.7}).addTo(map);
+        routeLayer = L.geoJSON(route.geometry, {
+            style: { color: "blue", weight: 5, opacity: 0.7 }
+        }).addTo(map);
+        
         map.fitBounds(routeLayer.getBounds());
         
     } catch(err) {
