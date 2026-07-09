@@ -1281,13 +1281,30 @@ out skel qt;
     }
 
 }
-/* OSRM 路由服務 (修正：一律採正向行駛計算，避免平面道路階段產生逆向行駛問題) */
+/* OSRM 路由服務 (修正：一律改為正向計算，確保抵達入口) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
-if(isInZone) {
-    return { value: 0, isFallback: false, msg: "" };
+    if(isInZone) {
+        return { value: 0, isFallback: false, msg: "" };
+    }
+    try{
+        if(!origin) return null;
+        
+        // 修正：無論是否為交流道，一律使用正向路由 (origin -> to)
+        // 移除 isJunction 的反向邏輯 (to -> origin)
+        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+        
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if(data.routes && data.routes.length > 0) {
+            return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
+        }
+        return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+    }catch(err){
+        console.error("OSRM 路由異常:", err);
+        return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+    }
 }
-try{
-if(!origin) return null;
 
 // 修正：一律由 origin 正向計算至 to，避免在平面道路階段產生逆向行駛問題
 let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
@@ -1307,40 +1324,42 @@ return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 }  
 
 async function drawRoute(to, item){
-try{
-if(!origin) return;
-if(item.在範圍內) {
-    routeInfo.innerText = "路線距離：0 m (此設施位於您編輯的範圍區段內部)";
-    if(routeLayer) map.removeLayer(routeLayer);
-    return;
-}
+    try{
+        if(!origin) return;
+        
+        if(item.在範圍內) {
+            routeInfo.innerText = "路線距離：0 m (此設施位於您編輯的範圍區段內部)";
+            if(routeLayer) map.removeLayer(routeLayer);
+            return;
+        }
 
-let isJunction = item.原始類型 === "motorway_junction" ||
-item.原始類型 === "ramp" || item.原始類型 === "motorway_link";
-
-// 修正：一律由 origin 正向行駛至交流道平面匝道入口，避免平面道路逆向行駛與計算
-let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
-
-const res=await fetch(url);
-const data=await res.json();
-if(!data.routes?.length){
-    routeInfo.innerText = "路線距離：" + item.距離 + " m (採直線路徑示意)";
-    if(routeLayer) map.removeLayer(routeLayer);
-    routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
-    return;
-}
-
-const route=data.routes[0];
-let routeDist = Math.round(route.distance);
-routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (至交流道平面匝道入口)" : "");
-
-if(routeLayer) map.removeLayer(routeLayer);
-routeLayer=L.geoJSON(route.geometry,{ style:{color: isJunction ? "#059669" : "blue", weight:5} }).addTo(map);
-}catch(err){
-routeInfo.innerText="路線服務異常，改繪直線";
-if(routeLayer) map.removeLayer(routeLayer);
-routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
-}
+        // 修正：統一使用正向路由
+        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+        
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if(!data.routes?.length){
+            routeInfo.innerText = "路線距離：" + item.距離 + " m (採直線路徑示意)";
+            if(routeLayer) map.removeLayer(routeLayer);
+            routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
+            return;
+        }
+        
+        const route = data.routes[0];
+        let routeDist = Math.round(route.distance);
+        
+        routeInfo.innerText = "路線距離：" + routeDist + " m";
+        if(routeLayer) map.removeLayer(routeLayer);
+        
+        // 繪製路徑
+        const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+        routeLayer = L.polyline(coords, {color: "blue", weight: 5, opacity: 0.7}).addTo(map);
+        map.fitBounds(routeLayer.getBounds());
+        
+    }catch(err){
+        console.error("繪製路線失敗:", err);
+    }
 }
 
 /* 表格選取連動 */
