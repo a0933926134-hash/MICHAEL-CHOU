@@ -1096,7 +1096,7 @@ function scoreEntrance(candidate){
     }
 
     /* ----------------------------------
-       14. destination 包含國道或入口/出口判定 (修正：嚴格排除出口，強化入口)
+       14. destination 包含國道或入口/出口判定 (嚴格排除出口，強化各向入口)
        ---------------------------------- */
 
     if(tags.destination || tags.name){
@@ -1107,7 +1107,11 @@ function scoreEntrance(candidate){
             text.includes("高速公路") ||
             text.includes("入口") ||
             text.includes("Entrance") ||
-            text.includes("on-ramp")
+            text.includes("on-ramp") ||
+            text.includes("北") ||
+            text.includes("南") ||
+            text.includes("東") ||
+            text.includes("西")
         ){
             score += 30;
         }
@@ -1138,12 +1142,12 @@ function scoreEntrance(candidate){
 
 }
 /* =========================================================
-   交流道入口 Candidate Builder - 修正：擴大搜尋半徑以涵蓋大型匝道口
+   交流道入口 Candidate Builder - 擴大半徑以涵蓋大型雙向交流道
    ========================================================= */
 
 async function buildEntranceCandidates(junction){
 
-    const SEARCH_RADIUS = 1000; // 公尺 (從300改為1000公尺，確保涵蓋型態較大的交流道匝道入口)
+    const SEARCH_RADIUS = 1000; // 公尺
 
     const lat = junction[0];
     const lon = junction[1];
@@ -1312,7 +1316,7 @@ if(item.在範圍內) {
 }
 
 let isJunction = item.原始類型 === "motorway_junction" ||
-item.原始類型 === "ramp";
+item.原始類型 === "ramp" || item.原始類型 === "motorway_link";
 
 // 修正：一律由 origin 正向行駛至交流道平面匝道入口，避免平面道路逆向行駛與計算
 let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
@@ -1432,7 +1436,6 @@ if (drawPoints && drawPoints.length >= 3) {
     parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
     }
     else if(t==="motorway_junction"){
-    // 修正：只抓取乾淨的交流道節點，不抓無區分的 ramp，後續會透過候補機制自動定位平面匝道入口
 parts.push(`
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
 `);
@@ -1623,37 +1626,86 @@ e.tags?.amenity === "post_office" ||
         });
     });
 
-    // ★★★ 修正核心：針對交流道，自動搜尋最佳「平面交流道入口」座標，確保只找入口且無逆向 ★★★
-    for (let item of results) {
-        if (item.原始類型 === "motorway_junction" || item.原始類型 === "ramp") {
+    // ★★★ 修正核心：自動搜尋「雙向/多向」平面交流道入口，空間去重保留獨立雙向匝道，且無逆向 ★★★
+    let hasJunction = results.some(r => r.原始類型 === "motorway_junction" || r.原始類型 === "ramp");
+    if (hasJunction) {
+        let nonJunctionResults = results.filter(r => r.原始類型 !== "motorway_junction" && r.原始類型 !== "ramp");
+        let junctionItems = results.filter(r => r.原始類型 === "motorway_junction" || r.原始類型 === "ramp");
+        let finalJunctionResults = [];
+        let processedCoords = []; // 用於空間去重，避免同一向匝道的連續微小線段重複列出
+
+        for (let item of junctionItems) {
             try {
                 const candidates = await buildEntranceCandidates(item.座標);
                 if (candidates && candidates.length > 0) {
-                    // 取得評分最高的真正交流道入口（平面道路轉入高速公路匝道的起點）
-                    const bestEntrance = candidates[0];
-                    item.座標 = bestEntrance.coordinate;
-                    if (!item.名稱.includes("入口")) {
-                        item.名稱 = (item.名稱 ? item.名稱 + " " : "") + "(平面匝道入口)";
+                    // 篩選出合格的入口匝道（排除出口匝道與低分隨機道路，門檻 score >= 30）
+                    let validEntrances = candidates.filter(c => c.score >= 30);
+                    if (validEntrances.length === 0) validEntrances = [candidates[0]];
+
+                    for (let ent of validEntrances) {
+                        // 150公尺空間去重：小於150公尺視為同一單向匝道延伸段；大於150公尺則判定為對向或另一獨立匝道，保留雙向！
+                        let isDuplicate = processedCoords.some(coord => {
+                            return haversine(ent.coordinate[0], ent.coordinate[1], coord[0], coord[1]) < 150;
+                        });
+
+                        if (!isDuplicate) {
+                            processedCoords.push(ent.coordinate);
+                            
+                            // 自動解析方向標示 (北向/南向/東向/西向)
+                            let dirLabel = "";
+                            const tagsText = (ent.tags.destination || "") + " " + (ent.tags["destination:ref"] || "") + " " + (ent.tags.name || "") + " " + (item.名稱 || "");
+                            if (/北|North/i.test(tagsText)) dirLabel += " [北向/北上]";
+                            else if (/南|South/i.test(tagsText)) dirLabel += " [南向/南下]";
+                            else if (/東|East/i.test(tagsText)) dirLabel += " [東向]";
+                            else if (/西|West/i.test(tagsText)) dirLabel += " [西向]";
+                            else if (ent.bearing !== null && ent.bearing !== undefined) {
+                                // 若標籤無文字，依據匝道起始方位角粗略判斷行車走向
+                                if (ent.bearing >= 315 || ent.bearing < 45) dirLabel += " [往北方向]";
+                                else if (ent.bearing >= 45 && ent.bearing < 135) dirLabel += " [往東方向]";
+                                else if (ent.bearing >= 135 && ent.bearing < 225) dirLabel += " [往南方向]";
+                                else dirLabel += " [往西方向]";
+                            }
+
+                            let baseName = item.名稱 || ent.tags.name || "交流道";
+                            // 移除原有重複括號標記後重新組裝
+                            let displayName = baseName.replace(/\s*\(.*?\)\s*/g, "").replace(/\s*\[.*?\]\s*/g, "") + dirLabel + " (平面匝道入口)";
+
+                            // 計算地理空間相交與距離
+                            let inside = false;
+                            if (turfZonePolygon) {
+                                let pt = turf.point([ent.coordinate[1], ent.coordinate[0]]);
+                                inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
+                            }
+                            let dist = inside ? 0 : Math.round(haversine(lat, lon, ent.coordinate[0], ent.coordinate[1]));
+
+                            finalJunctionResults.push({
+                                id: 0,
+                                名稱: displayName,
+                                類型: "交流道入口(雙向/多向平面端)",
+                                原始類型: "motorway_link",
+                                座標: ent.coordinate,
+                                在範圍內: inside,
+                                距離: dist,
+                                直線距離顯示: inside ? "0 (位於區段範圍內)" : dist,
+                                路線距離: inside ? "0 (位於區段範圍內)" : "計算中...",
+                                路線距離數值: inside ? 0 : null
+                            });
+                        }
                     }
-                    item.類型 = "交流道入口(平面匝道端)";
-                    
-                    // 重新計算至該真正入口之直線距離與相交狀態
-                    let inside = false;
-                    if (turfZonePolygon) {
-                        let pt = turf.point([item.座標[1], item.座標[0]]);
-                        inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
-                    }
-                    item.在範圍內 = inside;
-                    item.距離 = inside ? 0 : Math.round(haversine(lat, lon, item.座標[0], item.座標[1]));
-                    item.直線距離顯示 = inside ? "0 (位於區段範圍內)" : item.距離;
                 }
             } catch (err) {
                 console.error("搜尋交流道平面入口失敗:", err);
             }
         }
+
+        // 若成功抓取並轉換出雙向平面匝道入口，則取代原本的主線點；否則保留原主線點作為備援
+        if (finalJunctionResults.length > 0) {
+            results = nonJunctionResults.concat(finalJunctionResults);
+        }
     }
 
-    // 排序：0公尺（在範圍內）的設施會自動排在表格最上方
+    // 重新賦予排序與流水編號
+    results.forEach((r, idx) => r.id = idx);
     results.sort((a,b)=>a.距離-b.距離);
     renderTable();
     results.forEach(item => {
@@ -1671,7 +1723,7 @@ e.tags?.amenity === "post_office" ||
         // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
         
         let isJunc = item.原始類型 === "motorway_junction" ||
-item.原始類型 === "ramp";
+item.原始類型 === "ramp" || item.原始類型 === "motorway_link";
         const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
 
         item.路線距離數值 = routeRes.value;
