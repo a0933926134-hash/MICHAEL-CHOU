@@ -1281,7 +1281,7 @@ out skel qt;
     }
 
 }
-/* OSRM 路由服務 (已移除反向邏輯，統一改為正向計算) */
+/* OSRM 路由服務 (已調整為平面道路優先) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
     if(isInZone) {
         return { value: 0, isFallback: false, msg: "" };
@@ -1289,8 +1289,9 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
     try{
         if(!origin) return null;
         
-        // 【修正】無論是否為交流道，一律使用正向路由 (origin -> to)
-        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+        // 【修正重點】加入 exclude=motorway 參數，強迫 OSRM 優先尋找平面道路
+        // 將 to 作為終點，確保計算的是前往入口的路徑
+        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false&exclude=motorway`;
         
         const res = await fetch(url);
         const data = await res.json();
@@ -1299,7 +1300,7 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
             return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
         }
         return { value: straightDist, isFallback: true, msg: " (直線備援)" };
-    }catch(err){
+    } catch(err) {
         console.error("OSRM 路由異常:", err);
         return { value: straightDist, isFallback: true, msg: " (直線備援)" };
     }
@@ -1315,8 +1316,8 @@ async function drawRoute(to, item){
             return;
         }
 
-        // 【修正】統一使用正向路由計算，確保路線正確抵達入口
-        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+        // 【修正重點】同樣加入 exclude=motorway 確保繪製的路徑為平面道路
+        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson&exclude=motorway`;
         
         const res = await fetch(url);
         const data = await res.json();
@@ -1339,7 +1340,7 @@ async function drawRoute(to, item){
         routeLayer = L.polyline(coords, {color: "blue", weight: 5, opacity: 0.7}).addTo(map);
         map.fitBounds(routeLayer.getBounds());
         
-    }catch(err){
+    } catch(err) {
         console.error("繪製路線失敗:", err);
     }
 }
