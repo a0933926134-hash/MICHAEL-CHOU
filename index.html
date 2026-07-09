@@ -1281,7 +1281,7 @@ out skel qt;
     }
 
 }
-/* OSRM 路由服務 (修正版：強制平面道路優先，避免繞行) */
+/* OSRM 路由服務 (修正版：採用精確停靠模式) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
     if(isInZone) {
         return { value: 0, isFallback: false, msg: "" };
@@ -1289,8 +1289,8 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
     try{
         if(!origin) return null;
         
-        // 【關鍵修改】一律正向計算 (origin -> to)，並加入 exclude=motorway 排除高速公路
-        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false&exclude=motorway`;
+        // 關鍵參數：approaches=curb 強制要求導航引擎將點位視為路邊停車點，防止引擎為求快而繞路
+        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false&approaches=curb;curb`;
         
         const res = await fetch(url);
         const data = await res.json();
@@ -1298,7 +1298,6 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
         if(data.routes && data.routes.length > 0) {
             return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
         }
-        // 若無法計算則回傳直線備援
         return { value: straightDist, isFallback: true, msg: " (直線備援)" };
     } catch(err) {
         console.error("OSRM 路由異常:", err);
@@ -1316,14 +1315,13 @@ async function drawRoute(to, item){
             return;
         }
 
-        // 【關鍵修改】統一正向路由，並加入 exclude=motorway 確保走平面道路
-        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson&exclude=motorway`;
+        // 同樣加入 approaches=curb 確保繪製的路徑精確抵達交流道入口，而非繞行
+        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson&approaches=curb;curb`;
         
         const res = await fetch(url);
         const data = await res.json();
         
         if(!data.routes?.length){
-            // 如果無法規劃路線，則顯示直線示意
             routeInfo.innerText = "路線距離：" + item.距離 + " m (採直線路徑示意)";
             if(routeLayer) map.removeLayer(routeLayer);
             routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
@@ -1337,10 +1335,8 @@ async function drawRoute(to, item){
         if(routeLayer) map.removeLayer(routeLayer);
         
         // 繪製路徑
-        routeLayer = L.geoJSON(route.geometry, {
-            style: { color: "blue", weight: 5, opacity: 0.7 }
-        }).addTo(map);
-        
+        const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+        routeLayer = L.polyline(coords, {color: "blue", weight: 5, opacity: 0.7}).addTo(map);
         map.fitBounds(routeLayer.getBounds());
         
     } catch(err) {
