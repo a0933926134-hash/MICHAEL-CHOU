@@ -971,97 +971,316 @@ function calculateBearing(lat1,lon1,lat2,lon2){
     return (toDeg(Math.atan2(y,x))+360)%360;
 
 }
+ /* =========================================================
+   交流道入口拓撲判斷核心
+   ========================================================= */
+
+
+/*
+    判斷是否為一般道路節點
+
+    入口:
+    平面道路 → motorway_link
+
+    出口:
+    motorway_link → 平面道路
+
+    我們需要找：
+    平面道路端
+*/
+
+function isRoadNode(nodeTags){
+
+    if(!nodeTags) return false;
+
+    const highway = nodeTags.highway;
+
+    if(!highway)
+        return false;
+
+
+    const normalRoads = [
+
+        "motorway",
+        "motorway_link",
+
+        "trunk",
+        "trunk_link",
+
+        "primary",
+        "primary_link",
+
+        "secondary",
+        "secondary_link",
+
+        "tertiary",
+        "tertiary_link",
+
+        "residential",
+        "service",
+        "unclassified"
+
+    ];
+
+
+    return normalRoads.includes(highway);
+
+}
+
+
+/*
+    判斷此節點是否為交流道入口端
+
+    條件：
+
+    1. 必須連接 motorway_link
+    2. 同時連接一般道路
+    3. 排除出口特徵
+
+*/
+
+function isEntranceNode(nodeId, nodeWays, wayMap){
+
+
+    const connectedWays = nodeWays[nodeId];
+
+    if(!connectedWays)
+        return false;
+
+
+    let hasMotorwayLink=false;
+
+    let hasNormalRoad=false;
+
+
+    for(const wayId of connectedWays){
+
+        const way = wayMap[wayId];
+
+        if(!way || !way.tags)
+            continue;
+
+
+        const highway =
+            way.tags.highway;
+
+
+
+        if(highway==="motorway_link"){
+
+            hasMotorwayLink=true;
+
+        }
+
+
+        else if(
+            highway &&
+            highway!=="motorway_link"
+        ){
+
+            hasNormalRoad=true;
+
+        }
+
+    }
+
+
+    /*
+       必須同時符合：
+
+       motorway_link
+       +
+       平面道路
+
+    */
+
+    if(
+        hasMotorwayLink &&
+        hasNormalRoad
+    ){
+
+        return true;
+
+    }
+
+
+    return false;
+
+}   
 /* =========================================================
    交流道入口可信度評分（Entrance Score）- 修正為專找入口
    ========================================================= */
 
+/* =========================================================
+   交流道入口可信度評分 V2
+   目的:
+   找入口，不找出口
+   ========================================================= */
+
+
 function scoreEntrance(candidate){
+
 
     const tags = candidate.tags || {};
 
     let score = 0;
 
-    /* ----------------------------------
-       1. 必須是 motorway_link
-       ---------------------------------- */
 
-    if(tags.highway === "motorway_link"){
-        score += 40;
-    }else{
+
+    /*
+        基本條件
+
+        必須 motorway_link
+    */
+
+    if(tags.highway !== "motorway_link"){
+
         return 0;
+
     }
 
-    /* ----------------------------------
-       2. 單行道
-       ---------------------------------- */
 
-    if(tags.oneway === "yes"){
-        score += 20;
+    score += 40;
+
+
+
+    /*
+        已確認連接平面道路
+
+        最高權重
+    */
+
+    if(candidate.connectNormalRoad){
+
+        score += 35;
+
     }
 
-    /* ----------------------------------
-       3. destination
-       ---------------------------------- */
+
+
+    /*
+        單向匝道
+
+    */
+
+    if(tags.oneway==="yes"){
+
+        score += 10;
+
+    }
+
+
+
+    /*
+        有目的地資訊
+
+    */
 
     if(tags.destination){
-        score += 10;
+
+        score += 5;
+
     }
+
 
     if(tags["destination:ref"]){
-        score += 8;
+
+        score += 5;
+
     }
 
-    /* ----------------------------------
-       4. ref
-       ---------------------------------- */
+
+
+    /*
+        高速公路編號
+
+    */
 
     if(tags.ref){
-        score += 5;
-    }
 
-    /* ----------------------------------
-       5. motorroad
-       ---------------------------------- */
-
-    if(tags.motorroad === "yes"){
-        score += 5;
-    }
-
-    /* ----------------------------------
-       6. lane
-       ---------------------------------- */
-
-    if(tags.lanes){
         score += 3;
+
     }
 
-    /* ----------------------------------
-       7. bridge
-       ---------------------------------- */
 
-    if(tags.bridge === "yes"){
-        score += 2;
+
+    /*
+        排除出口
+    */
+
+
+    const text =
+        (
+            (tags.name || "")+
+            " "+
+            (tags.destination || "")+
+            " "+
+            (tags.exit_to || "")
+        )
+        .toLowerCase();
+
+
+
+    const exitWords=[
+
+        "exit",
+        "off-ramp",
+        "出口",
+        "下交流道"
+
+    ];
+
+
+
+    for(const w of exitWords){
+
+        if(text.includes(w.toLowerCase())){
+
+            return 0;
+
+        }
+
     }
 
-    /* ----------------------------------
-       8. layer
-       ---------------------------------- */
 
-    if(tags.layer){
-        score += 2;
+
+    /*
+        service 匝道通常不是入口
+    */
+
+    if(tags.service){
+
+        score -=20;
+
     }
 
-    /* ----------------------------------
-       9. access
-       ---------------------------------- */
 
-    if(tags.access === "private"){
-        score -= 50;
+
+    /*
+        access限制
+    */
+
+    if(tags.access==="private"){
+
+        score-=50;
+
     }
 
-    if(tags.access === "no"){
-        score -= 100;
+
+    if(tags.access==="no"){
+
+        score=0;
+
     }
+
+
+
+    return Math.max(
+        0,
+        Math.min(score,100)
+    );
+
+}
 
     /* ----------------------------------
        10. service
@@ -1143,138 +1362,305 @@ function scoreEntrance(candidate){
 
 async function buildEntranceCandidates(junction){
 
-    const SEARCH_RADIUS = 1000; // 公尺 (從300改為1000公尺，確保涵蓋型態較大的交流道匝道入口)
+
+    const SEARCH_RADIUS = 1500;
+
 
     const lat = junction[0];
     const lon = junction[1];
 
+
+
     const query = `
-[out:json][timeout:25];
+
+[out:json][timeout:40];
+
 
 (
+
 way
 ["highway"="motorway_link"]
 (around:${SEARCH_RADIUS},${lat},${lon});
+
+
 );
 
+
 out body;
+
 >;
+
 out skel qt;
+
 `;
 
-    try{
 
-        const res = await fetch(
-            "https://overpass-api.de/api/interpreter",
-            {
-                method:"POST",
-                headers:{
-                    "Content-Type":"application/x-www-form-urlencoded"
-                },
-                body:"data="+encodeURIComponent(query)
-            }
-        );
-        const data = await res.json();
 
-        if(!data.elements)
-            return [];
-        //----------------------------------------------------
-        // Nodes
-        //----------------------------------------------------
+try{
 
-        const nodeMap = new Map();
-        data.elements
-        .filter(e=>e.type==="node")
-        .forEach(n=>{
 
-            nodeMap.set(n.id,{
-                lat:n.lat,
-                lon:n.lon
-            });
+const res = await fetch(
 
-        });
-        //----------------------------------------------------
-        // Ways
-        //----------------------------------------------------
+"https://overpass-api.de/api/interpreter",
 
-        const candidates = [];
-        data.elements
-        .filter(e=>e.type==="way")
-        .forEach(w=>{
+{
 
-            if(!w.nodes || w.nodes.length<2)
-                return;
+method:"POST",
 
-            //------------------------------------------------
-            // 入口第一個節點 (在單向道拓撲中，Way 的第 0 點即為平面道路往匝道入口之轉向點)
-            //------------------------------------------------
+headers:{
 
-            const firstNode = nodeMap.get(w.nodes[0]);
+"Content-Type":
+"application/x-www-form-urlencoded"
 
-            if(!firstNode)
-                return;
+},
 
-            //------------------------------------------------
-            // bearing
-            //------------------------------------------------
+body:
+"data="+encodeURIComponent(query)
 
-            const secondNode = nodeMap.get(w.nodes[1]);
+}
 
-            let bearing = null;
+);
 
-            if(secondNode){
 
-                bearing =
-                    calculateBearing(
-                        firstNode.lat,
-                        firstNode.lon,
-                        secondNode.lat,
-                        secondNode.lon
-                    );
 
-            }
+const data =
+await res.json();
 
-            //------------------------------------------------
-            // Score
-            //------------------------------------------------
 
-            const score = scoreEntrance({ tags: w.tags || {} });
 
-            candidates.push({
+if(!data.elements)
+return [];
 
-                wayId : w.id,
 
-                coordinate : [
-                    firstNode.lat,
-                    firstNode.lon
-                ],
 
-                bearing,
 
-                score,
+/*
+    建立 node
+*/
 
-                tags : w.tags || {}
+const nodeMap={};
 
-            });
-        });
 
-        //----------------------------------------------------
-        // Score 排序
-        //----------------------------------------------------
+data.elements
 
-        candidates.sort((a,b)=>
-            b.score-a.score
-        );
-        return candidates;
+.filter(e=>e.type==="node")
 
-    }catch(err){
+.forEach(n=>{
 
-        console.error(
-            "Candidate Builder Error",
-            err
-        );
-        return [];
-    }
+
+nodeMap[n.id]={
+
+lat:n.lat,
+
+lon:n.lon,
+
+ways:[]
+
+};
+
+
+});
+
+
+
+
+/*
+    建立 way
+*/
+
+const wayMap={};
+
+
+data.elements
+
+.filter(e=>e.type==="way")
+
+.forEach(w=>{
+
+
+wayMap[w.id]=w;
+
+
+
+if(w.nodes){
+
+w.nodes.forEach(nid=>{
+
+
+if(nodeMap[nid]){
+
+
+nodeMap[nid]
+.ways
+.push(w.id);
+
+
+
+}
+
+
+});
+
+
+}
+
+
+});
+
+
+
+
+
+/*
+    找入口節點
+
+*/
+
+const candidates=[];
+
+
+
+Object.keys(nodeMap)
+
+.forEach(nodeId=>{
+
+
+const node =
+nodeMap[nodeId];
+
+
+
+if(
+!isEntranceNode(
+nodeId,
+Object.fromEntries(
+Object.entries(nodeMap)
+.map(([id,n])=>[
+id,n.ways
+])
+),
+wayMap
+)
+
+)
+return;
+
+
+
+/*
+    找連接 motorway_link
+*/
+
+const ways =
+node.ways;
+
+
+
+for(const wid of ways){
+
+
+const way =
+wayMap[wid];
+
+
+if(
+!way ||
+way.tags.highway!=="motorway_link"
+)
+continue;
+
+
+
+
+const score =
+scoreEntrance({
+
+tags:way.tags,
+
+connectNormalRoad:true
+
+});
+
+
+
+if(score<=0)
+continue;
+
+
+
+
+candidates.push({
+
+wayId:wid,
+
+
+coordinate:[
+
+node.lat,
+node.lon
+
+],
+
+
+score,
+
+
+tags:way.tags,
+
+
+connectNormalRoad:true
+
+
+});
+
+
+
+break;
+
+
+
+}
+
+
+
+});
+
+
+
+
+/*
+    排序
+
+*/
+
+candidates.sort(
+
+(a,b)=>
+b.score-a.score
+
+);
+
+
+
+return candidates;
+
+
+
+}catch(err){
+
+
+console.error(
+"Entrance Builder Error",
+err
+);
+
+
+return [];
+
+
+}
+
+
 
 }
 /* OSRM 路由服務 (修正：一律採正向行駛計算，避免平面道路階段產生逆向行駛問題) */
