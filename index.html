@@ -7,9 +7,13 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<!-- 幾何計算核心 -->
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+<!-- 前端 SHP 轉檔打包工具 -->
 <script src="https://unpkg.com/shp-write@latest/shpwrite.js"></script>
+<!-- 新增 DEM GeoTIFF -->
 <script src="https://unpkg.com/geotiff/dist-browser/geotiff.js"></script>    
+<!-- 關鍵擴充：引入 JSZip 與 shpjs，讓前端具備真實解碼 SHP 壓縮檔的能力 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 
@@ -174,8 +178,7 @@ font-weight:bold;
 .shp-btn { background: #4f46e5; color: white; border: none; }
 .shp-btn:hover { background: #4338ca; }
 .shp-import-label {
-    background: #059669;
-    color: white; border: none;
+    background: #059669; color: white; border: none;
     padding: 6px 10px; border-radius: 4px; cursor: pointer;
     font-size: 12px; font-weight: bold; text-align: center;
 }
@@ -362,6 +365,7 @@ const nlscEMAP = L.tileLayer(
     maxZoom:19,
     attribution:'© NLSC'
 });
+
 /* =========================================================
    2. NLSC 正射影像
    ========================================================= */
@@ -371,6 +375,7 @@ const nlscPHOTO = L.tileLayer(
     maxZoom:20,
     attribution:'© NLSC 正射影像'
 });
+
 /* =========================================================
    3. OpenStreetMap
    ========================================================= */
@@ -380,6 +385,7 @@ const osmLayer = L.tileLayer(
     maxZoom:19,
     attribution:'© OpenStreetMap contributors'
 });
+
 /* =========================================================
    4. ESRI World Imagery（合法衛星圖）
    ========================================================= */
@@ -389,6 +395,7 @@ const esriWorldImagery = L.tileLayer(
     maxZoom:19,
     attribution:'© Esri World Imagery'
 });
+
 /* =========================================================
    預設底圖
    ========================================================= */
@@ -405,6 +412,7 @@ const cadastralLayer = L.tileLayer(
     attribution:'© NLSC 地籍圖'
 }
 );
+
 cadastralLayer.addTo(map);
 
 /* =========================================================
@@ -416,6 +424,7 @@ const baseMaps = {
     "OpenStreetMap": osmLayer,
     "ESRI 衛星影像": esriWorldImagery
 };
+
 /* =========================================================
    GIS Overlay
    ========================================================= */
@@ -430,6 +439,7 @@ const nlscDEM = L.tileLayer(
     opacity:0.45,
     attribution:'© NLSC DEM'
 });
+
 /* =========================================================
    GIS Overlay
    ========================================================= */
@@ -438,6 +448,7 @@ const overlayMaps = {
     "地籍圖": cadastralLayer,
     "DEM 地形": nlscDEM
 };
+
 /* =========================================================
    圖層控制器
    ========================================================= */
@@ -445,6 +456,7 @@ L.control.layers(baseMaps, overlayMaps,{
     collapsed:false,
     position:'topright'
 }).addTo(map);
+
 /* 比例尺 */
 const scaleControl = L.control({ position: 'bottomleft' });
 
@@ -496,6 +508,7 @@ let routeLayer=null;
    =========================== */
 
 origin=[25.012098,121.465675];
+
 userMarker=L.marker(origin,{
 icon:L.divIcon({
 className:'',
@@ -514,7 +527,8 @@ let isDrawingPolygon = false;
 let drawPoints = [];       
 let previewPolyline = null;
 let finalPolygon = null;
-let drawMarkers = L.layerGroup().addTo(map);
+let drawMarkers = L.layerGroup().addTo(map);  
+
 const drawControl = L.control({ position: 'topleft' });
 drawControl.onAdd = function() {
     const div = L.DomUtil.create('div', 'draw-control-bar');
@@ -536,6 +550,7 @@ const resPanel = document.getElementById("resultPanel");
 const sidePanel = document.getElementById("panel");
 L.DomEvent.disableClickPropagation(resPanel);
 L.DomEvent.disableClickPropagation(sidePanel);
+
 function toggleDrawMode(btn) {
     isDrawingPolygon = !isDrawingPolygon;
     if (isDrawingPolygon) {
@@ -600,6 +615,7 @@ function renderEditablePolygon() {
         fillColor: '#dc2626',
         fillOpacity: 0.25
     }).addTo(map);
+
     drawPoints.forEach((pt, index) => {
         let marker = L.marker(pt, {
             icon: L.divIcon({
@@ -673,6 +689,7 @@ function exportPolygonSHP() {
         
         let tempPoly = turf.polygon([ring]);
         let areaSqm = Math.round(turf.area(tempPoly));
+
         let featureLayer = [
             {
                 geometry: {
@@ -685,10 +702,12 @@ function exportPolygonSHP() {
                 }
             }
         ];
+
         shpwrite.download(featureLayer);
         
     } catch (err) {
         console.error("SHP Export Error:", err);
+        
         let ringBackup = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
         ringBackup.push([Number(drawPoints[0][1]), Number(drawPoints[0][0])]);
         let geojsonObj = {
@@ -716,6 +735,7 @@ function importPolygonSHP(event) {
     if (!file) return;
 
     const reader = new FileReader();
+    
     if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
         reader.onload = function(e) {
             try {
@@ -755,6 +775,7 @@ function processImportedGeoJSON(geojson) {
 }
 
 let rings = null;
+
 /* Polygon */
 if (feature.geometry.type === "Polygon") {
     rings = feature.geometry.coordinates[0];
@@ -771,6 +792,7 @@ else if (feature.geometry.type === "GeometryCollection") {
     const poly = feature.geometry.geometries.find(g =>
         g.type === "Polygon" || g.type === "MultiPolygon"
     );
+
     if (!poly) {
         alert("GeometryCollection 中找不到 Polygon");
         return;
@@ -795,7 +817,8 @@ if (!rings || rings.length < 3) {
     Math.abs(coord[1]) > 90 ||
     Math.abs(coord[0]) > 180
 );
-    if (invalidCoord) {
+
+if (invalidCoord) {
     alert("此 SHP 可能不是 WGS84(EPSG:4326) 座標系統，請先轉換座標。");
     return;
 }
@@ -803,6 +826,7 @@ if (!rings || rings.length < 3) {
 
     renderEditablePolygon();
     updateCentroidByPoints(drawPoints);
+    
     if (drawPoints.length > 0) {
         map.panTo(drawPoints[0]);
     }
@@ -895,6 +919,7 @@ async function getElevation(lat, lon){
 
     const cacheKey =
         lat.toFixed(5)+","+lon.toFixed(5);
+
     if(elevationCache[cacheKey] !== undefined){
         return elevationCache[cacheKey];
     }
@@ -902,14 +927,18 @@ async function getElevation(lat, lon){
     try{
 
         const controller = new AbortController();
+
         const timeout = setTimeout(()=>{
             controller.abort();
         },10000);
+
         const url =
         `https://michael-chou.pages.dev/?lat=${lat}&lon=${lon}`;
+
         const res = await fetch(url,{
             signal:controller.signal
         });
+
         clearTimeout(timeout);
 
         console.log("DEM HTTP:", res.status, url);
@@ -923,8 +952,10 @@ async function getElevation(lat, lon){
         console.log("DEM RAW:", text);
 
         const data = JSON.parse(text);
+
         const ele =
             data?.results?.[0]?.elevation;
+
         if(ele !== null && ele !== undefined && !isNaN(ele)){
 
             elevationCache[cacheKey] = Number(ele);
@@ -933,6 +964,7 @@ async function getElevation(lat, lon){
         }
 
         return null;
+
     } catch(err){
 
         console.error("DEM ERROR:", err);
@@ -958,6 +990,7 @@ function calculateBearing(lat1,lon1,lat2,lon2){
         Math.sin(toRad(lon2-lon1))
         *
         Math.cos(toRad(lat2));
+
     const x =
         Math.cos(toRad(lat1))
         *
@@ -968,326 +1001,134 @@ function calculateBearing(lat1,lon1,lat2,lon2){
         Math.cos(toRad(lat2))
         *
         Math.cos(toRad(lon2-lon1));
+
     return (toDeg(Math.atan2(y,x))+360)%360;
 
 }
- /* =========================================================
-   交流道入口拓撲判斷核心
+    /* =========================================================
+   交流道入口可信度評分（Entrance Score）
    ========================================================= */
-
-
-/*
-    判斷是否為一般道路節點
-
-    入口:
-    平面道路 → motorway_link
-
-    出口:
-    motorway_link → 平面道路
-
-    我們需要找：
-    平面道路端
-*/
-
-function isRoadNode(nodeTags){
-
-    if(!nodeTags) return false;
-
-    const highway = nodeTags.highway;
-
-    if(!highway)
-        return false;
-
-
-    const normalRoads = [
-
-        "motorway",
-        "motorway_link",
-
-        "trunk",
-        "trunk_link",
-
-        "primary",
-        "primary_link",
-
-        "secondary",
-        "secondary_link",
-
-        "tertiary",
-        "tertiary_link",
-
-        "residential",
-        "service",
-        "unclassified"
-
-    ];
-
-
-    return normalRoads.includes(highway);
-
-}
-
-
-/*
-    判斷此節點是否為交流道入口端
-
-    條件：
-
-    1. 必須連接 motorway_link
-    2. 同時連接一般道路
-    3. 排除出口特徵
-
-*/
-
-function isEntranceNode(nodeId, nodeWays, wayMap){
-
-
-    const connectedWays = nodeWays[nodeId];
-
-    if(!connectedWays)
-        return false;
-
-
-    let hasMotorwayLink=false;
-
-    let hasNormalRoad=false;
-
-
-    for(const wayId of connectedWays){
-
-        const way = wayMap[wayId];
-
-        if(!way || !way.tags)
-            continue;
-
-
-        const highway =
-            way.tags.highway;
-
-
-
-        if(highway==="motorway_link"){
-
-            hasMotorwayLink=true;
-
-        }
-
-
-        else if(
-            highway &&
-            highway!=="motorway_link"
-        ){
-
-            hasNormalRoad=true;
-
-        }
-
-    }
-
-
-    /*
-       必須同時符合：
-
-       motorway_link
-       +
-       平面道路
-
-    */
-
-    if(
-        hasMotorwayLink &&
-        hasNormalRoad
-    ){
-
-        return true;
-
-    }
-
-
-    return false;
-
-}   
-/* =========================================================
-   交流道入口可信度評分（Entrance Score）- 修正為專找入口
-   ========================================================= */
-
-/* =========================================================
-   交流道入口可信度評分 V2
-   目的:
-   找入口，不找出口
-   ========================================================= */
-
 
 function scoreEntrance(candidate){
-
 
     const tags = candidate.tags || {};
 
     let score = 0;
 
+    /* ----------------------------------
+       1. 必須是 motorway_link
+       ---------------------------------- */
 
+    if(tags.highway === "motorway_link"){
 
-    /*
-        基本條件
+        score += 40;
 
-        必須 motorway_link
-    */
-
-    if(tags.highway !== "motorway_link"){
+    }else{
 
         return 0;
 
     }
 
+    /* ----------------------------------
+       2. 單行道
+       ---------------------------------- */
 
-    score += 40;
+    if(tags.oneway === "yes"){
 
-
-
-    /*
-        已確認連接平面道路
-
-        最高權重
-    */
-
-    if(candidate.connectNormalRoad){
-
-        score += 35;
+        score += 20;
 
     }
 
+    /* ----------------------------------
+       3. destination
+       ---------------------------------- */
 
-
-    /*
-        單向匝道
-
-    */
-
-    if(tags.oneway==="yes"){
+    if(tags.destination){
 
         score += 10;
 
     }
 
-
-
-    /*
-        有目的地資訊
-
-    */
-
-    if(tags.destination){
-
-        score += 5;
-
-    }
-
-
     if(tags["destination:ref"]){
 
+        score += 8;
+
+    }
+
+    /* ----------------------------------
+       4. ref
+       ---------------------------------- */
+
+    if(tags.ref){
+
         score += 5;
 
     }
 
+    /* ----------------------------------
+       5. motorroad
+       ---------------------------------- */
 
+    if(tags.motorroad === "yes"){
 
-    /*
-        高速公路編號
+        score += 5;
 
-    */
+    }
 
-    if(tags.ref){
+    /* ----------------------------------
+       6. lane
+       ---------------------------------- */
+
+    if(tags.lanes){
 
         score += 3;
 
     }
 
+    /* ----------------------------------
+       7. bridge
+       ---------------------------------- */
 
+    if(tags.bridge === "yes"){
 
-    /*
-        排除出口
-    */
-
-
-    const text =
-        (
-            (tags.name || "")+
-            " "+
-            (tags.destination || "")+
-            " "+
-            (tags.exit_to || "")
-        )
-        .toLowerCase();
-
-
-
-    const exitWords=[
-
-        "exit",
-        "off-ramp",
-        "出口",
-        "下交流道"
-
-    ];
-
-
-
-    for(const w of exitWords){
-
-        if(text.includes(w.toLowerCase())){
-
-            return 0;
-
-        }
+        score += 2;
 
     }
 
+    /* ----------------------------------
+       8. layer
+       ---------------------------------- */
 
+    if(tags.layer){
 
-    /*
-        service 匝道通常不是入口
-    */
-
-    if(tags.service){
-
-        score -=20;
+        score += 2;
 
     }
 
+    /* ----------------------------------
+       9. access
+       ---------------------------------- */
 
+    if(tags.access === "private"){
 
-    /*
-        access限制
-    */
-
-    if(tags.access==="private"){
-
-        score-=50;
+        score -= 50;
 
     }
 
+    if(tags.access === "no"){
 
-    if(tags.access==="no"){
-
-        score=0;
+        score -= 100;
 
     }
-
-
-
-    return Math.max(
-        0,
-        Math.min(score,100)
-    );
-
-}
 
     /* ----------------------------------
        10. service
        ---------------------------------- */
 
     if(tags.service){
+
         score -= 20;
+
     }
 
     /* ----------------------------------
@@ -1295,7 +1136,9 @@ function scoreEntrance(candidate){
        ---------------------------------- */
 
     if(tags.area === "yes"){
+
         score -= 100;
+
     }
 
     /* ----------------------------------
@@ -1303,7 +1146,9 @@ function scoreEntrance(candidate){
        ---------------------------------- */
 
     if(tags.highway === "construction"){
+
         score -= 100;
+
     }
 
     /* ----------------------------------
@@ -1311,32 +1156,26 @@ function scoreEntrance(candidate){
        ---------------------------------- */
 
     if(tags.name){
+
         score += 3;
+
     }
 
     /* ----------------------------------
-       14. destination 包含國道或入口/出口判定 (修正：嚴格排除出口，強化入口)
+       14. destination 包含國道
        ---------------------------------- */
 
-    if(tags.destination || tags.name){
-        const text = (tags.destination || "") + " " + (tags.name || "");
+    if(tags.destination){
+
+        const d = tags.destination;
+
         if(
-            text.includes("國道") ||
-            text.includes("Freeway") ||
-            text.includes("高速公路") ||
-            text.includes("入口") ||
-            text.includes("Entrance") ||
-            text.includes("on-ramp")
+            d.includes("國道") ||
+            d.includes("Freeway") ||
+            d.includes("高速公路")
         ){
-            score += 30;
-        }
-        if(
-            text.includes("出口") ||
-            text.includes("Exit") ||
-            text.includes("off-ramp") ||
-            tags.exit_to
-        ){
-            score -= 80; // 嚴格排除出口匝道
+
+            score += 15;
         }
     }
 
@@ -1345,325 +1184,172 @@ function scoreEntrance(candidate){
        ---------------------------------- */
 
     if(tags["destination:ref"]){
+
         score += 5;
+
     }
 
     /* ----------------------------------
        上限100
        ---------------------------------- */
 
-    score = Math.max(0, Math.min(score, 100));
+    score = Math.min(score,100);
+
     return score;
 
 }
 /* =========================================================
-   交流道入口 Candidate Builder - 修正：擴大搜尋半徑以涵蓋大型匝道口
+   交流道入口 Candidate Builder
    ========================================================= */
 
 async function buildEntranceCandidates(junction){
 
-
-    const SEARCH_RADIUS = 1500;
-
+    const SEARCH_RADIUS = 300;   // 公尺
 
     const lat = junction[0];
     const lon = junction[1];
 
-
-
     const query = `
-
-[out:json][timeout:40];
-
+[out:json][timeout:25];
 
 (
-
 way
 ["highway"="motorway_link"]
 (around:${SEARCH_RADIUS},${lat},${lon});
-
-
 );
-
 
 out body;
-
 >;
-
 out skel qt;
-
 `;
 
+    try{
 
+        const res = await fetch(
+            "https://overpass-api.de/api/interpreter",
+            {
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/x-www-form-urlencoded"
+                },
+                body:"data="+encodeURIComponent(query)
+            }
+        );
 
-try{
+        const data = await res.json();
 
+        if(!data.elements)
+            return [];
 
-const res = await fetch(
+        //----------------------------------------------------
+        // Nodes
+        //----------------------------------------------------
 
-"https://overpass-api.de/api/interpreter",
+        const nodeMap = new Map();
 
-{
+        data.elements
+        .filter(e=>e.type==="node")
+        .forEach(n=>{
 
-method:"POST",
+            nodeMap.set(n.id,{
+                lat:n.lat,
+                lon:n.lon
+            });
 
-headers:{
+        });
 
-"Content-Type":
-"application/x-www-form-urlencoded"
+        //----------------------------------------------------
+        // Ways
+        //----------------------------------------------------
 
-},
+        const candidates = [];
 
-body:
-"data="+encodeURIComponent(query)
+        data.elements
+        .filter(e=>e.type==="way")
+        .forEach(w=>{
+
+            if(!w.nodes || w.nodes.length<2)
+                return;
+
+            //------------------------------------------------
+            // 入口第一個節點
+            //------------------------------------------------
+
+            const firstNode =
+                nodeMap.get(w.nodes[0]);
+
+            if(!firstNode)
+                return;
+
+            //------------------------------------------------
+            // bearing
+            //------------------------------------------------
+
+            const secondNode =
+                nodeMap.get(w.nodes[1]);
+
+            let bearing = null;
+
+            if(secondNode){
+
+                bearing =
+                    calculateBearing(
+                        firstNode.lat,
+                        firstNode.lon,
+                        secondNode.lat,
+                        secondNode.lon
+                    );
+
+            }
+
+            //------------------------------------------------
+            // Score
+            //------------------------------------------------
+
+            const score =
+                scoreEntrance(w.tags || {});
+
+            candidates.push({
+
+                wayId : w.id,
+
+                coordinate : [
+                    firstNode.lat,
+                    firstNode.lon
+                ],
+
+                bearing,
+
+                score,
+
+                tags : w.tags || {}
+
+            });
+
+        });
+
+        //----------------------------------------------------
+        // Score 排序
+        //----------------------------------------------------
+
+        candidates.sort((a,b)=>
+            b.score-a.score
+        );
+
+        return candidates;
+
+    }catch(err){
+
+        console.error(
+            "Candidate Builder Error",
+            err
+        );
+
+        return [];
+    }
 
 }
-
-);
-
-
-
-const data =
-await res.json();
-
-
-
-if(!data.elements)
-return [];
-
-
-
-
-/*
-    建立 node
-*/
-
-const nodeMap={};
-
-
-data.elements
-
-.filter(e=>e.type==="node")
-
-.forEach(n=>{
-
-
-nodeMap[n.id]={
-
-lat:n.lat,
-
-lon:n.lon,
-
-ways:[]
-
-};
-
-
-});
-
-
-
-
-/*
-    建立 way
-*/
-
-const wayMap={};
-
-
-data.elements
-
-.filter(e=>e.type==="way")
-
-.forEach(w=>{
-
-
-wayMap[w.id]=w;
-
-
-
-if(w.nodes){
-
-w.nodes.forEach(nid=>{
-
-
-if(nodeMap[nid]){
-
-
-nodeMap[nid]
-.ways
-.push(w.id);
-
-
-
-}
-
-
-});
-
-
-}
-
-
-});
-
-
-
-
-
-/*
-    找入口節點
-
-*/
-
-const candidates=[];
-
-
-
-Object.keys(nodeMap)
-
-.forEach(nodeId=>{
-
-
-const node =
-nodeMap[nodeId];
-
-
-
-if(
-!isEntranceNode(
-nodeId,
-Object.fromEntries(
-Object.entries(nodeMap)
-.map(([id,n])=>[
-id,n.ways
-])
-),
-wayMap
-)
-
-)
-return;
-
-
-
-/*
-    找連接 motorway_link
-*/
-
-const ways =
-node.ways;
-
-
-
-for(const wid of ways){
-
-
-const way =
-wayMap[wid];
-
-
-if(
-!way ||
-way.tags.highway!=="motorway_link"
-)
-continue;
-
-
-
-
-const score =
-scoreEntrance({
-
-tags:way.tags,
-
-connectNormalRoad:true
-
-});
-
-
-
-if(score<=0)
-continue;
-
-
-
-
-candidates.push({
-
-wayId:wid,
-
-
-coordinate:[
-
-node.lat,
-node.lon
-
-],
-
-
-score,
-
-
-tags:way.tags,
-
-
-connectNormalRoad:true
-
-
-});
-
-
-
-break;
-
-
-
-}
-
-
-
-});
-
-
-
-
-/*
-    排序
-
-*/
-
-candidates.sort(
-
-(a,b)=>
-b.score-a.score
-
-);
-
-
-
-return candidates;
-
-
-
-}catch(err){
-
-
-console.error(
-"Entrance Builder Error",
-err
-);
-
-
-return [];
-
-
-}
-
-
-
-}
-/* OSRM 路由服務 (修正：一律採正向行駛計算，避免平面道路階段產生逆向行駛問題) */
+/* OSRM 路由服務 (整合交流道反向優化與區段內部直接歸零判定) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
 if(isInZone) {
     return { value: 0, isFallback: false, msg: "" };
@@ -1671,8 +1357,11 @@ if(isInZone) {
 try{
 if(!origin) return null;
 
-// 修正：一律由 origin 正向計算至 to，避免在平面道路階段產生逆向行駛問題
 let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+
+if(isJunction) {
+    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=false&radiuses=50;unlimited`;
+}
 
 const res = await fetch(url);
 const data = await res.json();
@@ -1691,20 +1380,24 @@ return { value: straightDist, isFallback: true, msg: " (直線備援)" };
 async function drawRoute(to, item){
 try{
 if(!origin) return;
+
 if(item.在範圍內) {
     routeInfo.innerText = "路線距離：0 m (此設施位於您編輯的範圍區段內部)";
     if(routeLayer) map.removeLayer(routeLayer);
     return;
 }
 
-let isJunction = item.原始類型 === "motorway_junction" ||
-item.原始類型 === "ramp";
+let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
 
-// 修正：一律由 origin 正向行駛至交流道平面匝道入口，避免平面道路逆向行駛與計算
 let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+
+if(isJunction) {
+    url = `https://router.project-osrm.org/route/v1/driving/${to[1]},${to[0]};${origin[1]},${origin[0]}?overview=full&geometries=geojson&radiuses=50;unlimited`;
+}
 
 const res=await fetch(url);
 const data=await res.json();
+
 if(!data.routes?.length){
     routeInfo.innerText = "路線距離：" + item.距離 + " m (採直線路徑示意)";
     if(routeLayer) map.removeLayer(routeLayer);
@@ -1714,7 +1407,7 @@ if(!data.routes?.length){
 
 const route=data.routes[0];
 let routeDist = Math.round(route.distance);
-routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (至交流道平面匝道入口)" : "");
+routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (平面路網逆向計算)" : "");
 
 if(routeLayer) map.removeLayer(routeLayer);
 routeLayer=L.geoJSON(route.geometry,{ style:{color: isJunction ? "#059669" : "blue", weight:5} }).addTo(map);
@@ -1755,6 +1448,7 @@ return;
 
 queryBtn.disabled = true;
 queryBtn.innerText = "⌛ 檢索圖資中...";
+
 try {
     markerLayer.clearLayers();
     if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
@@ -1762,6 +1456,7 @@ try {
     tbody.innerHTML="";
     results=[];
     let parts=[];
+
     // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
    let turfZonePolygon = null;
 
@@ -1774,6 +1469,7 @@ if (drawPoints && drawPoints.length >= 3) {
         const lon = Number(p[1]);
         return [lon, lat];
     });
+
     if (
         ring.length > 2 &&
         (
@@ -1818,9 +1514,9 @@ if (drawPoints && drawPoints.length >= 3) {
     parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
     }
     else if(t==="motorway_junction"){
-    // 修正：只抓取乾淨的交流道節點，不抓無區分的 ramp，後續會透過候補機制自動定位平面匝道入口
 parts.push(`
 node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+nwr["highway"="ramp"](around:${radius},${lat},${lon});
 `);
 }
     else if(t==="parking"){
@@ -1872,7 +1568,7 @@ nwr["amenity"="hospital"](around:${radius},${lat},${lon});
 /* 政府機關 */
 nwr["office"="government"](around:${radius},${lat},${lon});
 `);
-    }
+}
     else if(t==="cemetery"){
     parts.push(`
     nwr["landuse"="cemetery"](around:${radius},${lat},${lon});
@@ -1918,6 +1614,7 @@ nwr["office"="government"](around:${radius},${lat},${lon});
     let rawSchools = [];
     let gates = [];
     const dedup = new Set();
+
     data.elements.forEach(e=>{
         let lat2=e.center?.lat ?? e.lat;
         let lon2=e.center?.lon ?? e.lon;
@@ -1928,7 +1625,6 @@ nwr["office"="government"](around:${radius},${lat},${lon});
         dedup.add(key);
 
         let rawType = e.tags?.highway || e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || e.tags?.entrance || e.tags?.barrier || "未知";
-  
         /* 郵局特徵強制修正 */
 if(
 e.tags?.amenity === "post_office" ||
@@ -2009,39 +1705,10 @@ e.tags?.amenity === "post_office" ||
         });
     });
 
-    // ★★★ 修正核心：針對交流道，自動搜尋最佳「平面交流道入口」座標，確保只找入口且無逆向 ★★★
-    for (let item of results) {
-        if (item.原始類型 === "motorway_junction" || item.原始類型 === "ramp") {
-            try {
-                const candidates = await buildEntranceCandidates(item.座標);
-                if (candidates && candidates.length > 0) {
-                    // 取得評分最高的真正交流道入口（平面道路轉入高速公路匝道的起點）
-                    const bestEntrance = candidates[0];
-                    item.座標 = bestEntrance.coordinate;
-                    if (!item.名稱.includes("入口")) {
-                        item.名稱 = (item.名稱 ? item.名稱 + " " : "") + "(平面匝道入口)";
-                    }
-                    item.類型 = "交流道入口(平面匝道端)";
-                    
-                    // 重新計算至該真正入口之直線距離與相交狀態
-                    let inside = false;
-                    if (turfZonePolygon) {
-                        let pt = turf.point([item.座標[1], item.座標[0]]);
-                        inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
-                    }
-                    item.在範圍內 = inside;
-                    item.距離 = inside ? 0 : Math.round(haversine(lat, lon, item.座標[0], item.座標[1]));
-                    item.直線距離顯示 = inside ? "0 (位於區段範圍內)" : item.距離;
-                }
-            } catch (err) {
-                console.error("搜尋交流道平面入口失敗:", err);
-            }
-        }
-    }
-
     // 排序：0公尺（在範圍內）的設施會自動排在表格最上方
     results.sort((a,b)=>a.距離-b.距離);
     renderTable();
+
     results.forEach(item => {
         const m=L.marker(item.座標).addTo(markerLayer).bindTooltip(item.名稱,{direction:"top"});
         m.on("click",()=>{
@@ -2049,15 +1716,14 @@ e.tags?.amenity === "post_office" ||
             selectItem(item);
         });
     });
+
     queryBtn.innerText = "🚗 計算路網距離中...";
 
     /* 背景非同步更新路網距離 */
     for (const item of results.slice(0,80)) {
-        if (item.在範圍內) continue;
-        // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
+        if (item.在範圍內) continue; // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
         
-        let isJunc = item.原始類型 === "motorway_junction" ||
-item.原始類型 === "ramp";
+        let isJunc = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
         const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
 
         item.路線距離數值 = routeRes.value;
@@ -2122,6 +1788,7 @@ console.log("STEP 1 進入 analyzeSlope");
         console.log("STEP 2 採樣點數:", drawPoints.length);
         console.log("STEP 3 elevations:", elevations.length);
     const slopeInfo = document.getElementById("slopeInfo");
+
     if (!drawPoints || drawPoints.length < 3) {
         alert("請先繪製分析範圍");
         return;
@@ -2132,10 +1799,12 @@ console.log("STEP 1 進入 analyzeSlope");
     try {
 
         markerLayer.clearLayers();
+
         // =========================
         // 1. 建立 polygon（安全版）
         // =========================
         let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
+
         if (ring.length < 3) {
             alert("範圍點不足");
             return;
@@ -2150,6 +1819,7 @@ console.log("STEP 1 進入 analyzeSlope");
 
         const polygon = turf.polygon([ring]);
         const bbox = turf.bbox(polygon);
+
         const [minLon, minLat, maxLon, maxLat] = bbox;
 
         // =========================
@@ -2159,9 +1829,11 @@ console.log("STEP 1 進入 analyzeSlope");
             Math.max(maxLon - minLon, maxLat - minLat) / 30,
             0.00005
         );
+
         let elevations = [];
 let insideCount = 0;
 let failedCount = 0;
+
         // =========================
         // 3. DEM 採樣（有節流避免卡死）
         // =========================
@@ -2169,12 +1841,14 @@ let failedCount = 0;
             for (let lon = minLon; lon <= maxLon; lon += step) {
 
                 const pt = turf.point([lon, lat]);
+
                 if (!turf.booleanPointInPolygon(pt, polygon)) continue;
 
                 insideCount++;
 
                 const ele = await getElevation(lat, lon);
-                console.log(
+
+console.log(
     "DEM:",
     lat,
     lon,
@@ -2204,11 +1878,13 @@ let failedCount = 0;
     const centroid =
         turf.centroid(polygon)
         .geometry.coordinates;
+
     const ele =
         await getElevation(
             centroid[1],
             centroid[0]
         );
+
     if (
         ele !== null &&
         !isNaN(ele)
@@ -2219,6 +1895,7 @@ let failedCount = 0;
             lon: centroid[0],
             ele
         }];
+
     } else {
 
         slopeInfo.innerHTML = `
@@ -2247,6 +1924,7 @@ let failedCount = 0;
         // 5. 坡度計算（只做一次）
         // =========================
         let slopes = [];
+
         for (let i = 1; i < elevations.length; i++) {
 
             const p1 = elevations[i - 1];
@@ -2254,6 +1932,7 @@ let failedCount = 0;
 
             const dist = haversine(p1.lat, p1.lon, p2.lat, p2.lon);
             if (dist < 1) continue;
+
             const rise = Math.abs(p2.ele - p1.ele);
 
             slopes.push((rise / dist) * 100);
@@ -2268,12 +1947,15 @@ let failedCount = 0;
         // 6. 統計
         // =========================
         const elevs = elevations.map(e => e.ele);
+
         const minElev = Math.min(...elevs);
         const maxElev = Math.max(...elevs);
         const avgElev = elevs.reduce((a, b) => a + b, 0) / elevs.length;
+
         const avgSlope = slopes.reduce((a, b) => a + b, 0) / slopes.length;
         const maxSlope = Math.max(...slopes);
         const minSlope = Math.min(...slopes);
+
         let terrainType = "平坦";
         if (avgSlope > 30) terrainType = "陡坡";
         else if (avgSlope > 15) terrainType = "中坡";
@@ -2296,6 +1978,7 @@ let failedCount = 0;
 
 地形分類：<b>${terrainType}</b>
         `;
+
         // =========================
         // 8. 視覺化
         // =========================
@@ -2316,19 +1999,21 @@ let failedCount = 0;
             .addTo(markerLayer)
             .bindTooltip(`高程: ${p.ele.toFixed(1)} m`);
         });
+
     } catch (err) {
 
     console.error(
         "DEM分析錯誤:",
         err
     );
+
     slopeInfo.innerHTML =
         `
         ❌ DEM坡度分析失敗
         <br><br>
         ${err.message}
         `;
-    }
+}
 }
 /* 匯出 Excel */
 function exportExcel(){
@@ -2343,10 +2028,10 @@ XLSX.writeFile(wb, "GIS查詢結果.xlsx");
 
 /* 表格視窗拖曳 */
 let isDragging = false;
-let offsetX = 0;
-let offsetY = 0;
+let offsetX = 0; let offsetY = 0;
 const panel = document.getElementById("resultPanel");
 const header = document.getElementById("resultHeader");
+
 header.addEventListener("mousedown", function(e){
 if(e.target.tagName === "BUTTON") return; 
 isDragging = true;
@@ -2356,12 +2041,14 @@ offsetY = e.clientY - rect.top;
 panel.style.position = "absolute";
 panel.style.zIndex = 9999;
 });
+
 document.addEventListener("mousemove", function(e){
 if(!isDragging) return;
 panel.style.left = (e.clientX - offsetX) + "px";
 panel.style.top = (e.clientY - offsetY) + "px";
 panel.style.right = "auto";
 });
+
 document.addEventListener("mouseup", function(){ isDragging = false; });
 /* ==========================
    坡度面板拖曳
@@ -2373,6 +2060,7 @@ let slopeOffsetY = 0;
 
 const slopePanel = document.getElementById("slopePanel");
 const slopeHeader = document.getElementById("slopeHeader");
+
 slopeHeader.addEventListener("mousedown", function(e){
 
     if(e.target.tagName === "BUTTON") return;
@@ -2387,6 +2075,7 @@ slopeHeader.addEventListener("mousedown", function(e){
     slopePanel.style.position = "absolute";
     slopePanel.style.zIndex = 99999;
 });
+
 document.addEventListener("mousemove", function(e){
 
     if(!slopeDragging) return;
@@ -2397,6 +2086,7 @@ document.addEventListener("mousemove", function(e){
     slopePanel.style.top =
         (e.clientY - slopeOffsetY) + "px";
 });
+
 document.addEventListener("mouseup", function(){
 
     slopeDragging = false;
