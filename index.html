@@ -1387,7 +1387,199 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
     return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
-function scoreEntrance(candidate) {
+function scoreEntrance(tags) {
+    let score = 0;
+    
+    // 根據 entrance 類型評分
+    if (tags.entrance === "main") score += 50;
+    else if (tags.entrance === "primary" || tags.entrance === "principal") score += 50;
+    else if (tags.entrance) score += 30;
+    
+    // barrier 類型
+    if (tags.barrier === "gate" || tags.barrier === "swing_gate") score += 15;
+    if (tags.barrier === "bollard" || tags.barrier === "lift_gate") score += 5;
+    if (tags.barrier === "fence") score -= 20;
+    
+    // secondary entrance 降分
+    if (tags.entrance === "secondary") score -= 20;
+    if (tags.entrance === "service") score -= 100;
+    if (tags.entrance === "emergency") score -= 30;
+    
+    // 其他屬性
+    if (tags.access === "private") score -= 50;
+    if (tags.access === "no") score -= 100;
+    
+    return Math.max(0, Math.min(score, 100));
+}
+
+/**
+ * 搜尋學校校門進出口
+ */
+async function findSchoolEntrances(lat, lon, timeoutMs = 2000) {
+    try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        
+        const query = `[out:json][timeout:15];
+        (
+            node["entrance"](around:150,${lat},${lon});
+            way["building"="school"](around:150,${lat},${lon});
+            way["building"="university"](around:150,${lat},${lon});
+            way["amenity"="school"](around:150,${lat},${lon});
+            way["amenity"="university"](around:150,${lat},${lon});
+        );
+        out center;
+        `;
+        
+        const response = await fetch('https://overpass-api.de/api/interpreter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(query),
+            signal: controller.signal
+        });
+        
+        clearTimeout(timer);
+        if (!response.ok) return [];
+        
+        const data = await response.json();
+        if (!data.elements) return [];
+        
+        const entrances = [];
+        const dedup = new Set();
+        
+        data.elements.forEach(elem => {
+            if (elem.type !== 'node' && elem.type !== 'way') return;
+            
+            let eLat = elem.center?.lat ?? elem.lat;
+            let eLon = elem.center?.lon ?? elem.lon;
+            
+            if (!eLat || !eLon) return;
+            
+            const key = `${eLat.toFixed(6)},${eLon.toFixed(6)}`;
+            if (dedup.has(key)) return;
+            dedup.add(key);
+            
+            // 計算相對校園中心的距離
+            const dist = haversine(lat, lon, eLat, eLon);
+            
+            // 只取合理距離內的進出口 (150m 內)
+            if (dist > 150) return;
+            
+            const score = scoreEntrance(elem.tags || {});
+            
+            // 過濾掉評分太低的 (可能是停車位或其他不相關設施)
+            if (score < -50) return;
+            
+            entrances.push({
+                lat: eLat,
+                lon: eLon,
+                type: (elem.tags || {}).entrance || 'unknown',
+                score: score,
+                distance: dist,
+                tags: elem.tags || {}
+            });
+        });
+        
+        // 按評分排序 (高分優先)
+        entrances.sort((a, b) => b.score - a.score);
+        
+        // 取前 3 個最佳評分的進出口
+        return entrances.slice(0, 3);
+        
+    } catch (err) {
+        console.error('School entrance search error:', err);
+        return [];
+    }
+}
+
+/**
+ * 取得至學校校門的最短距離
+ */
+async function getSchoolGatesToDist(schoolItem, centroidForQuery) {
+    try {
+        // 先搜尋校門進出口
+        const entrances = await findSchoolEntrances(schoolItem.座標[0], schoolItem.座標[1]);
+        
+        if (entrances.length === 0) {
+            // 沒有找到校門，使用學校中心點
+            const route = await getRouteDistanceToPoint(schoolItem.座標, centroidForQuery);
+            schoolItem.路線距離 = route.distance + ' m' + route.suffix;
+            schoolItem.路線距離數值 = route.distance;
+            return;
+        }
+        
+        // 對所有候選校門計算最短路線距離
+        const routePromises = entrances.map(entrance =>
+            getRouteDistanceToPoint(
+                [entrance.lat, entrance.lon],
+                centroidForQuery
+            ).catch(() => ({ distance: Infinity, suffix: ' (失敗)' }))
+        );
+        
+        const routes = await Promise.all(routePromises);
+        
+        // 找出最短距離的校門
+        const bestRoute = routes.reduce((min, curr) =>
+            curr.distance < min.distance ? curr : min
+        );
+        
+        schoolItem.路線距離 = bestRoute.distance + ' m' + bestRoute.suffix;
+        schoolItem.路線距離數值 = bestRoute.distance;
+        
+        // 更新座標至最近的校門 (用於地圖繪製)
+        const bestEntrance = entrances[
+            routes.indexOf(bestRoute)
+        ];
+        if (bestEntrance) {
+            schoolItem.座標 = [bestEntrance.lat, bestEntrance.lon];
+            schoolItem.實際位置 = `校門 [${bestEntrance.type}]`;
+        }
+        
+    } catch (err) {
+        console.error('School gate distance error:', err);
+        // 降級至直線距離
+        schoolItem.路線距離 = schoolItem.直線距離顯示 + ' m (校門查詢失敗)';
+        schoolItem.路線距離數值 = parseInt(schoolItem.直線距離顯示);
+    }
+}
+
+/**
+ * 計算至某點的路線距離 (統一接口)
+ */
+async function getRouteDistanceToPoint(to, from, timeoutMs = 5000) {
+    try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        
+        const straightDist = Math.round(haversine(from[0], from[1], to[0], to[1]));
+        
+        const url = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=false`;
+        
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+        
+        if (!response.ok || !response.json) {
+            return { distance: straightDist, suffix: ' (直線)' };
+        }
+        
+        const data = await response.json();
+        
+        if (data.routes && data.routes.length > 0) {
+            return {
+                distance: Math.round(data.routes[0].distance),
+                suffix: ''
+            };
+        }
+        
+        return { distance: straightDist, suffix: ' (直線)' };
+        
+    } catch (err) {
+        const straightDist = Math.round(haversine(from[0], from[1], to[0], to[1]));
+        return { distance: straightDist, suffix: ' (直線)' };
+    }
+}
+
+function scoreEntranceOld(candidate) {
     const tags = candidate.tags || {};
     let score = 0;
 
@@ -1449,7 +1641,7 @@ async function buildEntranceCandidates(junction) {
             const secondNode = nodeMap.get(w.nodes[1]);
             let bearing = null;
             if (secondNode) bearing = calculateBearing(firstNode.lat, firstNode.lon, secondNode.lat, secondNode.lon);
-            const score = scoreEntrance({ tags: w.tags || {} });
+            const score = scoreEntranceOld({ tags: w.tags || {} });
             candidates.push({
                 wayId: w.id,
                 coordinate: [firstNode.lat, firstNode.lon],
@@ -1509,7 +1701,7 @@ async function drawRoute(to, item) {
 
         const route = data.routes[0];
         let routeDist = Math.round(route.distance);
-        routeInfo.innerText = routeDist + " m" + (isJunction ? " (至交流道入口)" : "");
+        routeInfo.innerText = routeDist + " m" + (isJunction ? " (至交流道入口)" : (item.實際位置 ? " (" + item.實際位置 + ")" : ""));
         routeCard.classList.remove('hidden');
 
         if (routeLayer) map.removeLayer(routeLayer);
@@ -1538,7 +1730,7 @@ function selectItemById(id) {
 }
 
 /* ========================================================================
-   主查詢函數
+   主查詢函數 ★ 修正版本
    ======================================================================== */
 
 async function runQuery() {
@@ -1690,12 +1882,14 @@ async function runQuery() {
                     距離: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], lat2, lon2)),
                     直線距離顯示: inside ? "0" : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], lat2, lon2)),
                     路線距離: inside ? "0" : "計算中...",
-                    路線距離數值: inside ? 0 : null
+                    路線距離數值: inside ? 0 : null,
+                    實際位置: null
                 });
             }
         });
 
-        rawSchools.forEach(sch => {
+        // 處理學校 - 新增校門查詢邏輯
+        for (const sch of rawSchools) {
             let finalLat = sch.lat;
             let finalLon = sch.lon;
 
@@ -1705,7 +1899,7 @@ async function runQuery() {
                 inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
             }
 
-            results.push({
+            const schoolItem = {
                 id: results.length,
                 名稱: sch.name || "未命名學校",
                 類型: "學校",
@@ -1715,9 +1909,25 @@ async function runQuery() {
                 距離: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
                 直線距離顯示: inside ? "0" : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
                 路線距離: inside ? "0" : "計算中...",
-                路線距離數值: inside ? 0 : null
-            });
-        });
+                路線距離數值: inside ? 0 : null,
+                實際位置: null
+            };
+
+            results.push(schoolItem);
+
+            // 異步計算校門距離 (不阻斷主流程)
+            if (!inside) {
+                getSchoolGatesToDist(schoolItem, centroidForQuery).then(() => {
+                    // 更新表格中對應的行
+                    const rowCell = document.getElementById(`route-${schoolItem.id}`);
+                    if (rowCell) {
+                        rowCell.innerText = schoolItem.路線距離;
+                    }
+                }).catch(err => {
+                    console.error('School gate calculation error:', err);
+                });
+            }
+        }
 
         for (let item of results) {
             if (item.原始類型 === "motorway_junction") {
@@ -1757,7 +1967,11 @@ async function runQuery() {
         queryBtn.innerText = "🚗 計算路線中...";
 
         for (const item of results.slice(0, 80)) {
-            if (item.在範圍內) continue;
+            // 跳過學校 (已在異步計算中) 和範圍內的設施
+            if (item.原始類型 === "school" || item.原始類型 === "university" || item.在範圍內) {
+                continue;
+            }
+            
             let isJunc = item.原始類型 === "motorway_junction";
             const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
             item.路線距離數值 = routeRes.value;
@@ -1812,7 +2026,8 @@ function exportExcel() {
         名稱: r.名稱,
         類型: r.類型,
         直線距離: r.直線距離顯示,
-        路線距離: r.路線距離 || ""
+        路線距離: r.路線距離 || "",
+        校門位置: r.實際位置 || ""
     })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "查詢結果");
