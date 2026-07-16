@@ -2084,31 +2084,108 @@ function exportPolygonsToSHP() {
     }
 }
 
+function cleanGeoJSONString(rawText) {
+    console.log('🔍 開始清理 GeoJSON 字符串...');
+    
+    // 第 1 步: 移除 UTF-8 BOM
+    if (rawText.charCodeAt(0) === 0xFEFF) {
+        console.warn('  ❌ 偵測到 BOM (標記: U+FEFF), 正在移除...');
+        rawText = rawText.substring(1);
+        console.log('  ✅ BOM 已移除');
+    }
+    
+    // 第 2 步: 統一換行符 (\r\n → \n)
+    let crlfCount = (rawText.match(/\r\n/g) || []).length;
+    let crCount = (rawText.match(/\r(?!\n)/g) || []).length;
+    
+    if (crlfCount > 0 || crCount > 0) {
+        console.warn(`  ❌ 偵測到 ${crlfCount} 個 \\r\\n 符號和 ${crCount} 個孤立 \\r`);
+        rawText = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        console.log('  ✅ 換行符已統一成 \\n');
+    }
+    
+    // 第 3 步: 移除不可見的控制字符
+    let controlCharCount = 0;
+    rawText = rawText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, (match) => {
+        controlCharCount++;
+        const code = match.charCodeAt(0);
+        console.warn(`    移除控制字符: \\x${code.toString(16).padStart(2, '0')}`);
+        return '';
+    });
+    
+    if (controlCharCount > 0) {
+        console.log(`  ✅ 已移除 ${controlCharCount} 個控制字符`);
+    }
+    
+    // 第 4 步: 移除額外空白
+    const beforeTrim = rawText.length;
+    rawText = rawText.trim();
+    console.log(`  ✅ 移除前後空白: ${beforeTrim} → ${rawText.length} 位元組`);
+    
+    return rawText;
+}
+
 function importPolygonsFromSHP(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
+    
     if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
         reader.onload = (e) => {
             try {
-                const geojson = JSON.parse(e.target.result);
+                console.log('\n📄 === GeoJSON 檔案輸入 ===');
+                console.log(`檔案名: ${file.name}, 大小: ${(file.size / 1024).toFixed(2)} KB`);
+                
+                const rawText = e.target.result;
+                console.log(`\n1️⃣ 原始文本位元組數: ${rawText.length}`);
+                
+                // 清理文本
+                const cleanedText = cleanGeoJSONString(rawText);
+                
+                // 嘗試解析
+                console.log('\n2️⃣ 嘗試 JSON.parse()...');
+                const geojson = JSON.parse(cleanedText);
+                console.log('   ✅ 解析成功！');
+                console.log(`   清理後的位元組數: ${cleanedText.length}`);
+                
                 processImportedPolygons(geojson);
+                
             } catch (err) {
-                alert("GeoJSON 解析失敗");
+                console.error('\n❌ GeoJSON 解析失敗');
+                console.error(`   錯誤類型: ${err.name}`);
+                console.error(`   錯誤訊息: ${err.message}`);
+                console.error(`   完整錯誤:`, err);
+                
+                alert(`❌ GeoJSON 解析失敗\n\n錯誤類型: ${err.name}\n\n錯誤訊息: ${err.message}\n\n詳細信息已輸出到瀏覽器控制台 (F12)`);
             }
         };
-        reader.readAsText(file);
+        reader.readAsText(file, 'UTF-8');
+        
     } else if (file.name.endsWith('.zip')) {
         reader.onload = (e) => {
-            shp(e.target.result).then(geojson => {
-                processImportedPolygons(geojson);
-            }).catch(() => alert("SHP 解析失敗"));
+            try {
+                console.log('\n🗂️ === SHP 檔案輸入 ===');
+                console.log(`檔案名: ${file.name}`);
+                
+                shp(e.target.result).then(geojson => {
+                    console.log('✅ SHP 轉換為 GeoJSON 成功');
+                    processImportedPolygons(geojson);
+                }).catch(err => {
+                    console.error('❌ SHP 解析失敗:', err);
+                    alert(`SHP 解析失敗: ${err.message}`);
+                });
+            } catch (err) {
+                console.error('❌ SHP 輸入出錯:', err);
+                alert(`SHP 輸入失敗: ${err.message}`);
+            }
         };
         reader.readAsArrayBuffer(file);
     }
+    
     document.getElementById('shp-file-input').value = '';
 }
+
 
 function processImportedPolygons(geojson) {
     let features = [];
