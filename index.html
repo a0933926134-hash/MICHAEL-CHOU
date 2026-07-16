@@ -1096,7 +1096,7 @@ function toggleLayerControl() {
 }
 
 /* ========================================================================
-   多邊形繪製邏輯
+   多邊形繪製邏輯 ★ 修正版本
    ======================================================================== */
 
 function startDrawing() {
@@ -1160,16 +1160,53 @@ function updatePolygonCentroid(polygonObj) {
     polygonObj.centroid = [centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]];
 }
 
+/**
+ * ★ 修正版本：renderPolygonLayer
+ * 解決多邊形無法選取的問題
+ */
 function renderPolygonLayer(polygonObj) {
     if (polygonObj.layer) map.removeLayer(polygonObj.layer);
+    
     const style = {
         color: polygonObj.color,
         weight: polygonObj.isSelected ? 4 : 3,
         fillColor: polygonObj.color,
         fillOpacity: 0.25,
-        dashArray: polygonObj.isSelected ? null : '5,5'
+        dashArray: polygonObj.isSelected ? null : '5,5',
+        
+        // ★ 關鍵修正：禁用事件冒泡，啟用交互
+        interactive: true,
+        bubblingMouseEvents: false,
+        pointerEvents: 'auto'
     };
+    
     polygonObj.layer = L.polygon(polygonObj.points, style).addTo(map);
+    
+    // ★ 綁定點擊事件 - 阻止冒泡
+    polygonObj.layer.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);   // 停止事件冒泡
+        L.DomEvent.preventDefault(e);    // 阻止默認行為
+        selectPolygon(polygonObj.id);
+    });
+    
+    // ★ 綁定鼠標懸停事件 - 視覺反饋
+    polygonObj.layer.on('mouseover', () => {
+        polygonObj.layer.setStyle({ 
+            weight: 4, 
+            fillOpacity: 0.4 
+        });
+        map.getContainer().style.cursor = 'pointer';
+    });
+    
+    polygonObj.layer.on('mouseout', () => {
+        if (!polygonObj.isSelected) {
+            polygonObj.layer.setStyle({ 
+                weight: 3, 
+                fillOpacity: 0.25 
+            });
+        }
+        map.getContainer().style.cursor = 'default';
+    });
     
     if (polygonObj.isEditing || polygonObj.isSelected) {
         renderEditHandles(polygonObj);
@@ -1208,13 +1245,32 @@ function renderEditHandles(polygonObj) {
     polygonObj.markers.addTo(map);
 }
 
+/**
+ * ★ 修正版本：selectPolygon
+ * 確保正確重置所有多邊形的樣式
+ */
 function selectPolygon(id) {
-    polygons.forEach(p => p.isSelected = false);
+    // 重置所有多邊形的樣式
+    polygons.forEach(p => {
+        p.isSelected = false;
+        if (p.layer) {
+            p.layer.setStyle({
+                color: p.color,
+                weight: 3,
+                fillOpacity: 0.25,
+                dashArray: '5,5'
+            });
+            p.markers.clearLayers();
+        }
+    });
+    
     const polygon = polygons.find(p => p.id === id);
     if (!polygon) return;
     
     polygon.isSelected = true;
     currentPolygonId = id;
+    
+    // 重新渲染選中多邊形
     renderPolygonLayer(polygon);
     renderEditHandles(polygon);
     renderPolygonList();
@@ -1730,7 +1786,7 @@ function selectItemById(id) {
 }
 
 /* ========================================================================
-   主查詢函數 ★ 修正版本
+   主查詢函數
    ======================================================================== */
 
 async function runQuery() {
@@ -1888,7 +1944,7 @@ async function runQuery() {
             }
         });
 
-        // 處理學校 - 新增校門查詢邏輯
+        // 處理學校
         for (const sch of rawSchools) {
             let finalLat = sch.lat;
             let finalLon = sch.lon;
@@ -1915,10 +1971,9 @@ async function runQuery() {
 
             results.push(schoolItem);
 
-            // 異步計算校門距離 (不阻斷主流程)
+            // 異步計算校門距離
             if (!inside) {
                 getSchoolGatesToDist(schoolItem, centroidForQuery).then(() => {
-                    // 更新表格中對應的行
                     const rowCell = document.getElementById(`route-${schoolItem.id}`);
                     if (rowCell) {
                         rowCell.innerText = schoolItem.路線距離;
@@ -1967,7 +2022,6 @@ async function runQuery() {
         queryBtn.innerText = "🚗 計算路線中...";
 
         for (const item of results.slice(0, 80)) {
-            // 跳過學校 (已在異步計算中) 和範圍內的設施
             if (item.原始類型 === "school" || item.原始類型 === "university" || item.在範圍內) {
                 continue;
             }
@@ -2087,14 +2141,12 @@ function exportPolygonsToSHP() {
 function cleanGeoJSONString(rawText) {
     console.log('🔍 開始清理 GeoJSON 字符串...');
     
-    // 第 1 步: 移除 UTF-8 BOM
     if (rawText.charCodeAt(0) === 0xFEFF) {
         console.warn('  ❌ 偵測到 BOM (標記: U+FEFF), 正在移除...');
         rawText = rawText.substring(1);
         console.log('  ✅ BOM 已移除');
     }
     
-    // 第 2 步: 統一換行符 (\r\n → \n)
     let crlfCount = (rawText.match(/\r\n/g) || []).length;
     let crCount = (rawText.match(/\r(?!\n)/g) || []).length;
     
@@ -2104,7 +2156,6 @@ function cleanGeoJSONString(rawText) {
         console.log('  ✅ 換行符已統一成 \\n');
     }
     
-    // 第 3 步: 移除不可見的控制字符
     let controlCharCount = 0;
     rawText = rawText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, (match) => {
         controlCharCount++;
@@ -2117,7 +2168,6 @@ function cleanGeoJSONString(rawText) {
         console.log(`  ✅ 已移除 ${controlCharCount} 個控制字符`);
     }
     
-    // 第 4 步: 移除額外空白
     const beforeTrim = rawText.length;
     rawText = rawText.trim();
     console.log(`  ✅ 移除前後空白: ${beforeTrim} → ${rawText.length} 位元組`);
@@ -2140,10 +2190,8 @@ function importPolygonsFromSHP(event) {
                 const rawText = e.target.result;
                 console.log(`\n1️⃣ 原始文本位元組數: ${rawText.length}`);
                 
-                // 清理文本
                 const cleanedText = cleanGeoJSONString(rawText);
                 
-                // 嘗試解析
                 console.log('\n2️⃣ 嘗試 JSON.parse()...');
                 const geojson = JSON.parse(cleanedText);
                 console.log('   ✅ 解析成功！');
@@ -2185,7 +2233,6 @@ function importPolygonsFromSHP(event) {
     
     document.getElementById('shp-file-input').value = '';
 }
-
 
 function processImportedPolygons(geojson) {
     let features = [];
