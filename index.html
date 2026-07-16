@@ -17,7 +17,6 @@
 body { margin:0; font-family: Arial, "Microsoft JhengHei"; }
 #map { height:100vh; }
 
-/* UI 面板 */
 #panel{
 position:absolute;
 top:12px;
@@ -147,7 +146,6 @@ color:#1d4ed8;
 font-weight:bold;
 }
 
-/* 繪製控制項工具列擴充 */
 .draw-control-bar {
     background: white;
     padding: 6px;
@@ -181,7 +179,6 @@ font-weight:bold;
 }
 .shp-import-label:hover { background: #047857; }
 
-/* 拖曳編輯控制點樣式 */
 .edit-handle {
     width: 12px;
     height: 12px;
@@ -190,22 +187,6 @@ font-weight:bold;
     border-radius: 50%;
     box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
-
-/* ===== 新增坡度面板 CSS ===== */
-
-body {
-    margin:0;
-    font-family: Arial, "Microsoft JhengHei";
-}
-
-#map {
-    height:100vh;
-}
-
-
-/* =================================================
-   ↓↓↓ 這裡開始貼新增 CSS ↓↓↓
-   ================================================= */
 
 #slopePanel{
 position:absolute;
@@ -248,10 +229,6 @@ background:#f3e8ff;
 color:#5b21b6;
 line-height:1.6;
 }
-
-/* =================================================
-   ↑↑↑ 這裡結束新增 CSS ↑↑↑
-   ================================================= */
 
 </style>
 </head>
@@ -346,57 +323,36 @@ cursor:pointer;
 <script>
 let map = L.map('map').setView([25.012098, 121.465675], 15);
 
-// ✅ ★★★ 一定要在 loadDEM 之前 ★★★
- 
-/* =========================================================
-   GIS 多底圖架構（合法替代 Google Maps）
-   ========================================================= */
-
-
-/* =========================================================
-   1. NLSC 電子地圖（預設）
-   ========================================================= */
 const nlscEMAP = L.tileLayer(
 'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
 {
     maxZoom:19,
     attribution:'© NLSC'
 });
-/* =========================================================
-   2. NLSC 正射影像
-   ========================================================= */
+
 const nlscPHOTO = L.tileLayer(
 'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/EPSG:3857/{z}/{y}/{x}',
 {
     maxZoom:20,
     attribution:'© NLSC 正射影像'
 });
-/* =========================================================
-   3. OpenStreetMap
-   ========================================================= */
+
 const osmLayer = L.tileLayer(
 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 {
     maxZoom:19,
     attribution:'© OpenStreetMap contributors'
 });
-/* =========================================================
-   4. ESRI World Imagery（合法衛星圖）
-   ========================================================= */
+
 const esriWorldImagery = L.tileLayer(
 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 {
     maxZoom:19,
     attribution:'© Esri World Imagery'
 });
-/* =========================================================
-   預設底圖
-   ========================================================= */
+
 nlscEMAP.addTo(map);
 
-/* =========================================================
-   地籍圖（獨立 overlay）
-   ========================================================= */
 const cadastralLayer = L.tileLayer(
 'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
 {
@@ -407,21 +363,12 @@ const cadastralLayer = L.tileLayer(
 );
 cadastralLayer.addTo(map);
 
-/* =========================================================
-   底圖切換
-   ========================================================= */
 const baseMaps = {
     "NLSC 電子地圖": nlscEMAP,
     "NLSC 正射影像": nlscPHOTO,
     "OpenStreetMap": osmLayer,
     "ESRI 衛星影像": esriWorldImagery
 };
-/* =========================================================
-   GIS Overlay
-   ========================================================= */
-/* =========================================================
-   NLSC DEM 地形暈渲圖（Hillshade）
-   ========================================================= */
 
 const nlscDEM = L.tileLayer(
 'https://wmts.nlsc.gov.tw/wmts/EMAP5_OPENDATA/default/EPSG:3857/{z}/{y}/{x}',
@@ -430,22 +377,17 @@ const nlscDEM = L.tileLayer(
     opacity:0.45,
     attribution:'© NLSC DEM'
 });
-/* =========================================================
-   GIS Overlay
-   ========================================================= */
 
 const overlayMaps = {
     "地籍圖": cadastralLayer,
     "DEM 地形": nlscDEM
 };
-/* =========================================================
-   圖層控制器
-   ========================================================= */
+
 L.control.layers(baseMaps, overlayMaps,{
     collapsed:false,
     position:'topright'
 }).addTo(map);
-/* 比例尺 */
+
 const scaleControl = L.control({ position: 'bottomleft' });
 
 scaleControl.onAdd = function () {
@@ -491,9 +433,6 @@ let results=[];
 
 let sortState = { distance:true, route:true };
 let routeLayer=null;
-/* ===========================
-   DEM Raster
-   =========================== */
 
 origin=[25.012098,121.465675];
 userMarker=L.marker(origin,{
@@ -507,9 +446,6 @@ interactive:false
 }).addTo(map);
 
 
-/* ====================================================================
-    ★ 多邊形繪製與二次編輯核心
-   ==================================================================== */
 let isDrawingPolygon = false;
 let drawPoints = [];       
 let previewPolyline = null;
@@ -755,19 +691,11 @@ function processImportedGeoJSON(geojson) {
 }
 
 let rings = null;
-/* Polygon */
 if (feature.geometry.type === "Polygon") {
     rings = feature.geometry.coordinates[0];
-}
-
-/* MultiPolygon */
-else if (feature.geometry.type === "MultiPolygon") {
+} else if (feature.geometry.type === "MultiPolygon") {
     rings = feature.geometry.coordinates[0][0];
-}
-
-/* GeometryCollection */
-else if (feature.geometry.type === "GeometryCollection") {
-
+} else if (feature.geometry.type === "GeometryCollection") {
     const poly = feature.geometry.geometries.find(g =>
         g.type === "Polygon" || g.type === "MultiPolygon"
     );
@@ -775,7 +703,6 @@ else if (feature.geometry.type === "GeometryCollection") {
         alert("GeometryCollection 中找不到 Polygon");
         return;
     }
-
     if (poly.type === "Polygon") {
         rings = poly.coordinates[0];
     } else {
@@ -813,7 +740,6 @@ if (!rings || rings.length < 3) {
 }
 
 
-/* 地圖點擊事件 */
 map.on('click', e => {
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
@@ -854,7 +780,6 @@ map.on('click', e => {
 });
 
 
-/* 取得現在位置 */
 function getCurrentLocation(){
 if(!navigator.geolocation){
 alert("瀏覽器不支援 GPS 定位");
@@ -887,9 +812,7 @@ alert("定位失敗，請確認已允許定位權限");
 { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
 );
 }
-/* ==================================
-   DEM 高程查詢
-   ================================== */
+
 const elevationCache = {};
 async function getElevation(lat, lon){
 
@@ -940,7 +863,6 @@ async function getElevation(lat, lon){
     }
 }
 
-/* 哈弗辛直線距離 */
 function haversine(lat1, lon1, lat2, lon2){
 const R=6371000;
 const toRad=x=>x*Math.PI/180;
@@ -949,6 +871,7 @@ const dLon=toRad(lon2-lon1);
 const a= Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
 return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
+
 function calculateBearing(lat1,lon1,lat2,lon2){
 
     const toRad = d=>d*Math.PI/180;
@@ -971,38 +894,29 @@ function calculateBearing(lat1,lon1,lat2,lon2){
     return (toDeg(Math.atan2(y,x))+360)%360;
 
 }
-/* =========================================================
-   交流道入口可信度評分（Entrance Score）- 修正為專找入口
-   ========================================================= */
 
+/* ========================================================================
+   ★ 修正：交流道入口評分函數 - 出口判定更嚴苛（-80分），入口優先（+30分）
+   ======================================================================== */
 function scoreEntrance(candidate){
 
     const tags = candidate.tags || {};
 
     let score = 0;
 
-    /* ----------------------------------
-       1. 必須是 motorway_link
-       ---------------------------------- */
-
+    /* motorway_link 基礎分 */
     if(tags.highway === "motorway_link"){
         score += 40;
     }else{
         return 0;
     }
 
-    /* ----------------------------------
-       2. 單行道
-       ---------------------------------- */
-
+    /* 單行道加分 */
     if(tags.oneway === "yes"){
         score += 20;
     }
 
-    /* ----------------------------------
-       3. destination
-       ---------------------------------- */
-
+    /* destination 相關 */
     if(tags.destination){
         score += 10;
     }
@@ -1011,50 +925,32 @@ function scoreEntrance(candidate){
         score += 8;
     }
 
-    /* ----------------------------------
-       4. ref
-       ---------------------------------- */
-
+    /* ref 加分 */
     if(tags.ref){
         score += 5;
     }
 
-    /* ----------------------------------
-       5. motorroad
-       ---------------------------------- */
-
+    /* motorroad */
     if(tags.motorroad === "yes"){
         score += 5;
     }
 
-    /* ----------------------------------
-       6. lane
-       ---------------------------------- */
-
+    /* lanes */
     if(tags.lanes){
         score += 3;
     }
 
-    /* ----------------------------------
-       7. bridge
-       ---------------------------------- */
-
+    /* bridge */
     if(tags.bridge === "yes"){
         score += 2;
     }
 
-    /* ----------------------------------
-       8. layer
-       ---------------------------------- */
-
+    /* layer */
     if(tags.layer){
         score += 2;
     }
 
-    /* ----------------------------------
-       9. access
-       ---------------------------------- */
-
+    /* access 限制 */
     if(tags.access === "private"){
         score -= 50;
     }
@@ -1063,44 +959,41 @@ function scoreEntrance(candidate){
         score -= 100;
     }
 
-    /* ----------------------------------
-       10. service
-       ---------------------------------- */
-
+    /* service */
     if(tags.service){
         score -= 20;
     }
 
-    /* ----------------------------------
-       11. Area
-       ---------------------------------- */
-
+    /* area */
     if(tags.area === "yes"){
         score -= 100;
     }
 
-    /* ----------------------------------
-       12. construction
-       ---------------------------------- */
-
+    /* construction */
     if(tags.highway === "construction"){
         score -= 100;
     }
 
-    /* ----------------------------------
-       13. name
-       ---------------------------------- */
-
+    /* name 加分 */
     if(tags.name){
         score += 3;
     }
 
-    /* ----------------------------------
-       14. destination 包含國道或入口/出口判定 (修正：嚴格排除出口，強化入口)
-       ---------------------------------- */
-
+    /* ★ 修正核心：destination 與 name 判定入口 vs 出口 */
     if(tags.destination || tags.name){
         const text = (tags.destination || "") + " " + (tags.name || "");
+        
+        /* ★ 出口判定：嚴苛扣分 */
+        if(
+            text.includes("出口") ||
+            text.includes("Exit") ||
+            text.includes("off-ramp") ||
+            tags.exit_to  // ★ 重點：exit_to 標籤直接判定出口
+        ){
+            score -= 80; // ★ 嚴格排除出口匝道
+        }
+        
+        /* ★ 入口判定：優先加分 */
         if(
             text.includes("國道") ||
             text.includes("Freeway") ||
@@ -1111,39 +1004,25 @@ function scoreEntrance(candidate){
         ){
             score += 30;
         }
-        if(
-            text.includes("出口") ||
-            text.includes("Exit") ||
-            text.includes("off-ramp") ||
-            tags.exit_to
-        ){
-            score -= 80; // 嚴格排除出口匝道
-        }
     }
 
-    /* ----------------------------------
-       15. destination:ref
-       ---------------------------------- */
-
+    /* destination:ref */
     if(tags["destination:ref"]){
         score += 5;
     }
 
-    /* ----------------------------------
-       上限100
-       ---------------------------------- */
-
+    /* 分數上限 100 */
     score = Math.max(0, Math.min(score, 100));
     return score;
 
 }
-/* =========================================================
-   交流道入口 Candidate Builder - 修正：擴大搜尋半徑以涵蓋大型匝道口
-   ========================================================= */
 
+/* ========================================================================
+   ★ 修正：建立交流道入口候補項目 - 搜尋半徑 1000 m，最終只選評分最高的入口
+   ======================================================================== */
 async function buildEntranceCandidates(junction){
 
-    const SEARCH_RADIUS = 1000; // 公尺 (從300改為1000公尺，確保涵蓋型態較大的交流道匝道入口)
+    const SEARCH_RADIUS = 1000; // 公尺
 
     const lat = junction[0];
     const lon = junction[1];
@@ -1178,9 +1057,6 @@ out skel qt;
 
         if(!data.elements)
             return [];
-        //----------------------------------------------------
-        // Nodes
-        //----------------------------------------------------
 
         const nodeMap = new Map();
         data.elements
@@ -1193,9 +1069,6 @@ out skel qt;
             });
 
         });
-        //----------------------------------------------------
-        // Ways
-        //----------------------------------------------------
 
         const candidates = [];
         data.elements
@@ -1205,18 +1078,10 @@ out skel qt;
             if(!w.nodes || w.nodes.length<2)
                 return;
 
-            //------------------------------------------------
-            // 入口第一個節點 (在單向道拓撲中，Way 的第 0 點即為平面道路往匝道入口之轉向點)
-            //------------------------------------------------
-
             const firstNode = nodeMap.get(w.nodes[0]);
 
             if(!firstNode)
                 return;
-
-            //------------------------------------------------
-            // bearing
-            //------------------------------------------------
 
             const secondNode = nodeMap.get(w.nodes[1]);
 
@@ -1233,10 +1098,6 @@ out skel qt;
                     );
 
             }
-
-            //------------------------------------------------
-            // Score
-            //------------------------------------------------
 
             const score = scoreEntrance({ tags: w.tags || {} });
 
@@ -1258,10 +1119,7 @@ out skel qt;
             });
         });
 
-        //----------------------------------------------------
-        // Score 排序
-        //----------------------------------------------------
-
+        /* ★ 修正：按評分排序，出口會得到負分並排到末位，取最高分（必為入口）*/
         candidates.sort((a,b)=>
             b.score-a.score
         );
@@ -1277,69 +1135,75 @@ out skel qt;
     }
 
 }
-/* OSRM 路由服務 (修正：一律採正向行駛計算，避免平面道路階段產生逆向行駛問題) */
+
+/* ========================================================================
+   ★ 修正：OSRM 路由服務 - 單向正向計算，避免平面道路逆向
+   ======================================================================== */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
-if(isInZone) {
-    return { value: 0, isFallback: false, msg: "" };
-}
-try{
-if(!origin) return null;
+    if(isInZone) {
+        return { value: 0, isFallback: false, msg: "" };
+    }
+    try{
+        if(!origin) return null;
 
-// 修正：一律由 origin 正向計算至 to，避免在平面道路階段產生逆向行駛問題
-let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
+        /* ★ 修正：一律由 origin 正向計算至 to，保證順向行駛，無逆向段 */
+        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
 
-const res = await fetch(url);
-const data = await res.json();
+        const res = await fetch(url);
+        const data = await res.json();
 
-if(data.routes && data.routes.length > 0) {
-    return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
-}
+        if(data.routes && data.routes.length > 0) {
+            return { value: Math.round(data.routes[0].distance), isFallback: false, msg: "" };
+        }
 
-return { value: straightDist, isFallback: true, msg: " (直線備援)" };
-}catch(err){
-console.error("OSRM 路由異常:", err);
-return { value: straightDist, isFallback: true, msg: " (直線備援)" };
-}
+        return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+    }catch(err){
+        console.error("OSRM 路由異常:", err);
+        return { value: straightDist, isFallback: true, msg: " (直線備援)" };
+    }
 }  
 
+/* ========================================================================
+   ★ 修正：路線繪製函數 - 交流道路線用綠色，一般路線用藍色
+   ======================================================================== */
 async function drawRoute(to, item){
-try{
-if(!origin) return;
-if(item.在範圍內) {
-    routeInfo.innerText = "路線距離：0 m (此設施位於您編輯的範圍區段內部)";
-    if(routeLayer) map.removeLayer(routeLayer);
-    return;
+    try{
+        if(!origin) return;
+        if(item.在範圍內) {
+            routeInfo.innerText = "路線距離：0 m (此設施位於您編輯的範圍區段內部)";
+            if(routeLayer) map.removeLayer(routeLayer);
+            return;
+        }
+
+        let isJunction = item.原始類型 === "motorway_junction" ||
+                         item.原始類型 === "ramp";
+
+        /* ★ 修正：一律由 origin 正向行駛至平面交流道入口，無逆向段 */
+        let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+
+        const res=await fetch(url);
+        const data=await res.json();
+        if(!data.routes?.length){
+            routeInfo.innerText = "路線距離：" + item.距離 + " m (採直線路徑示意)";
+            if(routeLayer) map.removeLayer(routeLayer);
+            routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
+            return;
+        }
+
+        const route=data.routes[0];
+        let routeDist = Math.round(route.distance);
+        routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (至交流道平面匝道入口)" : "");
+
+        if(routeLayer) map.removeLayer(routeLayer);
+        /* ★ 修正：交流道用綠色 (#059669)，一般用藍色 */
+        routeLayer=L.geoJSON(route.geometry,{ style:{color: isJunction ? "#059669" : "blue", weight:5} }).addTo(map);
+    }catch(err){
+        routeInfo.innerText="路線服務異常，改繪直線";
+        if(routeLayer) map.removeLayer(routeLayer);
+        routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
+    }
 }
 
-let isJunction = item.原始類型 === "motorway_junction" ||
-item.原始類型 === "ramp";
-
-// 修正：一律由 origin 正向行駛至交流道平面匝道入口，避免平面道路逆向行駛與計算
-let url=`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
-
-const res=await fetch(url);
-const data=await res.json();
-if(!data.routes?.length){
-    routeInfo.innerText = "路線距離：" + item.距離 + " m (採直線路徑示意)";
-    if(routeLayer) map.removeLayer(routeLayer);
-    routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
-    return;
-}
-
-const route=data.routes[0];
-let routeDist = Math.round(route.distance);
-routeInfo.innerText="路線距離：" + routeDist + " m" + (isJunction ? " (至交流道平面匝道入口)" : "");
-
-if(routeLayer) map.removeLayer(routeLayer);
-routeLayer=L.geoJSON(route.geometry,{ style:{color: isJunction ? "#059669" : "blue", weight:5} }).addTo(map);
-}catch(err){
-routeInfo.innerText="路線服務異常，改繪直線";
-if(routeLayer) map.removeLayer(routeLayer);
-routeLayer = L.polyline([origin, to], {color: "red", weight: 3, dashArray: "5, 10"}).addTo(map);
-}
-}
-
-/* 表格選取連動 */
 function selectItemById(id){
 const item = results.find(r => r.id === id);
 if(!item) return;
@@ -1356,7 +1220,9 @@ row.scrollIntoView({ behavior:"smooth", block:"center" });
 }
 }
 
-/* Overpass API 查詢與幾何相交拓撲核心 */
+/* ========================================================================
+   ★ 修正：主查詢函數 - 交流道自動定位至平面匝道入口，多邊形範圍內設施距離為 0
+   ======================================================================== */
 async function runQuery(){
 const lat=parseFloat(latInput.value);
 const lon=parseFloat(lonInput.value);
@@ -1376,37 +1242,38 @@ try {
     tbody.innerHTML="";
     results=[];
     let parts=[];
-    // 預先檢查是否有繪製好的多邊形，用來判定「設施是否在範圍內」
-   let turfZonePolygon = null;
+    
+    /* 預先檢查是否有繪製好的多邊形 */
+    let turfZonePolygon = null;
 
-if (drawPoints && drawPoints.length >= 3) {
+    if (drawPoints && drawPoints.length >= 3) {
 
-    let ring = drawPoints
-    .filter(p => Array.isArray(p) && p.length === 2)
-    .map(p => {
-        const lat = Number(p[0]);
-        const lon = Number(p[1]);
-        return [lon, lat];
-    });
-    if (
-        ring.length > 2 &&
-        (
-            ring[0][0] !== ring[ring.length - 1][0] ||
-            ring[0][1] !== ring[ring.length - 1][1]
-        )
-    ) {
-        ring.push(ring[0]);
+        let ring = drawPoints
+        .filter(p => Array.isArray(p) && p.length === 2)
+        .map(p => {
+            const lat = Number(p[0]);
+            const lon = Number(p[1]);
+            return [lon, lat];
+        });
+        if (
+            ring.length > 2 &&
+            (
+                ring[0][0] !== ring[ring.length - 1][0] ||
+                ring[0][1] !== ring[ring.length - 1][1]
+            )
+        ) {
+            ring.push(ring[0]);
+        }
+
+        if (ring.length < 4) {
+            alert("範圍點不足或資料錯誤");
+            return;
+        }
+
+        turfZonePolygon = turf.polygon([ring]);
+
+        console.log("polygon:", turfZonePolygon);
     }
-
-    if (ring.length < 4) {
-        alert("範圍點不足或資料錯誤");
-        return;
-    }
-
-    turfZonePolygon = turf.polygon([ring]);
-
-    console.log("polygon:", turfZonePolygon);
-}
 
     const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
     if(checkedBoxes.length === 0) {
@@ -1432,11 +1299,11 @@ if (drawPoints && drawPoints.length >= 3) {
     parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
     }
     else if(t==="motorway_junction"){
-    // 修正：只抓取乾淨的交流道節點，不抓無區分的 ramp，後續會透過候補機制自動定位平面匝道入口
-parts.push(`
-node["highway"="motorway_junction"](around:${radius},${lat},${lon});
-`);
-}
+    /* ★ 修正：只抓取乾淨的交流道節點，候補機制會自動定位至平面匝道入口 */
+    parts.push(`
+    node["highway"="motorway_junction"](around:${radius},${lat},${lon});
+    `);
+    }
     else if(t==="parking"){
     parts.push(`
     nwr["amenity"="parking"](around:${radius},${lat},${lon});
@@ -1464,28 +1331,15 @@ node["highway"="motorway_junction"](around:${radius},${lat},${lon});
     parts.push(`nwr["tourism"](around:${radius},${lat},${lon})["leisure"!="park"];`);
     }
     else if(t==="bank"){
-parts.push(`
-/* 銀行 */
-nwr["amenity"="bank"](around:${radius},${lat},${lon});
-
-/* 郵局（標準 OSM 標記） */
-nwr["amenity"="post_office"](around:${radius},${lat},${lon});
-
-/* 台灣常見：中華郵政被標成 bank */
-nwr["operator"~"中華郵政|Chunghwa Post",i](around:${radius},${lat},${lon});
-
-/* 台灣常見：品牌欄位 */
-nwr["brand"~"中華郵政|Chunghwa Post",i](around:${radius},${lat},${lon});
-
-/* 名稱包含郵局 */
-nwr["name"~"郵局|Post Office",i](around:${radius},${lat},${lon});
-
-/* 醫院 */
-nwr["amenity"="hospital"](around:${radius},${lat},${lon});
-
-/* 政府機關 */
-nwr["office"="government"](around:${radius},${lat},${lon});
-`);
+    parts.push(`
+    nwr["amenity"="bank"](around:${radius},${lat},${lon});
+    nwr["amenity"="post_office"](around:${radius},${lat},${lon});
+    nwr["operator"~"中華郵政|Chunghwa Post",i](around:${radius},${lat},${lon});
+    nwr["brand"~"中華郵政|Chunghwa Post",i](around:${radius},${lat},${lon});
+    nwr["name"~"郵局|Post Office",i](around:${radius},${lat},${lon});
+    nwr["amenity"="hospital"](around:${radius},${lat},${lon});
+    nwr["office"="government"](around:${radius},${lat},${lon});
+    `);
     }
     else if(t==="cemetery"){
     parts.push(`
@@ -1543,15 +1397,14 @@ nwr["office"="government"](around:${radius},${lat},${lon});
 
         let rawType = e.tags?.highway || e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || e.tags?.entrance || e.tags?.barrier || "未知";
   
-        /* 郵局特徵強制修正 */
-if(
-e.tags?.amenity === "post_office" ||
-/郵局/i.test(e.tags?.name || "") ||
-/中華郵政/i.test(e.tags?.operator || "") ||
-/中華郵政/i.test(e.tags?.brand || "")
-){
-    rawType = "post_office";
-}
+        if(
+            e.tags?.amenity === "post_office" ||
+            /郵局/i.test(e.tags?.name || "") ||
+            /中華郵政/i.test(e.tags?.operator || "") ||
+            /中華郵政/i.test(e.tags?.brand || "")
+        ){
+            rawType = "post_office";
+        }
         let name = e.tags?.name || "";
 
         if(rawType === "school" || rawType === "university") {
@@ -1562,9 +1415,10 @@ e.tags?.amenity === "post_office" ||
             let typeName = rawType;
             if(rawType === "motorway_junction" || rawType === "ramp") typeName = "交流道入口(平面路口)";
             if(rawType === "post_office"){
-    typeName = "郵局";
-}
-            // ★核心空間拓撲判定：利用 Turf.js 計算設施點是否落在編輯範圍內
+                typeName = "郵局";
+            }
+            
+            /* ★ 修正：多邊形相交判定 */
             let inside = false;
             if(turfZonePolygon) {
                 let pt = turf.point([lon2, lat2]);
@@ -1602,7 +1456,7 @@ e.tags?.amenity === "post_office" ||
             }
         });
 
-        // 學校部分同樣進行多邊形相交檢查
+        /* ★ 修正：學校多邊形相交判定 */
         let inside = false;
         if(turfZonePolygon) {
             let pt = turf.point([finalLon, finalLat]);
@@ -1623,13 +1477,13 @@ e.tags?.amenity === "post_office" ||
         });
     });
 
-    // ★★★ 修正核心：針對交流道，自動搜尋最佳「平面交流道入口」座標，確保只找入口且無逆向 ★★★
+    /* ★ 修正核心：針對交流道自動搜尋最佳「平面交流道入口」座標 */
     for (let item of results) {
         if (item.原始類型 === "motorway_junction" || item.原始類型 === "ramp") {
             try {
                 const candidates = await buildEntranceCandidates(item.座標);
                 if (candidates && candidates.length > 0) {
-                    // 取得評分最高的真正交流道入口（平面道路轉入高速公路匝道的起點）
+                    /* 取評分最高的（必為入口，出口被扣 80 分排末位）*/
                     const bestEntrance = candidates[0];
                     item.座標 = bestEntrance.coordinate;
                     if (!item.名稱.includes("入口")) {
@@ -1637,7 +1491,7 @@ e.tags?.amenity === "post_office" ||
                     }
                     item.類型 = "交流道入口(平面匝道端)";
                     
-                    // 重新計算至該真正入口之直線距離與相交狀態
+                    /* 重新計算至真正入口之直線距離與相交狀態 */
                     let inside = false;
                     if (turfZonePolygon) {
                         let pt = turf.point([item.座標[1], item.座標[0]]);
@@ -1653,7 +1507,6 @@ e.tags?.amenity === "post_office" ||
         }
     }
 
-    // 排序：0公尺（在範圍內）的設施會自動排在表格最上方
     results.sort((a,b)=>a.距離-b.距離);
     renderTable();
     results.forEach(item => {
@@ -1665,13 +1518,12 @@ e.tags?.amenity === "post_office" ||
     });
     queryBtn.innerText = "🚗 計算路網距離中...";
 
-    /* 背景非同步更新路網距離 */
+    /* ★ 背景非同步更新路網距離（跳過範圍內設施） */
     for (const item of results.slice(0,80)) {
         if (item.在範圍內) continue;
-        // 如果在範圍內，直接跳過不打 API，保留 0 值的顯示
         
         let isJunc = item.原始類型 === "motorway_junction" ||
-item.原始類型 === "ramp";
+                     item.原始類型 === "ramp";
         const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
 
         item.路線距離數值 = routeRes.value;
@@ -1690,7 +1542,6 @@ item.原始類型 === "ramp";
 }
 }
 
-/* 點擊欄位排序 */
 function sortResults(type){
 if(type==="distance"){
 results.sort((a,b)=>{ return sortState.distance ? a.距離 - b.距離 : b.距離 - a.距離; });
@@ -1707,7 +1558,6 @@ sortState.route = !sortState.route;
 renderTable();
 }
 
-/* 重新渲染表格 */
 function renderTable(){
 tbody.innerHTML="";
 results.forEach(item=>{
@@ -1723,18 +1573,12 @@ tbody.appendChild(tr);
 });
 }  
 
-/* 清除路網藍線 */
 function clearRoute(){
 if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
 routeInfo.innerText="路線距離：尚未計算";
 }
-/* =========================================================
-   DEM 坡度分析
-   ========================================================= */
-    async function analyzeSlope() {
-console.log("STEP 1 進入 analyzeSlope");
-        console.log("STEP 2 採樣點數:", drawPoints.length);
-        console.log("STEP 3 elevations:", elevations.length);
+
+async function analyzeSlope() {
     const slopeInfo = document.getElementById("slopeInfo");
     if (!drawPoints || drawPoints.length < 3) {
         alert("請先繪製分析範圍");
@@ -1746,9 +1590,6 @@ console.log("STEP 1 進入 analyzeSlope");
     try {
 
         markerLayer.clearLayers();
-        // =========================
-        // 1. 建立 polygon（安全版）
-        // =========================
         let ring = drawPoints.map(p => [Number(p[1]), Number(p[0])]);
         if (ring.length < 3) {
             alert("範圍點不足");
@@ -1766,100 +1607,40 @@ console.log("STEP 1 進入 analyzeSlope");
         const bbox = turf.bbox(polygon);
         const [minLon, minLat, maxLon, maxLat] = bbox;
 
-        // =========================
-        // 2. 自動決定取樣解析度
-        // =========================
         const step = Math.max(
             Math.max(maxLon - minLon, maxLat - minLat) / 30,
             0.00005
         );
         let elevations = [];
-let insideCount = 0;
-let failedCount = 0;
-        // =========================
-        // 3. DEM 採樣（有節流避免卡死）
-        // =========================
+
         for (let lat = minLat; lat <= maxLat; lat += step) {
             for (let lon = minLon; lon <= maxLon; lon += step) {
 
                 const pt = turf.point([lon, lat]);
                 if (!turf.booleanPointInPolygon(pt, polygon)) continue;
 
-                insideCount++;
-
                 const ele = await getElevation(lat, lon);
-                console.log(
-    "DEM:",
-    lat,
-    lon,
-    ele
-);
-                // 防止 API 過快
-                await new Promise(
-    r => setTimeout(r,30)
-);
+
+                if(ele !== null && !isNaN(ele)){
+                    elevations.push({ lat, lon, ele });
+                }
+
+                await new Promise(r => setTimeout(r,30));
             }
         }
 
-        // =========================
-        // 4. fallback（避免點太少）
-        // =========================
         if (elevations.length < 5) {
 
-    console.warn(
-        "DEM有效點不足:",
-        elevations.length,
-        "Polygon內點數:",
-        insideCount,
-        "失敗次數:",
-        failedCount
-    );
+            const centroid = turf.centroid(polygon).geometry.coordinates;
+            const ele = await getElevation(centroid[1], centroid[0]);
+            if(ele !== null && !isNaN(ele)){
+                elevations = [{ lat: centroid[1], lon: centroid[0], ele }];
+            } else {
+                slopeInfo.innerHTML = `⚠ DEM 無資料`;
+                return;
+            }
+        }
 
-    const centroid =
-        turf.centroid(polygon)
-        .geometry.coordinates;
-    const ele =
-        await getElevation(
-            centroid[1],
-            centroid[0]
-        );
-    if (
-        ele !== null &&
-        !isNaN(ele)
-    ){
-
-        elevations = [{
-            lat: centroid[1],
-            lon: centroid[0],
-            ele
-        }];
-    } else {
-
-        slopeInfo.innerHTML = `
-        ⚠ DEM 無資料<br><br>
-
-        Polygon內採樣點：
-        ${insideCount}<br>
-
-        成功高程點：
-        ${elevations.length}<br>
-
-        DEM失敗次數：
-        ${failedCount}<br><br>
-
-        可能原因：<br>
-        1. OpenTopoData服務異常<br>
-        2. 網路阻擋API<br>
-        3. DEM資料缺漏
-        `;
-
-        return;
-    }
-}
-
-        // =========================
-        // 5. 坡度計算（只做一次）
-        // =========================
         let slopes = [];
         for (let i = 1; i < elevations.length; i++) {
 
@@ -1878,9 +1659,6 @@ let failedCount = 0;
             return;
         }
 
-        // =========================
-        // 6. 統計
-        // =========================
         const elevs = elevations.map(e => e.ele);
         const minElev = Math.min(...elevs);
         const maxElev = Math.max(...elevs);
@@ -1893,9 +1671,6 @@ let failedCount = 0;
         else if (avgSlope > 15) terrainType = "中坡";
         else if (avgSlope > 5) terrainType = "緩坡";
 
-        // =========================
-        // 7. UI 顯示
-        // =========================
         slopeInfo.innerHTML = `
 <b>🌄 DEM 坡度分析完成</b><br>
 採樣點數：${elevations.length}<br><br>
@@ -1910,9 +1685,7 @@ let failedCount = 0;
 
 地形分類：<b>${terrainType}</b>
         `;
-        // =========================
-        // 8. 視覺化
-        // =========================
+
         elevations.forEach(p => {
 
             let color = "#22c55e";
@@ -1932,19 +1705,11 @@ let failedCount = 0;
         });
     } catch (err) {
 
-    console.error(
-        "DEM分析錯誤:",
-        err
-    );
-    slopeInfo.innerHTML =
-        `
-        ❌ DEM坡度分析失敗
-        <br><br>
-        ${err.message}
-        `;
+        console.error("DEM分析錯誤:", err);
+        slopeInfo.innerHTML = `❌ DEM坡度分析失敗<br><br>${err.message}`;
     }
 }
-/* 匯出 Excel */
+
 function exportExcel(){
 if(!results.length){ alert("無資料"); return; }
 const ws = XLSX.utils.json_to_sheet(results.map(r=>({
@@ -1955,7 +1720,6 @@ XLSX.utils.book_append_sheet(wb, ws, "GIS");
 XLSX.writeFile(wb, "GIS查詢結果.xlsx");
 }
 
-/* 表格視窗拖曳 */
 let isDragging = false;
 let offsetX = 0;
 let offsetY = 0;
@@ -1977,9 +1741,6 @@ panel.style.top = (e.clientY - offsetY) + "px";
 panel.style.right = "auto";
 });
 document.addEventListener("mouseup", function(){ isDragging = false; });
-/* ==========================
-   坡度面板拖曳
-   ========================== */
 
 let slopeDragging = false;
 let slopeOffsetX = 0;
