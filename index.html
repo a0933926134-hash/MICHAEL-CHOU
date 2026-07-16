@@ -1142,39 +1142,140 @@ function scoreEntrance(candidate){
    ========================================================= */
 
 async function buildEntranceCandidates(junction){
-    const SEARCH_RADIUS = 1000; 
+
+    const SEARCH_RADIUS = 1000; // 公尺 (從300改為1000公尺，確保涵蓋型態較大的交流道匝道入口)
+
     const lat = junction[0];
     const lon = junction[1];
 
-    const query = `[out:json][timeout:25];(way["highway"="motorway_link"](around:${SEARCH_RADIUS},${lat},${lon}););out body;>;out skel qt;`;
+    const query = `
+[out:json][timeout:25];
 
-    try {
-        const res = await fetch("https://overpass-api.de/api/interpreter", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: "data=" + encodeURIComponent(query)
-        });
+(
+way
+["highway"="motorway_link"]
+(around:${SEARCH_RADIUS},${lat},${lon});
+);
+
+out body;
+>;
+out skel qt;
+`;
+
+    try{
+
+        const res = await fetch(
+            "https://overpass-api.de/api/interpreter",
+            {
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/x-www-form-urlencoded"
+                },
+                body:"data="+encodeURIComponent(query)
+            }
+        );
         const data = await res.json();
-        if(!data.elements) return [];
+
+        if(!data.elements)
+            return [];
+        //----------------------------------------------------
+        // Nodes
+        //----------------------------------------------------
 
         const nodeMap = new Map();
-        data.elements.filter(e => e.type === "node").forEach(n => nodeMap.set(n.id, {lat: n.lat, lon: n.lon}));
+        data.elements
+        .filter(e=>e.type==="node")
+        .forEach(n=>{
+
+            nodeMap.set(n.id,{
+                lat:n.lat,
+                lon:n.lon
+            });
+
+        });
+        //----------------------------------------------------
+        // Ways
+        //----------------------------------------------------
 
         const candidates = [];
-        data.elements.filter(e => e.type === "way").forEach(w => {
-            if(!w.nodes || w.nodes.length < 2) return;
+        data.elements
+        .filter(e=>e.type==="way")
+        .forEach(w=>{
+
+            if(!w.nodes || w.nodes.length<2)
+                return;
+
+            //------------------------------------------------
+            // 入口第一個節點 (在單向道拓撲中，Way 的第 0 點即為平面道路往匝道入口之轉向點)
+            //------------------------------------------------
+
             const firstNode = nodeMap.get(w.nodes[0]);
-            if(!firstNode) return;
 
-            // 嚴格篩選：排除出口
-            const tags = w.tags || {};
-            const text = ((tags.destination || "") + " " + (tags.name || "") + " " + (tags.exit_to || "")).toLowerCase();
-            if(text.includes("exit") || text.includes("出口") || text.includes("off-ramp")) return;
+            if(!firstNode)
+                return;
 
-            candidates.push({ coordinate: [firstNode.lat, firstNode.lon] });
+            //------------------------------------------------
+            // bearing
+            //------------------------------------------------
+
+            const secondNode = nodeMap.get(w.nodes[1]);
+
+            let bearing = null;
+
+            if(secondNode){
+
+                bearing =
+                    calculateBearing(
+                        firstNode.lat,
+                        firstNode.lon,
+                        secondNode.lat,
+                        secondNode.lon
+                    );
+
+            }
+
+            //------------------------------------------------
+            // Score
+            //------------------------------------------------
+
+            const score = scoreEntrance({ tags: w.tags || {} });
+
+            candidates.push({
+
+                wayId : w.id,
+
+                coordinate : [
+                    firstNode.lat,
+                    firstNode.lon
+                ],
+
+                bearing,
+
+                score,
+
+                tags : w.tags || {}
+
+            });
         });
+
+        //----------------------------------------------------
+        // Score 排序
+        //----------------------------------------------------
+
+        candidates.sort((a,b)=>
+            b.score-a.score
+        );
         return candidates;
-    } catch(err) { return []; }
+
+    }catch(err){
+
+        console.error(
+            "Candidate Builder Error",
+            err
+        );
+        return [];
+    }
+
 }
 /* OSRM 路由服務 (修正：一律採正向行駛計算，避免平面道路階段產生逆向行駛問題) */
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false){
@@ -1524,21 +1625,32 @@ e.tags?.amenity === "post_office" ||
 
     // ★★★ 修正核心：針對交流道，自動搜尋最佳「平面交流道入口」座標，確保只找入口且無逆向 ★★★
     for (let item of results) {
-    if (item.原始類型 === "motorway_junction" || item.原始類型 === "ramp") {
-        try {
-            const candidates = await buildEntranceCandidates(item.座標);
-            if (candidates && candidates.length > 0) {
-                // 自動修正為第一個入口點座標
-                item.座標 = candidates[0].coordinate;
-                item.名稱 = "交流道入口";
-                item.類型 = "交流道(平面銜接入口)";
-                // 重新計算直線距離
-                item.距離 = Math.round(haversine(parseFloat(latInput.value), parseFloat(lonInput.value), item.座標[0], item.座標[1]));
-                item.直線距離顯示 = item.距離;
+        if (item.原始類型 === "motorway_junction" || item.原始類型 === "ramp") {
+            try {
+                const candidates = await buildEntranceCandidates(item.座標);
+                if (candidates && candidates.length > 0) {
+                    // 取得評分最高的真正交流道入口（平面道路轉入高速公路匝道的起點）
+                    const bestEntrance = candidates[0];
+                    item.座標 = bestEntrance.coordinate;
+                    if (!item.名稱.includes("入口")) {
+                        item.名稱 = (item.名稱 ? item.名稱 + " " : "") + "(平面匝道入口)";
+                    }
+                    item.類型 = "交流道入口(平面匝道端)";
+                    
+                    // 重新計算至該真正入口之直線距離與相交狀態
+                    let inside = false;
+                    if (turfZonePolygon) {
+                        let pt = turf.point([item.座標[1], item.座標[0]]);
+                        inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
+                    }
+                    item.在範圍內 = inside;
+                    item.距離 = inside ? 0 : Math.round(haversine(lat, lon, item.座標[0], item.座標[1]));
+                    item.直線距離顯示 = inside ? "0 (位於區段範圍內)" : item.距離;
+                }
+            } catch (err) {
+                console.error("搜尋交流道平面入口失敗:", err);
             }
-        } catch (err) { console.error("交流道處理錯誤:", err); }
-    }
-}
+        }
     }
 
     // 排序：0公尺（在範圍內）的設施會自動排在表格最上方
