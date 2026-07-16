@@ -1415,7 +1415,7 @@ async function getElevation(lat, lon) {
         if (!res.ok) return null;
         const data = await res.json();
         const ele = data?.results?.[0]?.elevation;
-        if (ele !== null && ele !== undefined && !isNaN(ele)) {
+        if (ele !== null && ele !== undefined && !isNaN(ele) && ele >= -500 && ele <= 9000) {
             elevationCache[cacheKey] = Number(ele);
             return elevationCache[cacheKey];
         }
@@ -2273,120 +2273,235 @@ function processImportedPolygons(geojson) {
 }
 
 /* ========================================================================
-   坡度分析
+   坡度分析 ★ 完整修正版本
    ======================================================================== */
 
 async function analyzeSlope() {
     const slopeContent = document.getElementById('slopeContent');
     
+    // ★ 修正 1: 增強多邊形選取邏輯
     let targetPoly = null;
+    
+    // 優先檢查是否有選中的多邊形
     if (currentPolygonId) {
         targetPoly = polygons.find(p => p.id === currentPolygonId);
-    } else if (polygons.length > 0) {
-        targetPoly = polygons[0];
     }
-
-    if (!targetPoly || !targetPoly.points || targetPoly.points.length < 3) {
-        alert("請先繪製多邊形範圍");
+    
+    // 如果沒有選中，嘗試使用第一個多邊形
+    if (!targetPoly && polygons.length > 0) {
+        targetPoly = polygons[0];
+        console.warn('⚠️ 未選中多邊形，使用第一個可用多邊形');
+    }
+    
+    // ★ 修正 2: 完整的多邊形驗證
+    if (!targetPoly) {
+        slopeContent.innerHTML = '❌ 請先繪製多邊形<br><br>使用「開始繪製」工具在地圖上繪製至少 3 個頂點的多邊形';
+        console.error('❌ 沒有可用多邊形');
         return;
     }
-
+    
+    if (!targetPoly.points || targetPoly.points.length < 3) {
+        slopeContent.innerHTML = '❌ 多邊形頂點不足<br><br>多邊形必須至少包含 3 個頂點';
+        console.error('❌ 多邊形點數不足:', targetPoly.points?.length || 0);
+        return;
+    }
+    
     slopeContent.innerHTML = "🌄 DEM 坡度分析中...";
+    console.log('📊 開始坡度分析', {
+        polygonId: targetPoly.id,
+        pointCount: targetPoly.points.length,
+        centroid: targetPoly.centroid
+    });
 
     try {
         markerLayer.clearLayers();
+        
+        // ★ 修正 3: 完整的座標環形轉換
         let ring = targetPoly.points.map(p => [Number(p[1]), Number(p[0])]);
-        if (ring.length < 3) {
-            alert("範圍點不足");
+        
+        // 驗證環形座標的有效性
+        const invalidCoords = ring.filter(coord => Math.abs(coord[0]) > 180 || Math.abs(coord[1]) > 90);
+        if (invalidCoords.length > 0) {
+            console.error('❌ 無效的座標:', invalidCoords);
+            slopeContent.innerHTML = `❌ 坐標無效<br><br>偵測到 ${invalidCoords.length} 個無效坐標`;
             return;
         }
-
+        
+        // 確保環形閉合
+        if (ring.length < 3) {
+            slopeContent.innerHTML = '❌ 座標不足';
+            return;
+        }
+        
         if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
-            ring.push(ring[0]);
+            ring.push([ring[0][0], ring[0][1]]);
+            console.log('✅ 環形座標已閉合');
         }
 
-        const polygon = turf.polygon([ring]);
+        // ★ 修正 4: 建立 Turf Polygon 物件，並增強錯誤處理
+        let polygon;
+        try {
+            polygon = turf.polygon([ring]);
+        } catch (err) {
+            console.error('❌ Turf 多邊形建立失敗:', err);
+            slopeContent.innerHTML = `❌ 多邊形建立失敗<br><br>${err.message}`;
+            return;
+        }
+        
+        // ★ 修正 5: 計算邊界框和優化採樣間距
         const bbox = turf.bbox(polygon);
         const [minLon, minLat, maxLon, maxLat] = bbox;
-        const step = Math.max(Math.max(maxLon - minLon, maxLat - minLat) / 30, 0.00005);
+        
+        console.log('📍 邊界框:', { minLat, maxLat, minLon, maxLon });
+        
+        // ★ 關鍵優化: 動態採樣間距計算
+        const rangeSize = Math.max(maxLon - minLon, maxLat - minLat);
+        const step = Math.max(rangeSize / 40, 0.00005);  // 改為 40 分割以提高精度
+        const estimatedPoints = Math.ceil((maxLon - minLon) / step) * Math.ceil((maxLat - minLat) / step);
+        
+        console.log('📏 採樣配置:', { 
+            rangeSize: rangeSize.toFixed(6),
+            step: step.toFixed(6),
+            estimatedPoints 
+        });
 
         let elevations = [];
+        let sampledCount = 0;
+        let totalCount = 0;
+        
+        // ★ 修正 6: 逐列掃描，定期更新進度
         for (let lat = minLat; lat <= maxLat; lat += step) {
             for (let lon = minLon; lon <= maxLon; lon += step) {
+                totalCount++;
+                
+                // 每 10 個點更新一次進度
+                if (totalCount % 10 === 0) {
+                    slopeContent.innerHTML = `🌄 DEM 坡度分析中...<br>已採樣 ${sampledCount}/${estimatedPoints} 點`;
+                }
+                
                 const pt = turf.point([lon, lat]);
                 if (!turf.booleanPointInPolygon(pt, polygon)) continue;
 
                 const ele = await getElevation(lat, lon);
-                if (ele !== null && !isNaN(ele)) {
+                
+                // ★ 修正 7: 強化高程數據驗證
+                if (ele !== null && typeof ele === 'number' && !isNaN(ele) && ele >= -500 && ele <= 9000) {
                     elevations.push({ lat, lon, ele });
+                    sampledCount++;
                 }
-
-                await new Promise(r => setTimeout(r, 30));
+                
+                // 防止過度密集的採樣請求
+                await new Promise(r => setTimeout(r, 20));
             }
         }
 
-        if (elevations.length < 5) {
+        console.log('📊 採樣結果:', { 
+            totalScanned: totalCount,
+            pointsCollected: elevations.length,
+            validCount: elevations.filter(p => !isNaN(p.ele)).length
+        });
+
+        // ★ 修正 8: 改進採樣不足時的應急方案
+        if (elevations.length < 3) {
+            console.warn('⚠️ 採樣點太少，嘗試增加採樣密度');
+            
+            // 嘗試使用多邊形中心點
             const centroid = turf.centroid(polygon).geometry.coordinates;
-            const ele = await getElevation(centroid[1], centroid[0]);
-            if (ele !== null && !isNaN(ele)) {
-                elevations = [{ lat: centroid[1], lon: centroid[0], ele }];
+            const centerEle = await getElevation(centroid[1], centroid[0]);
+            
+            if (centerEle !== null && !isNaN(centerEle) && centerEle >= -500 && centerEle <= 9000) {
+                elevations = [{ lat: centroid[1], lon: centroid[0], ele: centerEle }];
+                slopeContent.innerHTML = `⚠️ DEM 資料稀疏<br>僅取得中心點 1 個採樣點`;
             } else {
-                slopeContent.innerHTML = `⚠️ DEM 無資料`;
+                slopeContent.innerHTML = `❌ DEM 無資料<br><br>該區域暫無高程數據`;
                 return;
             }
         }
 
+        // ★ 修正 9: 坡度計算邏輯改進
         let slopes = [];
         for (let i = 1; i < elevations.length; i++) {
             const p1 = elevations[i - 1];
             const p2 = elevations[i];
             const dist = haversine(p1.lat, p1.lon, p2.lat, p2.lon);
-            if (dist < 1) continue;
+            
+            if (dist < 1) continue;  // 忽略太近的點
+            
             const rise = Math.abs(p2.ele - p1.ele);
             slopes.push((rise / dist) * 100);
         }
 
         if (!slopes.length) {
-            slopeContent.innerHTML = "⚠️ 無法計算坡度";
+            // 單點或所有點高度相同
+            slopeContent.innerHTML = "⚠️ 區域高度變化不足<br><br>無法計算有意義的坡度";
+            console.warn('⚠️ 無法計算坡度: 採樣點之間高度差異不足');
             return;
         }
 
-        const elevs = elevations.map(e => e.ele);
+        // ★ 修正 10: 統計計算，添加更多信息
+        const elevs = elevations.map(e => e.ele).filter(e => !isNaN(e));
         const minElev = Math.min(...elevs);
         const maxElev = Math.max(...elevs);
         const avgElev = elevs.reduce((a, b) => a + b, 0) / elevs.length;
         const avgSlope = slopes.reduce((a, b) => a + b, 0) / slopes.length;
         const maxSlope = Math.max(...slopes);
         const minSlope = Math.min(...slopes);
+        const reliefAmplitude = maxElev - minElev;
+        
         let terrainType = "平坦";
         if (avgSlope > 30) terrainType = "陡坡";
         else if (avgSlope > 15) terrainType = "中坡";
         else if (avgSlope > 5) terrainType = "緩坡";
 
+        console.log('📊 分析結果:', {
+            terrainType,
+            avgSlope: avgSlope.toFixed(2),
+            maxSlope: maxSlope.toFixed(2),
+            elevationRange: `${minElev.toFixed(1)} - ${maxElev.toFixed(1)}`
+        });
+
+        // ★ 修正 11: 詳細的結果顯示
         slopeContent.innerHTML = `
             <strong>📊 坡度分析完成</strong><br>
             採樣點數：${elevations.length} 點<br><br>
             <strong>高程資料</strong><br>
-            平均：${avgElev.toFixed(1)} m | 最低：${minElev.toFixed(1)} m | 最高：${maxElev.toFixed(1)} m<br><br>
+            平均：${avgElev.toFixed(1)} m<br>
+            最低：${minElev.toFixed(1)} m<br>
+            最高：${maxElev.toFixed(1)} m<br>
+            起伏：${reliefAmplitude.toFixed(1)} m<br><br>
             <strong>坡度數據</strong><br>
-            平均：${avgSlope.toFixed(2)}% | 最大：${maxSlope.toFixed(2)}% | 最小：${minSlope.toFixed(2)}%<br><br>
+            平均：${avgSlope.toFixed(2)}%<br>
+            最大：${maxSlope.toFixed(2)}%<br>
+            最小：${minSlope.toFixed(2)}%<br><br>
             <strong>地形分類</strong><br>
             ${terrainType}
         `;
 
+        // ★ 修正 12: 地圖可視化，改進色彩編碼
         elevations.forEach(p => {
-            let color = "#22c55e";
-            if (avgSlope > 30) color = "#dc2626";
-            else if (avgSlope > 15) color = "#f97316";
-            else if (avgSlope > 5) color = "#eab308";
+            let color = "#22c55e";  // 綠色 - 平坦
+            if (avgSlope > 30) color = "#dc2626";      // 紅色 - 陡坡
+            else if (avgSlope > 15) color = "#f97316";  // 橙色 - 中坡
+            else if (avgSlope > 5) color = "#eab308";   // 黃色 - 緩坡
 
             L.circleMarker([p.lat, p.lon], {
-                radius: 4, color, fillColor: color, fillOpacity: 0.9, weight: 1
-            }).addTo(markerLayer).bindTooltip(`${p.ele.toFixed(1)} m`);
+                radius: 4, 
+                color: color, 
+                fillColor: color, 
+                fillOpacity: 0.9, 
+                weight: 1
+            }).addTo(markerLayer).bindTooltip(`${p.ele.toFixed(1)} m`, {
+                permanent: false,
+                direction: 'top'
+            });
         });
+        
+        showToast('✅ 坡度分析完成');
+        
     } catch (err) {
-        console.error("DEM 分析錯誤:", err);
-        slopeContent.innerHTML = `❌ 坡度分析失敗<br><br>${err.message}`;
+        console.error("❌ DEM 分析錯誤:", err);
+        console.error("完整錯誤堆棧:", err.stack);
+        slopeContent.innerHTML = `❌ 坡度分析失敗<br><br>${err.message}<br><br>詳見瀏覽器控制台`;
     }
 }
 
