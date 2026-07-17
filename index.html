@@ -18,64 +18,63 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body { 
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Microsoft JhengHei", sans-serif;
-    background: #f5f5f5;
+    font-family: 'Segoe UI', 'Microsoft JhengHei', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0a0e27;
     overflow: hidden;
+    color: #e0e6ed;
 }
 
-#map { height: 100vh; width: 100%; }
+#map { 
+    height: 100vh; 
+    width: 100%; 
+}
 
+/* 系統標題欄 - 科技風格 */
 #systemTitleBar {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    height: 50px;
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    color: white;
+    height: 60px;
+    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 50%, #0f1621 100%);
+    border-bottom: 2px solid #00d4ff;
+    color: #00d4ff;
     display: flex;
     align-items: center;
-    padding: 0 20px;
+    padding: 0 24px;
     z-index: 2000;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    font-weight: 600;
-    font-size: 16px;
+    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
+    font-weight: 700;
+    font-size: 18px;
     cursor: grab;
     user-select: none;
     gap: 12px;
+    letter-spacing: 1px;
 }
 
-#systemTitleBar:active {
-    cursor: grabbing;
-}
+#systemTitleBar:active { cursor: grabbing; }
+#systemTitleBar .icon { font-size: 24px; filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.6)); }
 
-#systemTitleBar .icon {
-    font-size: 20px;
-}
+#map { margin-top: 60px; height: calc(100vh - 60px); }
 
-#map {
-    margin-top: 50px;
-    height: calc(100vh - 50px);
-}
-
+/* 側邊欄 - 科技風格 */
 #sidebar {
-    position: absolute;
+    position: fixed;
     left: 0;
-    top: 50px;
-    width: 380px;
-    height: calc(100vh - 50px);
-    background: #ffffff;
-    box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+    top: 60px;
+    width: 400px;
+    height: calc(100vh - 60px);
+    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
+    border-right: 2px solid #00d4ff;
     z-index: 1000;
     display: flex;
     flex-direction: column;
     transition: transform 0.3s ease;
     overflow: hidden;
+    box-shadow: 8px 0 32px rgba(0, 212, 255, 0.1);
 }
 
-#sidebar.collapsed {
-    transform: translateX(-380px);
-}
+#sidebar.collapsed { transform: translateX(-400px); }
 
 #sidebarToggle {
     position: absolute;
@@ -83,8 +82,8 @@ body {
     top: 12px;
     width: 40px;
     height: 40px;
-    background: white;
-    border: 1px solid #e5e7eb;
+    background: #1a2a3a;
+    border: 2px solid #00d4ff;
     border-radius: 0 8px 8px 0;
     cursor: pointer;
     display: flex;
@@ -93,30 +92,40 @@ body {
     font-size: 18px;
     z-index: 999;
     transition: all 0.3s;
+    color: #00d4ff;
+    box-shadow: inset 0 0 16px rgba(0, 212, 255, 0.2);
 }
 
 #sidebarToggle:hover {
-    background: #f3f4f6;
+    background: #0f1621;
+    box-shadow: 0 0 16px rgba(0, 212, 255, 0.4);
 }
 
 #sidebarHeader {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    color: white;
-    padding: 20px;
-    border-bottom: 1px solid #1e40af;
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: #0a0e27;
+    padding: 20px 20px;
+    border-bottom: 2px solid #0099cc;
+    cursor: grab;
+    user-select: none;
+    font-weight: 700;
 }
+
+#sidebarHeader:active { cursor: grabbing; }
 
 #sidebarHeader h1 {
     font-size: 18px;
-    font-weight: 600;
+    font-weight: 700;
     margin: 0;
     line-height: 1.4;
+    letter-spacing: 0.5px;
 }
 
 #sidebarHeader p {
     font-size: 12px;
-    opacity: 0.9;
+    opacity: 0.85;
     margin: 6px 0 0 0;
+    font-weight: 600;
 }
 
 #sidebarContent {
@@ -125,107 +134,102 @@ body {
     padding: 0;
 }
 
-#sidebarContent::-webkit-scrollbar {
-    width: 6px;
-}
-
-#sidebarContent::-webkit-scrollbar-track {
-    background: #f3f4f6;
-}
-
+#sidebarContent::-webkit-scrollbar { width: 8px; }
+#sidebarContent::-webkit-scrollbar-track { background: #0f1621; }
 #sidebarContent::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
+    background: #00d4ff;
+    border-radius: 4px;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
 }
-
 #sidebarContent::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: #00ffff;
+    box-shadow: 0 0 16px rgba(0, 255, 255, 0.5);
 }
 
 .sidebar-section {
     padding: 16px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
 }
 
 .sidebar-section h3 {
     font-size: 14px;
-    font-weight: 600;
-    color: #1f2937;
+    font-weight: 700;
+    color: #00ffff;
     margin: 0 0 12px 0;
     display: flex;
     align-items: center;
     gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
-.sidebar-section h3 span {
-    font-size: 18px;
-}
+.sidebar-section h3 span { font-size: 18px; }
 
-.input-group {
-    margin-bottom: 10px;
-}
+.input-group { margin-bottom: 10px; }
 
 .input-group label {
     display: block;
-    font-size: 12px;
-    color: #6b7280;
-    font-weight: 500;
+    font-size: 11px;
+    color: #00d4ff;
+    font-weight: 700;
     margin-bottom: 6px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
 }
 
 .input-group input[type="text"],
 .input-group input[type="number"] {
     width: 100%;
     padding: 10px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border: 1px solid #00d4ff;
+    border-radius: 4px;
     font-size: 13px;
     transition: all 0.2s;
-    background: #f9fafb;
+    background: #0f1621;
+    color: #00d4ff;
+    box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.1);
 }
 
 .input-group input:focus {
     outline: none;
-    border-color: #2563eb;
-    background: white;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    border-color: #00ffff;
+    background: #1a2a3a;
+    box-shadow: 0 0 16px rgba(0, 212, 255, 0.4), inset 0 0 8px rgba(0, 212, 255, 0.1);
 }
 
-.checkbox-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 0;
-}
+.checkbox-group { display: flex; flex-direction: column; gap: 8px; margin: 0; }
 
 .checkbox-item {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 8px;
-    border-radius: 6px;
+    padding: 8px 10px;
+    border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s;
+    border: 1px solid transparent;
 }
 
 .checkbox-item:hover {
-    background: #f3f4f6;
+    background: rgba(0, 212, 255, 0.1);
+    border-color: #00d4ff;
 }
 
 .checkbox-item input[type="checkbox"] {
-    margin-top: 3px;
+    margin-top: 4px;
     cursor: pointer;
-    accent-color: #2563eb;
+    accent-color: #00ffff;
+    width: 16px;
+    height: 16px;
 }
 
 .checkbox-item label {
     flex: 1;
     cursor: pointer;
     font-size: 13px;
-    color: #374151;
+    color: #b0c4de;
     margin: 0;
+    font-weight: 500;
 }
 
 .button-group {
@@ -237,59 +241,74 @@ body {
 .button-group button {
     flex: 1;
     padding: 10px;
-    border: none;
-    border-radius: 6px;
+    border: 1px solid #00d4ff;
+    border-radius: 4px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    background: #0f1621;
+    color: #00d4ff;
+}
+
+.button-group button:hover {
+    background: #1a2a3a;
+    border-color: #00ffff;
+    color: #00ffff;
+    box-shadow: 0 0 16px rgba(0, 255, 255, 0.3);
 }
 
 .btn-primary {
-    background: #2563eb;
-    color: white;
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: #0a0e27;
+    border: none;
+    font-weight: 700;
 }
 
 .btn-primary:hover {
-    background: #1d4ed8;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    background: linear-gradient(135deg, #00ffff 0%, #00d4ff 100%);
+    box-shadow: 0 0 24px rgba(0, 255, 255, 0.4);
+    transform: translateY(-2px);
 }
 
 .btn-primary:disabled {
-    background: #94a3b8;
+    background: #2a3a4a;
+    color: #666;
     cursor: not-allowed;
     transform: none;
 }
 
 .btn-secondary {
-    background: #10b981;
+    background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
     color: white;
+    border: none;
+    font-weight: 700;
 }
 
 .btn-secondary:hover {
-    background: #059669;
+    background: linear-gradient(135deg, #ff8c42 0%, #ffa500 100%);
+    box-shadow: 0 0 24px rgba(255, 140, 66, 0.4);
+    transform: translateY(-2px);
 }
 
 .btn-danger {
-    background: #ef4444;
+    background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%);
     color: white;
+    border: none;
+    font-weight: 700;
 }
 
 .btn-danger:hover {
-    background: #dc2626;
-}
-
-.btn-small {
-    padding: 6px 10px;
-    font-size: 11px;
+    background: linear-gradient(135deg, #ff5555 0%, #ff0000 100%);
+    box-shadow: 0 0 24px rgba(255, 0, 0, 0.4);
+    transform: translateY(-2px);
 }
 
 #polygonManager {
-    background: #f9fafb;
-    border-top: 2px solid #e5e7eb;
+    background: rgba(0, 212, 255, 0.05);
+    border-top: 2px solid #00d4ff;
 }
 
 #polygonList {
@@ -302,9 +321,9 @@ body {
 
 .polygon-item {
     padding: 10px;
-    background: white;
-    border: 2px solid transparent;
-    border-radius: 6px;
+    background: #0f1621;
+    border: 2px solid #00d4ff;
+    border-radius: 4px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -314,121 +333,118 @@ body {
 }
 
 .polygon-item:hover {
-    background: #f3f4f6;
+    background: #1a2a3a;
+    border-color: #00ffff;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
 }
 
 .polygon-item.selected {
-    background: #fef08a;
-    border-color: #fbbf24;
-    font-weight: 600;
+    background: #1a2a3a;
+    border-color: #00ffff;
+    font-weight: 700;
+    box-shadow: 0 0 16px rgba(0, 255, 255, 0.5);
 }
 
 .polygon-item-info {
     display: flex;
     align-items: center;
     gap: 8px;
+    color: #00d4ff;
 }
 
-.polygon-item-name {
-    flex: 1;
-}
+.polygon-item-name { flex: 1; }
 
-.polygon-item-actions {
-    display: flex;
-    gap: 4px;
-}
+.polygon-item-actions { display: flex; gap: 4px; }
 
 .polygon-item-btn {
-    padding: 4px 6px;
+    padding: 4px 8px;
     border: none;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
     font-size: 10px;
-    font-weight: 600;
+    font-weight: 700;
+    background: #ff3333;
+    color: white;
+    transition: all 0.2s;
 }
 
-.polygon-delete-btn {
-    background: #fee2e2;
-    color: #dc2626;
+.polygon-item-btn:hover {
+    background: #ff5555;
+    box-shadow: 0 0 8px rgba(255, 51, 51, 0.4);
 }
 
-.polygon-delete-btn:hover {
-    background: #fecaca;
-}
-
+/* 工具欄 - 科技風格 */
 #toolbar {
-    position: absolute;
-    top: 62px;
+    position: fixed;
+    top: 80px;
     right: 12px;
     z-index: 900;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
+    border: 2px solid #00d4ff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
     overflow: hidden;
     display: flex;
     flex-direction: column;
     gap: 0;
 }
 
-.toolbar-section {
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-}
+.toolbar-section { display: flex; flex-direction: column; padding: 0; }
 
-.toolbar-section:not(:last-child) {
-    border-bottom: 1px solid #e5e7eb;
-}
+.toolbar-section:not(:last-child) { border-bottom: 1px solid rgba(0, 212, 255, 0.2); }
 
 .toolbar-btn {
-    padding: 10px 14px;
+    padding: 12px 16px;
     border: none;
-    background: white;
-    color: #374151;
+    background: transparent;
+    color: #00d4ff;
     cursor: pointer;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     text-align: left;
     display: flex;
     align-items: center;
     gap: 8px;
     transition: all 0.2s;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .toolbar-btn:hover {
-    background: #f3f4f6;
+    background: rgba(0, 212, 255, 0.1);
+    color: #00ffff;
 }
 
 .toolbar-btn.active {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: rgba(0, 212, 255, 0.2);
+    color: #00ffff;
+    border-left: 3px solid #00ffff;
 }
 
 #statusBar {
-    position: absolute;
+    position: fixed;
     bottom: 12px;
-    left: 12px;
-    background: white;
-    border-radius: 8px;
+    right: 12px;
+    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
+    border: 1px solid #00d4ff;
+    border-radius: 4px;
     padding: 10px 14px;
     font-size: 11px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    color: #6b7280;
+    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1);
+    color: #00d4ff;
     z-index: 800;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
-#resultPanel {
+/* 浮動面板 - 科技風格 */
+.floating-panel {
     position: fixed;
-    left: auto;
-    top: auto;
-    bottom: 20px;
-    right: 20px;
-    width: 600px;
-    max-height: 400px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
+    border: 2px solid #00d4ff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
     z-index: 950;
     display: flex;
     flex-direction: column;
@@ -436,46 +452,49 @@ body {
     transition: all 0.3s;
 }
 
-#resultPanel.hidden {
-    display: none;
-}
-
-#resultHeader {
-    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-    color: white;
+.panel-header {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: #0a0e27;
     padding: 12px 16px;
-    font-weight: 600;
+    font-weight: 700;
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: grab;
     user-select: none;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-#resultHeader:active {
-    cursor: grabbing;
-}
+.panel-header:active { cursor: grabbing; }
 
-.result-header-actions {
+.panel-header-actions {
     display: flex;
     gap: 6px;
 }
 
-.result-header-actions button {
-    background: rgba(255,255,255,0.2);
+.panel-header-actions button {
+    background: rgba(10, 14, 39, 0.3);
     border: none;
-    color: white;
+    color: #0a0e27;
     padding: 4px 10px;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     transition: all 0.2s;
 }
 
-.result-header-actions button:hover {
-    background: rgba(255,255,255,0.3);
+.panel-header-actions button:hover { background: rgba(10, 14, 39, 0.5); }
+
+#resultPanel {
+    bottom: 20px;
+    right: 20px;
+    width: 600px;
+    max-height: 400px;
 }
+
+#resultPanel.hidden { display: none; }
 
 #resultTableWrapper {
     flex: 1;
@@ -483,13 +502,11 @@ body {
     padding: 0;
 }
 
-#resultTableWrapper::-webkit-scrollbar {
-    width: 6px;
-}
-
+#resultTableWrapper::-webkit-scrollbar { width: 8px; }
 #resultTableWrapper::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
+    background: #00d4ff;
+    border-radius: 4px;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
 }
 
 table {
@@ -499,115 +516,91 @@ table {
 }
 
 th, td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #e5e7eb;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
     text-align: left;
 }
 
 th {
-    background: #f9fafb;
-    font-weight: 600;
-    color: #1f2937;
+    background: rgba(0, 212, 255, 0.1);
+    font-weight: 700;
+    color: #00ffff;
     position: sticky;
     top: 0;
     cursor: pointer;
     user-select: none;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-th:hover {
-    background: #f3f4f6;
-}
+th:hover { background: rgba(0, 212, 255, 0.2); }
 
-tr:hover {
-    background: #f9fafb;
-}
+td { color: #b0c4de; }
 
-tr.highlight {
-    background: #fef08a !important;
-}
+tr:hover { background: rgba(0, 212, 255, 0.1); }
+
+tr.highlight { background: rgba(0, 212, 255, 0.2) !important; }
 
 #slopePanel {
-    position: fixed;
-    right: auto;
-    top: auto;
     bottom: 20px;
     left: 20px;
-    width: 320px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    z-index: 850;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    transition: all 0.3s;
-}
-
-#slopeHeader {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    color: white;
-    padding: 12px 16px;
-    font-weight: 600;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: grab;
-    user-select: none;
-}
-
-#slopeHeader:active {
-    cursor: grabbing;
+    width: 340px;
 }
 
 #slopeContent {
     padding: 14px;
-    background: #fffbeb;
-    color: #78350f;
+    background: rgba(0, 212, 255, 0.05);
+    color: #b0c4de;
     font-size: 12px;
     line-height: 1.6;
     max-height: 280px;
     overflow-y: auto;
 }
 
-#slopeContent::-webkit-scrollbar {
-    width: 4px;
+#slopeContent::-webkit-scrollbar { width: 6px; }
+#slopeContent::-webkit-scrollbar-thumb {
+    background: #00d4ff;
+    border-radius: 3px;
 }
 
-#slopeContent::-webkit-scrollbar-thumb {
-    background: #f59e0b;
-    border-radius: 2px;
+#slopeContent strong {
+    color: #00ffff;
+    font-weight: 700;
 }
 
 #routeCard {
     position: fixed;
-    top: 130px;
+    top: 150px;
     right: 12px;
-    background: white;
-    border-left: 4px solid #10b981;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
+    border-left: 4px solid #00d4ff;
+    border-top: 1px solid #00d4ff;
+    border-right: 1px solid #00d4ff;
+    border-bottom: 1px solid #00d4ff;
+    border-radius: 4px;
     padding: 12px 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
     z-index: 880;
     max-width: 320px;
     font-size: 12px;
 }
 
-#routeCard.hidden {
-    display: none;
-}
+#routeCard.hidden { display: none; }
 
 #routeCard strong {
-    color: #10b981;
+    color: #00ffff;
     font-size: 14px;
+    font-weight: 700;
 }
 
 #drawToolbar {
-    position: absolute;
-    top: 62px;
-    left: 400px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    position: fixed;
+    top: 80px;
+    left: 420px;
+    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
+    border: 2px solid #00d4ff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
     z-index: 900;
     padding: 0;
     display: flex;
@@ -617,24 +610,22 @@ tr.highlight {
     transition: all 0.3s;
 }
 
-#drawToolbar.hidden {
-    display: none;
-}
+#drawToolbar.hidden { display: none; }
 
 .draw-section {
     padding: 12px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
 }
 
-.draw-section:last-child {
-    border-bottom: none;
-}
+.draw-section:last-child { border-bottom: none; }
 
 .draw-section h4 {
     font-size: 12px;
-    font-weight: 600;
-    color: #1f2937;
+    font-weight: 700;
+    color: #00ffff;
     margin: 0 0 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .draw-button-group {
@@ -645,30 +636,36 @@ tr.highlight {
 
 .draw-button-group button {
     padding: 8px 12px;
-    border: 1px solid #e5e7eb;
-    background: white;
-    border-radius: 6px;
+    border: 1px solid #00d4ff;
+    background: #0f1621;
+    border-radius: 4px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
+    color: #00d4ff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .draw-button-group button:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
+    background: #1a2a3a;
+    border-color: #00ffff;
+    color: #00ffff;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
 }
 
 .draw-button-group button.active {
-    background: #ef4444;
+    background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%);
     color: white;
-    border-color: #dc2626;
+    border-color: #ff5555;
 }
 
 .draw-button-group button.success {
-    background: #10b981;
-    color: white;
-    border-color: #059669;
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: #0a0e27;
+    border: none;
+    font-weight: 700;
 }
 
 .file-upload-label {
@@ -676,41 +673,34 @@ tr.highlight {
     align-items: center;
     justify-content: center;
     padding: 8px 12px;
-    background: #dbeafe;
-    border: 1px solid #93c5fd;
-    border-radius: 6px;
-    color: #1d4ed8;
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    border: none;
+    border-radius: 4px;
+    color: #0a0e27;
     cursor: pointer;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .file-upload-label:hover {
-    background: #bfdbfe;
+    background: linear-gradient(135deg, #00ffff 0%, #00d4ff 100%);
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
 }
 
-.file-upload-label input {
-    display: none;
-}
+.file-upload-label input { display: none; }
 
 @media (max-width: 1024px) {
-    #sidebar {
-        width: 320px;
-    }
-    
-    #sidebarToggle {
-        right: -35px;
-        width: 35px;
-    }
-    
-    #resultPanel {
-        width: 500px;
-        max-height: 350px;
-    }
+    #sidebar { width: 350px; }
+    #sidebarToggle { right: -35px; width: 35px; }
+    #resultPanel { width: 500px; max-height: 350px; }
 }
 
 @media (max-width: 768px) {
+    #systemTitleBar { height: 50px; }
+    #map { margin-top: 50px; height: calc(100vh - 50px); }
     #sidebar {
         width: 100%;
         height: 50vh;
@@ -719,11 +709,7 @@ tr.highlight {
         transform: translateY(100%);
         transition: transform 0.3s ease;
     }
-    
-    #sidebar:not(.collapsed) {
-        transform: translateY(0);
-    }
-    
+    #sidebar:not(.collapsed) { transform: translateY(0); }
     #sidebarToggle {
         position: fixed;
         right: auto;
@@ -732,52 +718,48 @@ tr.highlight {
         transform: translateX(-50%);
         border-radius: 8px 8px 0 0;
     }
-    
-    #resultPanel {
-        width: 90vw;
-        right: 5vw;
-        bottom: 50vh;
-    }
-    
-    #toolbar {
-        right: 5px;
-        left: auto;
-    }
+    #resultPanel { width: 90vw; right: 5vw; bottom: 50vh; }
+    #toolbar { right: 5px; left: auto; }
 }
 
 .edit-handle {
     width: 12px;
     height: 12px;
-    background: white;
-    border: 2px solid #dc2626;
+    background: #00d4ff;
+    border: 2px solid #0a0e27;
     border-radius: 50%;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.8);
 }
 
 .map-tooltip {
-    background: rgba(0,0,0,0.8);
-    color: white;
-    padding: 6px 10px;
+    background: rgba(10, 14, 39, 0.95);
+    color: #00ffff;
+    padding: 8px 12px;
     border-radius: 4px;
     font-size: 11px;
+    border: 1px solid #00d4ff;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
 }
 
 .toast {
     position: fixed;
-    bottom: 20px;
-    left: 20px;
-    background: #1f2937;
-    color: white;
+    bottom: 60px;
+    right: 12px;
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: #0a0e27;
     padding: 12px 16px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    border-radius: 4px;
+    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.3);
     z-index: 10000;
     font-size: 12px;
     animation: slideIn 0.3s ease;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 @keyframes slideIn {
-    from { transform: translateX(-400px); opacity: 0; }
+    from { transform: translateX(400px); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
 }
 
@@ -787,183 +769,172 @@ tr.highlight {
     left: 0;
     width: 100%;
     max-height: 300px;
-    background: #1f2937;
-    color: #10b981;
+    background: #0a0e27;
+    color: #00d4ff;
     padding: 12px;
-    font-family: 'Courier New', monospace;
+    font-family: 'Courier New', 'Consolas', monospace;
     font-size: 11px;
     overflow-y: auto;
     z-index: 9999;
     display: none;
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.3);
-    border-top: 1px solid #374151;
+    box-shadow: 0 -8px 32px rgba(0, 212, 255, 0.15);
+    border-top: 2px solid #00d4ff;
 }
 
-#debugConsole.show {
-    display: block;
-}
+#debugConsole.show { display: block; }
 
 #debugConsole .log-entry {
     margin: 2px 0;
     padding: 2px 0;
-    border-bottom: 1px solid #374151;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.1);
     word-break: break-all;
+    font-weight: 600;
+    letter-spacing: 0.3px;
 }
 
-#debugConsole .log-error {
-    color: #ef4444;
-}
-
-#debugConsole .log-warn {
-    color: #f59e0b;
-}
-
-#debugConsole .log-info {
-    color: #3b82f6;
-}
-
-#debugConsole .log-success {
-    color: #10b981;
-}
+#debugConsole .log-error { color: #ff3333; }
+#debugConsole .log-warn { color: #ffa500; }
+#debugConsole .log-info { color: #00d4ff; }
+#debugConsole .log-success { color: #00ff00; }
 
 </style>
 </head>
 <body>
 
-<!-- ========================================================================
-     ★ 系統標題欄（可拖曳） ★
-     ======================================================================== -->
+<!-- 系統標題欄（可拖曳） -->
 <div id="systemTitleBar">
     <span class="icon">🗺️</span>
-    <span>市價徵收查估作業系統 v2.0</span>
+    <span>市價徵收查估系統 v2.0</span>
 </div>
 
+<!-- 側邊欄（可拖曳） -->
 <div id="sidebar">
     <div id="sidebarToggle">◀</div>
     
-  <div id="sidebarHeader">
-    <h1>🗺️ 市價徵收查估 v2.0</h1>
-    <p>影響地價區域因素分析系統</p>
-</div>
+    <div id="sidebarHeader">
+        <h1>🗺️ 市價徵收查估 v2.0</h1>
+        <p>影響地價區域因素分析系統</p>
+    </div>
 
-<div id="sidebarContent">
-    <div class="sidebar-section">
-        <h3><span>📍</span> 查詢位置</h3>
-        
-        <div class="input-group">
-            <label>緯度</label>
-            <input type="text" id="lat" value="25.012098">
+    <div id="sidebarContent">
+        <div class="sidebar-section">
+            <h3><span>📍</span> 查詢位置</h3>
+            
+            <div class="input-group">
+                <label>緯度</label>
+                <input type="text" id="lat" value="25.012098">
+            </div>
+            
+            <div class="input-group">
+                <label>經度</label>
+                <input type="text" id="lon" value="121.465675">
+            </div>
+            
+            <div class="input-group">
+                <label>查詢半徑 (公尺)</label>
+                <input type="number" id="radius" value="1000" min="100" max="3000">
+            </div>
+            
+            <div class="button-group">
+                <button class="btn-primary" onclick="getCurrentLocation()">📡 定位</button>
+                <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
+            </div>
         </div>
         
-        <div class="input-group">
-            <label>經度</label>
-            <input type="text" id="lon" value="121.465675">
+        <div class="sidebar-section">
+            <h3><span>🏢</span> 分析設施類型</h3>
+            
+            <div style="font-size: 11px; color: #00d4ff; margin-bottom: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                交通運輸
+            </div>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-station" value="station">
+                    <label for="chk-station">大型車站</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-bus" value="bus_stop">
+                    <label for="chk-bus">公車站牌</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-junction" value="motorway_junction">
+                    <label for="chk-junction">交流道</label>
+                </div>
+            </div>
+            
+            <div style="font-size: 11px; color: #00d4ff; margin: 12px 0 8px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                公共建設
+            </div>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-school" value="school" checked>
+                    <label for="chk-school">學校</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-market" value="marketplace">
+                    <label for="chk-market">市場/超市</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-park" value="park">
+                    <label for="chk-park">公園</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-tourism" value="tourism">
+                    <label for="chk-tourism">觀光景點</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-parking" value="parking">
+                    <label for="chk-parking">停車場</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-bank" value="bank">
+                    <label for="chk-bank">銀行/郵局</label>
+                </div>
+            </div>
+            
+            <div style="font-size: 11px; color: #00d4ff; margin: 12px 0 8px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                特殊設施
+            </div>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-gas" value="gas">
+                    <label for="chk-gas">電氣/瓦斯</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-cemetery" value="cemetery">
+                    <label for="chk-cemetery">殯葬設施</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-waste" value="waste_disposal">
+                    <label for="chk-waste">廢棄物處理</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-pollution" value="pollution">
+                    <label for="chk-pollution">環境汙染</label>
+                </div>
+            </div>
         </div>
         
-        <div class="input-group">
-            <label>查詢半徑 (公尺)</label>
-            <input type="number" id="radius" value="1000" min="100" max="3000">
+        <div class="sidebar-section" id="polygonManager">
+            <h3><span>📦</span> 繪製範圍 (<span id="polyCount">0</span>)</h3>
+            
+            <div id="polygonList"></div>
+            
+            <div style="font-size: 11px; color: #00d4ff; padding: 8px 0; margin: 8px 0; border-top: 1px solid rgba(0,212,255,0.2); border-bottom: 1px solid rgba(0,212,255,0.2); font-weight: 600;">
+                ℹ️ 選中多邊形後，坡度分析將以其頂點為採樣範圍進行
+            </div>
         </div>
         
-        <div class="button-group">
-            <button class="btn-primary" onclick="getCurrentLocation()" style="background: #0ea5e9;">📡 定位</button>
-            <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
+        <div class="sidebar-section">
+            <button class="btn-primary" id="query-btn" onclick="runQuery()" style="width: 100%; padding: 12px; font-size: 14px;">🔍 查詢分析</button>
         </div>
     </div>
-    
-    <div class="sidebar-section">
-        <h3><span>🏢</span> 分析設施類型</h3>
-        
-        <div style="font-size: 11px; color: #999; margin-bottom: 10px;">
-            交通運輸
-        </div>
-        <div class="checkbox-group">
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-station" value="station">
-                <label for="chk-station">大型車站</label>
-            </div>
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-bus" value="bus_stop">
-                <label for="chk-bus">公車站牌</label>
-            </div>
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-junction" value="motorway_junction">
-                <label for="chk-junction">交流道</label>
-            </div>
-        </div>
-        
-        <div style="font-size: 11px; color: #999; margin: 12px 0 8px 0;">
-            公共建設
-        </div>
-        <div class="checkbox-group">
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-school" value="school" checked>
-                <label for="chk-school">學校</label>
-            </div>
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-market" value="marketplace">
-                <label for="chk-market">市場/超市</label>
-            </div>
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-park" value="park">
-                <label for="chk-park">公園</label>
-            </div>
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-tourism" value="tourism">
-                <label for="chk-tourism">觀光景點</label>
-            </div>
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-parking" value="parking">
-                <label for="chk-parking">停車場</label>
-            </div>
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-bank" value="bank">
-                <label for="chk-bank">銀行/郵局</label>
-            </div>
-        </div>
-        
-        <div style="font-size: 11px; color: #999; margin: 12px 0 8px 0;">
-            特殊設施
-        </div>
-        <div class="checkbox-group">
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-gas" value="gas">
-                <label for="chk-gas">電氣/瓦斯</label>
-            </div>
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-cemetery" value="cemetery">
-                <label for="chk-cemetery">殯葬設施</label>
-            </div>
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-waste" value="waste_disposal">
-                <label for="chk-waste">廢棄物處理</label>
-            </div>
-            <div class="checkbox-item">
-                <input type="checkbox" id="chk-pollution" value="pollution">
-                <label for="chk-pollution">環境汙染</label>
-            </div>
-        </div>
-    </div>
-    
-    <div class="sidebar-section" id="polygonManager">
-        <h3><span>📦</span> 繪製範圍 (<span id="polyCount">0</span>)</h3>
-        
-        <div id="polygonList"></div>
-        
-        <div style="font-size: 11px; color: #666; padding: 8px 0; margin: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
-            ℹ️ 選中多邊形後，坡度分析將以其頂點為採樣範圍進行
-        </div>
-    </div>
-    
-    <div class="sidebar-section">
-        <button class="btn-primary" id="query-btn" onclick="runQuery()" style="width: 100%; padding: 12px; font-size: 14px;">🔍 查詢分析</button>
-    </div>
-</div>
 
 </div>
 
 <div id="map"></div>
 
+<!-- 工具欄 -->
 <div id="toolbar">
     <div class="toolbar-section">
         <button class="toolbar-btn" onclick="toggleDrawMode(this)">
@@ -975,12 +946,13 @@ tr.highlight {
         <button class="toolbar-btn" onclick="toggleLayerControl()">
             🗺️ 圖層控制
         </button>
-        <button class="toolbar-btn" onclick="toggleDebugConsole()" style="background: #fee2e2; color: #991b1b;">
+        <button class="toolbar-btn" onclick="toggleDebugConsole()">
             🐛 除錯 (F12)
         </button>
     </div>
 </div>
 
+<!-- 繪製工具欄 -->
 <div id="drawToolbar" class="hidden">
     <div class="draw-section">
         <h4>繪製模式</h4>
@@ -990,30 +962,31 @@ tr.highlight {
         </div>
     </div>
     
-   <div class="draw-section">
-    <h4>多邊形操作</h4>
-    <div class="draw-button-group">
-        <button onclick="clearAllPolygons()" class="btn-danger btn-small">✕ 清除全部</button>
+    <div class="draw-section">
+        <h4>多邊形操作</h4>
+        <div class="draw-button-group">
+            <button onclick="clearAllPolygons()" class="btn-danger">✕ 清除全部</button>
+        </div>
     </div>
-</div>
 
-<div class="draw-section">
-    <h4>檔案操作</h4>
-    <div class="draw-button-group">
-        <button onclick="exportPolygonsToSHP()" style="background: #10b981; color: white; border-color: #059669;">📥 匯出</button>
-        <label class="file-upload-label">
-            📤 匯入
-            <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" onchange="importPolygonsFromSHP(event)">
-        </label>
+    <div class="draw-section">
+        <h4>檔案操作</h4>
+        <div class="draw-button-group">
+            <button onclick="exportPolygonsToSHP()">📥 匯出</button>
+            <label class="file-upload-label">
+                📤 匯入
+                <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" onchange="importPolygonsFromSHP(event)">
+            </label>
+        </div>
     </div>
-</div>
 
 </div>
 
-<div id="resultPanel" class="hidden">
-    <div id="resultHeader">
+<!-- 結果面板（可拖曳） -->
+<div id="resultPanel" class="floating-panel hidden">
+    <div class="panel-header">
         📊 查詢結果
-        <div class="result-header-actions">
+        <div class="panel-header-actions">
             <button onclick="exportExcel()">📄 Excel</button>
             <button onclick="toggleResultPanel()">✕</button>
         </div>
@@ -1033,10 +1006,11 @@ tr.highlight {
     </div>
 </div>
 
-<div id="slopePanel">
-    <div id="slopeHeader">
+<!-- 坡度分析面板（可拖曳） -->
+<div id="slopePanel" class="floating-panel">
+    <div class="panel-header">
         🌄 地形坡度分析
-        <button id="slope-exec-btn" style="background: rgba(255,255,255,0.3); border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">執行</button>
+        <button id="slope-exec-btn" style="background: rgba(10, 14, 39, 0.3); border: none; color: #0a0e27; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: 700;">執行</button>
     </div>
     <div id="slopeContent">
         <p>📝 使用步驟：</p>
@@ -1047,15 +1021,16 @@ tr.highlight {
             <li>從左側列表選中該多邊形</li>
             <li>點擊此面板「執行」按鈕</li>
         </ol>
-        <p style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #fcd34d;">
+        <p style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,212,255,0.2);">
             💡 按 F12 或點擊「除錯」查看詳細日誌
         </p>
     </div>
 </div>
 
+<!-- 路線卡片 -->
 <div id="routeCard" class="hidden">
     <strong>🛣️ 路線距離</strong>
-    <div id="routeInfo" style="margin-top: 6px;">
+    <div id="routeInfo" style="margin-top: 6px; color: #b0c4de;">
         尚未計算
     </div>
 </div>
@@ -1067,9 +1042,9 @@ tr.highlight {
 <div id="debugConsole"></div>
 
 <script>
-/* ========================================================================
-   ★ v2.0 調試日誌系統 ★
-   ======================================================================== */
+/* ════════════════════════════════════════════════════════════
+   ★ v2.0 調試日誌系統
+   ════════════════════════════════════════════════════════════ */
 
 class DebugLogger {
     constructor(maxLines = 200) {
@@ -1149,9 +1124,9 @@ console.warn = function(...args) {
     originalWarn.apply(console, args);
 };
 
-/* ========================================================================
-   ★ v2.0 全域變數初始化 ★
-   ======================================================================== */
+/* ════════════════════════════════════════════════════════════
+   ★ v2.0 全域變數初始化
+   ════════════════════════════════════════════════════════════ */
 
 logger.success('═════════════════════════════════════════════════════');
 logger.success('🚀 市價徵收查估系統 v2.0 啟動');
@@ -1214,8 +1189,8 @@ let isDrawingPolygon = false;
 let drawMarkers = L.layerGroup().addTo(map);
 
 const polygonColors = [
-    '#dc2626', '#f97316', '#eab308', '#22c55e', '#06b6d4',
-    '#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#6366f1'
+    '#ff3333', '#ff8c42', '#ffa500', '#00d4ff', '#00ffff',
+    '#00ff00', '#ff00ff', '#ff0099', '#00ff99', '#ffff00'
 ];
 
 const latInput = document.getElementById('lat');
@@ -1225,6 +1200,7 @@ const tbody = document.getElementById('tbody');
 const queryBtn = document.getElementById('query-btn');
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarHeader = document.getElementById('sidebarHeader');
 const drawToolbar = document.getElementById('drawToolbar');
 const resultPanel = document.getElementById('resultPanel');
 const slopePanel = document.getElementById('slopePanel');
@@ -1238,9 +1214,9 @@ logger.success('✓ 系統全域變數初始化完成');
 logger.info(`🎨 配置: 10種顏色 | 10個多邊形槽位`);
 logger.info(`📍 預設位置: 台灣 (${origin[0].toFixed(6)}, ${origin[1].toFixed(6)})`);
 
-/* ========================================================================
-   ★ v2.0 UI 交互處理 ★
-   ======================================================================== */
+/* ════════════════════════════════════════════════════════════
+   ★ v2.0 UI 交互處理
+   ════════════════════════════════════════════════════════════ */
 
 sidebarToggle.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
@@ -1272,9 +1248,9 @@ function toggleLayerControl() {
     }
 }
 
-/* ========================================================================
-   ★ v2.0 多邊形繪製邏輯 (完整) ★
-   ======================================================================== */
+/* ════════════════════════════════════════════════════════════
+   ★ v2.0 多邊形繪製邏輯 (完整)
+   ════════════════════════════════════════════════════════════ */
 
 function startDrawing() {
     isDrawingPolygon = true;
@@ -1510,18 +1486,18 @@ function renderPolygonList() {
     countSpan.innerText = polygons.length;
     
     if (polygons.length === 0) {
-        listDiv.innerHTML = '<div style="padding:8px;color:#999;font-size:12px;">尚無多邊形 - 點擊工具列開始繪製</div>';
+        listDiv.innerHTML = '<div style="padding:8px;color:#b0c4de;font-size:12px;">尚無多邊形 - 點擊工具列開始繪製</div>';
         return;
     }
     
     listDiv.innerHTML = polygons.map((poly, idx) => `
         <div class="polygon-item ${poly.isSelected ? 'selected' : ''}" onclick="selectPolygon('${poly.id}')">
             <div class="polygon-item-info">
-                <div style="width:14px;height:14px;background:${poly.color};border-radius:3px;flex-shrink:0;"></div>
+                <div style="width:14px;height:14px;background:${poly.color};border-radius:3px;flex-shrink:0; box-shadow: 0 0 8px ${poly.color}80;"></div>
                 <div class="polygon-item-name">多邊形 #${idx + 1}</div>
             </div>
             <div class="polygon-item-actions">
-                <button class="polygon-item-btn polygon-delete-btn" onclick="deletePolygon('${poly.id}');event.stopPropagation();">✕</button>
+                <button class="polygon-item-btn" onclick="deletePolygon('${poly.id}');event.stopPropagation();">✕</button>
             </div>
         </div>
     `).join('');
@@ -1536,13 +1512,13 @@ map.on('click', (e) => {
         logger.info(`📌 第 ${drawPoints.length} 個點: [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
         
         L.circleMarker([lat, lon], {
-            radius: 5, color: '#dc2626', fillColor: '#fff', fillOpacity: 1, weight: 2
+            radius: 5, color: '#ff3333', fillColor: '#fff', fillOpacity: 1, weight: 2
         }).addTo(drawMarkers);
 
         if (previewPolyline) {
             previewPolyline.setLatLngs(drawPoints);
         } else {
-            previewPolyline = L.polyline(drawPoints, { color: '#dc2626', weight: 2, dashArray: '5,8' }).addTo(map);
+            previewPolyline = L.polyline(drawPoints, { color: '#ff3333', weight: 2, dashArray: '5,8' }).addTo(map);
             logger.info('🔗 預覽線已建立');
         }
         return;
@@ -1554,9 +1530,9 @@ map.on('click', (e) => {
     logger.info(`📍 點選位置: [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
 });
 
-/* ========================================================================
-   ★ v2.0 高程 & 距離計算 (完整高度異常檢測) ★
-   ======================================================================== */
+/* ════════════════════════════════════════════════════════════
+   ★ v2.0 高程 & 距離計算
+   ════════════════════════════════════════════════════════════ */
 
 const elevationCache = {};
 
@@ -1564,7 +1540,6 @@ async function getElevation(lat, lon, retryCount = 0) {
     const maxRetries = 2;
     const cacheKey = lat.toFixed(5) + "," + lon.toFixed(5);
     
-    // 優先查詢快取
     if (elevationCache[cacheKey] !== undefined) {
         const cached = elevationCache[cacheKey];
         if (cached === null) {
@@ -1591,7 +1566,6 @@ async function getElevation(lat, lon, retryCount = 0) {
         const data = await res.json();
         const ele = data?.results?.[0]?.elevation;
         
-        // ★ 嚴格的高程驗證
         if (ele === null || ele === undefined) {
             elevationCache[cacheKey] = null;
             return null;
@@ -1603,7 +1577,6 @@ async function getElevation(lat, lon, retryCount = 0) {
             return null;
         }
         
-        // ★ 高程範圍檢查: 台灣海拔 -1000m ~ 4000m
         if (ele < -1000 || ele > 4000) {
             logger.warn(`⚠️ DEM 異常值: ${ele}m (超出範圍)`);
             elevationCache[cacheKey] = null;
@@ -1640,9 +1613,9 @@ function haversine(lat1, lon1, lat2, lon2) {
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-/* ========================================================================
-   ★ v2.0 坡度分析 - 完全重構版本 ★
-   ======================================================================== */
+/* ════════════════════════════════════════════════════════════
+   ★ v2.0 坡度分析 - 完全重構版本
+   ════════════════════════════════════════════════════════════ */
 
 async function analyzeSlope() {
     logger.success('═════════════════════════════════════════════════════');
@@ -1652,9 +1625,6 @@ async function analyzeSlope() {
     const analysisStartTime = Date.now();
     
     try {
-        // ═════════════════════════════════════════════════════
-        // STEP 1: 多邊形驗證
-        // ═════════════════════════════════════════════════════
         logger.info('');
         logger.info('📋 [STEP 1] 多邊形驗證');
         logger.info('─────────────────────────────────────────────────────');
@@ -1674,7 +1644,7 @@ async function analyzeSlope() {
         if (!targetPoly) {
             logger.error('❌ [FAIL] 未找到多邊形');
             slopeContent.innerHTML = `
-                <strong style="color:#dc2626;">❌ 未找到多邊形</strong><br><br>
+                <strong style="color:#ff3333;">❌ 未找到多邊形</strong><br><br>
                 請執行以下步驟：<br>
                 1️⃣ 點擊「開始繪製」<br>
                 2️⃣ 在地圖點擊 3+ 個點<br>
@@ -1686,9 +1656,6 @@ async function analyzeSlope() {
         
         logger.success(`✓ 多邊形已找到: ${targetPoly.id}`);
         
-        // ─────────────────────────────────────────────────────
-        // STEP 2: 多邊形有效性檢查
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('🔍 [STEP 2] 多邊形有效性檢查');
         logger.info('─────────────────────────────────────────────────────');
@@ -1711,9 +1678,6 @@ async function analyzeSlope() {
         
         logger.success('✓ 多邊形有效性檢查通過');
         
-        // ─────────────────────────────────────────────────────
-        // STEP 3: 座標格式轉換與驗證
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('🔄 [STEP 3] 座標轉換與驗證');
         logger.info('─────────────────────────────────────────────────────');
@@ -1739,9 +1703,6 @@ async function analyzeSlope() {
         logger.success(`✓ 座標轉換完成: ${ring.length} 個點`);
         logger.info(`  樣本: [${ring[0][0].toFixed(6)}, ${ring[0][1].toFixed(6)}]`);
         
-        // ─────────────────────────────────────────────────────
-        // STEP 4: 環形閉合檢查
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('🔗 [STEP 4] 環形閉合');
         logger.info('─────────────────────────────────────────────────────');
@@ -1754,9 +1715,6 @@ async function analyzeSlope() {
         }
         logger.info(`✓ 最終環形長度: ${ring.length}`);
         
-        // ─────────────────────────────────────────────────────
-        // STEP 5: Turf 多邊形建立
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('📐 [STEP 5] Turf 多邊形建立');
         logger.info('─────────────────────────────────────────────────────');
@@ -1771,9 +1729,6 @@ async function analyzeSlope() {
             return;
         }
         
-        // ─────────────────────────────────────────────────────
-        // STEP 6: 邊界框計算
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('📦 [STEP 6] 邊界框計算');
         logger.info('─────────────────────────────────────────────────────');
@@ -1789,9 +1744,6 @@ async function analyzeSlope() {
         logger.info(`範圍大小: ${latRange.toFixed(7)}° × ${lonRange.toFixed(7)}°`);
         logger.success('✓ 邊界框已計算');
         
-        // ─────────────────────────────────────────────────────
-        // STEP 7: 採樣密度計算
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('⚙️ [STEP 7] 採樣密度計算');
         logger.info('─────────────────────────────────────────────────────');
@@ -1803,18 +1755,14 @@ async function analyzeSlope() {
         logger.info(`最大範圍: ${rangeSize.toFixed(7)}°`);
         logger.info(`採樣間距: ${step.toFixed(7)}°`);
         logger.info(`估計點數: ~${estimatedCount} 點`);
-        logger.info(`說明: 每 ${Math.ceil(rangeSize / step)} 點形成一行`);
         logger.success('✓ 採樣參數已計算');
         
-        // ─────────────────────────────────────────────────────
-        // STEP 8: 網格掃描 & 高程查詢
-        // ─────────────────────────────────────────────────────
         logger.success('');
         logger.success('🌍 [STEP 8] 網格掃描 & 高程查詢');
         logger.info('─────────────────────────────────────────────────────');
         
         slopeContent.innerHTML = `
-            <strong style="color: #f59e0b;">⏳ 掃描中... 0%</strong><br><br>
+            <strong style="color: #ffa500;">⏳ 掃描中... 0%</strong><br><br>
             正在採樣地形數據...<br>
             估計: ${estimatedCount} 點
         `;
@@ -1827,47 +1775,40 @@ async function analyzeSlope() {
         let lastUIUpdate = Date.now();
         let lastLogUpdate = Date.now();
         
-        // 經度迴圈
         for (let lon = minLon; lon <= maxLon; lon += step) {
-            // 緯度迴圈
             for (let lat = minLat; lat <= maxLat; lat += step) {
                 scannedCount++;
                 
-                // ★ UI 更新 (100ms 一次)
                 const now = Date.now();
                 if (now - lastUIUpdate > 100) {
                     const percent = Math.min(100, Math.round((scannedCount / estimatedCount) * 100));
                     slopeContent.innerHTML = `
-                        <strong style="color: #f59e0b;">⏳ 掃描中... ${percent}%</strong><br><br>
+                        <strong style="color: #ffa500;">⏳ 掃描中... ${percent}%</strong><br><br>
                         已掃描: ${scannedCount}/${estimatedCount} 點<br>
                         已採樣: ${sampledCount} 點<br>
                         跳過: ${skippedCount} 點
                     `;
-                    void slopeContent.offsetHeight; // 強制重排
+                    void slopeContent.offsetHeight;
                     lastUIUpdate = now;
                     await new Promise(r => setTimeout(r, 5));
                 }
                 
-                // ★ 日誌更新 (1s 一次)
                 if (now - lastLogUpdate > 1000) {
                     const percent = Math.round((scannedCount / estimatedCount) * 100);
                     logger.info(`⏳ 進度: ${percent}% | 掃描: ${scannedCount} | 採樣: ${sampledCount} | 跳過: ${skippedCount}`);
                     lastLogUpdate = now;
                 }
                 
-                // ★ 非同步控制 (20ms 延遲)
                 if (scannedCount % 100 === 0) {
                     await new Promise(r => setTimeout(r, 20));
                 }
                 
-                // ★ 點多邊形碰撞檢測
                 const pt = turf.point([lon, lat]);
                 if (!turf.booleanPointInPolygon(pt, polygon)) {
                     skippedCount++;
                     continue;
                 }
                 
-                // ★ 獲取高程
                 const ele = await getElevation(lat, lon);
                 if (ele !== null && typeof ele === 'number' && !isNaN(ele)) {
                     elevations.push({ lat, lon, ele });
@@ -1885,9 +1826,6 @@ async function analyzeSlope() {
         logger.info(`   成功採樣: ${sampledCount}`);
         logger.info(`   採樣失敗: ${failedCount}`);
         
-        // ─────────────────────────────────────────────────────
-        // STEP 9: 採樣不足應急方案
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('🆘 [STEP 9] 採樣品質檢查');
         logger.info('─────────────────────────────────────────────────────');
@@ -1916,9 +1854,6 @@ async function analyzeSlope() {
             logger.success(`✓ 採樣品質良好 (${elevations.length} 點)`);
         }
         
-        // ─────────────────────────────────────────────────────
-        // STEP 10: 坡度計算
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('📐 [STEP 10] 坡度計算');
         logger.info('─────────────────────────────────────────────────────');
@@ -1946,9 +1881,6 @@ async function analyzeSlope() {
         
         logger.success(`✓ 坡度計算完成: ${slopes.length} 個樣本`);
         
-        // ─────────────────────────────────────────────────────
-        // STEP 11: 統計分析
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('📊 [STEP 11] 統計分析');
         logger.info('─────────────────────────────────────────────────────');
@@ -1975,40 +1907,34 @@ async function analyzeSlope() {
         logger.info(`   平均: ${avgSlope.toFixed(2)}%`);
         logger.info(`   樣本: ${slopes.length} 個`);
         
-        // ─────────────────────────────────────────────────────
-        // STEP 12: 地形分類
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('🏔️ [STEP 12] 地形分類');
         logger.info('─────────────────────────────────────────────────────');
         
         let terrainType = "平坦";
-        let terrainColor = "#22c55e";
+        let terrainColor = "#00ff00";
         
         if (avgSlope > 30) {
             terrainType = "陡坡";
-            terrainColor = "#dc2626";
+            terrainColor = "#ff3333";
         } else if (avgSlope > 15) {
             terrainType = "中坡";
-            terrainColor = "#f97316";
+            terrainColor = "#ffa500";
         } else if (avgSlope > 5) {
             terrainType = "緩坡";
-            terrainColor = "#eab308";
+            terrainColor = "#ffff00";
         }
         
         logger.success(`✓ 地形分類: ${terrainType}`);
         logger.info(`   判定: 平均坡度 ${avgSlope.toFixed(2)}% 屬於「${terrainType}」`);
         logger.info(`   視覺色: ${terrainColor}`);
         
-        // ─────────────────────────────────────────────────────
-        // STEP 13: 結果顯示
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('💾 [STEP 13] 結果顯示');
         logger.info('─────────────────────────────────────────────────────');
         
         slopeContent.innerHTML = `
-            <strong style="color:#10b981;">✓ 坡度分析完成</strong><br><br>
+            <strong style="color:#00ff00;">✓ 坡度分析完成</strong><br><br>
             <strong>採樣資料</strong><br>
             採樣點數：${elevations.length} 點<br>
             掃描範圍：${scannedCount} 點<br><br>
@@ -2022,14 +1948,11 @@ async function analyzeSlope() {
             最大：${maxSlope.toFixed(2)}%<br>
             最小：${minSlope.toFixed(2)}%<br><br>
             <strong>地形分類</strong><br>
-            <span style="font-size:14px;font-weight:600;color:${terrainColor};">${terrainType}</span>
+            <span style="font-size:14px;font-weight:700;color:${terrainColor}; text-shadow: 0 0 8px ${terrainColor}80;">${terrainType}</span>
         `;
         
         logger.success('✓ 結果面板已更新');
         
-        // ─────────────────────────────────────────────────────
-        // STEP 14: 地圖可視化
-        // ─────────────────────────────────────────────────────
         logger.info('');
         logger.info('🗺️ [STEP 14] 地圖可視化');
         logger.info('─────────────────────────────────────────────────────');
@@ -2047,9 +1970,6 @@ async function analyzeSlope() {
         
         logger.success(`✓ 已在地圖上繪製 ${elevations.length} 個採樣點 (顏色: ${terrainColor})`);
         
-        // ─────────────────────────────────────────────────────
-        // 完成
-        // ─────────────────────────────────────────────────────
         const elapsedSeconds = ((Date.now() - analysisStartTime) / 1000).toFixed(2);
         logger.success('');
         logger.success('═════════════════════════════════════════════════════');
@@ -2066,16 +1986,12 @@ async function analyzeSlope() {
         logger.error(`   位置: ${err.stack?.split('\n')[1] || '未知'}`);
         logger.error('═════════════════════════════════════════════════════');
         
-        slopeContent.innerHTML = `<strong style="color:#dc2626;">❌ 分析失敗</strong><br><br><small>${err.message}</small><br><br>詳見調試控制台`;
+        slopeContent.innerHTML = `<strong style="color:#ff3333;">❌ 分析失敗</strong><br><br><small>${err.message}</small><br><br>詳見調試控制台`;
     } finally {
         slopeExecBtn.disabled = false;
         slopeExecBtn.innerText = "執行";
     }
 }
-
-/* ========================================================================
-   ★ v2.0 事件綁定 ★
-   ======================================================================== */
 
 document.addEventListener('DOMContentLoaded', function() {
     logger.info('📄 DOMContentLoaded 事件觸發');
@@ -2096,10 +2012,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     logger.success('✓ 事件綁定完成');
 });
-
-/* ========================================================================
-   ★ v2.0 其他函數 ★
-   ======================================================================== */
 
 function getCurrentLocation() {
     if (!navigator.geolocation) {
@@ -2167,94 +2079,58 @@ function importPolygonsFromSHP(event) {
     logger.warn('檔案匯入功能開發中');
 }
 
-/* ========================================================================
-   ★ v2.0 面板拖曳系統 (改進版) ★
-   ======================================================================== */
+/* ════════════════════════════════════════════════════════════
+   ★ v2.0 通用面板拖曳系統
+   ════════════════════════════════════════════════════════════ */
 
-let isDragging = false;
-let dragOffsetX = 0;
-let dragOffsetY = 0;
-let currentDragPanel = null;
+const draggablePanels = [
+    { element: systemTitleBar, header: systemTitleBar },
+    { element: sidebar, header: sidebarHeader },
+    { element: resultPanel, header: document.querySelector('#resultPanel .panel-header') },
+    { element: slopePanel, header: document.querySelector('#slopePanel .panel-header') }
+];
 
-// 系統標題欄拖曳
-systemTitleBar.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    isDragging = true;
-    currentDragPanel = 'titleBar';
-    dragOffsetX = e.clientX - systemTitleBar.offsetLeft;
-    dragOffsetY = e.clientY - systemTitleBar.offsetTop;
-    systemTitleBar.style.cursor = 'grabbing';
+let activeDrag = null;
+
+draggablePanels.forEach(({ element, header }) => {
+    if (!header) return;
+    
+    header.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON' || e.button !== 0) return;
+        
+        activeDrag = {
+            element: element,
+            header: header,
+            offsetX: e.clientX - element.getBoundingClientRect().left,
+            offsetY: e.clientY - element.getBoundingClientRect().top
+        };
+        
+        header.style.cursor = 'grabbing';
+        element.style.zIndex = 10000;
+        
+        logger.info(`🖱️ 開始拖曳: ${element.id}`);
+    });
 });
 
-// Result 面板拖曳
-const resultHeader = document.getElementById('resultHeader');
-if (resultHeader) {
-    resultHeader.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'BUTTON' || e.button !== 0) return;
-        isDragging = true;
-        currentDragPanel = resultPanel;
-        const rect = resultPanel.getBoundingClientRect();
-        dragOffsetX = e.clientX - rect.left;
-        dragOffsetY = e.clientY - rect.top;
-        resultPanel.style.position = 'fixed';
-        resultPanel.style.zIndex = 10000;
-        resultPanel.style.right = 'auto';
-        resultHeader.style.cursor = 'grabbing';
-    });
-}
-
-// Slope 面板拖曳
-const slopeHeader = document.getElementById('slopeHeader');
-if (slopeHeader) {
-    slopeHeader.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'BUTTON' || e.button !== 0) return;
-        isDragging = true;
-        currentDragPanel = slopePanel;
-        const rect = slopePanel.getBoundingClientRect();
-        dragOffsetX = e.clientX - rect.left;
-        dragOffsetY = e.clientY - rect.top;
-        slopePanel.style.position = 'fixed';
-        slopePanel.style.zIndex = 10000;
-        slopePanel.style.left = 'auto';
-        slopeHeader.style.cursor = 'grabbing';
-    });
-}
-
 document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
+    if (!activeDrag) return;
     
-    if (currentDragPanel === 'titleBar') {
-        systemTitleBar.style.left = (e.clientX - dragOffsetX) + 'px';
-        systemTitleBar.style.top = (e.clientY - dragOffsetY) + 'px';
-    } else if (currentDragPanel === resultPanel) {
-        resultPanel.style.left = (e.clientX - dragOffsetX) + 'px';
-        resultPanel.style.top = (e.clientY - dragOffsetY) + 'px';
-    } else if (currentDragPanel === slopePanel) {
-        slopePanel.style.left = (e.clientX - dragOffsetX) + 'px';
-        slopePanel.style.top = (e.clientY - dragOffsetY) + 'px';
-    }
+    activeDrag.element.style.position = 'fixed';
+    activeDrag.element.style.left = (e.clientX - activeDrag.offsetX) + 'px';
+    activeDrag.element.style.top = (e.clientY - activeDrag.offsetY) + 'px';
 });
 
 document.addEventListener('mouseup', () => {
-    if (!isDragging) return;
+    if (!activeDrag) return;
     
-    if (currentDragPanel === 'titleBar') {
-        systemTitleBar.style.cursor = 'grab';
-    } else if (currentDragPanel === resultPanel) {
-        const header = document.getElementById('resultHeader');
-        if (header) header.style.cursor = 'grab';
-    } else if (currentDragPanel === slopePanel) {
-        const header = document.getElementById('slopeHeader');
-        if (header) header.style.cursor = 'grab';
-    }
-    
-    isDragging = false;
-    currentDragPanel = null;
+    activeDrag.header.style.cursor = 'grab';
+    activeDrag = null;
+    logger.info('✓ 拖曳結束');
 });
 
-/* ========================================================================
-   ★ v2.0 系統初始化完成 ★
-   ======================================================================== */
+/* ════════════════════════════════════════════════════════════
+   ★ v2.0 系統初始化完成
+   ════════════════════════════════════════════════════════════ */
 
 window.addEventListener('load', () => {
     logger.success('');
@@ -2271,7 +2147,8 @@ window.addEventListener('load', () => {
     logger.info('   ✓ 坡度計算引擎');
     logger.info('   ✓ 自動應急方案');
     logger.info('   ✓ 實時進度更新');
-    logger.info('   ✓ 完全自由拖曳系統');
+    logger.info('   ✓ 科技風格 UI');
+    logger.info('   ✓ 全面拖曳支持');
     logger.info('');
     logger.info('🚀 快速開始：');
     logger.info('   1. 點擊工具列「開始繪製」');
@@ -2279,7 +2156,7 @@ window.addEventListener('load', () => {
     logger.info('   3. 點擊「完成閉合」形成多邊形');
     logger.info('   4. 點擊坡度面板「執行」按鈕');
     logger.info('');
-    logger.info('💡 提示: 所有面板都支持拖曳（包括標題欄）');
+    logger.info('💡 提示: 所有面板標題都支持拖曳');
     logger.info('');
 });
 
