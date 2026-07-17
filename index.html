@@ -1548,106 +1548,28 @@ function showToast(msg) {
 
 const elevationCache = {};
 
-const elevationCache = {};
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
-
 async function getElevation(lat, lon) {
     const cacheKey = lat.toFixed(5) + "," + lon.toFixed(5);
+    if (elevationCache[cacheKey] !== undefined) return elevationCache[cacheKey];
     
-    // ★ 第1級：本地記憶體快取
-    if (elevationCache[cacheKey] !== undefined) {
-        logger.info(`✓ 快取命中: ${cacheKey}`);
-        return elevationCache[cacheKey];
-    }
-    
-    // ★ 第2級：嘗試 OpenTopoData（通過 CORS Proxy）
     try {
-        const apiUrl = `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`;
-        const proxiedUrl = CORS_PROXY + encodeURIComponent(apiUrl);
-        
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        
-        logger.info(`📡 查詢 DEM: [${lat.toFixed(5)}, ${lon.toFixed(5)}]`);
-        
-        const res = await fetch(proxiedUrl, { 
-            signal: controller.signal,
-            mode: 'cors'
-        });
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const res = await fetch(`https://michael-chou.pages.dev/?lat=${lat}&lon=${lon}`, { signal: controller.signal });
         clearTimeout(timeout);
         
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        
+        if (!res.ok) return null;
         const data = await res.json();
         const ele = data?.results?.[0]?.elevation;
-        
         if (ele !== null && ele !== undefined && !isNaN(ele) && ele >= -500 && ele <= 9000) {
             elevationCache[cacheKey] = Number(ele);
-            logger.success(`✓ 高程取得: ${Number(ele).toFixed(1)}m`);
             return elevationCache[cacheKey];
         }
-        
-        logger.warn(`⚠️ OpenTopoData 返回無效值: ${ele}`);
         return null;
-        
     } catch (err) {
-        logger.warn(`⚠️ OpenTopoData 查詢失敗: ${err.message}`);
+        logger.warn(`DEM 查詢失敗 (${lat},${lon}): ${err.message}`);
+        return null;
     }
-    
-    // ★ 第3級：使用本地預設值（快速降級）
-    // 例如台灣地區的平均高度約 100m
-    if (lat >= 21 && lat <= 26 && lon >= 119 && lon <= 122) {
-        const fallbackEle = 100;
-        elevationCache[cacheKey] = fallbackEle;
-        logger.warn(`⚠️ 使用台灣預設高程: ${fallbackEle}m`);
-        return fallbackEle;
-    }
-    
-    logger.error(`❌ 無法獲取高程: ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
-    return null;
-}
-
-/* ========================================================================
-   ★ 輔助函數：清除快取（可選）
-   ======================================================================== */
-
-function clearElevationCache() {
-    const cacheSize = Object.keys(elevationCache).length;
-    Object.keys(elevationCache).forEach(key => delete elevationCache[key]);
-    logger.info(`✓ 快取已清除 (${cacheSize} 項)`);
-}
-
-/* ========================================================================
-   ★ 輔助函數：匯出快取為 JSON（便於持久化）
-   ======================================================================== */
-
-function exportCacheAsJSON() {
-    const json = JSON.stringify(elevationCache, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `elevation-cache-${Date.now()}.json`;
-    a.click();
-    logger.success('✓ 快取已匯出');
-}
-
-/* ========================================================================
-   ★ 輔助函數：從 JSON 匯入快取
-   ======================================================================== */
-
-function importCacheFromJSON(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const data = JSON.parse(e.target.result);
-            Object.assign(elevationCache, data);
-            logger.success(`✓ 快取已匯入 (${Object.keys(data).length} 項)`);
-        } catch (err) {
-            logger.error(`❌ 快取匯入失敗: ${err.message}`);
-        }
-    };
-    reader.readAsText(file);
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
