@@ -25,12 +25,45 @@ body {
 
 #map { height: 100vh; width: 100%; }
 
+#systemTitleBar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    z-index: 2000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    font-weight: 600;
+    font-size: 16px;
+    cursor: grab;
+    user-select: none;
+    gap: 12px;
+}
+
+#systemTitleBar:active {
+    cursor: grabbing;
+}
+
+#systemTitleBar .icon {
+    font-size: 20px;
+}
+
+#map {
+    margin-top: 50px;
+    height: calc(100vh - 50px);
+}
+
 #sidebar {
     position: absolute;
     left: 0;
-    top: 0;
+    top: 50px;
     width: 380px;
-    height: 100vh;
+    height: calc(100vh - 50px);
     background: #ffffff;
     box-shadow: 2px 0 12px rgba(0,0,0,0.15);
     z-index: 1000;
@@ -325,7 +358,7 @@ body {
 
 #toolbar {
     position: absolute;
-    top: 12px;
+    top: 62px;
     right: 12px;
     z-index: 900;
     background: white;
@@ -547,7 +580,7 @@ tr.highlight {
 
 #routeCard {
     position: fixed;
-    top: 80px;
+    top: 130px;
     right: 12px;
     background: white;
     border-left: 4px solid #10b981;
@@ -570,7 +603,7 @@ tr.highlight {
 
 #drawToolbar {
     position: absolute;
-    top: 12px;
+    top: 62px;
     left: 400px;
     background: white;
     border-radius: 12px;
@@ -682,7 +715,7 @@ tr.highlight {
         width: 100%;
         height: 50vh;
         bottom: 0;
-        left: 0;
+        top: auto;
         transform: translateY(100%);
         transition: transform 0.3s ease;
     }
@@ -796,6 +829,14 @@ tr.highlight {
 </style>
 </head>
 <body>
+
+<!-- ========================================================================
+     ★ 系統標題欄（可拖曳） ★
+     ======================================================================== -->
+<div id="systemTitleBar">
+    <span class="icon">🗺️</span>
+    <span>市價徵收查估作業系統 v2.0</span>
+</div>
 
 <div id="sidebar">
     <div id="sidebarToggle">◀</div>
@@ -1189,6 +1230,7 @@ const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
 const slopeExecBtn = document.getElementById('slope-exec-btn');
 const slopeContent = document.getElementById('slopeContent');
+const systemTitleBar = document.getElementById('systemTitleBar');
 
 logger.success('✓ 系統全域變數初始化完成');
 logger.info(`🎨 配置: 10種顏色 | 10個多邊形槽位`);
@@ -2124,7 +2166,7 @@ function importPolygonsFromSHP(event) {
 }
 
 /* ========================================================================
-   ★ v2.0 面板拖曳系統 ★
+   ★ v2.0 面板拖曳系統 (改進版) ★
    ======================================================================== */
 
 let isDragging = false;
@@ -2132,34 +2174,78 @@ let dragOffsetX = 0;
 let dragOffsetY = 0;
 let currentDragPanel = null;
 
-[resultPanel, slopePanel].forEach(panel => {
-    const header = panel === resultPanel ? document.getElementById('resultHeader') : document.getElementById('slopeHeader');
-    if (!header) return;
-    
-    header.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'BUTTON') return;
-        isDragging = true;
-        currentDragPanel = panel;
-        const rect = panel.getBoundingClientRect();
-        dragOffsetX = e.clientX - rect.left;
-        dragOffsetY = e.clientY - rect.top;
-        panel.style.position = 'fixed';
-        panel.style.zIndex = 10000;
-        header.style.cursor = 'grabbing';
-    });
+// 系統標題欄拖曳
+systemTitleBar.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    isDragging = true;
+    currentDragPanel = 'titleBar';
+    dragOffsetX = e.clientX - systemTitleBar.offsetLeft;
+    dragOffsetY = e.clientY - systemTitleBar.offsetTop;
+    systemTitleBar.style.cursor = 'grabbing';
 });
 
+// Result 面板拖曳
+const resultHeader = document.getElementById('resultHeader');
+if (resultHeader) {
+    resultHeader.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON' || e.button !== 0) return;
+        isDragging = true;
+        currentDragPanel = resultPanel;
+        const rect = resultPanel.getBoundingClientRect();
+        dragOffsetX = e.clientX - rect.left;
+        dragOffsetY = e.clientY - rect.top;
+        resultPanel.style.position = 'fixed';
+        resultPanel.style.zIndex = 10000;
+        resultPanel.style.right = 'auto';
+        resultHeader.style.cursor = 'grabbing';
+    });
+}
+
+// Slope 面板拖曳
+const slopeHeader = document.getElementById('slopeHeader');
+if (slopeHeader) {
+    slopeHeader.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON' || e.button !== 0) return;
+        isDragging = true;
+        currentDragPanel = slopePanel;
+        const rect = slopePanel.getBoundingClientRect();
+        dragOffsetX = e.clientX - rect.left;
+        dragOffsetY = e.clientY - rect.top;
+        slopePanel.style.position = 'fixed';
+        slopePanel.style.zIndex = 10000;
+        slopePanel.style.left = 'auto';
+        slopeHeader.style.cursor = 'grabbing';
+    });
+}
+
 document.addEventListener('mousemove', (e) => {
-    if (!isDragging || !currentDragPanel) return;
-    currentDragPanel.style.left = (e.clientX - dragOffsetX) + 'px';
-    currentDragPanel.style.top = (e.clientY - dragOffsetY) + 'px';
+    if (!isDragging) return;
+    
+    if (currentDragPanel === 'titleBar') {
+        systemTitleBar.style.left = (e.clientX - dragOffsetX) + 'px';
+        systemTitleBar.style.top = (e.clientY - dragOffsetY) + 'px';
+    } else if (currentDragPanel === resultPanel) {
+        resultPanel.style.left = (e.clientX - dragOffsetX) + 'px';
+        resultPanel.style.top = (e.clientY - dragOffsetY) + 'px';
+    } else if (currentDragPanel === slopePanel) {
+        slopePanel.style.left = (e.clientX - dragOffsetX) + 'px';
+        slopePanel.style.top = (e.clientY - dragOffsetY) + 'px';
+    }
 });
 
 document.addEventListener('mouseup', () => {
-    if (currentDragPanel) {
-        const header = currentDragPanel === resultPanel ? document.getElementById('resultHeader') : document.getElementById('slopeHeader');
+    if (!isDragging) return;
+    
+    if (currentDragPanel === 'titleBar') {
+        systemTitleBar.style.cursor = 'grab';
+    } else if (currentDragPanel === resultPanel) {
+        const header = document.getElementById('resultHeader');
+        if (header) header.style.cursor = 'grab';
+    } else if (currentDragPanel === slopePanel) {
+        const header = document.getElementById('slopeHeader');
         if (header) header.style.cursor = 'grab';
     }
+    
     isDragging = false;
     currentDragPanel = null;
 });
@@ -2168,29 +2254,32 @@ document.addEventListener('mouseup', () => {
    ★ v2.0 系統初始化完成 ★
    ======================================================================== */
 
-logger.success('');
-logger.success('═════════════════════════════════════════════════════');
-logger.success('✅ 市價徵收查估系統 v2.0 已完全初始化');
-logger.success('═════════════════════════════════════════════════════');
-logger.info('');
-logger.info('📋 系統功能清單：');
-logger.info('   ✓ 詳細日誌系統 (200行緩衝)');
-logger.info('   ✓ 多邊形繪製與編輯');
-logger.info('   ✓ 分段驗證流程');
-logger.info('   ✓ 網格採樣系統');
-logger.info('   ✓ DEM 高程查詢');
-logger.info('   ✓ 坡度計算引擎');
-logger.info('   ✓ 自動應急方案');
-logger.info('   ✓ 實時進度更新');
-logger.info('');
-logger.info('🚀 快速開始：');
-logger.info('   1. 點擊工具列「開始繪製」');
-logger.info('   2. 在地圖點擊 3+ 個頂點');
-logger.info('   3. 點擊「完成閉合」形成多邊形');
-logger.info('   4. 點擊坡度面板「執行」按鈕');
-logger.info('');
-logger.info('💡 提示: 打開調試控制台(F12/除錯按鈕)可看到詳細診斷信息');
-logger.info('');
+window.addEventListener('load', () => {
+    logger.success('');
+    logger.success('═════════════════════════════════════════════════════');
+    logger.success('✅ 市價徵收查估系統 v2.0 已完全初始化');
+    logger.success('═════════════════════════════════════════════════════');
+    logger.info('');
+    logger.info('📋 系統功能清單：');
+    logger.info('   ✓ 詳細日誌系統 (200行緩衝)');
+    logger.info('   ✓ 多邊形繪製與編輯');
+    logger.info('   ✓ 分段驗證流程');
+    logger.info('   ✓ 網格採樣系統');
+    logger.info('   ✓ DEM 高程查詢');
+    logger.info('   ✓ 坡度計算引擎');
+    logger.info('   ✓ 自動應急方案');
+    logger.info('   ✓ 實時進度更新');
+    logger.info('   ✓ 完全自由拖曳系統');
+    logger.info('');
+    logger.info('🚀 快速開始：');
+    logger.info('   1. 點擊工具列「開始繪製」');
+    logger.info('   2. 在地圖點擊 3+ 個頂點');
+    logger.info('   3. 點擊「完成閉合」形成多邊形');
+    logger.info('   4. 點擊坡度面板「執行」按鈕');
+    logger.info('');
+    logger.info('💡 提示: 所有面板都支持拖曳（包括標題欄）');
+    logger.info('');
+});
 
 </script>
 
