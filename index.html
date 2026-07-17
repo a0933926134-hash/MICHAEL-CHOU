@@ -841,124 +841,125 @@ tr.highlight {
 <div id="sidebar">
     <div id="sidebarToggle">◀</div>
     
-    <div id="sidebarHeader">
-        <h1>🗺️ 市價徵收查估 v2.0</h1>
-        <p>影響地價區域因素分析系統</p>
+  <div id="sidebarHeader">
+    <h1>🗺️ 市價徵收查估 v2.0</h1>
+    <p>影響地價區域因素分析系統</p>
+</div>
+
+<div id="sidebarContent">
+    <div class="sidebar-section">
+        <h3><span>📍</span> 查詢位置</h3>
+        
+        <div class="input-group">
+            <label>緯度</label>
+            <input type="text" id="lat" value="25.012098">
+        </div>
+        
+        <div class="input-group">
+            <label>經度</label>
+            <input type="text" id="lon" value="121.465675">
+        </div>
+        
+        <div class="input-group">
+            <label>查詢半徑 (公尺)</label>
+            <input type="number" id="radius" value="1000" min="100" max="3000">
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-primary" onclick="getCurrentLocation()" style="background: #0ea5e9;">📡 定位</button>
+            <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
+        </div>
     </div>
     
-    <div id="sidebarContent">
-        <div class="sidebar-section">
-            <h3><span>📍</span> 查詢位置</h3>
-            
-            <div class="input-group">
-                <label>緯度</label>
-                <input type="text" id="lat" value="25.012098">
+    <div class="sidebar-section">
+        <h3><span>🏢</span> 分析設施類型</h3>
+        
+        <div style="font-size: 11px; color: #999; margin-bottom: 10px;">
+            交通運輸
+        </div>
+        <div class="checkbox-group">
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-station" value="station">
+                <label for="chk-station">大型車站</label>
             </div>
-            
-            <div class="input-group">
-                <label>經度</label>
-                <input type="text" id="lon" value="121.465675">
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-bus" value="bus_stop">
+                <label for="chk-bus">公車站牌</label>
             </div>
-            
-            <div class="input-group">
-                <label>查詢半徑 (公尺)</label>
-                <input type="number" id="radius" value="1000" min="100" max="3000">
-            </div>
-            
-            <div class="button-group">
-                <button class="btn-primary" onclick="getCurrentLocation()" style="background: #0ea5e9;">📡 定位</button>
-                <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-junction" value="motorway_junction">
+                <label for="chk-junction">交流道</label>
             </div>
         </div>
         
-        <div class="sidebar-section">
-            <h3><span>🏢</span> 分析設施類型</h3>
-            
-            <div style="font-size: 11px; color: #999; margin-bottom: 10px;">
-                交通運輸
+        <div style="font-size: 11px; color: #999; margin: 12px 0 8px 0;">
+            公共建設
+        </div>
+        <div class="checkbox-group">
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-school" value="school" checked>
+                <label for="chk-school">學校</label>
             </div>
-            <div class="checkbox-group">
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-station" value="station">
-                    <label for="chk-station">大型車站</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-bus" value="bus_stop">
-                    <label for="chk-bus">公車站牌</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-junction" value="motorway_junction">
-                    <label for="chk-junction">交流道</label>
-                </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-market" value="marketplace">
+                <label for="chk-market">市場/超市</label>
             </div>
-            
-            <div style="font-size: 11px; color: #999; margin: 12px 0 8px 0;">
-                公共建設
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-park" value="park">
+                <label for="chk-park">公園</label>
             </div>
-            <div class="checkbox-group">
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-school" value="school" checked>
-                    <label for="chk-school">學校</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-market" value="marketplace">
-                    <label for="chk-market">市場/超市</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-park" value="park">
-                    <label for="chk-park">公園</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-tourism" value="tourism">
-                    <label for="chk-tourism">觀光景點</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-parking" value="parking">
-                    <label for="chk-parking">停車場</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-bank" value="bank">
-                    <label for="chk-bank">銀行/郵局</label>
-                </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-tourism" value="tourism">
+                <label for="chk-tourism">觀光景點</label>
             </div>
-            
-            <div style="font-size: 11px; color: #999; margin: 12px 0 8px 0;">
-                特殊設施
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-parking" value="parking">
+                <label for="chk-parking">停車場</label>
             </div>
-            <div class="checkbox-group">
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-gas" value="gas">
-                    <label for="chk-gas">電氣/瓦斯</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-cemetery" value="cemetery">
-                    <label for="chk-cemetery">殯葬設施</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-waste" value="waste_disposal">
-                    <label for="chk-waste">廢棄物處理</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-pollution" value="pollution">
-                    <label for="chk-pollution">環境汙染</label>
-                </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-bank" value="bank">
+                <label for="chk-bank">銀行/郵局</label>
             </div>
         </div>
         
-        <div class="sidebar-section" id="polygonManager">
-            <h3><span>📦</span> 繪製範圍 (<span id="polyCount">0</span>)</h3>
-            
-            <div id="polygonList"></div>
-            
-            <div style="font-size: 11px; color: #666; padding: 8px 0; margin: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
-                ℹ️ 選中多邊形後，坡度分析將以其頂點為採樣範圍進行
-            </div>
+        <div style="font-size: 11px; color: #999; margin: 12px 0 8px 0;">
+            特殊設施
         </div>
-        
-        <div class="sidebar-section">
-            <button class="btn-primary" id="query-btn" onclick="runQuery()" style="width: 100%; padding: 12px; font-size: 14px;">🔍 查詢分析</button>
+        <div class="checkbox-group">
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-gas" value="gas">
+                <label for="chk-gas">電氣/瓦斯</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-cemetery" value="cemetery">
+                <label for="chk-cemetery">殯葬設施</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-waste" value="waste_disposal">
+                <label for="chk-waste">廢棄物處理</label>
+            </div>
+            <div class="checkbox-item">
+                <input type="checkbox" id="chk-pollution" value="pollution">
+                <label for="chk-pollution">環境汙染</label>
+            </div>
         </div>
     </div>
+    
+    <div class="sidebar-section" id="polygonManager">
+        <h3><span>📦</span> 繪製範圍 (<span id="polyCount">0</span>)</h3>
+        
+        <div id="polygonList"></div>
+        
+        <div style="font-size: 11px; color: #666; padding: 8px 0; margin: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
+            ℹ️ 選中多邊形後，坡度分析將以其頂點為採樣範圍進行
+        </div>
+    </div>
+    
+    <div class="sidebar-section">
+        <button class="btn-primary" id="query-btn" onclick="runQuery()" style="width: 100%; padding: 12px; font-size: 14px;">🔍 查詢分析</button>
+    </div>
+</div>
+
 </div>
 
 <div id="map"></div>
