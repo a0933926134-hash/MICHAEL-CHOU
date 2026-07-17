@@ -1542,67 +1542,104 @@ async function getElevation(lat, lon, retryCount = 0) {
     
     if (elevationCache[cacheKey] !== undefined) {
         const cached = elevationCache[cacheKey];
-        if (cached === null) {
-            return null;
-        }
+        if (cached === null) return null;
         return cached;
     }
     
-    try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        
-        const url = `https://michael-chou.pages.dev/?lat=${lat}&lon=${lon}`;
-        
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeout);
-        
-        if (!res.ok) {
-            logger.warn(`⚠️ DEM HTTP ${res.status} @ [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
-            elevationCache[cacheKey] = null;
-            return null;
+    // 多源回退方案：三個 API 源
+    const sources = [
+        {
+            name: '主源 (michael-chou)',
+            fetch: async () => {
+                const url = `https://michael-chou.pages.dev/?lat=${lat}&lon=${lon}`;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                try {
+                    const res = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeout);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    const ele = data?.results?.[0]?.elevation;
+                    if (ele === null || ele === undefined) throw new Error('無資料');
+                    if (typeof ele !== 'number' || isNaN(ele)) throw new Error('類型錯誤');
+                    if (ele < -1000 || ele > 4000) throw new Error('異常值');
+                    return Number(ele);
+                } finally {
+                    clearTimeout(timeout);
+                }
+            }
+        },
+        {
+            name: 'USGS 3DEP',
+            fetch: async () => {
+                const url = `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/getSamples?geometry=${lon},${lat}&geometryType=esriGeometryPoint&outSR=4326&f=json`;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                try {
+                    const res = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeout);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    if (data?.value?.length > 0) {
+                        const ele = data.value[0];
+                        if (typeof ele !== 'number' || isNaN(ele)) throw new Error('類型錯誤');
+                        return Number(ele);
+                    }
+                    throw new Error('無資料');
+                } finally {
+                    clearTimeout(timeout);
+                }
+            }
+        },
+        {
+            name: 'OpenTopography (SRTM)',
+            fetch: async () => {
+                const offset = 0.05;
+                const url = `https://cloud.sdsc.edu/v1/AUTH_opentopography/Raster/SRTM_GL30/SRTM_GL30_srtm/SRTM_GL30_srtm_srtm.tif?west=${lon-offset}&south=${lat-offset}&east=${lon+offset}&north=${lat+offset}&output=json`;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                try {
+                    const res = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeout);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    if (data?.properties?.MEAN) {
+                        const ele = Number(data.properties.MEAN);
+                        if (isNaN(ele)) throw new Error('類型錯誤');
+                        return ele;
+                    }
+                    throw new Error('無資料');
+                } finally {
+                    clearTimeout(timeout);
+                }
+            }
         }
-        
-        const data = await res.json();
-        const ele = data?.results?.[0]?.elevation;
-        
-        if (ele === null || ele === undefined) {
-            elevationCache[cacheKey] = null;
-            return null;
+    ];
+    
+    // 逐一嘗試每個源
+    for (let source of sources) {
+        try {
+            const elev = await Promise.race([
+                source.fetch(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('超時')), 5500))
+            ]);
+            
+            elevationCache[cacheKey] = Number(elev);
+            logger.log(`✓ [${source.name}] 高程查詢成功: ${elev.toFixed(1)}m @ [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
+            return elevationCache[cacheKey];
+            
+        } catch (error) {
+            logger.warn(`⚠️ [${source.name}] 查詢失敗: ${error.message.substring(0, 40)}`);
+            continue;
         }
-        
-        if (typeof ele !== 'number' || isNaN(ele)) {
-            logger.warn(`⚠️ DEM 無效值類型: ${typeof ele}`);
-            elevationCache[cacheKey] = null;
-            return null;
-        }
-        
-        if (ele < -1000 || ele > 4000) {
-            logger.warn(`⚠️ DEM 異常值: ${ele}m (超出範圍)`);
-            elevationCache[cacheKey] = null;
-            return null;
-        }
-        
-        elevationCache[cacheKey] = Number(ele);
-        return elevationCache[cacheKey];
-        
-    } catch (err) {
-        if (err.name === 'AbortError') {
-            logger.warn(`⏱️ DEM 查詢超時 [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
-        } else {
-            logger.warn(`⚠️ DEM 查詢異常: ${err.message.substring(0, 50)}`);
-        }
-        
-        if (retryCount < maxRetries) {
-            logger.info(`🔄 重試 (${retryCount + 1}/${maxRetries})...`);
-            await new Promise(r => setTimeout(r, 500));
-            return getElevation(lat, lon, retryCount + 1);
-        }
-        
-        elevationCache[cacheKey] = null;
-        return null;
     }
+    
+    // 所有源均失敗
+    logger.error(`❌ 所有高程源均失敗 @ [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
+    elevationCache[cacheKey] = null;
+    return null;
 }
+
 
 function haversine(lat1, lon1, lat2, lon2) {
     const R = 6371000;
