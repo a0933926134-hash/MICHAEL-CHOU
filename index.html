@@ -504,43 +504,6 @@ tr.highlight {
     background: #fef08a !important;
 }
 
-/* 坡度分析面板 */
-#slopePanel {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    width: 300px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    z-index: 850;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-#slopeHeader {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    color: white;
-    padding: 12px 16px;
-    font-weight: 600;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: grab;
-    user-select: none;
-}
-
-#slopeContent {
-    padding: 12px;
-    background: #fffbeb;
-    color: #78350f;
-    font-size: 12px;
-    line-height: 1.6;
-    max-height: 250px;
-    overflow-y: auto;
-}
-
 /* 路線資訊卡 */
 #routeCard {
     position: absolute;
@@ -892,9 +855,6 @@ tr.highlight {
         <button class="toolbar-btn" onclick="toggleDrawMode(this)">
             📐 開始繪製
         </button>
-        <button class="toolbar-btn" onclick="toggleSlopeAnalysis()">
-            🌄 坡度分析
-        </button>
         <button class="toolbar-btn" onclick="toggleLayerControl()">
             🗺️ 圖層控制
         </button>
@@ -954,17 +914,6 @@ tr.highlight {
     </div>
 </div>
 
-<!-- ★ 坡度分析面板 -->
-<div id="slopePanel">
-    <div id="slopeHeader">
-        🌄 地形坡度分析
-        <button onclick="analyzeSlope()" style="background: rgba(255,255,255,0.3); border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">執行</button>
-    </div>
-    <div id="slopeContent">
-        <p>點擊「執行」按鈕分析選中多邊形或查詢區域的地形坡度。</p>
-    </div>
-</div>
-
 <!-- ★ 路線資訊卡 -->
 <div id="routeCard" class="hidden">
     <strong>🛣️ 路線距離</strong>
@@ -1015,14 +964,8 @@ const baseMaps = {
     "OpenStreetMap": osmLayer
 };
 
-const nlscDEM = L.tileLayer(
-    'https://wmts.nlsc.gov.tw/wmts/EMAP5_OPENDATA/default/EPSG:3857/{z}/{y}/{x}',
-    { maxZoom:18, opacity:0.45, attribution:'© NLSC DEM' }
-);
-
 const overlayMaps = {
-    "地籍圖": cadastralLayer,
-    "DEM 地形": nlscDEM
+    "地籍圖": cadastralLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
@@ -1057,7 +1000,6 @@ const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const drawToolbar = document.getElementById('drawToolbar');
 const resultPanel = document.getElementById('resultPanel');
-const slopePanel = document.getElementById('slopePanel');
 const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
 
@@ -1075,11 +1017,6 @@ sidebarToggle.addEventListener('click', () => {
 function toggleDrawMode(btn) {
     drawToolbar.classList.toggle('hidden');
     btn.classList.toggle('active');
-}
-
-// 坡度分析面板
-function toggleSlopeAnalysis() {
-    slopePanel.style.display = slopePanel.style.display === 'none' ? 'flex' : 'none';
 }
 
 // 結果面板
@@ -1343,32 +1280,6 @@ function showToast(msg) {
 /* ========================================================================
    距離和路網分析
    ======================================================================== */
-
-const elevationCache = {};
-
-async function getElevation(lat, lon) {
-    const cacheKey = lat.toFixed(5) + "," + lon.toFixed(5);
-    if (elevationCache[cacheKey] !== undefined) return elevationCache[cacheKey];
-    
-    try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-        const res = await fetch(`https://michael-chou.pages.dev/?lat=${lat}&lon=${lon}`, { signal: controller.signal });
-        clearTimeout(timeout);
-        
-        if (!res.ok) return null;
-        const data = await res.json();
-        const ele = data?.results?.[0]?.elevation;
-        if (ele !== null && ele !== undefined && !isNaN(ele)) {
-            elevationCache[cacheKey] = Number(ele);
-            return elevationCache[cacheKey];
-        }
-        return null;
-    } catch (err) {
-        console.error('DEM ERROR:', err);
-        return null;
-    }
-}
 
 function haversine(lat1, lon1, lat2, lon2) {
     const R = 6371000;
@@ -1653,7 +1564,6 @@ async function runQuery() {
         }
 
         let rawSchools = [];
-        let gates = [];
         const dedup = new Set();
 
         data.elements.forEach(e => {
@@ -1919,7 +1829,7 @@ function processImportedPolygons(geojson) {
         if (!rings || rings.length < 3) return;
         const invalidCoord = rings.some(coord => Math.abs(coord[1]) > 90 || Math.abs(coord[0]) > 180);
         if (invalidCoord) {
-            alert("座標系統可能不是 WGS84");
+            alert("座標系統可能不是 WGS97");
             return;
         }
         if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
@@ -1934,124 +1844,6 @@ function processImportedPolygons(geojson) {
 }
 
 /* ========================================================================
-   坡度分析
-   ======================================================================== */
-
-async function analyzeSlope() {
-    const slopeContent = document.getElementById('slopeContent');
-    
-    let targetPoly = null;
-    if (currentPolygonId) {
-        targetPoly = polygons.find(p => p.id === currentPolygonId);
-    } else if (polygons.length > 0) {
-        targetPoly = polygons[0];
-    }
-
-    if (!targetPoly || !targetPoly.points || targetPoly.points.length < 3) {
-        alert("請先繪製多邊形範圍");
-        return;
-    }
-
-    slopeContent.innerHTML = "🌄 DEM 坡度分析中...";
-
-    try {
-        markerLayer.clearLayers();
-        let ring = targetPoly.points.map(p => [Number(p[1]), Number(p[0])]);
-        if (ring.length < 3) {
-            alert("範圍點不足");
-            return;
-        }
-
-        if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
-            ring.push(ring[0]);
-        }
-
-        const polygon = turf.polygon([ring]);
-        const bbox = turf.bbox(polygon);
-        const [minLon, minLat, maxLon, maxLat] = bbox;
-        const step = Math.max(Math.max(maxLon - minLon, maxLat - minLat) / 30, 0.00005);
-
-        let elevations = [];
-        for (let lat = minLat; lat <= maxLat; lat += step) {
-            for (let lon = minLon; lon <= maxLon; lon += step) {
-                const pt = turf.point([lon, lat]);
-                if (!turf.booleanPointInPolygon(pt, polygon)) continue;
-
-                const ele = await getElevation(lat, lon);
-                if (ele !== null && !isNaN(ele)) {
-                    elevations.push({ lat, lon, ele });
-                }
-
-                await new Promise(r => setTimeout(r, 30));
-            }
-        }
-
-        if (elevations.length < 5) {
-            const centroid = turf.centroid(polygon).geometry.coordinates;
-            const ele = await getElevation(centroid[1], centroid[0]);
-            if (ele !== null && !isNaN(ele)) {
-                elevations = [{ lat: centroid[1], lon: centroid[0], ele }];
-            } else {
-                slopeContent.innerHTML = `⚠️ DEM 無資料`;
-                return;
-            }
-        }
-
-        let slopes = [];
-        for (let i = 1; i < elevations.length; i++) {
-            const p1 = elevations[i - 1];
-            const p2 = elevations[i];
-            const dist = haversine(p1.lat, p1.lon, p2.lat, p2.lon);
-            if (dist < 1) continue;
-            const rise = Math.abs(p2.ele - p1.ele);
-            slopes.push((rise / dist) * 100);
-        }
-
-        if (!slopes.length) {
-            slopeContent.innerHTML = "⚠️ 無法計算坡度";
-            return;
-        }
-
-        const elevs = elevations.map(e => e.ele);
-        const minElev = Math.min(...elevs);
-        const maxElev = Math.max(...elevs);
-        const avgElev = elevs.reduce((a, b) => a + b, 0) / elevs.length;
-        const avgSlope = slopes.reduce((a, b) => a + b, 0) / slopes.length;
-        const maxSlope = Math.max(...slopes);
-        const minSlope = Math.min(...slopes);
-        let terrainType = "平坦";
-        if (avgSlope > 30) terrainType = "陡坡";
-        else if (avgSlope > 15) terrainType = "中坡";
-        else if (avgSlope > 5) terrainType = "緩坡";
-
-        slopeContent.innerHTML = `
-            <strong>📊 坡度分析完成</strong><br>
-            採樣點數：${elevations.length} 點<br><br>
-            <strong>高程資料</strong><br>
-            平均：${avgElev.toFixed(1)} m | 最低：${minElev.toFixed(1)} m | 最高：${maxElev.toFixed(1)} m<br><br>
-            <strong>坡度數據</strong><br>
-            平均：${avgSlope.toFixed(2)}% | 最大：${maxSlope.toFixed(2)}% | 最小：${minSlope.toFixed(2)}%<br><br>
-            <strong>地形分類</strong><br>
-            ${terrainType}
-        `;
-
-        elevations.forEach(p => {
-            let color = "#22c55e";
-            if (avgSlope > 30) color = "#dc2626";
-            else if (avgSlope > 15) color = "#f97316";
-            else if (avgSlope > 5) color = "#eab308";
-
-            L.circleMarker([p.lat, p.lon], {
-                radius: 4, color, fillColor: color, fillOpacity: 0.9, weight: 1
-            }).addTo(markerLayer).bindTooltip(`${p.ele.toFixed(1)} m`);
-        });
-    } catch (err) {
-        console.error("DEM 分析錯誤:", err);
-        slopeContent.innerHTML = `❌ 坡度分析失敗<br><br>${err.message}`;
-    }
-}
-
-/* ========================================================================
    拖曳面板
    ======================================================================== */
 
@@ -2059,27 +1851,21 @@ let isDragging = false;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 
-[resultPanel, slopePanel].forEach(panel => {
-    const header = panel === resultPanel ? document.getElementById('resultHeader') : document.getElementById('slopeHeader');
-    header.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'BUTTON') return;
-        isDragging = true;
-        const rect = panel.getBoundingClientRect();
-        dragOffsetX = e.clientX - rect.left;
-        dragOffsetY = e.clientY - rect.top;
-        panel.style.position = 'fixed';
-        panel.style.zIndex = 10000;
-    });
+const resultHeader = document.getElementById('resultHeader');
+resultHeader.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'BUTTON') return;
+    isDragging = true;
+    const rect = resultPanel.getBoundingClientRect();
+    dragOffsetX = e.clientX - rect.left;
+    dragOffsetY = e.clientY - rect.top;
+    resultPanel.style.position = 'fixed';
+    resultPanel.style.zIndex = 10000;
 });
 
 document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
-    const panel = document.elementFromPoint(e.clientX - dragOffsetX, e.clientY - dragOffsetY);
-    const activePanel = [resultPanel, slopePanel].find(p => p.contains(panel));
-    if (activePanel) {
-        activePanel.style.left = (e.clientX - dragOffsetX) + 'px';
-        activePanel.style.top = (e.clientY - dragOffsetY) + 'px';
-    }
+    resultPanel.style.left = (e.clientX - dragOffsetX) + 'px';
+    resultPanel.style.top = (e.clientY - dragOffsetY) + 'px';
 });
 
 document.addEventListener('mouseup', () => {
