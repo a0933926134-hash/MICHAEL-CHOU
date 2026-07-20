@@ -1,1629 +1,1166 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>市價徵收查估作業系統 v2.0</title>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-<script src="https://unpkg.com/shp-write@latest/shpwrite.js"></script>
-<script src="https://unpkg.com/geotiff/dist-browser/geotiff.js"></script>    
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
-<script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
-
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body { 
-    font-family: 'Segoe UI', 'Microsoft JhengHei', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #0a0e27;
-    overflow: hidden;
-    color: #e0e6ed;
-}
-
-#map { 
-    height: 100vh; 
-    width: 100%; 
-}
-
-/* 系統標題欄 - 科技風格 */
-#systemTitleBar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 60px;
-    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 50%, #0f1621 100%);
-    border-bottom: 2px solid #00d4ff;
-    color: #00d4ff;
-    display: flex;
-    align-items: center;
-    padding: 0 24px;
-    z-index: 2000;
-    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
-    font-weight: 700;
-    font-size: 18px;
-    cursor: grab;
-    user-select: none;
-    gap: 12px;
-    letter-spacing: 1px;
-}
-
-#systemTitleBar:active { cursor: grabbing; }
-#systemTitleBar .icon { font-size: 24px; filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.6)); }
-
-#map { margin-top: 60px; height: calc(100vh - 60px); }
-
-/* 側邊欄 - 科技風格 */
-#sidebar {
-    position: fixed;
-    left: 0;
-    top: 60px;
-    width: 400px;
-    height: calc(100vh - 60px);
-    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
-    border-right: 2px solid #00d4ff;
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    transition: transform 0.3s ease;
-    overflow: hidden;
-    box-shadow: 8px 0 32px rgba(0, 212, 255, 0.1);
-}
-
-#sidebar.collapsed { transform: translateX(-400px); }
-
-#sidebarToggle {
-    position: absolute;
-    right: -40px;
-    top: 12px;
-    width: 40px;
-    height: 40px;
-    background: #1a2a3a;
-    border: 2px solid #00d4ff;
-    border-radius: 0 8px 8px 0;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    z-index: 999;
-    transition: all 0.3s;
-    color: #00d4ff;
-    box-shadow: inset 0 0 16px rgba(0, 212, 255, 0.2);
-}
-
-#sidebarToggle:hover {
-    background: #0f1621;
-    box-shadow: 0 0 16px rgba(0, 212, 255, 0.4);
-}
-
-#sidebarHeader {
-    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-    color: #0a0e27;
-    padding: 20px 20px;
-    border-bottom: 2px solid #0099cc;
-    cursor: grab;
-    user-select: none;
-    font-weight: 700;
-}
-
-#sidebarHeader:active { cursor: grabbing; }
-
-#sidebarHeader h1 {
-    font-size: 18px;
-    font-weight: 700;
-    margin: 0;
-    line-height: 1.4;
-    letter-spacing: 0.5px;
-}
-
-#sidebarHeader p {
-    font-size: 12px;
-    opacity: 0.85;
-    margin: 6px 0 0 0;
-    font-weight: 600;
-}
-
-#sidebarContent {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0;
-}
-
-#sidebarContent::-webkit-scrollbar { width: 8px; }
-#sidebarContent::-webkit-scrollbar-track { background: #0f1621; }
-#sidebarContent::-webkit-scrollbar-thumb {
-    background: #00d4ff;
-    border-radius: 4px;
-    box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
-}
-#sidebarContent::-webkit-scrollbar-thumb:hover {
-    background: #00ffff;
-    box-shadow: 0 0 16px rgba(0, 255, 255, 0.5);
-}
-
-.sidebar-section {
-    padding: 16px;
-    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
-}
-
-.sidebar-section h3 {
-    font-size: 14px;
-    font-weight: 700;
-    color: #00ffff;
-    margin: 0 0 12px 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.sidebar-section h3 span { font-size: 18px; }
-
-.input-group { margin-bottom: 10px; }
-
-.input-group label {
-    display: block;
-    font-size: 11px;
-    color: #00d4ff;
-    font-weight: 700;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.input-group input[type="text"],
-.input-group input[type="number"] {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #00d4ff;
-    border-radius: 4px;
-    font-size: 13px;
-    transition: all 0.2s;
-    background: #0f1621;
-    color: #00d4ff;
-    box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.1);
-}
-
-.input-group input:focus {
-    outline: none;
-    border-color: #00ffff;
-    background: #1a2a3a;
-    box-shadow: 0 0 16px rgba(0, 212, 255, 0.4), inset 0 0 8px rgba(0, 212, 255, 0.1);
-}
-
-.checkbox-group { display: flex; flex-direction: column; gap: 8px; margin: 0; }
-
-.checkbox-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 8px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-    border: 1px solid transparent;
-}
-
-.checkbox-item:hover {
-    background: rgba(0, 212, 255, 0.1);
-    border-color: #00d4ff;
-}
-
-.checkbox-item input[type="checkbox"] {
-    margin-top: 4px;
-    cursor: pointer;
-    accent-color: #00ffff;
-    width: 16px;
-    height: 16px;
-}
-
-.checkbox-item label {
-    flex: 1;
-    cursor: pointer;
-    font-size: 13px;
-    color: #b0c4de;
-    margin: 0;
-    font-weight: 500;
-}
-
-.button-group {
-    display: flex;
-    gap: 8px;
-    margin: 12px 0;
-}
-
-.button-group button {
-    flex: 1;
-    padding: 10px;
-    border: 1px solid #00d4ff;
-    border-radius: 4px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    background: #0f1621;
-    color: #00d4ff;
-}
-
-.button-group button:hover {
-    background: #1a2a3a;
-    border-color: #00ffff;
-    color: #00ffff;
-    box-shadow: 0 0 16px rgba(0, 255, 255, 0.3);
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-    color: #0a0e27;
-    border: none;
-    font-weight: 700;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(135deg, #00ffff 0%, #00d4ff 100%);
-    box-shadow: 0 0 24px rgba(0, 255, 255, 0.4);
-    transform: translateY(-2px);
-}
-
-.btn-primary:disabled {
-    background: #2a3a4a;
-    color: #666;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.btn-secondary {
-    background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
-    color: white;
-    border: none;
-    font-weight: 700;
-}
-
-.btn-secondary:hover {
-    background: linear-gradient(135deg, #ff8c42 0%, #ffa500 100%);
-    box-shadow: 0 0 24px rgba(255, 140, 66, 0.4);
-    transform: translateY(-2px);
-}
-
-.btn-danger {
-    background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%);
-    color: white;
-    border: none;
-    font-weight: 700;
-}
-
-.btn-danger:hover {
-    background: linear-gradient(135deg, #ff5555 0%, #ff0000 100%);
-    box-shadow: 0 0 24px rgba(255, 0, 0, 0.4);
-    transform: translateY(-2px);
-}
-
-#polygonManager {
-    background: rgba(0, 212, 255, 0.05);
-    border-top: 2px solid #00d4ff;
-}
-
-#polygonList {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.polygon-item {
-    padding: 10px;
-    background: #0f1621;
-    border: 2px solid #00d4ff;
-    border-radius: 4px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-size: 12px;
-}
-
-.polygon-item:hover {
-    background: #1a2a3a;
-    border-color: #00ffff;
-    box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
-}
-
-.polygon-item.selected {
-    background: #1a2a3a;
-    border-color: #00ffff;
-    font-weight: 700;
-    box-shadow: 0 0 16px rgba(0, 255, 255, 0.5);
-}
-
-.polygon-item-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #00d4ff;
-}
-
-.polygon-item-name { flex: 1; }
-
-.polygon-item-actions { display: flex; gap: 4px; }
-
-.polygon-item-btn {
-    padding: 4px 8px;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 10px;
-    font-weight: 700;
-    background: #ff3333;
-    color: white;
-    transition: all 0.2s;
-}
-
-.polygon-item-btn:hover {
-    background: #ff5555;
-    box-shadow: 0 0 8px rgba(255, 51, 51, 0.4);
-}
-
-/* 工具欄 - 科技風格 */
-#toolbar {
-    position: fixed;
-    top: 80px;
-    right: 12px;
-    z-index: 900;
-    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
-    border: 2px solid #00d4ff;
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-
-.toolbar-section { display: flex; flex-direction: column; padding: 0; }
-
-.toolbar-section:not(:last-child) { border-bottom: 1px solid rgba(0, 212, 255, 0.2); }
-
-.toolbar-btn {
-    padding: 12px 16px;
-    border: none;
-    background: transparent;
-    color: #00d4ff;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
-    text-align: left;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: all 0.2s;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.toolbar-btn:hover {
-    background: rgba(0, 212, 255, 0.1);
-    color: #00ffff;
-}
-
-.toolbar-btn.active {
-    background: rgba(0, 212, 255, 0.2);
-    color: #00ffff;
-    border-left: 3px solid #00ffff;
-}
-
-#statusBar {
-    position: fixed;
-    bottom: 12px;
-    right: 12px;
-    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
-    border: 1px solid #00d4ff;
-    border-radius: 4px;
-    padding: 10px 14px;
-    font-size: 11px;
-    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1);
-    color: #00d4ff;
-    z-index: 800;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-}
-
-/* 浮動面板 - 科技風格 */
-.floating-panel {
-    position: fixed;
-    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
-    border: 2px solid #00d4ff;
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
-    z-index: 950;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    transition: all 0.3s;
-}
-
-.panel-header {
-    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-    color: #0a0e27;
-    padding: 12px 16px;
-    font-weight: 700;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: grab;
-    user-select: none;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.panel-header:active { cursor: grabbing; }
-
-.panel-header-actions {
-    display: flex;
-    gap: 6px;
-}
-
-.panel-header-actions button {
-    background: rgba(10, 14, 39, 0.3);
-    border: none;
-    color: #0a0e27;
-    padding: 4px 10px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 700;
-    transition: all 0.2s;
-}
-
-.panel-header-actions button:hover { background: rgba(10, 14, 39, 0.5); }
-
-#resultPanel {
-    bottom: 20px;
-    right: 20px;
-    width: 600px;
-    max-height: 400px;
-}
-
-#resultPanel.hidden { display: none; }
-
-#resultTableWrapper {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0;
-}
-
-#resultTableWrapper::-webkit-scrollbar { width: 8px; }
-#resultTableWrapper::-webkit-scrollbar-thumb {
-    background: #00d4ff;
-    border-radius: 4px;
-    box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-
-th, td {
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
-    text-align: left;
-}
-
-th {
-    background: rgba(0, 212, 255, 0.1);
-    font-weight: 700;
-    color: #00ffff;
-    position: sticky;
-    top: 0;
-    cursor: pointer;
-    user-select: none;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-th:hover { background: rgba(0, 212, 255, 0.2); }
-
-td { color: #b0c4de; }
-
-tr:hover { background: rgba(0, 212, 255, 0.1); }
-
-tr.highlight { background: rgba(0, 212, 255, 0.2) !important; }
-
-#routeCard {
-    position: fixed;
-    top: 150px;
-    right: 12px;
-    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
-    border-left: 4px solid #00d4ff;
-    border-top: 1px solid #00d4ff;
-    border-right: 1px solid #00d4ff;
-    border-bottom: 1px solid #00d4ff;
-    border-radius: 4px;
-    padding: 12px 16px;
-    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
-    z-index: 880;
-    max-width: 320px;
-    font-size: 12px;
-}
-
-#routeCard.hidden { display: none; }
-
-#routeCard strong {
-    color: #00ffff;
-    font-size: 14px;
-    font-weight: 700;
-}
-
-#drawToolbar {
-    position: fixed;
-    top: 80px;
-    left: 420px;
-    background: linear-gradient(135deg, #0f1621 0%, #1a2a3a 100%);
-    border: 2px solid #00d4ff;
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
-    z-index: 900;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    overflow: hidden;
-    transition: all 0.3s;
-}
-
-#drawToolbar.hidden { display: none; }
-
-.draw-section {
-    padding: 12px;
-    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
-}
-
-.draw-section:last-child { border-bottom: none; }
-
-.draw-section h4 {
-    font-size: 12px;
-    font-weight: 700;
-    color: #00ffff;
-    margin: 0 0 10px 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.draw-button-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.draw-button-group button {
-    padding: 8px 12px;
-    border: 1px solid #00d4ff;
-    background: #0f1621;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: #00d4ff;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.draw-button-group button:hover {
-    background: #1a2a3a;
-    border-color: #00ffff;
-    color: #00ffff;
-    box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
-}
-
-.draw-button-group button.active {
-    background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%);
-    color: white;
-    border-color: #ff5555;
-}
-
-.draw-button-group button.success {
-    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-    color: #0a0e27;
-    border: none;
-    font-weight: 700;
-}
-
-.file-upload-label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px 12px;
-    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-    border: none;
-    border-radius: 4px;
-    color: #0a0e27;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
-    transition: all 0.2s;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.file-upload-label:hover {
-    background: linear-gradient(135deg, #00ffff 0%, #00d4ff 100%);
-    box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
-}
-
-.file-upload-label input { display: none; }
-
-@media (max-width: 1024px) {
-    #sidebar { width: 350px; }
-    #sidebarToggle { right: -35px; width: 35px; }
-    #resultPanel { width: 500px; max-height: 350px; }
-}
-
-@media (max-width: 768px) {
-    #systemTitleBar { height: 50px; }
-    #map { margin-top: 50px; height: calc(100vh - 50px); }
-    #sidebar {
-        width: 100%;
-        height: 50vh;
-        bottom: 0;
-        top: auto;
-        transform: translateY(100%);
-        transition: transform 0.3s ease;
-    }
-    #sidebar:not(.collapsed) { transform: translateY(0); }
-    #sidebarToggle {
-        position: fixed;
-        right: auto;
-        left: 50%;
-        bottom: 50vh;
-        transform: translateX(-50%);
-        border-radius: 8px 8px 0 0;
-    }
-    #resultPanel { width: 90vw; right: 5vw; bottom: 50vh; }
-    #toolbar { right: 5px; left: auto; }
-}
-
-.edit-handle {
-    width: 12px;
-    height: 12px;
-    background: #00d4ff;
-    border: 2px solid #0a0e27;
-    border-radius: 50%;
-    box-shadow: 0 0 12px rgba(0, 212, 255, 0.8);
-}
-
-.map-tooltip {
-    background: rgba(10, 14, 39, 0.95);
-    color: #00ffff;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-size: 11px;
-    border: 1px solid #00d4ff;
-    box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
-}
-
-.toast {
-    position: fixed;
-    bottom: 60px;
-    right: 12px;
-    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-    color: #0a0e27;
-    padding: 12px 16px;
-    border-radius: 4px;
-    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.3);
-    z-index: 10000;
-    font-size: 12px;
-    animation: slideIn 0.3s ease;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-@keyframes slideIn {
-    from { transform: translateX(400px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-
-#debugConsole {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    max-height: 300px;
-    background: #0a0e27;
-    color: #00d4ff;
-    padding: 12px;
-    font-family: 'Courier New', 'Consolas', monospace;
-    font-size: 11px;
-    overflow-y: auto;
-    z-index: 9999;
-    display: none;
-    box-shadow: 0 -8px 32px rgba(0, 212, 255, 0.15);
-    border-top: 2px solid #00d4ff;
-}
-
-#debugConsole.show { display: block; }
-
-#debugConsole .log-entry {
-    margin: 2px 0;
-    padding: 2px 0;
-    border-bottom: 1px solid rgba(0, 212, 255, 0.1);
-    word-break: break-all;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-}
-
-#debugConsole .log-error { color: #ff3333; }
-#debugConsole .log-warn { color: #ffa500; }
-#debugConsole .log-info { color: #00d4ff; }
-#debugConsole .log-success { color: #00ff00; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>市價徵收查估作業系統 v2.0</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-dark: #0a0e27;
+            --primary-light: #1a1f3a;
+            --accent: #00d4ff;
+            --accent-dark: #0099cc;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b8cc;
+            --border-color: #2a3550;
+            --success: #4CAF50;
+            --warning: #ff9800;
+            --error: #f44336;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-light) 100%);
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #systemTitleBar {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 14, 39, 0.95);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 12px 20px;
+            color: var(--text-primary);
+            font-size: 16px;
+            font-weight: 600;
+            z-index: 1000;
+            cursor: move;
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
+            user-select: none;
+            transition: all 0.3s ease;
+        }
+
+        #systemTitleBar:hover {
+            box-shadow: 0 12px 40px rgba(0, 212, 255, 0.25);
+            border-color: #00ffff;
+        }
+
+        #sidebar {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            width: 320px;
+            background: rgba(10, 14, 39, 0.98);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            z-index: 999;
+            cursor: move;
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+
+        #sidebar:hover {
+            box-shadow: 0 12px 40px rgba(0, 212, 255, 0.3);
+        }
+
+        .sidebar-header {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary-light));
+            border-bottom: 2px solid var(--accent);
+            padding: 15px;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-section {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-section:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .polygon-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            padding: 8px;
+        }
+
+        .polygon-item {
+            background: rgba(0, 212, 255, 0.1);
+            border-left: 3px solid var(--accent);
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .polygon-item:hover {
+            background: rgba(0, 212, 255, 0.2);
+            transform: translateX(4px);
+        }
+
+        .polygon-item.selected {
+            background: rgba(0, 212, 255, 0.3);
+            border-left-color: #00ffff;
+        }
+
+        .polygon-item-label {
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .polygon-item-info {
+            color: var(--text-secondary);
+            font-size: 11px;
+        }
+
+        .polygon-item-delete {
+            background: var(--error);
+            color: white;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+            margin-top: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .polygon-item-delete:hover {
+            background: #d32f2f;
+            transform: scale(1.05);
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            color: var(--primary-dark);
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #00ffff, var(--accent));
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            background: rgba(26, 31, 58, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 4px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(26, 31, 58, 0.95);
+            box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
+        }
+
+        #resultPanel {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 350px;
+            background: rgba(10, 14, 39, 0.98);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 15px;
+            z-index: 999;
+            cursor: move;
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
+            max-height: 400px;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+
+        #resultPanel:hover {
+            box-shadow: 0 12px 40px rgba(0, 212, 255, 0.3);
+        }
+
+        .result-panel-header {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary-light));
+            border-bottom: 2px solid var(--accent);
+            padding: 10px;
+            margin: -15px -15px 10px -15px;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 12px;
+        }
+
+        .result-item {
+            background: rgba(0, 212, 255, 0.1);
+            border-left: 3px solid var(--accent);
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .result-item-label {
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .result-item-value {
+            color: var(--text-primary);
+        }
+
+        #toolbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            background: rgba(10, 14, 39, 0.95);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 15px;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
+        }
+
+        .toolbar-btn {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            color: var(--primary-dark);
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            margin: 0;
+            width: auto;
+        }
+
+        .toolbar-btn:hover {
+            background: linear-gradient(135deg, #00ffff, var(--accent));
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .toolbar-btn.active {
+            background: linear-gradient(135deg, #ff6b6b, #ff9999);
+            color: white;
+        }
+
+        #drawToolbar {
+            position: absolute;
+            top: 80px;
+            right: 10px;
+            background: rgba(10, 14, 39, 0.95);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
+        }
+
+        .draw-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            border: none;
+            color: var(--primary-dark);
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .draw-btn:hover {
+            background: linear-gradient(135deg, #00ffff, var(--accent));
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.4);
+            transform: scale(1.1);
+        }
+
+        .draw-btn.active {
+            background: linear-gradient(135deg, #ff6b6b, #ff9999);
+        }
+
+        #statusBar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 14, 39, 0.95);
+            border-top: 2px solid var(--accent);
+            padding: 8px 15px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #debugConsole {
+            position: absolute;
+            bottom: 60px;
+            right: 10px;
+            width: 300px;
+            height: 200px;
+            background: rgba(10, 14, 39, 0.98);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            color: var(--text-secondary);
+            display: none;
+            z-index: 999;
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
+        }
+
+        .debug-log {
+            margin: 2px 0;
+            padding: 2px;
+            border-left: 2px solid var(--accent);
+            padding-left: 6px;
+        }
+
+        .debug-log.error {
+            color: #ff6b6b;
+            border-left-color: #ff6b6b;
+        }
+
+        .debug-log.warning {
+            color: #ffa500;
+            border-left-color: #ffa500;
+        }
+
+        .debug-log.info {
+            color: var(--accent);
+            border-left-color: var(--accent);
+        }
+
+        .leaflet-control-attribution {
+            background: rgba(10, 14, 39, 0.9) !important;
+            color: var(--text-secondary) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 4px !important;
+        }
+
+        .leaflet-control-zoom {
+            border-radius: 4px !important;
+            overflow: hidden !important;
+        }
+
+        .leaflet-control-zoom-in,
+        .leaflet-control-zoom-out {
+            background: rgba(0, 212, 255, 0.9) !important;
+            color: var(--primary-dark) !important;
+            border: none !important;
+            font-weight: 700 !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .leaflet-control-zoom-in:hover,
+        .leaflet-control-zoom-out:hover {
+            background: #00ffff !important;
+        }
+
+        .leaflet-popup {
+            background: rgba(10, 14, 39, 0.95) !important;
+        }
+
+        .leaflet-popup-content {
+            color: var(--text-primary) !important;
+            font-size: 12px !important;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: rgba(10, 14, 39, 0.95) !important;
+            border: 2px solid var(--accent) !important;
+            border-radius: 4px !important;
+        }
+
+        .leaflet-popup-tip {
+            background: rgba(10, 14, 39, 0.95) !important;
+            border-left: 2px solid var(--accent) !important;
+            border-right: 2px solid var(--accent) !important;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 滾動條樣式 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00ffff;
+        }
+
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 280px;
+            }
+
+            #resultPanel {
+                width: 280px;
+            }
+
+            #systemTitleBar {
+                font-size: 14px;
+                padding: 10px 15px;
+            }
+
+            #toolbar {
+                flex-direction: column;
+            }
+
+            .toolbar-btn {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
+
 <body>
-
-<!-- 系統標題欄（可拖曳） -->
-<div id="systemTitleBar">
-    <span class="icon">🗺️</span>
-    <span>市價徵收查估系統 v2.0</span>
-</div>
-
-<!-- 側邊欄（可拖曳） -->
-<div id="sidebar">
-    <div id="sidebarToggle">◀</div>
+    <div id="map"></div>
     
-    <div id="sidebarHeader">
-        <h1>🗺️ 市價徵收查估 v2.0</h1>
-        <p>影響地價區域因素分析系統</p>
+    <div id="systemTitleBar">
+        🗺️ 市價徵收查估作業系統 v2.0
     </div>
-
-    <div id="sidebarContent">
+    
+    <div id="sidebar">
+        <div class="sidebar-header">⚙️ 控制面板</div>
+        
         <div class="sidebar-section">
-            <h3><span>📍</span> 查詢位置</h3>
-            
-            <div class="input-group">
-                <label>緯度</label>
-                <input type="text" id="lat" value="25.012098">
-            </div>
-            
-            <div class="input-group">
-                <label>經度</label>
-                <input type="text" id="lon" value="121.465675">
-            </div>
-            
-            <div class="input-group">
-                <label>查詢半徑 (公尺)</label>
-                <input type="number" id="radius" value="1000" min="100" max="3000">
-            </div>
-            
-            <div class="button-group">
-                <button class="btn-primary" onclick="getCurrentLocation()">📡 定位</button>
-                <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
-            </div>
+            <div class="section-title">📍 基本信息</div>
+            <input type="text" id="siteName" placeholder="地點名稱">
+            <input type="text" id="siteAddress" placeholder="地址">
+            <input type="number" id="siteArea" placeholder="面積(m²)" step="0.01">
         </div>
         
         <div class="sidebar-section">
-            <h3><span>🏢</span> 分析設施類型</h3>
-            
-            <div style="font-size: 11px; color: #00d4ff; margin-bottom: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
-                交通運輸
-            </div>
-            <div class="checkbox-group">
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-station" value="station">
-                    <label for="chk-station">大型車站</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-bus" value="bus_stop">
-                    <label for="chk-bus">公車站牌</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-junction" value="motorway_junction">
-                    <label for="chk-junction">交流道</label>
-                </div>
-            </div>
-            
-            <div style="font-size: 11px; color: #00d4ff; margin: 12px 0 8px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
-                公共建設
-            </div>
-            <div class="checkbox-group">
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-school" value="school" checked>
-                    <label for="chk-school">學校</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-market" value="marketplace">
-                    <label for="chk-market">市場/超市</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-park" value="park">
-                    <label for="chk-park">公園</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-tourism" value="tourism">
-                    <label for="chk-tourism">觀光景點</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-parking" value="parking">
-                    <label for="chk-parking">停車場</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-bank" value="bank">
-                    <label for="chk-bank">銀行/郵局</label>
-                </div>
-            </div>
-            
-            <div style="font-size: 11px; color: #00d4ff; margin: 12px 0 8px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
-                特殊設施
-            </div>
-            <div class="checkbox-group">
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-gas" value="gas">
-                    <label for="chk-gas">電氣/瓦斯</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-cemetery" value="cemetery">
-                    <label for="chk-cemetery">殯葬設施</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-waste" value="waste_disposal">
-                    <label for="chk-waste">廢棄物處理</label>
-                </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="chk-pollution" value="pollution">
-                    <label for="chk-pollution">環境汙染</label>
-                </div>
-            </div>
-        </div>
-        
-        <div class="sidebar-section" id="polygonManager">
-            <h3><span>📦</span> 繪製範圍 (<span id="polyCount">0</span>)</h3>
-            
-            <div id="polygonList"></div>
-            
-            <div style="font-size: 11px; color: #00d4ff; padding: 8px 0; margin: 8px 0; border-top: 1px solid rgba(0,212,255,0.2); border-bottom: 1px solid rgba(0,212,255,0.2); font-weight: 600;">
-                ℹ️ 選中多邊形後可進行編輯，或匯出為 SHP/GeoJSON 格式
-            </div>
+            <div class="section-title">📊 多邊形管理</div>
+            <div class="polygon-list" id="polygonList"></div>
+            <button onclick="map_system.clearAllPolygons()">清除所有多邊形</button>
         </div>
         
         <div class="sidebar-section">
-            <button class="btn-primary" id="query-btn" onclick="runQuery()" style="width: 100%; padding: 12px; font-size: 14px;">🔍 查詢分析</button>
+            <div class="section-title">💾 數據操作</div>
+            <button onclick="map_system.exportToExcel()">📥 匯出 Excel</button>
+            <button onclick="document.getElementById('fileInput').click()">📤 匯入 SHP/GeoJSON</button>
+            <input type="file" id="fileInput" style="display: none;" accept=".shp,.geojson,.json">
+            <button onclick="map_system.exportGeoJSON()">🌐 匯出 GeoJSON</button>
+            <button onclick="map_system.exportSHP()">🗂️ 匯出 SHP</button>
         </div>
-    </div>
-
-</div>
-
-<div id="map"></div>
-
-<!-- 工具欄 -->
-<div id="toolbar">
-    <div class="toolbar-section">
-        <button class="toolbar-btn" onclick="toggleDrawMode(this)">
-            📐 開始繪製
-        </button>
-        <button class="toolbar-btn" onclick="toggleLayerControl()">
-            🗺️ 圖層控制
-        </button>
-        <button class="toolbar-btn" onclick="toggleDebugConsole()">
-            🐛 除錯 (F12)
-        </button>
-    </div>
-</div>
-
-<!-- 繪製工具欄 -->
-<div id="drawToolbar" class="hidden">
-    <div class="draw-section">
-        <h4>繪製模式</h4>
-        <div class="draw-button-group">
-            <button id="btn-draw-mode" class="active" onclick="startDrawing()">🖍️ 繪製多邊形</button>
-            <button id="btn-end-draw" style="display:none" class="success" onclick="finishPolygon()">✓ 完成閉合</button>
-        </div>
-    </div>
-    
-    <div class="draw-section">
-        <h4>多邊形操作</h4>
-        <div class="draw-button-group">
-            <button onclick="clearAllPolygons()" class="btn-danger">✕ 清除全部</button>
-        </div>
-    </div>
-
-    <div class="draw-section">
-        <h4>檔案操作</h4>
-        <div class="draw-button-group">
-            <button onclick="exportPolygonsToSHP()">📥 匯出</button>
-            <label class="file-upload-label">
-                📤 匯入
-                <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" onchange="importPolygonsFromSHP(event)">
-            </label>
-        </div>
-    </div>
-
-</div>
-
-<!-- 結果面板（可拖曳） -->
-<div id="resultPanel" class="floating-panel hidden">
-    <div class="panel-header">
-        📊 查詢結果
-        <div class="panel-header-actions">
-            <button onclick="exportExcel()">📄 Excel</button>
-            <button onclick="toggleResultPanel()">✕</button>
-        </div>
-    </div>
-    <div id="resultTableWrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th onclick="sortResults('name')">名稱 ↕</th>
-                    <th>類型</th>
-                    <th onclick="sortResults('distance')">直線距離 ↕</th>
-                    <th onclick="sortResults('route')">路線距離 ↕</th>
-                </tr>
-            </thead>
-            <tbody id="tbody"></tbody>
-        </table>
-    </div>
-</div>
-
-<!-- 路線卡片 -->
-<div id="routeCard" class="hidden">
-    <strong>🛣️ 路線距離</strong>
-    <div id="routeInfo" style="margin-top: 6px; color: #b0c4de;">
-        尚未計算
-    </div>
-</div>
-
-<div id="statusBar">
-    圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 系統就緒 | v2.0
-</div>
-
-<div id="debugConsole"></div>
-
-<script>
-/* ════════════════════════════════════════════════════════════
-   ★ v2.0 調試日誌系統
-   ════════════════════════════════════════════════════════════ */
-
-class DebugLogger {
-    constructor(maxLines = 200) {
-        this.logs = [];
-        this.maxLines = maxLines;
-        this.consoleEl = document.getElementById('debugConsole');
-        this.startTime = Date.now();
-    }
-    
-    getElapsedTime() {
-        return ((Date.now() - this.startTime) / 1000).toFixed(3);
-    }
-    
-    log(message, type = 'info') {
-        const elapsed = this.getElapsedTime();
-        const timestamp = new Date().toLocaleTimeString('zh-TW', { hour12: false });
-        const entry = { elapsed, timestamp, message, type };
-        this.logs.push(entry);
         
-        if (this.logs.length > this.maxLines) {
-            this.logs.shift();
+        <div class="sidebar-section">
+            <div class="section-title">🎯 位置工具</div>
+            <button onclick="map_system.getLocation()">📍 GPS定位</button>
+        </div>
+        
+        <div class="sidebar-section">
+            <div class="section-title">🔧 系統</div>
+            <button onclick="map_system.toggleDebugConsole()">調試控制台</button>
+            <button onclick="map_system.generateReport()">生成報告</button>
+        </div>
+    </div>
+    
+    <div id="drawToolbar">
+        <button class="draw-btn" id="drawPolygonBtn" title="繪製多邊形" onclick="map_system.toggleDrawMode()">🔲</button>
+        <button class="draw-btn" id="clearDrawBtn" title="清除繪製" onclick="map_system.cancelDraw()">❌</button>
+    </div>
+    
+    <div id="resultPanel" style="display: none;">
+        <div class="result-panel-header">📈 結果面板</div>
+        <div id="resultContent"></div>
+    </div>
+    
+    <div id="toolbar">
+        <button class="toolbar-btn" onclick="map_system.switchLayer('EMAP')">EMAP圖層</button>
+        <button class="toolbar-btn" onclick="map_system.switchLayer('PHOTO')">航拍圖</button>
+        <button class="toolbar-btn" onclick="map_system.switchLayer('CADASTRAL')">地籍圖</button>
+        <button class="toolbar-btn" onclick="map_system.switchLayer('OSM')">OpenStreetMap</button>
+    </div>
+    
+    <div id="statusBar">
+        <div class="status-item">
+            <span class="status-indicator"></span>
+            <span>系統就緒</span>
+        </div>
+        <div class="status-item" id="statusCoords">經度: -- | 緯度: --</div>
+    </div>
+    
+    <div id="debugConsole"></div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    
+    <!-- Turf.js 6 -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    
+    <!-- XLSX.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+    
+    <!-- GIS Formats -->
+    <script src="https://cdn.jsdelivr.net/npm/shp-write@latest/dist/shp-write.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/shpjs@latest/dist/shp.js"></script>
+    
+    <!-- GeoTIFF -->
+    <script src="https://cdn.jsdelivr.net/npm/geotiff@latest/dist-browser/geotiff.js"></script>
+    
+    <!-- JSZip -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script>
+        // ===========================
+        // DebugLogger 類
+        // ===========================
+        class DebugLogger {
+            constructor() {
+                this.logs = [];
+                this.maxLogs = 200;
+                this.setupInterception();
+            }
+
+            setupInterception() {
+                const originalLog = console.log;
+                const originalError = console.error;
+                const originalWarn = console.warn;
+                const originalInfo = console.info;
+
+                console.log = (...args) => {
+                    this.addLog('info', args);
+                    originalLog.apply(console, args);
+                };
+
+                console.error = (...args) => {
+                    this.addLog('error', args);
+                    originalError.apply(console, args);
+                };
+
+                console.warn = (...args) => {
+                    this.addLog('warning', args);
+                    originalWarn.apply(console, args);
+                };
+
+                console.info = (...args) => {
+                    this.addLog('info', args);
+                    originalInfo.apply(console, args);
+                };
+            }
+
+            addLog(type, args) {
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+                ).join(' ');
+                
+                const timestamp = new Date().toLocaleTimeString();
+                this.logs.push({ type, message, timestamp });
+
+                if (this.logs.length > this.maxLogs) {
+                    this.logs.shift();
+                }
+
+                this.updateConsole();
+            }
+
+            updateConsole() {
+                const console = document.getElementById('debugConsole');
+                if (console) {
+                    console.innerHTML = this.logs.map(log => 
+                        `<div class="debug-log ${log.type}">[${log.timestamp}] ${log.message}</div>`
+                    ).join('');
+                    console.scrollTop = console.scrollHeight;
+                }
+            }
+
+            getLogs() {
+                return this.logs;
+            }
         }
-        
-        this.render();
-    }
-    
-    info(msg) { this.log(msg, 'info'); }
-    warn(msg) { this.log(msg, 'warn'); }
-    error(msg) { this.log(msg, 'error'); }
-    success(msg) { this.log(msg, 'success'); }
-    
-    render() {
-        this.consoleEl.innerHTML = this.logs.map(log => 
-            `<div class="log-entry log-${log.type}">
-                [${log.elapsed}s] [${log.timestamp}] ${log.message}
-            </div>`
-        ).join('');
-        this.consoleEl.scrollTop = this.consoleEl.scrollHeight;
-    }
-    
-    clear() {
-        this.logs = [];
-        this.render();
-    }
-}
 
-const logger = new DebugLogger();
+        // ===========================
+        // 全局變量
+        // ===========================
+        const debugLogger = new DebugLogger();
+        let map;
+        let currentLayer = 'EMAP';
+        let isDrawing = false;
+        let currentPolygon = [];
+        let polygons = [];
+        let drawMarkers = [];
+        let colorRotation = 0;
+        const colors = [
+            '#FF0000', '#00FF00', '#0000FF', '#FFFF00', 
+            '#FF00FF', '#00FFFF', '#FFA500', '#800080', 
+            '#FFC0CB', '#A52A2A'
+        ];
 
-function toggleDebugConsole() {
-    const console = document.getElementById('debugConsole');
-    console.classList.toggle('show');
-    if (console.classList.contains('show')) {
-        logger.success('🔓 調試控制台已開啟 - 看不清楚時請向上滾動');
-    }
-}
+        // ===========================
+        // 地圖系統對象
+        // ===========================
+        const map_system = {
+            init: function() {
+                console.log('初始化市價徵收查估系統...');
+                
+                // 初始化地圖
+                map = L.map('map').setView([25.033, 121.565], 10);
 
-// 截獲控制台輸出
-const originalLog = console.log;
-const originalError = console.error;
-const originalWarn = console.warn;
+                // 添加基礎圖層
+                this.addBaseLayers();
 
-console.log = function(...args) {
-    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-    logger.info(msg);
-    originalLog.apply(console, args);
-};
+                // 綁定地圖事件
+                map.on('click', (e) => this.handleMapClick(e));
+                map.on('mousemove', (e) => this.updateCoordinates(e));
 
-console.error = function(...args) {
-    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-    logger.error(msg);
-    originalError.apply(console, args);
-};
+                // 綁定文件輸入
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    this.importFile(e);
+                });
 
-console.warn = function(...args) {
-    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-    logger.warn(msg);
-    originalWarn.apply(console, args);
-};
+                console.log('系統初始化完成');
+            },
 
-/* ════════════════════════════════════════════════════════════
-   ★ v2.0 全域變數初始化
-   ════════════════════════════════════════════════════════════ */
+            addBaseLayers: function() {
+                // NLSC EMAP
+                L.tileLayer(
+                    'https://wmts.nlsc.gov.tw/googlemaps/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&TILEMATRIXSET=GoogleMapsCompatible_Level&FORMAT=image/jpeg&LAYER=EMAP&STYLE=&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+                    {
+                        attribution: '© NLSC',
+                        maxZoom: 20,
+                        minZoom: 1,
+                        name: 'EMAP'
+                    }
+                ).addTo(map);
 
-logger.success('═════════════════════════════════════════════════════');
-logger.success('🚀 市價徵收查估系統 v2.0 啟動');
-logger.success('═════════════════════════════════════════════════════');
+                // OSM
+                L.tileLayer(
+                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    {
+                        attribution: '© OpenStreetMap',
+                        maxZoom: 19,
+                        name: 'OSM'
+                    }
+                );
 
-let map = L.map('map').setView([25.012098, 121.465675], 15);
+                // NLSC PHOTO
+                L.tileLayer(
+                    'https://wmts.nlsc.gov.tw/googlemaps/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&TILEMATRIXSET=GoogleMapsCompatible_Level&FORMAT=image/jpeg&LAYER=PHOTO&STYLE=&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+                    {
+                        attribution: '© NLSC',
+                        maxZoom: 20,
+                        minZoom: 1,
+                        name: 'PHOTO'
+                    }
+                );
 
-const nlscEMAP = L.tileLayer(
-    'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
-    { maxZoom:19, attribution:'© NLSC' }
-);
+                // NLSC Cadastral
+                L.tileLayer(
+                    'https://wmts.nlsc.gov.tw/googlemaps/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&TILEMATRIXSET=GoogleMapsCompatible_Level&FORMAT=image/png&LAYER=CADASTRAL&STYLE=&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+                    {
+                        attribution: '© NLSC',
+                        maxZoom: 20,
+                        minZoom: 1,
+                        name: 'CADASTRAL'
+                    }
+                );
 
-const nlscPHOTO = L.tileLayer(
-    'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/EPSG:3857/{z}/{y}/{x}',
-    { maxZoom:20, attribution:'© NLSC 正射影像' }
-);
+                console.log('基礎圖層添加完成');
+            },
 
-const osmLayer = L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    { maxZoom:19, attribution:'© OpenStreetMap' }
-);
+            switchLayer: function(layerName) {
+                console.log('切換圖層: ' + layerName);
+                currentLayer = layerName;
 
-nlscEMAP.addTo(map);
+                map.eachLayer(layer => {
+                    if (layer instanceof L.TileLayer) {
+                        map.removeLayer(layer);
+                    }
+                });
 
-const cadastralLayer = L.tileLayer(
-    'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
-    { maxZoom:20, opacity:0.75, attribution:'© NLSC' }
-);
-cadastralLayer.addTo(map);
+                let newLayer;
+                switch(layerName) {
+                    case 'EMAP':
+                        newLayer = L.tileLayer(
+                            'https://wmts.nlsc.gov.tw/googlemaps/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&TILEMATRIXSET=GoogleMapsCompatible_Level&FORMAT=image/jpeg&LAYER=EMAP&STYLE=&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+                            { attribution: '© NLSC', maxZoom: 20 }
+                        );
+                        break;
+                    case 'PHOTO':
+                        newLayer = L.tileLayer(
+                            'https://wmts.nlsc.gov.tw/googlemaps/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&TILEMATRIXSET=GoogleMapsCompatible_Level&FORMAT=image/jpeg&LAYER=PHOTO&STYLE=&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+                            { attribution: '© NLSC', maxZoom: 20 }
+                        );
+                        break;
+                    case 'CADASTRAL':
+                        newLayer = L.tileLayer(
+                            'https://wmts.nlsc.gov.tw/googlemaps/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&TILEMATRIXSET=GoogleMapsCompatible_Level&FORMAT=image/png&LAYER=CADASTRAL&STYLE=&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+                            { attribution: '© NLSC', maxZoom: 20 }
+                        );
+                        break;
+                    case 'OSM':
+                        newLayer = L.tileLayer(
+                            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            { attribution: '© OpenStreetMap', maxZoom: 19 }
+                        );
+                        break;
+                }
 
-const baseMaps = {
-    "NLSC 電子地圖": nlscEMAP,
-    "NLSC 正射影像": nlscPHOTO,
-    "OpenStreetMap": osmLayer
-};
+                if (newLayer) {
+                    newLayer.addTo(map);
+                }
+            },
 
-const overlayMaps = {
-    "地籍圖": cadastralLayer
-};
+            toggleDrawMode: function() {
+                isDrawing = !isDrawing;
+                console.log('繪製模式: ' + (isDrawing ? '啟用' : '禁用'));
+                
+                const btn = document.getElementById('drawPolygonBtn');
+                if (isDrawing) {
+                    btn.style.background = 'linear-gradient(135deg, #ff6b6b, #ff9999)';
+                    btn.style.color = 'white';
+                } else {
+                    btn.style.background = 'linear-gradient(135deg, var(--accent), var(--accent-dark))';
+                    btn.style.color = 'var(--primary-dark)';
+                }
+            },
 
-L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
+            handleMapClick: function(e) {
+                if (!isDrawing) return;
 
-let markerLayer = L.layerGroup().addTo(map);
-let origin = [25.012098, 121.465675];
-let results = [];
-let routeLayer = null;
-let sortState = { distance: true, route: true };
+                const { lat, lng } = e.latlng;
+                currentPolygon.push({ lat, lng });
 
-let polygons = [];
-let currentPolygonId = null;
-let drawPoints = [];
-let previewPolyline = null;
-let isDrawingPolygon = false;
-let drawMarkers = L.layerGroup().addTo(map);
+                console.log(`添加頂點: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
 
-const polygonColors = [
-    '#ff3333', '#ff8c42', '#ffa500', '#00d4ff', '#00ffff',
-    '#00ff00', '#ff00ff', '#ff0099', '#00ff99', '#ffff00'
-];
+                // 繪製標記
+                const marker = L.circleMarker([lat, lng], {
+                    radius: 6,
+                    color: colors[colorRotation % colors.length],
+                    fill: true,
+                    fillColor: colors[colorRotation % colors.length],
+                    fillOpacity: 0.8,
+                    weight: 2
+                }).addTo(map)
+                  .bindPopup(`頂點 #${currentPolygon.length}`);
 
-const latInput = document.getElementById('lat');
-const lonInput = document.getElementById('lon');
-const radiusInput = document.getElementById('radius');
-const tbody = document.getElementById('tbody');
-const queryBtn = document.getElementById('query-btn');
-const sidebar = document.getElementById('sidebar');
-const sidebarToggle = document.getElementById('sidebarToggle');
-const sidebarHeader = document.getElementById('sidebarHeader');
-const drawToolbar = document.getElementById('drawToolbar');
-const resultPanel = document.getElementById('resultPanel');
-const routeCard = document.getElementById('routeCard');
-const routeInfo = document.getElementById('routeInfo');
-const systemTitleBar = document.getElementById('systemTitleBar');
+                drawMarkers.push(marker);
 
-logger.success('✓ 系統全域變數初始化完成');
-logger.info(`🎨 配置: 10種顏色 | 10個多邊形槽位`);
-logger.info(`📍 預設位置: 台灣 (${origin[0].toFixed(6)}, ${origin[1].toFixed(6)})`);
+                // 繪製線段
+                if (currentPolygon.length > 1) {
+                    const prev = currentPolygon[currentPolygon.length - 2];
+                    const current = currentPolygon[currentPolygon.length - 1];
+                    
+                    L.polyline(
+                        [[prev.lat, prev.lng], [current.lat, current.lng]],
+                        { color: colors[colorRotation % colors.length], weight: 2, opacity: 0.7 }
+                    ).addTo(map);
+                }
 
-/* ════════════════════════════════════════════════════════════
-   ★ v2.0 UI 交互處理
-   ════════════════════════════════════════════════════════════ */
+                this.updateResultPanel();
+            },
 
-sidebarToggle.addEventListener('click', () => {
-    sidebar.classList.toggle('collapsed');
-    sidebarToggle.innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
-    logger.info(`📌 側邊欄已${sidebar.classList.contains('collapsed') ? '摺疊' : '展開'}`);
-});
+            completeDraw: function() {
+                if (currentPolygon.length < 3) {
+                    alert('至少需要3個頂點');
+                    return;
+                }
 
-function toggleDrawMode(btn) {
-    drawToolbar.classList.toggle('hidden');
-    btn.classList.toggle('active');
-    logger.info(`🎯 繪製工具欄: ${drawToolbar.classList.contains('hidden') ? '隱藏' : '顯示'}`);
-}
+                const coordinates = currentPolygon.map(p => [p.lng, p.lat]);
+                coordinates.push(coordinates[0]); // 閉合多邊形
 
-function toggleResultPanel() {
-    resultPanel.classList.toggle('hidden');
-    logger.info(`📊 結果面板: ${resultPanel.classList.contains('hidden') ? '隱藏' : '顯示'}`);
-}
+                const polygon = {
+                    id: Date.now(),
+                    name: `多邊形 ${polygons.length + 1}`,
+                    coordinates: coordinates,
+                    color: colors[colorRotation % colors.length],
+                    area: this.calculatePolygonArea(coordinates),
+                    centroid: this.calculateCentroid(coordinates)
+                };
 
-function toggleLayerControl() {
-    const control = document.querySelector('.leaflet-control-layers');
-    if (control) {
-        control.style.display = control.style.display === 'none' ? 'block' : 'none';
-        logger.info(`🗺️ 圖層控制: ${control.style.display === 'none' ? '隱藏' : '顯示'}`);
-    }
-}
+                // 在地圖上繪製多邊形
+                L.polygon(coordinates, {
+                    color: polygon.color,
+                    weight: 2,
+                    opacity: 0.7,
+                    fillOpacity: 0.3,
+                    fillColor: polygon.color
+                }).addTo(map)
+                  .bindPopup(`<strong>${polygon.name}</strong><br>面積: ${polygon.area.toFixed(2)} m²`);
 
-/* ════════════════════════════════════════════════════════════
-   ★ v2.0 多邊形繪製邏輯 (完整)
-   ════════════════════════════════════════════════════════════ */
+                polygons.push(polygon);
+                colorRotation++;
 
-function startDrawing() {
-    isDrawingPolygon = true;
-    drawPoints = [];
-    drawMarkers.clearLayers();
-    if (previewPolyline) map.removeLayer(previewPolyline);
-    document.getElementById('btn-draw-mode').classList.add('active');
-    document.getElementById('btn-end-draw').style.display = 'block';
-    showToast('🖍️ 開始繪製多邊形，點擊地圖添加頂點');
-    logger.success('✓ 進入繪製模式');
-}
+                console.log(`多邊形已完成: ${polygon.name}, 面積: ${polygon.area.toFixed(2)} m²`);
 
-function finishPolygon() {
-    if (drawPoints.length < 3) {
-        showToast('❌ 請至少點選 3 個以上的頂點！');
-        logger.warn(`✗ 繪製失敗: 頂點數不足 (${drawPoints.length} < 3)`);
-        return;
-    }
-    createPolygonObject(drawPoints);
-    drawPoints = [];
-    isDrawingPolygon = false;
-    document.getElementById('btn-draw-mode').classList.remove('active');
-    document.getElementById('btn-end-draw').style.display = 'none';
-    drawMarkers.clearLayers();
-    if (previewPolyline) map.removeLayer(previewPolyline);
-    showToast('✓ 多邊形已完成');
-    logger.success('✓ 多邊形繪製完成，已自動選中');
-}
+                this.updatePolygonList();
+                this.cancelDraw();
+                this.updateResultPanel();
+            },
 
-function createPolygonObject(points) {
-    const id = 'poly_' + Date.now();
-    const colorIndex = polygons.length % polygonColors.length;
-    const color = polygonColors[colorIndex];
-    
-    const polygonObj = {
-        id: id,
-        points: [...points],
-        layer: null,
-        markers: L.layerGroup(),
-        isEditing: false,
-        centroid: null,
-        isSelected: false,
-        color: color
-    };
-    
-    updatePolygonCentroid(polygonObj);
-    renderPolygonLayer(polygonObj);
-    
-    polygons.push(polygonObj);
-    selectPolygon(id);
-    renderPolygonList();
-    
-    logger.success(`✓ 多邊形已建立: ${id}`);
-    logger.info(`   顏色: ${color} | 頂點數: ${points.length} | 中心: [${polygonObj.centroid[0].toFixed(6)}, ${polygonObj.centroid[1].toFixed(6)}]`);
-}
+            calculatePolygonArea: function(coords) {
+                const polygon = turf.polygon([coords]);
+                return turf.area(polygon);
+            },
 
-function updatePolygonCentroid(polygonObj) {
-    if (!polygonObj.points || polygonObj.points.length < 3) return;
-    let coordinates = polygonObj.points.map(p => [p[1], p[0]]);
-    if (coordinates[0][0] !== coordinates[coordinates.length-1][0] || 
-        coordinates[0][1] !== coordinates[coordinates.length-1][1]) {
-        coordinates.push([polygonObj.points[0][1], polygonObj.points[0][0]]);
-    }
-    try {
-        let turfPoly = turf.polygon([coordinates]);
-        let centroid = turf.centroid(turfPoly);
-        polygonObj.centroid = [centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]];
-        return true;
-    } catch (e) {
-        logger.warn(`⚠️ Turf中心計算失敗: ${e.message}`);
-        return false;
-    }
-}
+            calculateCentroid: function(coords) {
+                const polygon = turf.polygon([coords]);
+                const center = turf.center(polygon);
+                return center.geometry.coordinates;
+            },
 
-function renderPolygonLayer(polygonObj) {
-    if (polygonObj.layer) map.removeLayer(polygonObj.layer);
-    
-    const style = {
-        color: polygonObj.color,
-        weight: polygonObj.isSelected ? 4 : 3,
-        fillColor: polygonObj.color,
-        fillOpacity: 0.25,
-        dashArray: polygonObj.isSelected ? null : '5,5',
-        interactive: true,
-        bubblingMouseEvents: false,
-        pointerEvents: 'auto'
-    };
-    
-    polygonObj.layer = L.polygon(polygonObj.points, style).addTo(map);
-    
-    polygonObj.layer.on('click', (e) => {
-        L.DomEvent.stopPropagation(e);
-        L.DomEvent.preventDefault(e);
-        selectPolygon(polygonObj.id);
-    });
-    
-    polygonObj.layer.on('mouseover', () => {
-        polygonObj.layer.setStyle({ 
-            weight: 4, 
-            fillOpacity: 0.4 
-        });
-        map.getContainer().style.cursor = 'pointer';
-    });
-    
-    polygonObj.layer.on('mouseout', () => {
-        if (!polygonObj.isSelected) {
-            polygonObj.layer.setStyle({ 
-                weight: 3, 
-                fillOpacity: 0.25 
-            });
-        }
-        map.getContainer().style.cursor = 'default';
-    });
-    
-    if (polygonObj.isEditing || polygonObj.isSelected) {
-        renderEditHandles(polygonObj);
-    } else {
-        polygonObj.markers.clearLayers();
-    }
-}
+            updatePolygonList: function() {
+                const list = document.getElementById('polygonList');
+                list.innerHTML = polygons.map((poly, idx) => `
+                    <div class="polygon-item">
+                        <div class="polygon-item-label" style="color: ${poly.color}">■ ${poly.name}</div>
+                        <div class="polygon-item-info">
+                            面積: ${poly.area.toFixed(2)} m² | 頂點: ${poly.coordinates.length - 1}
+                        </div>
+                        <button class="polygon-item-delete" onclick="map_system.deletePolygon(${poly.id})">刪除</button>
+                    </div>
+                `).join('');
 
-function renderEditHandles(polygonObj) {
-    polygonObj.markers.clearLayers();
-    polygonObj.points.forEach((pt, index) => {
-        let marker = L.marker(pt, {
-            icon: L.divIcon({
-                className: '',
-                html: '<div class="edit-handle"></div>',
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
-            }),
-            draggable: true
-        });
-        
-        marker.on('drag', (e) => {
-            let newLatLng = e.target.getLatLng();
-            polygonObj.points[index] = [newLatLng.lat, newLatLng.lng];
-            polygonObj.layer.setLatLngs(polygonObj.points);
-        });
-        
-        marker.on('dragend', () => {
-            updatePolygonCentroid(polygonObj);
-            updateLatLonInputs(polygonObj);
-            renderPolygonLayer(polygonObj);
-            logger.info(`📍 多邊形 #${polygons.indexOf(polygonObj)+1} 頂點 #${index+1} 已移動`);
-        });
-        
-        marker.addTo(polygonObj.markers);
-    });
-    polygonObj.markers.addTo(map);
-}
+                console.log(`多邊形列表已更新, 共 ${polygons.length} 個`);
+            },
 
-function selectPolygon(id) {
-    polygons.forEach(p => {
-        p.isSelected = false;
-        if (p.layer) {
-            p.layer.setStyle({
-                color: p.color,
-                weight: 3,
-                fillOpacity: 0.25,
-                dashArray: '5,5'
-            });
-            p.markers.clearLayers();
-        }
-    });
-    
-    const polygon = polygons.find(p => p.id === id);
-    if (!polygon) {
-        logger.error(`❌ 多邊形未找到: ${id}`);
-        return;
-    }
-    
-    polygon.isSelected = true;
-    currentPolygonId = id;
-    
-    renderPolygonLayer(polygon);
-    renderEditHandles(polygon);
-    renderPolygonList();
-    updateLatLonInputs(polygon);
-    
-    const idx = polygons.indexOf(polygon) + 1;
-    logger.success(`✓ 多邊形 #${idx} 已選中 [${id}]`);
-    logger.info(`   中心: [${polygon.centroid[0].toFixed(6)}, ${polygon.centroid[1].toFixed(6)}]`);
-    logger.info(`   頂點數: ${polygon.points.length}`);
-}
+            deletePolygon: function(id) {
+                polygons = polygons.filter(p => p.id !== id);
+                this.updatePolygonList();
+                console.log(`多邊形已刪除, ID: ${id}`);
+            },
 
-function deletePolygon(id) {
-    const index = polygons.findIndex(p => p.id === id);
-    if (index < 0) {
-        logger.warn(`✗ 多邊形不存在: ${id}`);
-        return;
-    }
-    
-    const polygon = polygons[index];
-    if (polygon.layer) map.removeLayer(polygon.layer);
-    if (polygon.markers) polygon.markers.clearLayers();
-    
-    polygons.splice(index, 1);
-    if (currentPolygonId === id) currentPolygonId = null;
-    
-    renderPolygonList();
-    showToast('🗑️ 多邊形已刪除');
-    logger.warn(`✗ 多邊形已刪除: ${id} (剩餘 ${polygons.length} 個)`);
-}
+            clearAllPolygons: function() {
+                if (confirm('確定要清除所有多邊形嗎?')) {
+                    polygons = [];
+                    this.updatePolygonList();
+                    console.log('所有多邊形已清除');
+                }
+            },
 
-function clearAllPolygons() {
-    if (!confirm('確定要清除所有多邊形嗎？此操作無法復原。')) {
-        logger.info('❌ 使用者取消清除操作');
-        return;
-    }
-    polygons.forEach(p => {
-        if (p.layer) map.removeLayer(p.layer);
-        if (p.markers) p.markers.clearLayers();
-    });
-    const count = polygons.length;
-    polygons = [];
-    currentPolygonId = null;
-    renderPolygonList();
-    showToast('✕ 所有多邊形已清除');
-    logger.error(`🗑️ 清除了 ${count} 個多邊形`);
-}
+            cancelDraw: function() {
+                isDrawing = false;
+                currentPolygon = [];
+                drawMarkers.forEach(m => map.removeLayer(m));
+                drawMarkers = [];
 
-function updateLatLonInputs(polygonObj) {
-    if (!polygonObj.centroid) return;
-    latInput.value = polygonObj.centroid[0].toFixed(6);
-    lonInput.value = polygonObj.centroid[1].toFixed(6);
-    origin = [...polygonObj.centroid];
-}
+                const btn = document.getElementById('drawPolygonBtn');
+                btn.style.background = 'linear-gradient(135deg, var(--accent), var(--accent-dark))';
+                btn.style.color = 'var(--primary-dark)';
 
-function renderPolygonList() {
-    const listDiv = document.getElementById('polygonList');
-    const countSpan = document.getElementById('polyCount');
-    countSpan.innerText = polygons.length;
-    
-    if (polygons.length === 0) {
-        listDiv.innerHTML = '<div style="padding:8px;color:#b0c4de;font-size:12px;">尚無多邊形 - 點擊工具列開始繪製</div>';
-        return;
-    }
-    
-    listDiv.innerHTML = polygons.map((poly, idx) => `
-        <div class="polygon-item ${poly.isSelected ? 'selected' : ''}" onclick="selectPolygon('${poly.id}')">
-            <div class="polygon-item-info">
-                <div style="width:14px;height:14px;background:${poly.color};border-radius:3px;flex-shrink:0; box-shadow: 0 0 8px ${poly.color}80;"></div>
-                <div class="polygon-item-name">多邊形 #${idx + 1}</div>
-            </div>
-            <div class="polygon-item-actions">
-                <button class="polygon-item-btn" onclick="deletePolygon('${poly.id}');event.stopPropagation();">✕</button>
-            </div>
-        </div>
-    `).join('');
-}
+                console.log('繪製已取消');
+            },
 
-map.on('click', (e) => {
-    const lat = e.latlng.lat;
-    const lon = e.latlng.lng;
+            updateCoordinates: function(e) {
+                const { lat, lng } = e.latlng;
+                document.getElementById('statusCoords').textContent = 
+                    `經度: ${lng.toFixed(6)} | 緯度: ${lat.toFixed(6)}`;
+            },
 
-    if (isDrawingPolygon) {
-        drawPoints.push([lat, lon]);
-        logger.info(`📌 第 ${drawPoints.length} 個點: [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
-        
-        L.circleMarker([lat, lon], {
-            radius: 5, color: '#ff3333', fillColor: '#fff', fillOpacity: 1, weight: 2
-        }).addTo(drawMarkers);
+            getLocation: function() {
+                console.log('正在獲取GPS位置...');
+                if ('geolocation' in navigator) {
+                    navigator.geolocation.getCurrentPosition(pos => {
+                        const { latitude, longitude } = pos.coords;
+                        map.setView([latitude, longitude], 15);
+                        L.marker([latitude, longitude]).addTo(map).bindPopup('您的位置');
+                        console.log(`GPS位置: ${latitude}, ${longitude}`);
+                    }, err => {
+                        console.error('GPS定位失敗: ' + err.message);
+                        alert('GPS定位失敗');
+                    });
+                } else {
+                    alert('您的瀏覽器不支持地理定位');
+                }
+            },
 
-        if (previewPolyline) {
-            previewPolyline.setLatLngs(drawPoints);
-        } else {
-            previewPolyline = L.polyline(drawPoints, { color: '#ff3333', weight: 2, dashArray: '5,8' }).addTo(map);
-            logger.info('🔗 預覽線已建立');
-        }
-        return;
-    }
+            exportToExcel: function() {
+                console.log('準備匯出Excel...');
+                
+                const workbook = XLSX.utils.book_new();
+                const data = polygons.map(p => ({
+                    '名稱': p.name,
+                    '面積(m²)': p.area.toFixed(2),
+                    '頂點數': p.coordinates.length - 1,
+                    '中心緯度': p.centroid[1].toFixed(6),
+                    '中心經度': p.centroid[0].toFixed(6),
+                    '顏色': p.color
+                }));
 
-    latInput.value = lat.toFixed(6);
-    lonInput.value = lon.toFixed(6);
-    origin = [lat, lon];
-    logger.info(`📍 點選位置: [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
-});
+                const worksheet = XLSX.utils.json_to_sheet(data);
+                XLSX.utils.book_append_sheet(workbook, worksheet, '多邊形數據');
+                XLSX.writeFile(workbook, '地籍查估數據.xlsx');
 
-/* ════════════════════════════════════════════════════════════
-   ★ v2.0 距離計算函數
-   ════════════════════════════════════════════════════════════ */
+                console.log('Excel已匯出');
+            },
 
-function haversine(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const toRad = x => x * Math.PI / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-}
+            exportGeoJSON: function() {
+                console.log('準備匯出GeoJSON...');
+                
+                const geojson = {
+                    type: 'FeatureCollection',
+                    features: polygons.map(p => ({
+                        type: 'Feature',
+                        geometry: {
+                            type: 'Polygon',
+                            coordinates: [p.coordinates]
+                        },
+                        properties: {
+                            name: p.name,
+                            area: p.area,
+                            color: p.color
+                        }
+                    }))
+                };
 
-/* ════════════════════════════════════════════════════════════
-   ★ v2.0 核心功能函數
-   ════════════════════════════════════════════════════════════ */
+                const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '地籍查估數據.geojson';
+                a.click();
 
-function getCurrentLocation() {
-    if (!navigator.geolocation) {
-        alert('瀏覽器不支援 GPS 定位');
-        logger.error('❌ 瀏覽器不支援地理定位 API');
-        return;
-    }
-    logger.info('📡 開始 GPS 定位...');
-    navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            const lat = pos.coords.latitude;
-            const lon = pos.coords.longitude;
-            latInput.value = lat.toFixed(6);
-            lonInput.value = lon.toFixed(6);
-            origin = [lat, lon];
-            map.flyTo([lat, lon], 17, { duration: 1.2 });
-            showToast('✓ 已定位到您的位置');
-            logger.success(`✓ GPS 定位成功: [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
-        },
-        (err) => {
-            alert('定位失敗: ' + err.message);
-            logger.error(`❌ GPS 定位失敗: ${err.message}`);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-}
+                console.log('GeoJSON已匯出');
+            },
 
-function clearRoute() {
-    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
-    routeInfo.innerText = '尚未計算';
-    routeCard.classList.add('hidden');
-    logger.info('🗑️ 路線圖層已清除');
-}
+            exportSHP: function() {
+                console.log('準備匯出SHP...');
+                alert('SHP匯出功能開發中');
+            },
 
-function showToast(msg) {
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.innerText = msg;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-}
+            importFile: function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
 
-async function runQuery() {
-    logger.warn('ℹ️ 主查詢功能已簡化 (當前版本焦點為多邊形繪製)');
-    showToast('ℹ️ 該功能在此版本中已簡化');
-}
+                console.log('正在匯入文件: ' + file.name);
 
-function sortResults(type) {
-    logger.info(`排序結果: ${type}`);
-}
+                if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const geojson = JSON.parse(e.target.result);
+                            console.log('GeoJSON已解析');
+                            alert('GeoJSON匯入成功');
+                        } catch (err) {
+                            console.error('GeoJSON解析失敗: ' + err.message);
+                            alert('文件格式錯誤');
+                        }
+                    };
+                    reader.readAsText(file);
+                } else {
+                    alert('不支持的文件格式');
+                }
+            },
 
-function renderTable() {
-    tbody.innerHTML = "";
-}
+            updateResultPanel: function() {
+                const panel = document.getElementById('resultPanel');
+                if (polygons.length === 0) {
+                    panel.style.display = 'none';
+                    return;
+                }
 
-function exportExcel() {
-    logger.warn('無資料可匯出');
-}
+                panel.style.display = 'block';
+                const content = document.getElementById('resultContent');
+                
+                const totalArea = polygons.reduce((sum, p) => sum + p.area, 0);
+                content.innerHTML = `
+                    <div class="result-item">
+                        <div class="result-item-label">多邊形總數</div>
+                        <div class="result-item-value">${polygons.length}</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-item-label">總面積</div>
+                        <div class="result-item-value">${totalArea.toFixed(2)} m²</div>
+                    </div>
+                    ${polygons.map((p, i) => `
+                        <div class="result-item">
+                            <div class="result-item-label">${p.name}</div>
+                            <div class="result-item-value">${p.area.toFixed(2)} m²</div>
+                        </div>
+                    `).join('')}
+                `;
+            },
 
-function exportPolygonsToSHP() {
-    logger.warn('檔案匯出功能開發中');
-}
+            toggleDebugConsole: function() {
+                const console = document.getElementById('debugConsole');
+                console.style.display = console.style.display === 'none' ? 'block' : 'none';
+                console.log('調試控制台已' + (console.style.display === 'none' ? '隱藏' : '顯示'));
+            },
 
-function importPolygonsFromSHP(event) {
-    logger.warn('檔案匯入功能開發中');
-}
-
-/* ════════════════════════════════════════════════════════════
-   ★ v2.0 通用面板拖曳系統
-   ════════════════════════════════════════════════════════════ */
-
-const draggablePanels = [
-    { element: systemTitleBar, header: systemTitleBar },
-    { element: sidebar, header: sidebarHeader },
-    { element: resultPanel, header: document.querySelector('#resultPanel .panel-header') }
-];
-
-let activeDrag = null;
-
-draggablePanels.forEach(({ element, header }) => {
-    if (!header) return;
-    
-    header.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'BUTTON' || e.button !== 0) return;
-        
-        activeDrag = {
-            element: element,
-            header: header,
-            offsetX: e.clientX - element.getBoundingClientRect().left,
-            offsetY: e.clientY - element.getBoundingClientRect().top
+            generateReport: function() {
+                console.log('生成報告...');
+                alert('報告生成功能開發中');
+            }
         };
-        
-        header.style.cursor = 'grabbing';
-        element.style.zIndex = 10000;
-        
-        logger.info(`🖱️ 開始拖曳: ${element.id}`);
-    });
-});
 
-document.addEventListener('mousemove', (e) => {
-    if (!activeDrag) return;
-    
-    activeDrag.element.style.position = 'fixed';
-    activeDrag.element.style.left = (e.clientX - activeDrag.offsetX) + 'px';
-    activeDrag.element.style.top = (e.clientY - activeDrag.offsetY) + 'px';
-});
+        // ===========================
+        // 拖曳系統
+        // ===========================
+        function makeDraggable(element) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            
+            element.onmousedown = dragMouseDown;
 
-document.addEventListener('mouseup', () => {
-    if (!activeDrag) return;
-    
-    activeDrag.header.style.cursor = 'grab';
-    activeDrag = null;
-    logger.info('✓ 拖曳結束');
-});
+            function dragMouseDown(e) {
+                if (e.target !== element && !element.contains(e.target)) return;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
 
-/* ════════════════════════════════════════════════════════════
-   ★ v2.0 系統初始化完成
-   ════════════════════════════════════════════════════════════ */
+            function elementDrag(e) {
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                element.style.top = (element.offsetTop - pos2) + "px";
+                element.style.left = (element.offsetLeft - pos1) + "px";
+            }
 
-window.addEventListener('load', () => {
-    logger.success('');
-    logger.success('═════════════════════════════════════════════════════');
-    logger.success('✅ 市價徵收查估系統 v2.0 已完全初始化');
-    logger.success('═════════════════════════════════════════════════════');
-    logger.info('');
-    logger.info('📋 系統功能清單：');
-    logger.info('   ✓ 詳細日誌系統 (200行緩衝)');
-    logger.info('   ✓ 多邊形繪製與編輯');
-    logger.info('   ✓ Turf.js 中心計算');
-    logger.info('   ✓ 科技風格 UI');
-    logger.info('   ✓ 全面拖曳支持');
-    logger.info('   ✓ 多圖層切換');
-    logger.info('');
-    logger.info('🚀 快速開始：');
-    logger.info('   1. 點擊工具列「開始繪製」');
-    logger.info('   2. 在地圖點擊 3+ 個頂點');
-    logger.info('   3. 點擊「完成閉合」形成多邊形');
-    logger.info('   4. 可在左側列表選中並編輯多邊形');
-    logger.info('');
-    logger.info('💡 提示: 所有面板標題都支持拖曳');
-    logger.info('');
-});
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
 
-</script>
+        // ===========================
+        // 初始化
+        // ===========================
+        window.addEventListener('load', () => {
+            map_system.init();
+            makeDraggable(document.getElementById('systemTitleBar'));
+            makeDraggable(document.getElementById('sidebar'));
+            makeDraggable(document.getElementById('resultPanel'));
+            console.log('應用程序已啟動');
+        });
 
+        // 右鍵菜單 - 完成繪製
+        document.addEventListener('contextmenu', (e) => {
+            if (isDrawing && currentPolygon.length >= 3) {
+                e.preventDefault();
+                map_system.completeDraw();
+            }
+        });
+    </script>
 </body>
 </html>
