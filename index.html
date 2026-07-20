@@ -541,33 +541,6 @@ tr:hover { background: rgba(0, 212, 255, 0.1); }
 
 tr.highlight { background: rgba(0, 212, 255, 0.2) !important; }
 
-#slopePanel {
-    bottom: 20px;
-    left: 20px;
-    width: 340px;
-}
-
-#slopeContent {
-    padding: 14px;
-    background: rgba(0, 212, 255, 0.05);
-    color: #b0c4de;
-    font-size: 12px;
-    line-height: 1.6;
-    max-height: 280px;
-    overflow-y: auto;
-}
-
-#slopeContent::-webkit-scrollbar { width: 6px; }
-#slopeContent::-webkit-scrollbar-thumb {
-    background: #00d4ff;
-    border-radius: 3px;
-}
-
-#slopeContent strong {
-    color: #00ffff;
-    font-weight: 700;
-}
-
 #routeCard {
     position: fixed;
     top: 150px;
@@ -796,7 +769,6 @@ tr.highlight { background: rgba(0, 212, 255, 0.2) !important; }
 #debugConsole .log-warn { color: #ffa500; }
 #debugConsole .log-info { color: #00d4ff; }
 #debugConsole .log-success { color: #00ff00; }
-
 </style>
 </head>
 <body>
@@ -921,7 +893,7 @@ tr.highlight { background: rgba(0, 212, 255, 0.2) !important; }
             <div id="polygonList"></div>
             
             <div style="font-size: 11px; color: #00d4ff; padding: 8px 0; margin: 8px 0; border-top: 1px solid rgba(0,212,255,0.2); border-bottom: 1px solid rgba(0,212,255,0.2); font-weight: 600;">
-                ℹ️ 選中多邊形後，坡度分析將以其頂點為採樣範圍進行
+                ℹ️ 選中多邊形後可進行編輯，或匯出為 SHP/GeoJSON 格式
             </div>
         </div>
         
@@ -939,9 +911,6 @@ tr.highlight { background: rgba(0, 212, 255, 0.2) !important; }
     <div class="toolbar-section">
         <button class="toolbar-btn" onclick="toggleDrawMode(this)">
             📐 開始繪製
-        </button>
-        <button class="toolbar-btn" onclick="toggleSlopeAnalysis()">
-            🌄 坡度分析
         </button>
         <button class="toolbar-btn" onclick="toggleLayerControl()">
             🗺️ 圖層控制
@@ -1003,27 +972,6 @@ tr.highlight { background: rgba(0, 212, 255, 0.2) !important; }
             </thead>
             <tbody id="tbody"></tbody>
         </table>
-    </div>
-</div>
-
-<!-- 坡度分析面板（可拖曳） -->
-<div id="slopePanel" class="floating-panel">
-    <div class="panel-header">
-        🌄 地形坡度分析
-        <button id="slope-exec-btn" style="background: rgba(10, 14, 39, 0.3); border: none; color: #0a0e27; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: 700;">執行</button>
-    </div>
-    <div id="slopeContent">
-        <p>📝 使用步驟：</p>
-        <ol style="padding-left: 18px; margin: 8px 0;">
-            <li>點擊工具列「開始繪製」</li>
-            <li>在地圖上點擊 3+ 個頂點</li>
-            <li>點擊「完成閉合」形成多邊形</li>
-            <li>從左側列表選中該多邊形</li>
-            <li>點擊此面板「執行」按鈕</li>
-        </ol>
-        <p style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,212,255,0.2);">
-            💡 按 F12 或點擊「除錯」查看詳細日誌
-        </p>
     </div>
 </div>
 
@@ -1163,14 +1111,8 @@ const baseMaps = {
     "OpenStreetMap": osmLayer
 };
 
-const nlscDEM = L.tileLayer(
-    'https://wmts.nlsc.gov.tw/wmts/EMAP5_OPENDATA/default/EPSG:3857/{z}/{y}/{x}',
-    { maxZoom:18, opacity:0.45, attribution:'© NLSC DEM' }
-);
-
 const overlayMaps = {
-    "地籍圖": cadastralLayer,
-    "DEM 地形": nlscDEM
+    "地籍圖": cadastralLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
@@ -1203,11 +1145,8 @@ const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebarHeader = document.getElementById('sidebarHeader');
 const drawToolbar = document.getElementById('drawToolbar');
 const resultPanel = document.getElementById('resultPanel');
-const slopePanel = document.getElementById('slopePanel');
 const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
-const slopeExecBtn = document.getElementById('slope-exec-btn');
-const slopeContent = document.getElementById('slopeContent');
 const systemTitleBar = document.getElementById('systemTitleBar');
 
 logger.success('✓ 系統全域變數初始化完成');
@@ -1228,11 +1167,6 @@ function toggleDrawMode(btn) {
     drawToolbar.classList.toggle('hidden');
     btn.classList.toggle('active');
     logger.info(`🎯 繪製工具欄: ${drawToolbar.classList.contains('hidden') ? '隱藏' : '顯示'}`);
-}
-
-function toggleSlopeAnalysis() {
-    slopePanel.style.display = slopePanel.style.display === 'none' ? 'flex' : 'none';
-    logger.info(`🌄 坡度面板: ${slopePanel.style.display === 'none' ? '隱藏' : '顯示'}`);
 }
 
 function toggleResultPanel() {
@@ -1531,116 +1465,8 @@ map.on('click', (e) => {
 });
 
 /* ════════════════════════════════════════════════════════════
-   ★ v2.0 高程 & 距離計算
+   ★ v2.0 距離計算函數
    ════════════════════════════════════════════════════════════ */
-
-const elevationCache = {};
-
-async function getElevation(lat, lon, retryCount = 0) {
-    const maxRetries = 2;
-    const cacheKey = lat.toFixed(5) + "," + lon.toFixed(5);
-    
-    if (elevationCache[cacheKey] !== undefined) {
-        const cached = elevationCache[cacheKey];
-        if (cached === null) return null;
-        return cached;
-    }
-    
-    // 多源回退方案：三個 API 源
-    const sources = [
-        {
-            name: '主源 (michael-chou)',
-            fetch: async () => {
-                const url = `https://michael-chou.pages.dev/?lat=${lat}&lon=${lon}`;
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 5000);
-                try {
-                    const res = await fetch(url, { signal: controller.signal });
-                    clearTimeout(timeout);
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const data = await res.json();
-                    const ele = data?.results?.[0]?.elevation;
-                    if (ele === null || ele === undefined) throw new Error('無資料');
-                    if (typeof ele !== 'number' || isNaN(ele)) throw new Error('類型錯誤');
-                    if (ele < -1000 || ele > 4000) throw new Error('異常值');
-                    return Number(ele);
-                } finally {
-                    clearTimeout(timeout);
-                }
-            }
-        },
-        {
-            name: 'USGS 3DEP',
-            fetch: async () => {
-                const url = `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/getSamples?geometry=${lon},${lat}&geometryType=esriGeometryPoint&outSR=4326&f=json`;
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 5000);
-                try {
-                    const res = await fetch(url, { signal: controller.signal });
-                    clearTimeout(timeout);
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const data = await res.json();
-                    if (data?.value?.length > 0) {
-                        const ele = data.value[0];
-                        if (typeof ele !== 'number' || isNaN(ele)) throw new Error('類型錯誤');
-                        return Number(ele);
-                    }
-                    throw new Error('無資料');
-                } finally {
-                    clearTimeout(timeout);
-                }
-            }
-        },
-        {
-            name: 'OpenTopography (SRTM)',
-            fetch: async () => {
-                const offset = 0.05;
-                const url = `https://cloud.sdsc.edu/v1/AUTH_opentopography/Raster/SRTM_GL30/SRTM_GL30_srtm/SRTM_GL30_srtm_srtm.tif?west=${lon-offset}&south=${lat-offset}&east=${lon+offset}&north=${lat+offset}&output=json`;
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 5000);
-                try {
-                    const res = await fetch(url, { signal: controller.signal });
-                    clearTimeout(timeout);
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const data = await res.json();
-                    if (data?.properties?.MEAN) {
-                        const ele = Number(data.properties.MEAN);
-                        if (isNaN(ele)) throw new Error('類型錯誤');
-                        return ele;
-                    }
-                    throw new Error('無資料');
-                } finally {
-                    clearTimeout(timeout);
-                }
-            }
-        }
-    ];
-    
-    // 逐一嘗試每個源
-    for (let source of sources) {
-        try {
-            const elev = await Promise.race([
-                source.fetch(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('超時')), 5500))
-            ]);
-            
-            elevationCache[cacheKey] = Number(elev);
-            logger.info(`✓ [${source.name}] 高程查詢成功: ${elev.toFixed(1)}m @ [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
-            return elevationCache[cacheKey];
-            
-        } catch (error) {
-            logger.warn(`⚠️ [${source.name}] 查詢失敗: ${error.message.substring(0, 40)}`);
-            continue;
-        }
-    }
-    
-    // 所有源均失敗
-    logger.error(`❌ 所有高程源均失敗 @ [${lat.toFixed(6)}, ${lon.toFixed(6)}]`);
-    elevationCache[cacheKey] = null;
-    return null;
-}
-
-
 
 function haversine(lat1, lon1, lat2, lon2) {
     const R = 6371000;
@@ -1652,404 +1478,8 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 /* ════════════════════════════════════════════════════════════
-   ★ v2.0 坡度分析 - 完全重構版本
+   ★ v2.0 核心功能函數
    ════════════════════════════════════════════════════════════ */
-
-async function analyzeSlope() {
-    logger.success('═════════════════════════════════════════════════════');
-    logger.success('🚀 開始坡度分析流程');
-    logger.success('═════════════════════════════════════════════════════');
-    
-    const analysisStartTime = Date.now();
-    
-    try {
-        logger.info('');
-        logger.info('📋 [STEP 1] 多邊形驗證');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        logger.info(`📊 當前多邊形數量: ${polygons.length}`);
-        logger.info(`🎯 選中的多邊形ID: ${currentPolygonId || '(無)'}`);
-        
-        let targetPoly = null;
-        if (currentPolygonId) {
-            targetPoly = polygons.find(p => p.id === currentPolygonId);
-        }
-        if (!targetPoly && polygons.length > 0) {
-            targetPoly = polygons[0];
-            logger.warn('⚠️ 未找到選中多邊形，使用第一個');
-        }
-        
-        if (!targetPoly) {
-            logger.error('❌ [FAIL] 未找到多邊形');
-            slopeContent.innerHTML = `
-                <strong style="color:#ff3333;">❌ 未找到多邊形</strong><br><br>
-                請執行以下步驟：<br>
-                1️⃣ 點擊「開始繪製」<br>
-                2️⃣ 在地圖點擊 3+ 個點<br>
-                3️⃣ 點擊「完成閉合」<br>
-                4️⃣ 再點擊「執行」
-            `;
-            return;
-        }
-        
-        logger.success(`✓ 多邊形已找到: ${targetPoly.id}`);
-        
-        logger.info('');
-        logger.info('🔍 [STEP 2] 多邊形有效性檢查');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        if (!targetPoly.points || !Array.isArray(targetPoly.points)) {
-            logger.error('❌ [FAIL] 多邊形頂點不是陣列');
-            slopeContent.innerHTML = '❌ 多邊形格式異常';
-            return;
-        }
-        
-        logger.info(`📍 頂點數: ${targetPoly.points.length}`);
-        logger.info(`🎨 顏色: ${targetPoly.color}`);
-        logger.info(`✓ 格式驗證通過`);
-        
-        if (targetPoly.points.length < 3) {
-            logger.error(`❌ [FAIL] 頂點數不足 (${targetPoly.points.length} < 3)`);
-            slopeContent.innerHTML = `❌ 多邊形頂點不足<br><br>需要至少 3 個頂點，目前有 ${targetPoly.points.length} 個`;
-            return;
-        }
-        
-        logger.success('✓ 多邊形有效性檢查通過');
-        
-        logger.info('');
-        logger.info('🔄 [STEP 3] 座標轉換與驗證');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        logger.info('🔀 轉換格式: [lat, lon] → [lon, lat]');
-        let ring = targetPoly.points.map((p, idx) => {
-            const lon = Number(p[1]);
-            const lat = Number(p[0]);
-            
-            if (!isFinite(lat) || !isFinite(lon)) {
-                logger.error(`❌ 座標 #${idx} 非數值: [${p[0]}, ${p[1]}]`);
-                throw new Error(`座標 #${idx} 格式異常`);
-            }
-            
-            if (Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-                logger.error(`❌ 座標 #${idx} 超出範圍: lat=${lat}, lon=${lon}`);
-                throw new Error(`座標 #${idx} 超出地球範圍`);
-            }
-            
-            return [lon, lat];
-        });
-        
-        logger.success(`✓ 座標轉換完成: ${ring.length} 個點`);
-        logger.info(`  樣本: [${ring[0][0].toFixed(6)}, ${ring[0][1].toFixed(6)}]`);
-        
-        logger.info('');
-        logger.info('🔗 [STEP 4] 環形閉合');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
-            ring.push([ring[0][0], ring[0][1]]);
-            logger.info('🔗 環形不完整，已自動閉合');
-        } else {
-            logger.success('✓ 環形已閉合');
-        }
-        logger.info(`✓ 最終環形長度: ${ring.length}`);
-        
-        logger.info('');
-        logger.info('📐 [STEP 5] Turf 多邊形建立');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        let polygon;
-        try {
-            polygon = turf.polygon([ring]);
-            logger.success('✓ Turf多邊形已建立');
-        } catch (err) {
-            logger.error(`❌ [FAIL] Turf 建立失敗: ${err.message}`);
-            slopeContent.innerHTML = `❌ 多邊形建立失敗<br><br>${err.message}`;
-            return;
-        }
-        
-        logger.info('');
-        logger.info('📦 [STEP 6] 邊界框計算');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        const bbox = turf.bbox(polygon);
-        const [minLon, minLat, maxLon, maxLat] = bbox;
-        
-        logger.info(`緯度範圍: ${minLat.toFixed(6)} → ${maxLat.toFixed(6)}`);
-        logger.info(`經度範圍: ${minLon.toFixed(6)} → ${maxLon.toFixed(6)}`);
-        
-        const latRange = maxLat - minLat;
-        const lonRange = maxLon - minLon;
-        logger.info(`範圍大小: ${latRange.toFixed(7)}° × ${lonRange.toFixed(7)}°`);
-        logger.success('✓ 邊界框已計算');
-        
-        logger.info('');
-        logger.info('⚙️ [STEP 7] 採樣密度計算');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        const rangeSize = Math.max(lonRange, latRange);
-        const step = Math.max(rangeSize / 40, 0.00005);
-        const estimatedCount = Math.ceil(lonRange / step) * Math.ceil(latRange / step);
-        
-        logger.info(`最大範圍: ${rangeSize.toFixed(7)}°`);
-        logger.info(`採樣間距: ${step.toFixed(7)}°`);
-        logger.info(`估計點數: ~${estimatedCount} 點`);
-        logger.success('✓ 採樣參數已計算');
-        
-        logger.success('');
-        logger.success('🌍 [STEP 8] 網格掃描 & 高程查詢');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        slopeContent.innerHTML = `
-            <strong style="color: #ffa500;">⏳ 掃描中... 0%</strong><br><br>
-            正在採樣地形數據...<br>
-            估計: ${estimatedCount} 點
-        `;
-        
-        let elevations = [];
-        let sampledCount = 0;
-        let scannedCount = 0;
-        let skippedCount = 0;
-        let failedCount = 0;
-        let lastUIUpdate = Date.now();
-        let lastLogUpdate = Date.now();
-        
-        for (let lon = minLon; lon <= maxLon; lon += step) {
-            for (let lat = minLat; lat <= maxLat; lat += step) {
-                scannedCount++;
-                
-                const now = Date.now();
-                if (now - lastUIUpdate > 100) {
-                    const percent = Math.min(100, Math.round((scannedCount / estimatedCount) * 100));
-                    slopeContent.innerHTML = `
-                        <strong style="color: #ffa500;">⏳ 掃描中... ${percent}%</strong><br><br>
-                        已掃描: ${scannedCount}/${estimatedCount} 點<br>
-                        已採樣: ${sampledCount} 點<br>
-                        跳過: ${skippedCount} 點
-                    `;
-                    void slopeContent.offsetHeight;
-                    lastUIUpdate = now;
-                    await new Promise(r => setTimeout(r, 5));
-                }
-                
-                if (now - lastLogUpdate > 1000) {
-                    const percent = Math.round((scannedCount / estimatedCount) * 100);
-                    logger.info(`⏳ 進度: ${percent}% | 掃描: ${scannedCount} | 採樣: ${sampledCount} | 跳過: ${skippedCount}`);
-                    lastLogUpdate = now;
-                }
-                
-                if (scannedCount % 100 === 0) {
-                    await new Promise(r => setTimeout(r, 20));
-                }
-                
-                const pt = turf.point([lon, lat]);
-                if (!turf.booleanPointInPolygon(pt, polygon)) {
-                    skippedCount++;
-                    continue;
-                }
-                
-                const ele = await getElevation(lat, lon);
-                if (ele !== null && typeof ele === 'number' && !isNaN(ele)) {
-                    elevations.push({ lat, lon, ele });
-                    sampledCount++;
-                } else {
-                    failedCount++;
-                }
-            }
-        }
-        
-        logger.success('✓ 掃描完成');
-        logger.info(`📊 掃描統計:`);
-        logger.info(`   總掃描數: ${scannedCount}`);
-        logger.info(`   多邊形內: ${scannedCount - skippedCount}`);
-        logger.info(`   成功採樣: ${sampledCount}`);
-        logger.info(`   採樣失敗: ${failedCount}`);
-        
-        logger.info('');
-        logger.info('🆘 [STEP 9] 採樣品質檢查');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        if (elevations.length < 3) {
-            logger.warn(`⚠️ [FALLBACK] 採樣點過少 (${elevations.length} < 3)，啟動應急方案`);
-            slopeContent.innerHTML = `🌄 DEM 資料稀疏<br>嘗試應急方案...`;
-            
-            const centroid = turf.centroid(polygon).geometry.coordinates;
-            const centroidLat = centroid[1];
-            const centroidLon = centroid[0];
-            
-            logger.info(`🎯 使用中心點: [${centroidLat.toFixed(6)}, ${centroidLon.toFixed(6)}]`);
-            
-            const centerEle = await getElevation(centroidLat, centroidLon);
-            if (centerEle !== null && !isNaN(centerEle)) {
-                elevations = [{ lat: centroidLat, lon: centroidLon, ele: centerEle }];
-                logger.success(`✓ 中心點高程: ${centerEle}m`);
-                slopeContent.innerHTML = `⚠️ DEM資料稀疏<br>採樣點: 1 (中心點)<br>高程: ${centerEle}m`;
-            } else {
-                logger.error('❌ [FAIL] DEM 無資料');
-                slopeContent.innerHTML = `❌ DEM 無資料<br><br>該區域暫無高程數據`;
-                return;
-            }
-        } else {
-            logger.success(`✓ 採樣品質良好 (${elevations.length} 點)`);
-        }
-        
-        logger.info('');
-        logger.info('📐 [STEP 10] 坡度計算');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        logger.info(`開始計算: ${elevations.length} 個採樣點`);
-        
-        let slopes = [];
-        for (let i = 1; i < elevations.length; i++) {
-            const p1 = elevations[i - 1];
-            const p2 = elevations[i];
-            const dist = haversine(p1.lat, p1.lon, p2.lat, p2.lon);
-            
-            if (dist < 1) continue;
-            
-            const rise = Math.abs(p2.ele - p1.ele);
-            const slope = (rise / dist) * 100;
-            slopes.push(slope);
-        }
-        
-        if (slopes.length === 0) {
-            logger.warn('⚠️ 採樣點距離太近，無法計算有意義的坡度');
-            slopeContent.innerHTML = "⚠️ 區域高度變化不足<br><br>無法計算有意義的坡度";
-            return;
-        }
-        
-        logger.success(`✓ 坡度計算完成: ${slopes.length} 個樣本`);
-        
-        logger.info('');
-        logger.info('📊 [STEP 11] 統計分析');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        const elevs = elevations.map(e => e.ele).filter(e => !isNaN(e));
-        const minElev = Math.min(...elevs);
-        const maxElev = Math.max(...elevs);
-        const avgElev = elevs.reduce((a, b) => a + b, 0) / elevs.length;
-        const reliefAmplitude = maxElev - minElev;
-        
-        const avgSlope = slopes.reduce((a, b) => a + b, 0) / slopes.length;
-        const maxSlope = Math.max(...slopes);
-        const minSlope = Math.min(...slopes);
-        
-        logger.info(`高程統計:`);
-        logger.info(`   最小: ${minElev.toFixed(1)} m`);
-        logger.info(`   最大: ${maxElev.toFixed(1)} m`);
-        logger.info(`   平均: ${avgElev.toFixed(1)} m`);
-        logger.info(`   起伏: ${reliefAmplitude.toFixed(1)} m`);
-        
-        logger.info(`坡度統計:`);
-        logger.info(`   最小: ${minSlope.toFixed(2)}%`);
-        logger.info(`   最大: ${maxSlope.toFixed(2)}%`);
-        logger.info(`   平均: ${avgSlope.toFixed(2)}%`);
-        logger.info(`   樣本: ${slopes.length} 個`);
-        
-        logger.info('');
-        logger.info('🏔️ [STEP 12] 地形分類');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        let terrainType = "平坦";
-        let terrainColor = "#00ff00";
-        
-        if (avgSlope > 30) {
-            terrainType = "陡坡";
-            terrainColor = "#ff3333";
-        } else if (avgSlope > 15) {
-            terrainType = "中坡";
-            terrainColor = "#ffa500";
-        } else if (avgSlope > 5) {
-            terrainType = "緩坡";
-            terrainColor = "#ffff00";
-        }
-        
-        logger.success(`✓ 地形分類: ${terrainType}`);
-        logger.info(`   判定: 平均坡度 ${avgSlope.toFixed(2)}% 屬於「${terrainType}」`);
-        logger.info(`   視覺色: ${terrainColor}`);
-        
-        logger.info('');
-        logger.info('💾 [STEP 13] 結果顯示');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        slopeContent.innerHTML = `
-            <strong style="color:#00ff00;">✓ 坡度分析完成</strong><br><br>
-            <strong>採樣資料</strong><br>
-            採樣點數：${elevations.length} 點<br>
-            掃描範圍：${scannedCount} 點<br><br>
-            <strong>高程資料</strong><br>
-            平均：${avgElev.toFixed(1)} m<br>
-            最低：${minElev.toFixed(1)} m<br>
-            最高：${maxElev.toFixed(1)} m<br>
-            起伏：${reliefAmplitude.toFixed(1)} m<br><br>
-            <strong>坡度數據</strong><br>
-            平均：${avgSlope.toFixed(2)}%<br>
-            最大：${maxSlope.toFixed(2)}%<br>
-            最小：${minSlope.toFixed(2)}%<br><br>
-            <strong>地形分類</strong><br>
-            <span style="font-size:14px;font-weight:700;color:${terrainColor}; text-shadow: 0 0 8px ${terrainColor}80;">${terrainType}</span>
-        `;
-        
-        logger.success('✓ 結果面板已更新');
-        
-        logger.info('');
-        logger.info('🗺️ [STEP 14] 地圖可視化');
-        logger.info('─────────────────────────────────────────────────────');
-        
-        markerLayer.clearLayers();
-        elevations.forEach(p => {
-            L.circleMarker([p.lat, p.lon], {
-                radius: 3, 
-                color: terrainColor, 
-                fillColor: terrainColor, 
-                fillOpacity: 0.8, 
-                weight: 0.5
-            }).addTo(markerLayer);
-        });
-        
-        logger.success(`✓ 已在地圖上繪製 ${elevations.length} 個採樣點 (顏色: ${terrainColor})`);
-        
-        const elapsedSeconds = ((Date.now() - analysisStartTime) / 1000).toFixed(2);
-        logger.success('');
-        logger.success('═════════════════════════════════════════════════════');
-        logger.success(`✅ 坡度分析完成！耗時 ${elapsedSeconds} 秒`);
-        logger.success('═════════════════════════════════════════════════════');
-        
-        showToast('✅ 坡度分析完成');
-        
-    } catch (err) {
-        logger.error('');
-        logger.error('═════════════════════════════════════════════════════');
-        logger.error(`❌ 分析中途失敗`);
-        logger.error(`   錯誤: ${err.message}`);
-        logger.error(`   位置: ${err.stack?.split('\n')[1] || '未知'}`);
-        logger.error('═════════════════════════════════════════════════════');
-        
-        slopeContent.innerHTML = `<strong style="color:#ff3333;">❌ 分析失敗</strong><br><br><small>${err.message}</small><br><br>詳見調試控制台`;
-    } finally {
-        slopeExecBtn.disabled = false;
-        slopeExecBtn.innerText = "執行";
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    logger.info('📄 DOMContentLoaded 事件觸發');
-    
-    if (!slopeExecBtn) {
-        logger.error('❌ 執行按鈕元素未找到');
-        return;
-    }
-    
-    slopeExecBtn.addEventListener('click', async function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        logger.success('🖱️ 執行按鈕被點擊');
-        slopeExecBtn.disabled = true;
-        slopeExecBtn.innerText = "執行中...";
-        await analyzeSlope();
-    });
-    
-    logger.success('✓ 事件綁定完成');
-});
 
 function getCurrentLocation() {
     if (!navigator.geolocation) {
@@ -2093,7 +1523,7 @@ function showToast(msg) {
 }
 
 async function runQuery() {
-    logger.warn('ℹ️ 主查詢功能已簡化 (當前版本焦點為坡度分析)');
+    logger.warn('ℹ️ 主查詢功能已簡化 (當前版本焦點為多邊形繪製)');
     showToast('ℹ️ 該功能在此版本中已簡化');
 }
 
@@ -2124,8 +1554,7 @@ function importPolygonsFromSHP(event) {
 const draggablePanels = [
     { element: systemTitleBar, header: systemTitleBar },
     { element: sidebar, header: sidebarHeader },
-    { element: resultPanel, header: document.querySelector('#resultPanel .panel-header') },
-    { element: slopePanel, header: document.querySelector('#slopePanel .panel-header') }
+    { element: resultPanel, header: document.querySelector('#resultPanel .panel-header') }
 ];
 
 let activeDrag = null;
@@ -2179,20 +1608,16 @@ window.addEventListener('load', () => {
     logger.info('📋 系統功能清單：');
     logger.info('   ✓ 詳細日誌系統 (200行緩衝)');
     logger.info('   ✓ 多邊形繪製與編輯');
-    logger.info('   ✓ 分段驗證流程');
-    logger.info('   ✓ 網格採樣系統');
-    logger.info('   ✓ DEM 高程查詢');
-    logger.info('   ✓ 坡度計算引擎');
-    logger.info('   ✓ 自動應急方案');
-    logger.info('   ✓ 實時進度更新');
+    logger.info('   ✓ Turf.js 中心計算');
     logger.info('   ✓ 科技風格 UI');
     logger.info('   ✓ 全面拖曳支持');
+    logger.info('   ✓ 多圖層切換');
     logger.info('');
     logger.info('🚀 快速開始：');
     logger.info('   1. 點擊工具列「開始繪製」');
     logger.info('   2. 在地圖點擊 3+ 個頂點');
     logger.info('   3. 點擊「完成閉合」形成多邊形');
-    logger.info('   4. 點擊坡度面板「執行」按鈕');
+    logger.info('   4. 可在左側列表選中並編輯多邊形');
     logger.info('');
     logger.info('💡 提示: 所有面板標題都支持拖曳');
     logger.info('');
