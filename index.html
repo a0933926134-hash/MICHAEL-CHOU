@@ -1805,43 +1805,149 @@ function importPolygonsFromSHP(event) {
     document.getElementById('shp-file-input').value = '';
 }
 
+/* ===== TWD97 → WGS84 座標轉換工具 ===== */
+function isTWD97Coordinate(x, y) {
+    return x > 100000 && x < 400000 && y > 2000000 && y < 2900000;
+}
+
+function twd97ToWGS84(x, y) {
+    const a = 6378137.0;
+    const f = 1 / 298.257222101;
+    const b = a * (1 - f);
+    const e2 = (a * a - b * b) / (a * a);
+    const k0 = 0.9999;
+    const dx = 250000;
+    const lon0 = 121 * Math.PI / 180;
+
+    const M = y / k0;
+    const mu = M / (a * (1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
+
+    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    const J1 = (3*e1/2 - 27*e1*e1*e1/32);
+    const J2 = (21*e1*e1/16 - 55*e1*e1*e1*e1/32);
+    const J3 = (151*e1*e1*e1/96);
+    const J4 = (1097*e1*e1*e1*e1/512);
+
+    const fp = mu + J1*Math.sin(2*mu) + J2*Math.sin(4*mu) + J3*Math.sin(6*mu) + J4*Math.sin(8*mu);
+
+    const e2p = e2 / (1 - e2);
+    const C1 = e2p * Math.pow(Math.cos(fp), 2);
+    const T1 = Math.pow(Math.tan(fp), 2);
+    const R1 = a * (1 - e2) / Math.pow(1 - e2*Math.pow(Math.sin(fp),2), 1.5);
+    const N1 = a / Math.sqrt(1 - e2*Math.pow(Math.sin(fp),2));
+    const D = (x - dx) / (N1 * k0);
+
+    const lat = fp - (N1*Math.tan(fp)/R1) * (
+        D*D/2 -
+        (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2p) * Math.pow(D,4)/24 +
+        (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*e2p - 3*C1*C1) * Math.pow(D,6)/720
+    );
+
+    const lon = lon0 + (
+        D - (1 + 2*T1 + C1) * Math.pow(D,3)/6 +
+        (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2p + 24*T1*T1) * Math.pow(D,5)/120
+    ) / Math.cos(fp);
+
+    return [lon * 180 / Math.PI, lat * 180 / Math.PI];
+}
+
+function convertRingIfNeeded(ring) {
+    // 檢查第一個點判斷是否為 TWD97
+    const sample = ring[0];
+    if (isTWD97Coordinate(sample[0], sample[1])) {
+        return ring.map(coord => twd97ToWGS84(coord[0], coord[1]));
+    }
+    return ring;
+}
+
+/* ===== 匯入解析主邏輯（含巢狀 features 解包、MultiPolygon 支援、TWD97 自動轉換） ===== */
 function processImportedPolygons(geojson) {
+    let data = geojson;
+
+    // 解開多層巢狀 features 外殼，例如 { features: { type:"FeatureCollection", features:[...] } }
+    let guard = 0;
+    while (data && data.features && !Array.isArray(data.features) &&
+           data.features.type === "FeatureCollection" && guard < 5) {
+        data = data.features;
+        guard++;
+    }
+
     let features = [];
-    if (geojson.type === "FeatureCollection") {
-        features = geojson.features;
-    } else if (geojson.type === "Feature") {
-        features = [geojson];
-    } else if (geojson.geometry) {
-        features = [{ type: "Feature", geometry: geojson.geometry, properties: {} }];
+    if (data.type === "FeatureCollection" && Array.isArray(data.features)) {
+        features = data.features;
+    } else if (data.type === "Feature") {
+        features = [data];
+    } else if (data.geometry) {
+        features = [{ type: "Feature", geometry: data.geometry, properties: {} }];
+    } else {
+        alert("檔案格式錯誤：無法辨識的 GeoJSON 結構");
+        return;
     }
 
     let importedCount = 0;
+    let skippedCount = 0;
+    let convertedCount = 0;
+
     features.forEach(feature => {
-        if (!feature.geometry) return;
-        let rings = null;
-        if (feature.geometry.type === "Polygon") {
-            rings = feature.geometry.coordinates[0];
-        } else if (feature.geometry.type === "MultiPolygon") {
-            rings = feature.geometry.coordinates[0][0];
+        if (!feature.geometry) { skippedCount++; return; }
+
+        const geomType = feature.geometry.type;
+        let polygonsCoords = []; // 存放多個 Polygon 的外環 rings
+
+        if (geomType === "Polygon") {
+            polygonsCoords.push(feature.geometry.coordinates[0]);
+        } else if (geomType === "MultiPolygon") {
+            // 走訪 MultiPolygon 內的每一個 Polygon，取其外環
+            feature.geometry.coordinates.forEach(polygonCoords => {
+                if (polygonCoords && polygonCoords[0]) {
+                    polygonsCoords.push(polygonCoords[0]);
+                }
+            });
         } else {
+            skippedCount++;
             return;
         }
-        if (!rings || rings.length < 3) return;
-        const invalidCoord = rings.some(coord => Math.abs(coord[1]) > 90 || Math.abs(coord[0]) > 180);
-        if (invalidCoord) {
-            alert("座標系統可能不是 WGS97");
-            return;
-        }
-        if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
-            rings.pop();
-        }
-        const points = rings.map(coord => [coord[1], coord[0]]);
-        createPolygonObject(points);
-        importedCount++;
+
+        polygonsCoords.forEach(rings => {
+            if (!rings || rings.length < 3) { skippedCount++; return; }
+
+            // 判斷並自動轉換 TWD97 座標
+            const beforeSample = rings[0];
+            const wasTWD97 = isTWD97Coordinate(beforeSample[0], beforeSample[1]);
+            if (wasTWD97) {
+                rings = convertRingIfNeeded(rings);
+                convertedCount++;
+            }
+
+            // 最終座標範圍驗證（轉換後仍異常則跳過並提示）
+            const invalidCoord = rings.some(coord =>
+                Math.abs(coord[1]) > 90 || Math.abs(coord[0]) > 180
+            );
+            if (invalidCoord) {
+                alert("座標系統可能不是 WGS84 或 TWD97，已跳過該筆資料");
+                skippedCount++;
+                return;
+            }
+
+            // 去除重複的收尾點（頭尾相同座標）
+            if (rings.length > 1 &&
+                rings[0][0] === rings[rings.length-1][0] &&
+                rings[0][1] === rings[rings.length-1][1]) {
+                rings.pop();
+            }
+
+            const points = rings.map(coord => [coord[1], coord[0]]);
+            createPolygonObject(points);
+            importedCount++;
+        });
     });
 
-    showToast(`✅ 成功匯入 ${importedCount} 個多邊形`);
+    let msg = `✅ 成功匯入 ${importedCount} 個多邊形`;
+    if (convertedCount > 0) msg += `（已自動轉換 ${convertedCount} 個 TWD97 座標）`;
+    if (skippedCount > 0) msg += `，跳過 ${skippedCount} 筆異常資料`;
+    showToast(msg);
 }
+
 
 /* ========================================================================
    拖曳面板
