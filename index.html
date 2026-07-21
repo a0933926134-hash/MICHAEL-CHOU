@@ -920,7 +920,7 @@ tr.highlight {
 </div>
 
 <div id="statusBar">
-    圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 離線模式
+    圖資來源：© OpenStreetMap contributors ／ © NLSC ／ © 新北市政府 | 🟢 離線模式
 </div>
 
 <script>
@@ -953,6 +953,19 @@ const cadastralLayer = L.tileLayer(
 );
 cadastralLayer.addTo(map);
 
+/* ★新增：新北市都市計畫圖圖層 */
+const taipeiUrbanPlanLayer = L.tileLayer.wms(
+    'https://gis.ntpc.gov.tw/geoserver/web/wms',
+    {
+        layers: 'ntpc:都市計畫圖',
+        format: 'image/png',
+        transparent: true,
+        maxZoom: 20,
+        attribution: '© 新北市政府地政處',
+        opacity: 0.7
+    }
+);
+
 const baseMaps = {
     "NLSC 電子地圖": nlscEMAP,
     "NLSC 正射影像": nlscPHOTO,
@@ -960,7 +973,8 @@ const baseMaps = {
 };
 
 const overlayMaps = {
-    "地籍圖": cadastralLayer
+    "地籍圖": cadastralLayer,
+    "新北市都市計畫圖": taipeiUrbanPlanLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
