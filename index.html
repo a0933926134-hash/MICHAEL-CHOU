@@ -143,7 +143,8 @@ body {
 }
 
 .input-group input[type="text"],
-.input-group input[type="number"] {
+.input-group input[type="number"],
+.input-group select {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid #e5e7eb;
@@ -153,7 +154,8 @@ body {
     background: #f9fafb;
 }
 
-.input-group input:focus {
+.input-group input:focus,
+.input-group select:focus {
     outline: none;
     border-color: #2563eb;
     background: white;
@@ -252,6 +254,15 @@ body {
 .btn-small {
     padding: 6px 10px;
     font-size: 11px;
+}
+
+.btn-info {
+    background: #0ea5e9;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #0284c7;
 }
 
 #polygonManager {
@@ -410,6 +421,12 @@ body {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     color: #6b7280;
     z-index: 800;
+}
+
+.layer-opacity-slider {
+    width: 100%;
+    height: 4px;
+    margin-top: 8px;
 }
 
 #resultPanel {
@@ -634,6 +651,49 @@ tr.highlight {
     display: none;
 }
 
+#debugPanel {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 400px;
+    max-height: 300px;
+    background: #1f2937;
+    color: #10b981;
+    border: 1px solid #374151;
+    border-radius: 8px 8px 0 0;
+    padding: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    overflow-y: auto;
+    z-index: 100000;
+    display: none;
+}
+
+#debugPanel.active {
+    display: block;
+}
+
+.debug-log {
+    margin: 4px 0;
+    padding: 2px 6px;
+    border-radius: 2px;
+}
+
+.debug-log.error {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+}
+
+.debug-log.success {
+    background: rgba(16, 185, 129, 0.2);
+    color: #86efac;
+}
+
+.debug-log.info {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+}
+
 @media (max-width: 1024px) {
     #sidebar {
         width: 320px;
@@ -756,6 +816,42 @@ tr.highlight {
                 <button class="btn-primary" onclick="getCurrentLocation()" style="background: #0ea5e9;">📡 定位</button>
                 <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
             </div>
+        </div>
+
+        <!-- ★新增：都市計畫圖層控制面板 -->
+        <div class="sidebar-section">
+            <h3><span>🗺️</span> 都市計畫圖</h3>
+            
+            <div class="input-group">
+                <label>選擇圖層來源</label>
+                <select id="urbanPlanSource" onchange="switchUrbanPlanLayer(this.value)">
+                    <option value="none">-- 不顯示 --</option>
+                    <option value="nlsc">NLSC 地籍圖（推薦）</option>
+                    <option value="wms-ntpc">WMS 新北市計畫圖</option>
+                    <option value="osm-admin">OSM 行政邊界</option>
+                    <option value="geojson-upload">上傳 GeoJSON</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>圖層透明度</label>
+                <input type="range" id="urbanOpacity" class="layer-opacity-slider" min="0" max="1" step="0.1" value="0.7" 
+                    onchange="updateUrbanPlanOpacity(this.value)">
+                <span id="opacityDisplay">70%</span>
+            </div>
+
+            <div class="input-group" id="geojsonUploadDiv" style="display:none;">
+                <label>上傳 GeoJSON 檔案</label>
+                <label class="file-upload-label">
+                    📤 選擇檔案
+                    <input type="file" id="geojson-plan-input" accept=".geojson,.json" 
+                        onchange="uploadUrbanPlanGeoJSON(event)">
+                </label>
+            </div>
+
+            <button class="btn-info btn-small" onclick="toggleDebugMode()" style="width:100%;margin-top:8px;">
+                🔧 除錯模式
+            </button>
         </div>
         
         <div class="sidebar-section">
@@ -920,10 +1016,71 @@ tr.highlight {
 </div>
 
 <div id="statusBar">
-    圖資來源：© OpenStreetMap contributors ／ © NLSC ／ © 新北市政府 | 🟢 離線模式
+    圖資來源：© OpenStreetMap ／ © NLSC ／ © 新北市政府 | 🟢 狀態就緒
+</div>
+
+<!-- ★新增：除錯面板 -->
+<div id="debugPanel">
+    <div style="margin-bottom:8px;font-weight:bold;color:#60a5fa;">🔍 系統除錯日誌</div>
+    <div id="debugLogs"></div>
+    <button onclick="clearDebugLogs()" style="background:#374151;color:#fff;border:none;padding:6px 12px;border-radius:4px;margin-top:8px;cursor:pointer;font-family:inherit;">清除</button>
 </div>
 
 <script>
+/* ========================================================================
+   除錯工具類
+   ======================================================================== */
+
+class LayerDebugger {
+    constructor() {
+        this.logs = [];
+        this.maxLogs = 50;
+    }
+
+    log(type, message, details = '') {
+        const timestamp = new Date().toLocaleTimeString('zh-TW');
+        const log = { type, message, details, timestamp };
+        this.logs.push(log);
+        if (this.logs.length > this.maxLogs) this.logs.shift();
+        this.render();
+    }
+
+    info(msg, details) { this.log('info', msg, details); }
+    success(msg, details) { this.log('success', msg, details); }
+    error(msg, details) { this.log('error', msg, details); }
+
+    render() {
+        const panel = document.getElementById('debugLogs');
+        if (!panel) return;
+        panel.innerHTML = this.logs.map(log => `
+            <div class="debug-log ${log.type}">
+                <strong>[${log.timestamp}]</strong> ${log.message}
+                ${log.details ? `<br/><code>${log.details}</code>` : ''}
+            </div>
+        `).join('');
+        panel.parentElement.scrollTop = panel.parentElement.scrollHeight;
+    }
+
+    clear() {
+        this.logs = [];
+        this.render();
+    }
+}
+
+const debugger = new LayerDebugger();
+
+function toggleDebugMode() {
+    const panel = document.getElementById('debugPanel');
+    panel.classList.toggle('active');
+    if (panel.classList.contains('active')) {
+        debugger.info('除錯模式已啟用', 'console output will show here');
+    }
+}
+
+function clearDebugLogs() {
+    debugger.clear();
+}
+
 /* ========================================================================
    全域變數初始化
    ======================================================================== */
@@ -932,40 +1089,28 @@ let map = L.map('map').setView([25.012098, 121.465675], 15);
 
 const nlscEMAP = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
-    { maxZoom:19, attribution:'© NLSC' }
+    { maxZoom: 19, attribution: '© NLSC' }
 );
 
 const nlscPHOTO = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/EPSG:3857/{z}/{y}/{x}',
-    { maxZoom:20, attribution:'© NLSC 正射影像' }
+    { maxZoom: 20, attribution: '© NLSC 正射影像' }
 );
 
 const osmLayer = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    { maxZoom:19, attribution:'© OpenStreetMap' }
+    { maxZoom: 19, attribution: '© OpenStreetMap' }
 );
 
 nlscEMAP.addTo(map);
 
 const cadastralLayer = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
-    { maxZoom:20, opacity:0.75, attribution:'© NLSC' }
+    { maxZoom: 20, opacity: 0.75, attribution: '© NLSC' }
 );
 cadastralLayer.addTo(map);
 
-/* ★新增：新北市都市計畫圖圖層 */
-const taipeiUrbanPlanLayer = L.tileLayer.wms(
-    'https://gis.ntpc.gov.tw/geoserver/web/wms',
-    {
-        layers: 'ntpc:都市計畫圖',
-        format: 'image/png',
-        transparent: true,
-        maxZoom: 20,
-        attribution: '© 新北市政府地政處',
-        opacity: 0.7
-    }
-);
-
+/* ★修正：都市計畫圖層管理 */
 const baseMaps = {
     "NLSC 電子地圖": nlscEMAP,
     "NLSC 正射影像": nlscPHOTO,
@@ -973,11 +1118,14 @@ const baseMaps = {
 };
 
 const overlayMaps = {
-    "地籍圖": cadastralLayer,
-    "新北市都市計畫圖": taipeiUrbanPlanLayer
+    "地籍圖": cadastralLayer
 };
 
-L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
+L.control.layers(baseMaps, overlayMaps, { collapsed: true, position: 'topright' }).addTo(map);
+
+// ★新增：都市計畫圖層狀態管理
+let currentUrbanPlanLayer = null;
+let currentUrbanPlanType = 'none';
 
 /* 查詢變數 */
 let markerLayer = L.layerGroup().addTo(map);
@@ -993,8 +1141,8 @@ let drawPoints = [];
 let previewPolyline = null;
 let isDrawingPolygon = false;
 let drawMarkers = L.layerGroup().addTo(map);
-let polygonIdCounter = 0; // 唯一 ID 計數器，避免匯入時 ID 重複
-let renameCancelled = false; // ★新增：用於處理重新命名 Escape 取消的旗標
+let polygonIdCounter = 0;
+let renameCancelled = false;
 
 const polygonColors = [
     '#dc2626', '#f97316', '#eab308', '#22c55e', '#06b6d4',
@@ -1013,6 +1161,149 @@ const drawToolbar = document.getElementById('drawToolbar');
 const resultPanel = document.getElementById('resultPanel');
 const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
+
+/* ========================================================================
+   都市計畫圖層管理（★新增核心邏輯）
+   ======================================================================== */
+
+function switchUrbanPlanLayer(type) {
+    debugger.info(`切換圖層: ${type}`);
+
+    // 移除現有圖層
+    if (currentUrbanPlanLayer) {
+        map.removeLayer(currentUrbanPlanLayer);
+        currentUrbanPlanLayer = null;
+    }
+
+    currentUrbanPlanType = type;
+    const opacity = parseFloat(document.getElementById('urbanOpacity').value);
+
+    switch (type) {
+        case 'none':
+            debugger.success('圖層已關閉');
+            break;
+
+        case 'nlsc':
+            // ★推薦方案：NLSC 地籍圖（最穩定可靠）
+            currentUrbanPlanLayer = L.tileLayer(
+                'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
+                {
+                    maxZoom: 20,
+                    opacity: opacity,
+                    attribution: '© NLSC 地籍圖',
+                    tms: false
+                }
+            );
+            currentUrbanPlanLayer.addTo(map);
+            debugger.success('已加載 NLSC 地籍圖', 'wmts.nlsc.gov.tw');
+            break;
+
+        case 'wms-ntpc':
+            // ★方案 B：新北市 GeoServer WMS
+            debugger.info('正在加載新北市 WMS...', '嘗試連接 gis.ntpc.gov.tw');
+            currentUrbanPlanLayer = L.tileLayer.wms(
+                'https://gis.ntpc.gov.tw/geoserver/web/wms',
+                {
+                    layers: 'ntpc:都市計畫圖',
+                    format: 'image/png',
+                    transparent: true,
+                    maxZoom: 20,
+                    attribution: '© 新北市政府地政處',
+                    opacity: opacity,
+                    version: '1.1.1',
+                    srs: 'EPSG:3857'
+                }
+            );
+            currentUrbanPlanLayer.addTo(map);
+            
+            // ★新增：驗證 WMS 是否有效
+            setTimeout(() => {
+                fetch('https://gis.ntpc.gov.tw/geoserver/web/wms?service=WMS&version=1.1.1&request=GetCapabilities')
+                    .then(r => r.text())
+                    .then(t => {
+                        if (t.includes('ntpc:都市計畫圖')) {
+                            debugger.success('新北市 WMS 服務可用', 'GetCapabilities OK');
+                        } else {
+                            debugger.error('圖層名稱可能錯誤', '未找到 ntpc:都市計畫圖');
+                        }
+                    })
+                    .catch(err => {
+                        debugger.error('WMS 連接失敗', err.message);
+                        showToast('⚠️ 新北市 WMS 暫時無法連接，請使用其他圖層');
+                    });
+            }, 1000);
+            break;
+
+        case 'osm-admin':
+            // ★方案 C：OSM 行政邊界
+            currentUrbanPlanLayer = L.tileLayer(
+                'https://tiles.stadiamaps.com/tiles/stamen_toner_lines/{z}/{x}/{y}.png',
+                {
+                    maxZoom: 20,
+                    opacity: opacity,
+                    attribution: '© Stadia Maps / © Stamen Design / © OpenMapTiles'
+                }
+            );
+            currentUrbanPlanLayer.addTo(map);
+            debugger.success('已加載 OSM 邊界圖', 'stadiamaps.com');
+            break;
+
+        case 'geojson-upload':
+            // ★方案 D：本地上傳
+            document.getElementById('geojsonUploadDiv').style.display = 'block';
+            debugger.info('已切換為 GeoJSON 上傳模式');
+            break;
+
+        default:
+            debugger.error('未知圖層類型', type);
+    }
+}
+
+function updateUrbanPlanOpacity(value) {
+    const opacity = parseFloat(value);
+    document.getElementById('opacityDisplay').innerText = Math.round(opacity * 100) + '%';
+
+    if (currentUrbanPlanLayer && currentUrbanPlanLayer.setOpacity) {
+        currentUrbanPlanLayer.setOpacity(opacity);
+        debugger.info(`透明度已更新: ${Math.round(opacity * 100)}%`);
+    }
+}
+
+function uploadUrbanPlanGeoJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const geojson = JSON.parse(e.target.result);
+            debugger.info('GeoJSON 已解析', `features: ${geojson.features?.length || 1}`);
+
+            // 移除舊圖層
+            if (currentUrbanPlanLayer) map.removeLayer(currentUrbanPlanLayer);
+
+            const opacity = parseFloat(document.getElementById('urbanOpacity').value);
+            currentUrbanPlanLayer = L.geoJSON(geojson, {
+                style: {
+                    color: '#2563eb',
+                    weight: 2,
+                    opacity: opacity,
+                    fillOpacity: 0.2,
+                    fillColor: '#3b82f6'
+                }
+            });
+            currentUrbanPlanLayer.addTo(map);
+
+            debugger.success('GeoJSON 圖層已加載');
+            showToast('✓ 自訂都市計畫圖已加載');
+        } catch (err) {
+            debugger.error('GeoJSON 解析失敗', err.message);
+            alert('GeoJSON 檔案格式錯誤');
+        }
+    };
+    reader.readAsText(file);
+    document.getElementById('geojson-plan-input').value = '';
+}
 
 /* ========================================================================
    UI 交互
@@ -1040,7 +1331,7 @@ function toggleLayerControl() {
 }
 
 /* ========================================================================
-   工具函數：HTML 轉義（避免匯入名稱造成注入或版面錯亂）
+   工具函數：HTML 轉義
    ======================================================================== */
 
 function escapeHtml(str) {
@@ -1082,10 +1373,7 @@ function finishPolygon() {
     showToast('✓ 多邊形已完成');
 }
 
-/* ★修正：新增第二個參數 customName，供繪製／匯入時指定名稱；
-   若未提供則沿用預設「多邊形 N」命名規則 */
 function createPolygonObject(points, customName) {
-    // 使用時間戳 + 累加計數器，確保多邊形 ID 絕對唯一
     const id = 'poly_' + Date.now() + '_' + (polygonIdCounter++);
     const colorIndex = polygons.length % polygonColors.length;
     const color = polygonColors[colorIndex];
@@ -1095,7 +1383,7 @@ function createPolygonObject(points, customName) {
     
     const polygonObj = {
         id: id,
-        name: finalName, // ★新增：可編輯的名稱屬性
+        name: finalName,
         points: [...points],
         layer: null,
         markers: L.layerGroup(),
@@ -1137,7 +1425,6 @@ function renderPolygonLayer(polygonObj) {
     };
     polygonObj.layer = L.polygon(polygonObj.points, style).addTo(map);
 
-    // 允許直接點擊地圖上的多邊形本體來選取該多邊形
     polygonObj.layer.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         if (isDrawingPolygon) return;
@@ -1182,8 +1469,6 @@ function renderEditHandles(polygonObj) {
 }
 
 function selectPolygon(id) {
-    // 切換選取時，正確地把「先前被選取、現在要取消選取」的多邊形
-    // 重新渲染回未選取樣式（移除編輯控制點、恢復虛線細框）
     polygons.forEach(p => {
         const wasSelected = p.isSelected;
         p.isSelected = (p.id === id);
@@ -1236,9 +1521,7 @@ function updateLatLonInputs(polygonObj) {
     origin = [...polygonObj.centroid];
 }
 
-/* ========================================================================
-   ★新增：多邊形名稱編輯功能
-   ======================================================================== */
+/* ★多邊形名稱編輯 */
 
 function startRenamePolygon(id) {
     const nameDiv = document.getElementById('name-' + id);
@@ -1261,7 +1544,7 @@ function startRenamePolygon(id) {
 function handleRenameKeydown(e, id) {
     if (e.key === 'Enter') {
         e.preventDefault();
-        e.target.blur(); // 觸發 onblur -> finishRenamePolygon
+        e.target.blur();
     } else if (e.key === 'Escape') {
         e.preventDefault();
         renameCancelled = true;
@@ -1847,7 +2130,7 @@ function exportPolygonsToSHP() {
                 geometry: { type: 'Polygon', coordinates: [ring] },
                 properties: {
                     PolyID: poly.id,
-                    Name: poly.name, // ★修正：改用使用者自訂名稱，而非固定的「多邊形_N」
+                    Name: poly.name,
                     Area_Sqm: Math.round(turf.area(turf.polygon([ring]))),
                     Color: poly.color
                 }
@@ -1864,7 +2147,7 @@ function exportPolygonsToSHP() {
                 return {
                     type: "Feature",
                     geometry: { type: "Polygon", coordinates: [ring] },
-                    properties: { Name: poly.name, Color: poly.color } // ★修正：同步改用 poly.name
+                    properties: { Name: poly.name, Color: poly.color }
                 };
             })
         };
@@ -1905,7 +2188,6 @@ function importPolygonsFromSHP(event) {
     document.getElementById('shp-file-input').value = '';
 }
 
-/* ===== TWD97 → WGS84 座標轉換工具 ===== */
 function isTWD97Coordinate(x, y) {
     return x > 100000 && x < 400000 && y > 2000000 && y < 2900000;
 }
@@ -1959,7 +2241,6 @@ function convertRingIfNeeded(ring) {
     return ring;
 }
 
-/* ===== 匯入解析主邏輯（含巢狀 features 解包、MultiPolygon 支援、TWD97 自動轉換、名稱還原） ===== */
 function processImportedPolygons(geojson) {
     let data = geojson;
 
@@ -2005,7 +2286,6 @@ function processImportedPolygons(geojson) {
             return;
         }
 
-        // ★新增：嘗試從檔案屬性中還原名稱（相容常見欄位命名）
         const props = feature.properties || {};
         const baseName = props.Name || props.name || props.NAME ||
                           props['名稱'] || props.PolyName || null;
@@ -2038,7 +2318,6 @@ function processImportedPolygons(geojson) {
 
             const points = rings.map(coord => [coord[1], coord[0]]);
 
-            // ★新增：若該筆是從 MultiPolygon 拆解出多個子多邊形，自動加編號避免重名
             let finalName = null;
             if (baseName) {
                 finalName = multiCount > 1 ? `${baseName}_${subIdx + 1}` : baseName;
