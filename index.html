@@ -926,11 +926,12 @@ tr.highlight {
 <script>
 /* ========================================================================
    ★修正版本：都市計畫分區圖強制顯示於最上方
+   移除基礎圖層的強制互斥限制，允許全部關閉
    ======================================================================== */
 
 let map = L.map('map').setView([25.012098, 121.465675], 15);
 
-// 基底圖層
+// 基底圖層（改為可選，不強制互斥）
 const nlscEMAP = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
     { maxZoom:19, attribution:'© NLSC' }
@@ -946,16 +947,17 @@ const osmLayer = L.tileLayer(
     { maxZoom:19, attribution:'© OpenStreetMap' }
 );
 
+// 預設加載 NLSC 電子地圖
 nlscEMAP.addTo(map);
 
-// ★修正：調降地籍圖透明度，避免遮蔽 CGSWMS
+// 調降地籍圖透明度，避免遮蔽 CGSWMS
 const cadastralLayer = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
     { maxZoom:20, opacity:0.5, attribution:'© NLSC', zIndex:200 }
 );
 cadastralLayer.addTo(map);
 
-// ★修正：改善 CGSWMS 圖層設定（方案 A：LANDZONING）
+// 都市計畫分區圖（WMS）
 const cgswmsLayer = L.tileLayer.wms(
     'https://cgswms.moeacgs.gov.tw/gis/wms',
     {
@@ -973,7 +975,7 @@ const cgswmsLayer = L.tileLayer.wms(
     }
 );
 
-// ★備選方案 B：RASTERMAP（地形圖）
+// CGSWMS 地形圖（備選）
 const cgswmsRasterLayer = L.tileLayer.wms(
     'https://cgswms.moeacgs.gov.tw/gis/wms',
     {
@@ -989,16 +991,17 @@ const cgswmsRasterLayer = L.tileLayer.wms(
     }
 );
 
-// 預設加入 CGSWMS 都市計畫分區圖
+// 預設加入都市計畫分區圖
 cgswmsLayer.addTo(map);
 
-const baseMaps = {
-    "NLSC 電子地圖": nlscEMAP,
-    "NLSC 正射影像": nlscPHOTO,
-    "OpenStreetMap": osmLayer
-};
+// ★修正：移除基礎圖層的強制互斥限制
+// 將基礎圖層和可選圖層統一為 overlayMaps（可選擇開啟/關閉）
+const baseMaps = {};  // 空白，不作為互斥的基礎圖層
 
 const overlayMaps = {
+    "🟦 NLSC 電子地圖": nlscEMAP,
+    "📷 NLSC 正射影像": nlscPHOTO,
+    "🌍 OpenStreetMap": osmLayer,
     "地籍圖": cadastralLayer,
     "🏗️ 都市計畫分區圖（推薦）": cgswmsLayer,
     "🗺️ CGSWMS 地形圖（備選）": cgswmsRasterLayer
@@ -1007,13 +1010,12 @@ const overlayMaps = {
 const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
 
 /* ========================================================================
-   1️⃣ 圖層勾選事件監聽（新增）
-   當都市計畫分區圖被勾選時，強制其顯示於最上方，避免被其他圖層遮蔽
+   圖層勾選事件監聽
+   當都市計畫分區圖被勾選時，強制其顯示於最上方
    ======================================================================== */
 map.on('layeradd', (e) => {
     if (e.layer === cgswmsLayer) {
         console.log('✅ 都市計畫分區圖已啟用 - layeradd 事件觸發');
-        // 延遲執行以確保圖層已完全加入
         setTimeout(() => {
             cgswmsLayer.bringToFront();
             console.log('✅ 都市計畫分區圖已置於最上方');
@@ -1022,7 +1024,6 @@ map.on('layeradd', (e) => {
     }
 });
 
-/* 加載狀態監聽 */
 cgswmsLayer.on('loading', () => {
     console.log('📡 CGSWMS 都市計畫圖層正在加載...');
 });
@@ -1035,16 +1036,12 @@ cgswmsLayer.on('tileerror', (e) => {
     console.error('❌ CGSWMS 圖層載入失敗', e);
 });
 
-/* ========================================================================
-   2️⃣ 縮放時自動置頂（新增）
-   每次縮放地圖時，確保都市計畫分區圖保持在最上方
-   ======================================================================== */
+/* 縮放時自動置頂 */
 map.on('zoomend', () => {
     const z = map.getZoom();
     if (z < 9 && map.hasLayer(cgswmsLayer)) {
         console.warn('⚠️ 縮放層級過低，CGSWMS 可能不顯示。請放大地圖到 Zoom 10+');
     }
-    // 每次縮放時確保圖層在最上面
     if (map.hasLayer(cgswmsLayer)) {
         console.log(`🔄 Zoom ${z} - 確保 CGSWMS 圖層保持在最上方`);
         cgswmsLayer.bringToFront();
@@ -1112,7 +1109,7 @@ function toggleLayerControl() {
 }
 
 /* ========================================================================
-   工具函數：HTML 轉義（避免匯入名稱造成注入或版面錯亂）
+   工具函數：HTML 轉義
    ======================================================================== */
 
 function escapeHtml(str) {
@@ -1436,7 +1433,7 @@ function clearRoute() {
 }
 
 /* ========================================================================
-   3️⃣ showToast 函數增強（修改）
+   showToast 函數增強
    支援自訂訊息顯示時間，預設 3000ms
    ======================================================================== */
 function showToast(msg, duration = 3000) {
