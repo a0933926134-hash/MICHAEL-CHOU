@@ -920,7 +920,7 @@ tr.highlight {
 </div>
 
 <div id="statusBar">
-    圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 離線模式
+    圖資來源：© OpenStreetMap contributors ／ © NLSC ／ © 中央地調所 CGSWMS | 🟢 離線模式
 </div>
 
 <script>
@@ -953,6 +953,22 @@ const cadastralLayer = L.tileLayer(
 );
 cadastralLayer.addTo(map);
 
+/* ★新增：中央地調所 CGSWMS 都市計畫分區圖層 */
+const cgswmsLayer = L.tileLayer.wms(
+    'https://cgswms.moeacgs.gov.tw/gis/wms',
+    {
+        layers: 'NLSC:LANDZONING',
+        styles: '',
+        format: 'image/png',
+        transparent: true,
+        attribution: '© 中央地調所',
+        maxZoom: 18,
+        opacity: 0.5,
+        crossOrigin: true
+    }
+);
+cgswmsLayer.addTo(map);
+
 const baseMaps = {
     "NLSC 電子地圖": nlscEMAP,
     "NLSC 正射影像": nlscPHOTO,
@@ -960,7 +976,8 @@ const baseMaps = {
 };
 
 const overlayMaps = {
-    "地籍圖": cadastralLayer
+    "地籍圖": cadastralLayer,
+    "都市計畫分區圖 (CGSWMS)": cgswmsLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
@@ -979,8 +996,8 @@ let drawPoints = [];
 let previewPolyline = null;
 let isDrawingPolygon = false;
 let drawMarkers = L.layerGroup().addTo(map);
-let polygonIdCounter = 0; // 唯一 ID 計數器，避免匯入時 ID 重複
-let renameCancelled = false; // ★新增：用於處理重新命名 Escape 取消的旗標
+let polygonIdCounter = 0;
+let renameCancelled = false;
 
 const polygonColors = [
     '#dc2626', '#f97316', '#eab308', '#22c55e', '#06b6d4',
@@ -1068,10 +1085,7 @@ function finishPolygon() {
     showToast('✓ 多邊形已完成');
 }
 
-/* ★修正：新增第二個參數 customName，供繪製／匯入時指定名稱；
-   若未提供則沿用預設「多邊形 N」命名規則 */
 function createPolygonObject(points, customName) {
-    // 使用時間戳 + 累加計數器，確保多邊形 ID 絕對唯一
     const id = 'poly_' + Date.now() + '_' + (polygonIdCounter++);
     const colorIndex = polygons.length % polygonColors.length;
     const color = polygonColors[colorIndex];
@@ -1081,7 +1095,7 @@ function createPolygonObject(points, customName) {
     
     const polygonObj = {
         id: id,
-        name: finalName, // ★新增：可編輯的名稱屬性
+        name: finalName,
         points: [...points],
         layer: null,
         markers: L.layerGroup(),
@@ -1123,7 +1137,6 @@ function renderPolygonLayer(polygonObj) {
     };
     polygonObj.layer = L.polygon(polygonObj.points, style).addTo(map);
 
-    // 允許直接點擊地圖上的多邊形本體來選取該多邊形
     polygonObj.layer.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         if (isDrawingPolygon) return;
@@ -1168,8 +1181,6 @@ function renderEditHandles(polygonObj) {
 }
 
 function selectPolygon(id) {
-    // 切換選取時，正確地把「先前被選取、現在要取消選取」的多邊形
-    // 重新渲染回未選取樣式（移除編輯控制點、恢復虛線細框）
     polygons.forEach(p => {
         const wasSelected = p.isSelected;
         p.isSelected = (p.id === id);
@@ -1223,7 +1234,7 @@ function updateLatLonInputs(polygonObj) {
 }
 
 /* ========================================================================
-   ★新增：多邊形名稱編輯功能
+   多邊形名稱編輯功能
    ======================================================================== */
 
 function startRenamePolygon(id) {
@@ -1247,7 +1258,7 @@ function startRenamePolygon(id) {
 function handleRenameKeydown(e, id) {
     if (e.key === 'Enter') {
         e.preventDefault();
-        e.target.blur(); // 觸發 onblur -> finishRenamePolygon
+        e.target.blur();
     } else if (e.key === 'Escape') {
         e.preventDefault();
         renameCancelled = true;
@@ -1833,7 +1844,7 @@ function exportPolygonsToSHP() {
                 geometry: { type: 'Polygon', coordinates: [ring] },
                 properties: {
                     PolyID: poly.id,
-                    Name: poly.name, // ★修正：改用使用者自訂名稱，而非固定的「多邊形_N」
+                    Name: poly.name,
                     Area_Sqm: Math.round(turf.area(turf.polygon([ring]))),
                     Color: poly.color
                 }
@@ -1850,7 +1861,7 @@ function exportPolygonsToSHP() {
                 return {
                     type: "Feature",
                     geometry: { type: "Polygon", coordinates: [ring] },
-                    properties: { Name: poly.name, Color: poly.color } // ★修正：同步改用 poly.name
+                    properties: { Name: poly.name, Color: poly.color }
                 };
             })
         };
@@ -1945,7 +1956,6 @@ function convertRingIfNeeded(ring) {
     return ring;
 }
 
-/* ===== 匯入解析主邏輯（含巢狀 features 解包、MultiPolygon 支援、TWD97 自動轉換、名稱還原） ===== */
 function processImportedPolygons(geojson) {
     let data = geojson;
 
@@ -1991,7 +2001,6 @@ function processImportedPolygons(geojson) {
             return;
         }
 
-        // ★新增：嘗試從檔案屬性中還原名稱（相容常見欄位命名）
         const props = feature.properties || {};
         const baseName = props.Name || props.name || props.NAME ||
                           props['名稱'] || props.PolyName || null;
@@ -2024,7 +2033,6 @@ function processImportedPolygons(geojson) {
 
             const points = rings.map(coord => [coord[1], coord[0]]);
 
-            // ★新增：若該筆是從 MultiPolygon 拆解出多個子多邊形，自動加編號避免重名
             let finalName = null;
             if (baseName) {
                 finalName = multiCount > 1 ? `${baseName}_${subIdx + 1}` : baseName;
