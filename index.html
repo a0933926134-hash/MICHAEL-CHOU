@@ -959,8 +959,9 @@ cadastralLayer.addTo(map);
 
 // 都市計畫分區圖（改善 WMS 設定）
 const cgswmsLayer = L.tileLayer.wms(
-    'https://cgswms.moeacgs.gov.tw/gis/wms',
-    {
+    CORS_PROXY + 'https://cgswms.moeacgs.gov.tw/gis/wms',
+    { layers: 'NLSC:LANDZONING', crossOrigin: 'anonymous', ... }
+);
         layers: 'NLSC:LANDZONING',
         styles: '',
         format: 'image/png',
@@ -979,9 +980,10 @@ const cgswmsLayer = L.tileLayer.wms(
 );
 
 // 地形圖備選方案
-const cgswmsRasterLayer = L.tileLayer.wms(
-    'https://cgswms.moeacgs.gov.tw/gis/wms',
-    {
+const rasterMapLayer = L.tileLayer.wms(
+    CORS_PROXY + 'https://cgswms.moeacgs.gov.tw/gis/wms',
+    { layers: 'NLSC:RASTERMAP', crossOrigin: 'anonymous', ... }
+);
         layers: 'NLSC:RASTERMAP',
         format: 'image/png',
         transparent: true,
