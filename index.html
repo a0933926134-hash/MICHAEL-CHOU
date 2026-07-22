@@ -294,22 +294,15 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex: 1;
-    min-width: 0;
 }
 
 .polygon-item-name {
     flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .polygon-item-actions {
     display: flex;
     gap: 4px;
-    flex-shrink: 0;
 }
 
 .polygon-item-btn {
@@ -328,26 +321,6 @@ body {
 
 .polygon-delete-btn:hover {
     background: #fecaca;
-}
-
-.polygon-rename-btn {
-    background: #dbeafe;
-    color: #1d4ed8;
-}
-
-.polygon-rename-btn:hover {
-    background: #bfdbfe;
-}
-
-.polygon-rename-input {
-    width: 100%;
-    padding: 3px 6px;
-    border: 1px solid #2563eb;
-    border-radius: 4px;
-    font-size: 12px;
-    outline: none;
-    background: white;
-    box-sizing: border-box;
 }
 
 #toolbar {
@@ -838,7 +811,7 @@ tr.highlight {
             <div id="polygonList"></div>
             
             <div style="font-size: 11px; color: #666; padding: 8px 0; margin: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
-                ℹ️ 選中多邊形後，查詢將以其形心為中心點進行；雙擊名稱或點擊 ✎ 可編輯名稱
+                ℹ️ 選中多邊形後，查詢將以其形心為中心點進行
             </div>
         </div>
         
@@ -920,18 +893,16 @@ tr.highlight {
 </div>
 
 <div id="statusBar">
-    圖資來源：© OpenStreetMap contributors ／ © NLSC ／ © 中央地調所 CGSWMS | 🟢 離線模式
+    圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 離線模式
 </div>
 
 <script>
 /* ========================================================================
-   ★修正版本：都市計畫分區圖強制顯示於最上方
-   移除基礎圖層的強制互斥限制，允許全部關閉
+   全域變數初始化
    ======================================================================== */
 
 let map = L.map('map').setView([25.012098, 121.465675], 15);
 
-// 基底圖層（改為可選，不強制互斥）
 const nlscEMAP = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
     { maxZoom:19, attribution:'© NLSC' }
@@ -947,106 +918,25 @@ const osmLayer = L.tileLayer(
     { maxZoom:19, attribution:'© OpenStreetMap' }
 );
 
-// 預設加載 NLSC 電子地圖
 nlscEMAP.addTo(map);
 
-// 調降地籍圖透明度，避免遮蔽 CGSWMS
 const cadastralLayer = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
-    { maxZoom:20, opacity:0.5, attribution:'© NLSC', zIndex:200 }
+    { maxZoom:20, opacity:0.75, attribution:'© NLSC' }
 );
 cadastralLayer.addTo(map);
 
-// 都市計畫分區圖（WMS）
-const cgswmsLayer = L.tileLayer.wms(
-    'https://cgswms.moeacgs.gov.tw/gis/wms',
-    {
-        layers: 'NLSC:LANDZONING',
-        styles: '',
-        format: 'image/png',
-        transparent: true,
-        attribution: '© 中央地調所 CGSWMS',
-        maxZoom: 18,
-        minZoom: 9,
-        opacity: 0.7,
-        crossOrigin: 'anonymous',
-        zIndex: 300,
-        tiled: true
-    }
-);
-
-// CGSWMS 地形圖（備選）
-const cgswmsRasterLayer = L.tileLayer.wms(
-    'https://cgswms.moeacgs.gov.tw/gis/wms',
-    {
-        layers: 'NLSC:RASTERMAP',
-        format: 'image/png',
-        transparent: true,
-        attribution: '© 中央地調所（地形圖）',
-        maxZoom: 18,
-        minZoom: 9,
-        opacity: 0.6,
-        crossOrigin: 'anonymous',
-        zIndex: 250
-    }
-);
-
-// 預設加入都市計畫分區圖
-cgswmsLayer.addTo(map);
-
-// ★修正：移除基礎圖層的強制互斥限制
-// 將基礎圖層和可選圖層統一為 overlayMaps（可選擇開啟/關閉）
-const baseMaps = {};  // 空白，不作為互斥的基礎圖層
-
-const overlayMaps = {
-    "🟦 NLSC 電子地圖": nlscEMAP,
-    "📷 NLSC 正射影像": nlscPHOTO,
-    "🌍 OpenStreetMap": osmLayer,
-    "地籍圖": cadastralLayer,
-    "🏗️ 都市計畫分區圖（推薦）": cgswmsLayer,
-    "🗺️ CGSWMS 地形圖（備選）": cgswmsRasterLayer
+const baseMaps = {
+    "NLSC 電子地圖": nlscEMAP,
+    "NLSC 正射影像": nlscPHOTO,
+    "OpenStreetMap": osmLayer
 };
 
-const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
+const overlayMaps = {
+    "地籍圖": cadastralLayer
+};
 
-/* ========================================================================
-   圖層勾選事件監聽
-   當都市計畫分區圖被勾選時，強制其顯示於最上方
-   ======================================================================== */
-map.on('layeradd', (e) => {
-    if (e.layer === cgswmsLayer) {
-        console.log('✅ 都市計畫分區圖已啟用 - layeradd 事件觸發');
-        setTimeout(() => {
-            cgswmsLayer.bringToFront();
-            console.log('✅ 都市計畫分區圖已置於最上方');
-            showToast('✅ 都市計畫分區圖已顯示（最上層）', 3000);
-        }, 100);
-    }
-});
-
-cgswmsLayer.on('loading', () => {
-    console.log('📡 CGSWMS 都市計畫圖層正在加載...');
-});
-
-cgswmsLayer.on('load', () => {
-    console.log('✅ CGSWMS 都市計畫圖層加載完成');
-});
-
-cgswmsLayer.on('tileerror', (e) => {
-    console.error('❌ CGSWMS 圖層載入失敗', e);
-});
-
-/* 縮放時自動置頂 */
-map.on('zoomend', () => {
-    const z = map.getZoom();
-    if (z < 9 && map.hasLayer(cgswmsLayer)) {
-        console.warn('⚠️ 縮放層級過低，CGSWMS 可能不顯示。請放大地圖到 Zoom 10+');
-    }
-    if (map.hasLayer(cgswmsLayer)) {
-        console.log(`🔄 Zoom ${z} - 確保 CGSWMS 圖層保持在最上方`);
-        cgswmsLayer.bringToFront();
-    }
-});
+L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
 
 /* 查詢變數 */
 let markerLayer = L.layerGroup().addTo(map);
@@ -1062,8 +952,7 @@ let drawPoints = [];
 let previewPolyline = null;
 let isDrawingPolygon = false;
 let drawMarkers = L.layerGroup().addTo(map);
-let polygonIdCounter = 0;
-let renameCancelled = false;
+let polygonIdCounter = 0; // ★修正：唯一 ID 計數器，避免匯入時 ID 重複
 
 const polygonColors = [
     '#dc2626', '#f97316', '#eab308', '#22c55e', '#06b6d4',
@@ -1109,20 +998,6 @@ function toggleLayerControl() {
 }
 
 /* ========================================================================
-   工具函數：HTML 轉義
-   ======================================================================== */
-
-function escapeHtml(str) {
-    if (str == null) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-/* ========================================================================
    多邊形繪製邏輯
    ======================================================================== */
 
@@ -1151,17 +1026,15 @@ function finishPolygon() {
     showToast('✓ 多邊形已完成');
 }
 
-function createPolygonObject(points, customName) {
+function createPolygonObject(points) {
+    // ★修正：使用時間戳 + 累加計數器，確保多邊形 ID 絕對唯一
+    // （原本單獨用 Date.now() 在批量匯入時，同一毫秒內建立多個多邊形會導致 ID 重複）
     const id = 'poly_' + Date.now() + '_' + (polygonIdCounter++);
     const colorIndex = polygons.length % polygonColors.length;
     const color = polygonColors[colorIndex];
-
-    const defaultName = `多邊形 ${polygons.length + 1}`;
-    const finalName = (customName && String(customName).trim()) ? String(customName).trim() : defaultName;
     
     const polygonObj = {
         id: id,
-        name: finalName,
         points: [...points],
         layer: null,
         markers: L.layerGroup(),
@@ -1177,7 +1050,6 @@ function createPolygonObject(points, customName) {
     polygons.push(polygonObj);
     selectPolygon(id);
     renderPolygonList();
-    return polygonObj;
 }
 
 function updatePolygonCentroid(polygonObj) {
@@ -1203,6 +1075,7 @@ function renderPolygonLayer(polygonObj) {
     };
     polygonObj.layer = L.polygon(polygonObj.points, style).addTo(map);
 
+    // ★新增：允許直接點擊地圖上的多邊形本體來選取該多邊形
     polygonObj.layer.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         if (isDrawingPolygon) return;
@@ -1247,6 +1120,9 @@ function renderEditHandles(polygonObj) {
 }
 
 function selectPolygon(id) {
+    // ★修正：切換選取時，正確地把「先前被選取、現在要取消選取」的多邊形
+    // 重新渲染回未選取樣式（移除編輯控制點、恢復虛線細框），
+    // 避免匯入多筆資料後，畫面上所有多邊形都停留在「選取中」的視覺樣式。
     polygons.forEach(p => {
         const wasSelected = p.isSelected;
         p.isSelected = (p.id === id);
@@ -1299,55 +1175,6 @@ function updateLatLonInputs(polygonObj) {
     origin = [...polygonObj.centroid];
 }
 
-/* ========================================================================
-   多邊形名稱編輯功能
-   ======================================================================== */
-
-function startRenamePolygon(id) {
-    const nameDiv = document.getElementById('name-' + id);
-    const poly = polygons.find(p => p.id === id);
-    if (!nameDiv || !poly) return;
-
-    nameDiv.innerHTML = `<input type="text" class="polygon-rename-input" id="rename-input-${id}"
-        value="${escapeHtml(poly.name)}"
-        onclick="event.stopPropagation();"
-        onkeydown="handleRenameKeydown(event, '${id}')"
-        onblur="finishRenamePolygon('${id}', this.value)">`;
-
-    const input = document.getElementById('rename-input-' + id);
-    if (input) {
-        input.focus();
-        input.select();
-    }
-}
-
-function handleRenameKeydown(e, id) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        e.target.blur();
-    } else if (e.key === 'Escape') {
-        e.preventDefault();
-        renameCancelled = true;
-        renderPolygonList();
-    }
-}
-
-function finishRenamePolygon(id, newValue) {
-    if (renameCancelled) {
-        renameCancelled = false;
-        return;
-    }
-    const poly = polygons.find(p => p.id === id);
-    if (!poly) return;
-
-    const trimmed = (newValue || '').trim();
-    if (trimmed) {
-        poly.name = trimmed;
-        showToast('✓ 名稱已更新');
-    }
-    renderPolygonList();
-}
-
 function renderPolygonList() {
     const listDiv = document.getElementById('polygonList');
     const countSpan = document.getElementById('polyCount');
@@ -1358,21 +1185,14 @@ function renderPolygonList() {
         return;
     }
     
-    listDiv.innerHTML = polygons.map((poly) => `
+    listDiv.innerHTML = polygons.map((poly, idx) => `
         <div class="polygon-item ${poly.isSelected ? 'selected' : ''}" onclick="selectPolygon('${poly.id}')">
             <div class="polygon-item-info">
                 <div style="width:14px;height:14px;background:${poly.color};border-radius:3px;flex-shrink:0;"></div>
-                <div class="polygon-item-name" id="name-${poly.id}"
-                     ondblclick="event.stopPropagation(); startRenamePolygon('${poly.id}')"
-                     title="雙擊可編輯名稱">${escapeHtml(poly.name)}</div>
+                <div class="polygon-item-name">多邊形 ${idx + 1}</div>
             </div>
             <div class="polygon-item-actions">
-                <button class="polygon-item-btn polygon-rename-btn"
-                        onclick="event.stopPropagation(); startRenamePolygon('${poly.id}')"
-                        title="編輯名稱">✎</button>
-                <button class="polygon-item-btn polygon-delete-btn"
-                        onclick="event.stopPropagation(); deletePolygon('${poly.id}');"
-                        title="刪除">✕</button>
+                <button class="polygon-item-btn polygon-delete-btn" onclick="deletePolygon('${poly.id}');event.stopPropagation();">✕</button>
             </div>
         </div>
     `).join('');
@@ -1432,16 +1252,12 @@ function clearRoute() {
     routeCard.classList.add('hidden');
 }
 
-/* ========================================================================
-   showToast 函數增強
-   支援自訂訊息顯示時間，預設 3000ms
-   ======================================================================== */
-function showToast(msg, duration = 3000) {
+function showToast(msg) {
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.innerText = msg;
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), duration);
+    setTimeout(() => toast.remove(), 3000);
 }
 
 /* ========================================================================
@@ -1907,14 +1723,14 @@ function exportPolygonsToSHP() {
     }
 
     try {
-        const features = polygons.map((poly) => {
+        const features = polygons.map((poly, idx) => {
             let ring = poly.points.map(p => [Number(p[1]), Number(p[0])]);
             ring.push([Number(poly.points[0][1]), Number(poly.points[0][0])]);
             return {
                 geometry: { type: 'Polygon', coordinates: [ring] },
                 properties: {
                     PolyID: poly.id,
-                    Name: poly.name,
+                    Name: `多邊形_${idx + 1}`,
                     Area_Sqm: Math.round(turf.area(turf.polygon([ring]))),
                     Color: poly.color
                 }
@@ -1925,13 +1741,13 @@ function exportPolygonsToSHP() {
     } catch (err) {
         let geojsonObj = {
             type: "FeatureCollection",
-            features: polygons.map((poly) => {
+            features: polygons.map((poly, idx) => {
                 let ring = poly.points.map(p => [Number(p[1]), Number(p[0])]);
                 ring.push([Number(poly.points[0][1]), Number(poly.points[0][0])]);
                 return {
                     type: "Feature",
                     geometry: { type: "Polygon", coordinates: [ring] },
-                    properties: { Name: poly.name, Color: poly.color }
+                    properties: { Name: `多邊形_${idx + 1}`, Color: poly.color }
                 };
             })
         };
@@ -2026,6 +1842,7 @@ function convertRingIfNeeded(ring) {
     return ring;
 }
 
+/* ===== 匯入解析主邏輯（含巢狀 features 解包、MultiPolygon 支援、TWD97 自動轉換） ===== */
 function processImportedPolygons(geojson) {
     let data = geojson;
 
@@ -2071,12 +1888,7 @@ function processImportedPolygons(geojson) {
             return;
         }
 
-        const props = feature.properties || {};
-        const baseName = props.Name || props.name || props.NAME ||
-                          props['名稱'] || props.PolyName || null;
-        const multiCount = polygonsCoords.length;
-
-        polygonsCoords.forEach((rings, subIdx) => {
+        polygonsCoords.forEach(rings => {
             if (!rings || rings.length < 3) { skippedCount++; return; }
 
             const beforeSample = rings[0];
@@ -2102,13 +1914,7 @@ function processImportedPolygons(geojson) {
             }
 
             const points = rings.map(coord => [coord[1], coord[0]]);
-
-            let finalName = null;
-            if (baseName) {
-                finalName = multiCount > 1 ? `${baseName}_${subIdx + 1}` : baseName;
-            }
-
-            createPolygonObject(points, finalName);
+            createPolygonObject(points);
             importedCount++;
         });
     });
