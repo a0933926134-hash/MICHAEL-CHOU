@@ -25,9 +25,6 @@ body {
 
 #map { height: 100vh; width: 100%; }
 
-/* ★ 新 UI 佈局 */
-
-/* 左側邊欄 - 可收起 */
 #sidebar {
     position: absolute;
     left: 0;
@@ -69,7 +66,6 @@ body {
     background: #f3f4f6;
 }
 
-/* 邊欄頭部 */
 #sidebarHeader {
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
     color: white;
@@ -90,7 +86,6 @@ body {
     margin: 6px 0 0 0;
 }
 
-/* 邊欄內容區域 */
 #sidebarContent {
     flex: 1;
     overflow-y: auto;
@@ -114,7 +109,6 @@ body {
     background: #94a3b8;
 }
 
-/* 邊欄分區 */
 .sidebar-section {
     padding: 16px;
     border-bottom: 1px solid #f0f0f0;
@@ -134,7 +128,6 @@ body {
     font-size: 18px;
 }
 
-/* 輸入框組 */
 .input-group {
     margin-bottom: 10px;
 }
@@ -167,7 +160,6 @@ body {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-/* 複選框列表 */
 .checkbox-group {
     display: flex;
     flex-direction: column;
@@ -203,7 +195,6 @@ body {
     margin: 0;
 }
 
-/* 按鈕組 */
 .button-group {
     display: flex;
     gap: 8px;
@@ -263,7 +254,6 @@ body {
     font-size: 11px;
 }
 
-/* 多邊形管理面板 */
 #polygonManager {
     background: #f9fafb;
     border-top: 2px solid #e5e7eb;
@@ -304,15 +294,22 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: 1;
+    min-width: 0;
 }
 
 .polygon-item-name {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .polygon-item-actions {
     display: flex;
     gap: 4px;
+    flex-shrink: 0;
 }
 
 .polygon-item-btn {
@@ -333,7 +330,26 @@ body {
     background: #fecaca;
 }
 
-/* 頂部工具欄 */
+.polygon-rename-btn {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.polygon-rename-btn:hover {
+    background: #bfdbfe;
+}
+
+.polygon-rename-input {
+    width: 100%;
+    padding: 3px 6px;
+    border: 1px solid #2563eb;
+    border-radius: 4px;
+    font-size: 12px;
+    outline: none;
+    background: white;
+    box-sizing: border-box;
+}
+
 #toolbar {
     position: absolute;
     top: 12px;
@@ -383,7 +399,6 @@ body {
     color: #1d4ed8;
 }
 
-/* 底部狀態欄 */
 #statusBar {
     position: absolute;
     bottom: 12px;
@@ -397,7 +412,6 @@ body {
     z-index: 800;
 }
 
-/* 結果面板 - 浮動 */
 #resultPanel {
     position: absolute;
     bottom: 20px;
@@ -504,44 +518,6 @@ tr.highlight {
     background: #fef08a !important;
 }
 
-/* 坡度分析面板 */
-#slopePanel {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    width: 300px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    z-index: 850;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-#slopeHeader {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    color: white;
-    padding: 12px 16px;
-    font-weight: 600;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: grab;
-    user-select: none;
-}
-
-#slopeContent {
-    padding: 12px;
-    background: #fffbeb;
-    color: #78350f;
-    font-size: 12px;
-    line-height: 1.6;
-    max-height: 250px;
-    overflow-y: auto;
-}
-
-/* 路線資訊卡 */
 #routeCard {
     position: absolute;
     top: 80px;
@@ -565,7 +541,6 @@ tr.highlight {
     font-size: 14px;
 }
 
-/* 抽屜式輸入法 - 繪製控制 */
 #drawToolbar {
     position: absolute;
     top: 12px;
@@ -636,7 +611,6 @@ tr.highlight {
     border-color: #059669;
 }
 
-/* 上傳檔案 */
 .file-upload-label {
     display: flex;
     align-items: center;
@@ -660,7 +634,6 @@ tr.highlight {
     display: none;
 }
 
-/* 回應式設計 */
 @media (max-width: 1024px) {
     #sidebar {
         width: 320px;
@@ -712,7 +685,6 @@ tr.highlight {
     }
 }
 
-/* 圖表虛擬光標效果 */
 .edit-handle {
     width: 12px;
     height: 12px;
@@ -722,7 +694,6 @@ tr.highlight {
     box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
-/* 地圖標註 */
 .map-tooltip {
     background: rgba(0,0,0,0.8);
     color: white;
@@ -731,7 +702,6 @@ tr.highlight {
     font-size: 11px;
 }
 
-/* 通知 */
 .toast {
     position: fixed;
     bottom: 20px;
@@ -755,7 +725,6 @@ tr.highlight {
 </head>
 <body>
 
-<!-- ★ 新佈局：左側邊欄 -->
 <div id="sidebar">
     <div id="sidebarToggle">◀</div>
     
@@ -765,7 +734,6 @@ tr.highlight {
     </div>
     
     <div id="sidebarContent">
-        <!-- 位置設定 -->
         <div class="sidebar-section">
             <h3><span>📍</span> 查詢位置</h3>
             
@@ -790,7 +758,6 @@ tr.highlight {
             </div>
         </div>
         
-        <!-- 設施類型 -->
         <div class="sidebar-section">
             <h3><span>🏢</span> 分析設施類型</h3>
             
@@ -865,35 +832,28 @@ tr.highlight {
             </div>
         </div>
         
-        <!-- 多邊形管理 -->
         <div class="sidebar-section" id="polygonManager">
             <h3><span>📦</span> 繪製範圍 (<span id="polyCount">0</span>)</h3>
             
             <div id="polygonList"></div>
             
             <div style="font-size: 11px; color: #666; padding: 8px 0; margin: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
-                ℹ️ 選中多邊形後，查詢將以其形心為中心點進行
+                ℹ️ 選中多邊形後，查詢將以其形心為中心點進行；雙擊名稱或點擊 ✎ 可編輯名稱
             </div>
         </div>
         
-        <!-- 查詢按鈕 -->
         <div class="sidebar-section">
             <button class="btn-primary" id="query-btn" onclick="runQuery()" style="width: 100%; padding: 12px; font-size: 14px;">🔍 查詢分析</button>
         </div>
     </div>
 </div>
 
-<!-- ★ 地圖 -->
 <div id="map"></div>
 
-<!-- ★ 頂部工具欄 -->
 <div id="toolbar">
     <div class="toolbar-section">
         <button class="toolbar-btn" onclick="toggleDrawMode(this)">
             📐 開始繪製
-        </button>
-        <button class="toolbar-btn" onclick="toggleSlopeAnalysis()">
-            🌄 坡度分析
         </button>
         <button class="toolbar-btn" onclick="toggleLayerControl()">
             🗺️ 圖層控制
@@ -901,7 +861,6 @@ tr.highlight {
     </div>
 </div>
 
-<!-- ★ 繪製工具欄 -->
 <div id="drawToolbar" class="hidden">
     <div class="draw-section">
         <h4>繪製模式</h4>
@@ -930,7 +889,6 @@ tr.highlight {
     </div>
 </div>
 
-<!-- ★ 結果面板 -->
 <div id="resultPanel" class="hidden">
     <div id="resultHeader">
         📊 查詢結果
@@ -954,18 +912,6 @@ tr.highlight {
     </div>
 </div>
 
-<!-- ★ 坡度分析面板 -->
-<div id="slopePanel">
-    <div id="slopeHeader">
-        🌄 地形坡度分析
-        <button onclick="analyzeSlope()" style="background: rgba(255,255,255,0.3); border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">執行</button>
-    </div>
-    <div id="slopeContent">
-        <p>點擊「執行」按鈕分析選中多邊形或查詢區域的地形坡度。</p>
-    </div>
-</div>
-
-<!-- ★ 路線資訊卡 -->
 <div id="routeCard" class="hidden">
     <strong>🛣️ 路線距離</strong>
     <div id="routeInfo" style="margin-top: 6px;">
@@ -973,19 +919,19 @@ tr.highlight {
     </div>
 </div>
 
-<!-- ★ 底部狀態欄 -->
 <div id="statusBar">
-    圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 離線模式
+    圖資來源：© OpenStreetMap contributors ／ © NLSC ／ © 中央地調所 CGSWMS | 🟢 離線模式
 </div>
 
 <script>
 /* ========================================================================
-   全域變數初始化
+   ★修正版本：都市計畫分區圖強制顯示於最上方
+   移除基礎圖層的強制互斥限制，允許全部關閉
    ======================================================================== */
 
 let map = L.map('map').setView([25.012098, 121.465675], 15);
 
-// NLSC 圖層
+// 基底圖層（改為可選，不強制互斥）
 const nlscEMAP = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
     { maxZoom:19, attribution:'© NLSC' }
@@ -1001,31 +947,106 @@ const osmLayer = L.tileLayer(
     { maxZoom:19, attribution:'© OpenStreetMap' }
 );
 
+// 預設加載 NLSC 電子地圖
 nlscEMAP.addTo(map);
 
+// 調降地籍圖透明度，避免遮蔽 CGSWMS
 const cadastralLayer = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
-    { maxZoom:20, opacity:0.75, attribution:'© NLSC' }
+    { maxZoom:20, opacity:0.5, attribution:'© NLSC', zIndex:200 }
 );
 cadastralLayer.addTo(map);
 
-const baseMaps = {
-    "NLSC 電子地圖": nlscEMAP,
-    "NLSC 正射影像": nlscPHOTO,
-    "OpenStreetMap": osmLayer
-};
-
-const nlscDEM = L.tileLayer(
-    'https://wmts.nlsc.gov.tw/wmts/EMAP5_OPENDATA/default/EPSG:3857/{z}/{y}/{x}',
-    { maxZoom:18, opacity:0.45, attribution:'© NLSC DEM' }
+// 都市計畫分區圖（WMS）
+const cgswmsLayer = L.tileLayer.wms(
+    'https://cgswms.moeacgs.gov.tw/gis/wms',
+    {
+        layers: 'NLSC:LANDZONING',
+        styles: '',
+        format: 'image/png',
+        transparent: true,
+        attribution: '© 中央地調所 CGSWMS',
+        maxZoom: 18,
+        minZoom: 9,
+        opacity: 0.7,
+        crossOrigin: 'anonymous',
+        zIndex: 300,
+        tiled: true
+    }
 );
 
+// CGSWMS 地形圖（備選）
+const cgswmsRasterLayer = L.tileLayer.wms(
+    'https://cgswms.moeacgs.gov.tw/gis/wms',
+    {
+        layers: 'NLSC:RASTERMAP',
+        format: 'image/png',
+        transparent: true,
+        attribution: '© 中央地調所（地形圖）',
+        maxZoom: 18,
+        minZoom: 9,
+        opacity: 0.6,
+        crossOrigin: 'anonymous',
+        zIndex: 250
+    }
+);
+
+// 預設加入都市計畫分區圖
+cgswmsLayer.addTo(map);
+
+// ★修正：移除基礎圖層的強制互斥限制
+// 將基礎圖層和可選圖層統一為 overlayMaps（可選擇開啟/關閉）
+const baseMaps = {};  // 空白，不作為互斥的基礎圖層
+
 const overlayMaps = {
+    "🟦 NLSC 電子地圖": nlscEMAP,
+    "📷 NLSC 正射影像": nlscPHOTO,
+    "🌍 OpenStreetMap": osmLayer,
     "地籍圖": cadastralLayer,
-    "DEM 地形": nlscDEM
+    "🏗️ 都市計畫分區圖（推薦）": cgswmsLayer,
+    "🗺️ CGSWMS 地形圖（備選）": cgswmsRasterLayer
 };
 
-L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
+const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
+
+/* ========================================================================
+   圖層勾選事件監聽
+   當都市計畫分區圖被勾選時，強制其顯示於最上方
+   ======================================================================== */
+map.on('layeradd', (e) => {
+    if (e.layer === cgswmsLayer) {
+        console.log('✅ 都市計畫分區圖已啟用 - layeradd 事件觸發');
+        setTimeout(() => {
+            cgswmsLayer.bringToFront();
+            console.log('✅ 都市計畫分區圖已置於最上方');
+            showToast('✅ 都市計畫分區圖已顯示（最上層）', 3000);
+        }, 100);
+    }
+});
+
+cgswmsLayer.on('loading', () => {
+    console.log('📡 CGSWMS 都市計畫圖層正在加載...');
+});
+
+cgswmsLayer.on('load', () => {
+    console.log('✅ CGSWMS 都市計畫圖層加載完成');
+});
+
+cgswmsLayer.on('tileerror', (e) => {
+    console.error('❌ CGSWMS 圖層載入失敗', e);
+});
+
+/* 縮放時自動置頂 */
+map.on('zoomend', () => {
+    const z = map.getZoom();
+    if (z < 9 && map.hasLayer(cgswmsLayer)) {
+        console.warn('⚠️ 縮放層級過低，CGSWMS 可能不顯示。請放大地圖到 Zoom 10+');
+    }
+    if (map.hasLayer(cgswmsLayer)) {
+        console.log(`🔄 Zoom ${z} - 確保 CGSWMS 圖層保持在最上方`);
+        cgswmsLayer.bringToFront();
+    }
+});
 
 /* 查詢變數 */
 let markerLayer = L.layerGroup().addTo(map);
@@ -1041,6 +1062,8 @@ let drawPoints = [];
 let previewPolyline = null;
 let isDrawingPolygon = false;
 let drawMarkers = L.layerGroup().addTo(map);
+let polygonIdCounter = 0;
+let renameCancelled = false;
 
 const polygonColors = [
     '#dc2626', '#f97316', '#eab308', '#22c55e', '#06b6d4',
@@ -1057,7 +1080,6 @@ const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const drawToolbar = document.getElementById('drawToolbar');
 const resultPanel = document.getElementById('resultPanel');
-const slopePanel = document.getElementById('slopePanel');
 const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
 
@@ -1065,34 +1087,39 @@ const routeInfo = document.getElementById('routeInfo');
    UI 交互
    ======================================================================== */
 
-// 邊欄展開/收起
 sidebarToggle.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
     sidebarToggle.innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
 });
 
-// 繪製工具欄展開
 function toggleDrawMode(btn) {
     drawToolbar.classList.toggle('hidden');
     btn.classList.toggle('active');
 }
 
-// 坡度分析面板
-function toggleSlopeAnalysis() {
-    slopePanel.style.display = slopePanel.style.display === 'none' ? 'flex' : 'none';
-}
-
-// 結果面板
 function toggleResultPanel() {
     resultPanel.classList.toggle('hidden');
 }
 
-// 圖層控制
 function toggleLayerControl() {
     const control = document.querySelector('.leaflet-control-layers');
     if (control) {
         control.style.display = control.style.display === 'none' ? 'block' : 'none';
     }
+}
+
+/* ========================================================================
+   工具函數：HTML 轉義
+   ======================================================================== */
+
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 /* ========================================================================
@@ -1124,13 +1151,17 @@ function finishPolygon() {
     showToast('✓ 多邊形已完成');
 }
 
-function createPolygonObject(points) {
-    const id = 'poly_' + Date.now();
+function createPolygonObject(points, customName) {
+    const id = 'poly_' + Date.now() + '_' + (polygonIdCounter++);
     const colorIndex = polygons.length % polygonColors.length;
     const color = polygonColors[colorIndex];
+
+    const defaultName = `多邊形 ${polygons.length + 1}`;
+    const finalName = (customName && String(customName).trim()) ? String(customName).trim() : defaultName;
     
     const polygonObj = {
         id: id,
+        name: finalName,
         points: [...points],
         layer: null,
         markers: L.layerGroup(),
@@ -1146,6 +1177,7 @@ function createPolygonObject(points) {
     polygons.push(polygonObj);
     selectPolygon(id);
     renderPolygonList();
+    return polygonObj;
 }
 
 function updatePolygonCentroid(polygonObj) {
@@ -1170,6 +1202,12 @@ function renderPolygonLayer(polygonObj) {
         dashArray: polygonObj.isSelected ? null : '5,5'
     };
     polygonObj.layer = L.polygon(polygonObj.points, style).addTo(map);
+
+    polygonObj.layer.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        if (isDrawingPolygon) return;
+        selectPolygon(polygonObj.id);
+    });
     
     if (polygonObj.isEditing || polygonObj.isSelected) {
         renderEditHandles(polygonObj);
@@ -1209,11 +1247,17 @@ function renderEditHandles(polygonObj) {
 }
 
 function selectPolygon(id) {
-    polygons.forEach(p => p.isSelected = false);
+    polygons.forEach(p => {
+        const wasSelected = p.isSelected;
+        p.isSelected = (p.id === id);
+        if (wasSelected && !p.isSelected) {
+            renderPolygonLayer(p);
+        }
+    });
+
     const polygon = polygons.find(p => p.id === id);
     if (!polygon) return;
-    
-    polygon.isSelected = true;
+
     currentPolygonId = id;
     renderPolygonLayer(polygon);
     renderEditHandles(polygon);
@@ -1255,6 +1299,55 @@ function updateLatLonInputs(polygonObj) {
     origin = [...polygonObj.centroid];
 }
 
+/* ========================================================================
+   多邊形名稱編輯功能
+   ======================================================================== */
+
+function startRenamePolygon(id) {
+    const nameDiv = document.getElementById('name-' + id);
+    const poly = polygons.find(p => p.id === id);
+    if (!nameDiv || !poly) return;
+
+    nameDiv.innerHTML = `<input type="text" class="polygon-rename-input" id="rename-input-${id}"
+        value="${escapeHtml(poly.name)}"
+        onclick="event.stopPropagation();"
+        onkeydown="handleRenameKeydown(event, '${id}')"
+        onblur="finishRenamePolygon('${id}', this.value)">`;
+
+    const input = document.getElementById('rename-input-' + id);
+    if (input) {
+        input.focus();
+        input.select();
+    }
+}
+
+function handleRenameKeydown(e, id) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        e.target.blur();
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        renameCancelled = true;
+        renderPolygonList();
+    }
+}
+
+function finishRenamePolygon(id, newValue) {
+    if (renameCancelled) {
+        renameCancelled = false;
+        return;
+    }
+    const poly = polygons.find(p => p.id === id);
+    if (!poly) return;
+
+    const trimmed = (newValue || '').trim();
+    if (trimmed) {
+        poly.name = trimmed;
+        showToast('✓ 名稱已更新');
+    }
+    renderPolygonList();
+}
+
 function renderPolygonList() {
     const listDiv = document.getElementById('polygonList');
     const countSpan = document.getElementById('polyCount');
@@ -1265,14 +1358,21 @@ function renderPolygonList() {
         return;
     }
     
-    listDiv.innerHTML = polygons.map((poly, idx) => `
+    listDiv.innerHTML = polygons.map((poly) => `
         <div class="polygon-item ${poly.isSelected ? 'selected' : ''}" onclick="selectPolygon('${poly.id}')">
             <div class="polygon-item-info">
                 <div style="width:14px;height:14px;background:${poly.color};border-radius:3px;flex-shrink:0;"></div>
-                <div class="polygon-item-name">多邊形 ${idx + 1}</div>
+                <div class="polygon-item-name" id="name-${poly.id}"
+                     ondblclick="event.stopPropagation(); startRenamePolygon('${poly.id}')"
+                     title="雙擊可編輯名稱">${escapeHtml(poly.name)}</div>
             </div>
             <div class="polygon-item-actions">
-                <button class="polygon-item-btn polygon-delete-btn" onclick="deletePolygon('${poly.id}');event.stopPropagation();">✕</button>
+                <button class="polygon-item-btn polygon-rename-btn"
+                        onclick="event.stopPropagation(); startRenamePolygon('${poly.id}')"
+                        title="編輯名稱">✎</button>
+                <button class="polygon-item-btn polygon-delete-btn"
+                        onclick="event.stopPropagation(); deletePolygon('${poly.id}');"
+                        title="刪除">✕</button>
             </div>
         </div>
     `).join('');
@@ -1332,43 +1432,21 @@ function clearRoute() {
     routeCard.classList.add('hidden');
 }
 
-function showToast(msg) {
+/* ========================================================================
+   showToast 函數增強
+   支援自訂訊息顯示時間，預設 3000ms
+   ======================================================================== */
+function showToast(msg, duration = 3000) {
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.innerText = msg;
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    setTimeout(() => toast.remove(), duration);
 }
 
 /* ========================================================================
    距離和路網分析
    ======================================================================== */
-
-const elevationCache = {};
-
-async function getElevation(lat, lon) {
-    const cacheKey = lat.toFixed(5) + "," + lon.toFixed(5);
-    if (elevationCache[cacheKey] !== undefined) return elevationCache[cacheKey];
-    
-    try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-        const res = await fetch(`https://michael-chou.pages.dev/?lat=${lat}&lon=${lon}`, { signal: controller.signal });
-        clearTimeout(timeout);
-        
-        if (!res.ok) return null;
-        const data = await res.json();
-        const ele = data?.results?.[0]?.elevation;
-        if (ele !== null && ele !== undefined && !isNaN(ele)) {
-            elevationCache[cacheKey] = Number(ele);
-            return elevationCache[cacheKey];
-        }
-        return null;
-    } catch (err) {
-        console.error('DEM ERROR:', err);
-        return null;
-    }
-}
 
 function haversine(lat1, lon1, lat2, lon2) {
     const R = 6371000;
@@ -1653,7 +1731,6 @@ async function runQuery() {
         }
 
         let rawSchools = [];
-        let gates = [];
         const dedup = new Set();
 
         data.elements.forEach(e => {
@@ -1830,14 +1907,14 @@ function exportPolygonsToSHP() {
     }
 
     try {
-        const features = polygons.map((poly, idx) => {
+        const features = polygons.map((poly) => {
             let ring = poly.points.map(p => [Number(p[1]), Number(p[0])]);
             ring.push([Number(poly.points[0][1]), Number(poly.points[0][0])]);
             return {
                 geometry: { type: 'Polygon', coordinates: [ring] },
                 properties: {
                     PolyID: poly.id,
-                    Name: `多邊形_${idx + 1}`,
+                    Name: poly.name,
                     Area_Sqm: Math.round(turf.area(turf.polygon([ring]))),
                     Color: poly.color
                 }
@@ -1848,13 +1925,13 @@ function exportPolygonsToSHP() {
     } catch (err) {
         let geojsonObj = {
             type: "FeatureCollection",
-            features: polygons.map((poly, idx) => {
+            features: polygons.map((poly) => {
                 let ring = poly.points.map(p => [Number(p[1]), Number(p[0])]);
                 ring.push([Number(poly.points[0][1]), Number(poly.points[0][0])]);
                 return {
                     type: "Feature",
                     geometry: { type: "Polygon", coordinates: [ring] },
-                    properties: { Name: `多邊形_${idx + 1}`, Color: poly.color }
+                    properties: { Name: poly.name, Color: poly.color }
                 };
             })
         };
@@ -1895,160 +1972,151 @@ function importPolygonsFromSHP(event) {
     document.getElementById('shp-file-input').value = '';
 }
 
-function processImportedPolygons(geojson) {
-    let features = [];
-    if (geojson.type === "FeatureCollection") {
-        features = geojson.features;
-    } else if (geojson.type === "Feature") {
-        features = [geojson];
-    } else if (geojson.geometry) {
-        features = [{ type: "Feature", geometry: geojson.geometry, properties: {} }];
-    }
-
-    let importedCount = 0;
-    features.forEach(feature => {
-        if (!feature.geometry) return;
-        let rings = null;
-        if (feature.geometry.type === "Polygon") {
-            rings = feature.geometry.coordinates[0];
-        } else if (feature.geometry.type === "MultiPolygon") {
-            rings = feature.geometry.coordinates[0][0];
-        } else {
-            return;
-        }
-        if (!rings || rings.length < 3) return;
-        const invalidCoord = rings.some(coord => Math.abs(coord[1]) > 90 || Math.abs(coord[0]) > 180);
-        if (invalidCoord) {
-            alert("座標系統可能不是 WGS84");
-            return;
-        }
-        if (rings.length > 1 && rings[0][0] === rings[rings.length-1][0] && rings[0][1] === rings[rings.length-1][1]) {
-            rings.pop();
-        }
-        const points = rings.map(coord => [coord[1], coord[0]]);
-        createPolygonObject(points);
-        importedCount++;
-    });
-
-    showToast(`✅ 成功匯入 ${importedCount} 個多邊形`);
+/* ===== TWD97 → WGS84 座標轉換工具 ===== */
+function isTWD97Coordinate(x, y) {
+    return x > 100000 && x < 400000 && y > 2000000 && y < 2900000;
 }
 
-/* ========================================================================
-   坡度分析
-   ======================================================================== */
+function twd97ToWGS84(x, y) {
+    const a = 6378137.0;
+    const f = 1 / 298.257222101;
+    const b = a * (1 - f);
+    const e2 = (a * a - b * b) / (a * a);
+    const k0 = 0.9999;
+    const dx = 250000;
+    const lon0 = 121 * Math.PI / 180;
 
-async function analyzeSlope() {
-    const slopeContent = document.getElementById('slopeContent');
-    
-    let targetPoly = null;
-    if (currentPolygonId) {
-        targetPoly = polygons.find(p => p.id === currentPolygonId);
-    } else if (polygons.length > 0) {
-        targetPoly = polygons[0];
+    const M = y / k0;
+    const mu = M / (a * (1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
+
+    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    const J1 = (3*e1/2 - 27*e1*e1*e1/32);
+    const J2 = (21*e1*e1/16 - 55*e1*e1*e1*e1/32);
+    const J3 = (151*e1*e1*e1/96);
+    const J4 = (1097*e1*e1*e1*e1/512);
+
+    const fp = mu + J1*Math.sin(2*mu) + J2*Math.sin(4*mu) + J3*Math.sin(6*mu) + J4*Math.sin(8*mu);
+
+    const e2p = e2 / (1 - e2);
+    const C1 = e2p * Math.pow(Math.cos(fp), 2);
+    const T1 = Math.pow(Math.tan(fp), 2);
+    const R1 = a * (1 - e2) / Math.pow(1 - e2*Math.pow(Math.sin(fp),2), 1.5);
+    const N1 = a / Math.sqrt(1 - e2*Math.pow(Math.sin(fp),2));
+    const D = (x - dx) / (N1 * k0);
+
+    const lat = fp - (N1*Math.tan(fp)/R1) * (
+        D*D/2 -
+        (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2p) * Math.pow(D,4)/24 +
+        (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*e2p - 3*C1*C1) * Math.pow(D,6)/720
+    );
+
+    const lon = lon0 + (
+        D - (1 + 2*T1 + C1) * Math.pow(D,3)/6 +
+        (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2p + 24*T1*T1) * Math.pow(D,5)/120
+    ) / Math.cos(fp);
+
+    return [lon * 180 / Math.PI, lat * 180 / Math.PI];
+}
+
+function convertRingIfNeeded(ring) {
+    const sample = ring[0];
+    if (isTWD97Coordinate(sample[0], sample[1])) {
+        return ring.map(coord => twd97ToWGS84(coord[0], coord[1]));
+    }
+    return ring;
+}
+
+function processImportedPolygons(geojson) {
+    let data = geojson;
+
+    let guard = 0;
+    while (data && data.features && !Array.isArray(data.features) &&
+           data.features.type === "FeatureCollection" && guard < 5) {
+        data = data.features;
+        guard++;
     }
 
-    if (!targetPoly || !targetPoly.points || targetPoly.points.length < 3) {
-        alert("請先繪製多邊形範圍");
+    let features = [];
+    if (data.type === "FeatureCollection" && Array.isArray(data.features)) {
+        features = data.features;
+    } else if (data.type === "Feature") {
+        features = [data];
+    } else if (data.geometry) {
+        features = [{ type: "Feature", geometry: data.geometry, properties: {} }];
+    } else {
+        alert("檔案格式錯誤：無法辨識的 GeoJSON 結構");
         return;
     }
 
-    slopeContent.innerHTML = "🌄 DEM 坡度分析中...";
+    let importedCount = 0;
+    let skippedCount = 0;
+    let convertedCount = 0;
 
-    try {
-        markerLayer.clearLayers();
-        let ring = targetPoly.points.map(p => [Number(p[1]), Number(p[0])]);
-        if (ring.length < 3) {
-            alert("範圍點不足");
+    features.forEach(feature => {
+        if (!feature.geometry) { skippedCount++; return; }
+
+        const geomType = feature.geometry.type;
+        let polygonsCoords = [];
+
+        if (geomType === "Polygon") {
+            polygonsCoords.push(feature.geometry.coordinates[0]);
+        } else if (geomType === "MultiPolygon") {
+            feature.geometry.coordinates.forEach(polygonCoords => {
+                if (polygonCoords && polygonCoords[0]) {
+                    polygonsCoords.push(polygonCoords[0]);
+                }
+            });
+        } else {
+            skippedCount++;
             return;
         }
 
-        if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
-            ring.push(ring[0]);
-        }
+        const props = feature.properties || {};
+        const baseName = props.Name || props.name || props.NAME ||
+                          props['名稱'] || props.PolyName || null;
+        const multiCount = polygonsCoords.length;
 
-        const polygon = turf.polygon([ring]);
-        const bbox = turf.bbox(polygon);
-        const [minLon, minLat, maxLon, maxLat] = bbox;
-        const step = Math.max(Math.max(maxLon - minLon, maxLat - minLat) / 30, 0.00005);
+        polygonsCoords.forEach((rings, subIdx) => {
+            if (!rings || rings.length < 3) { skippedCount++; return; }
 
-        let elevations = [];
-        for (let lat = minLat; lat <= maxLat; lat += step) {
-            for (let lon = minLon; lon <= maxLon; lon += step) {
-                const pt = turf.point([lon, lat]);
-                if (!turf.booleanPointInPolygon(pt, polygon)) continue;
-
-                const ele = await getElevation(lat, lon);
-                if (ele !== null && !isNaN(ele)) {
-                    elevations.push({ lat, lon, ele });
-                }
-
-                await new Promise(r => setTimeout(r, 30));
+            const beforeSample = rings[0];
+            const wasTWD97 = isTWD97Coordinate(beforeSample[0], beforeSample[1]);
+            if (wasTWD97) {
+                rings = convertRingIfNeeded(rings);
+                convertedCount++;
             }
-        }
 
-        if (elevations.length < 5) {
-            const centroid = turf.centroid(polygon).geometry.coordinates;
-            const ele = await getElevation(centroid[1], centroid[0]);
-            if (ele !== null && !isNaN(ele)) {
-                elevations = [{ lat: centroid[1], lon: centroid[0], ele }];
-            } else {
-                slopeContent.innerHTML = `⚠️ DEM 無資料`;
+            const invalidCoord = rings.some(coord =>
+                Math.abs(coord[1]) > 90 || Math.abs(coord[0]) > 180
+            );
+            if (invalidCoord) {
+                alert("座標系統可能不是 WGS84 或 TWD97，已跳過該筆資料");
+                skippedCount++;
                 return;
             }
-        }
 
-        let slopes = [];
-        for (let i = 1; i < elevations.length; i++) {
-            const p1 = elevations[i - 1];
-            const p2 = elevations[i];
-            const dist = haversine(p1.lat, p1.lon, p2.lat, p2.lon);
-            if (dist < 1) continue;
-            const rise = Math.abs(p2.ele - p1.ele);
-            slopes.push((rise / dist) * 100);
-        }
+            if (rings.length > 1 &&
+                rings[0][0] === rings[rings.length-1][0] &&
+                rings[0][1] === rings[rings.length-1][1]) {
+                rings.pop();
+            }
 
-        if (!slopes.length) {
-            slopeContent.innerHTML = "⚠️ 無法計算坡度";
-            return;
-        }
+            const points = rings.map(coord => [coord[1], coord[0]]);
 
-        const elevs = elevations.map(e => e.ele);
-        const minElev = Math.min(...elevs);
-        const maxElev = Math.max(...elevs);
-        const avgElev = elevs.reduce((a, b) => a + b, 0) / elevs.length;
-        const avgSlope = slopes.reduce((a, b) => a + b, 0) / slopes.length;
-        const maxSlope = Math.max(...slopes);
-        const minSlope = Math.min(...slopes);
-        let terrainType = "平坦";
-        if (avgSlope > 30) terrainType = "陡坡";
-        else if (avgSlope > 15) terrainType = "中坡";
-        else if (avgSlope > 5) terrainType = "緩坡";
+            let finalName = null;
+            if (baseName) {
+                finalName = multiCount > 1 ? `${baseName}_${subIdx + 1}` : baseName;
+            }
 
-        slopeContent.innerHTML = `
-            <strong>📊 坡度分析完成</strong><br>
-            採樣點數：${elevations.length} 點<br><br>
-            <strong>高程資料</strong><br>
-            平均：${avgElev.toFixed(1)} m | 最低：${minElev.toFixed(1)} m | 最高：${maxElev.toFixed(1)} m<br><br>
-            <strong>坡度數據</strong><br>
-            平均：${avgSlope.toFixed(2)}% | 最大：${maxSlope.toFixed(2)}% | 最小：${minSlope.toFixed(2)}%<br><br>
-            <strong>地形分類</strong><br>
-            ${terrainType}
-        `;
-
-        elevations.forEach(p => {
-            let color = "#22c55e";
-            if (avgSlope > 30) color = "#dc2626";
-            else if (avgSlope > 15) color = "#f97316";
-            else if (avgSlope > 5) color = "#eab308";
-
-            L.circleMarker([p.lat, p.lon], {
-                radius: 4, color, fillColor: color, fillOpacity: 0.9, weight: 1
-            }).addTo(markerLayer).bindTooltip(`${p.ele.toFixed(1)} m`);
+            createPolygonObject(points, finalName);
+            importedCount++;
         });
-    } catch (err) {
-        console.error("DEM 分析錯誤:", err);
-        slopeContent.innerHTML = `❌ 坡度分析失敗<br><br>${err.message}`;
-    }
+    });
+
+    let msg = `✅ 成功匯入 ${importedCount} 個多邊形`;
+    if (convertedCount > 0) msg += `（已自動轉換 ${convertedCount} 個 TWD97 座標）`;
+    if (skippedCount > 0) msg += `，跳過 ${skippedCount} 筆異常資料`;
+    showToast(msg);
 }
 
 /* ========================================================================
@@ -2059,27 +2127,21 @@ let isDragging = false;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 
-[resultPanel, slopePanel].forEach(panel => {
-    const header = panel === resultPanel ? document.getElementById('resultHeader') : document.getElementById('slopeHeader');
-    header.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'BUTTON') return;
-        isDragging = true;
-        const rect = panel.getBoundingClientRect();
-        dragOffsetX = e.clientX - rect.left;
-        dragOffsetY = e.clientY - rect.top;
-        panel.style.position = 'fixed';
-        panel.style.zIndex = 10000;
-    });
+const resultHeader = document.getElementById('resultHeader');
+resultHeader.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'BUTTON') return;
+    isDragging = true;
+    const rect = resultPanel.getBoundingClientRect();
+    dragOffsetX = e.clientX - rect.left;
+    dragOffsetY = e.clientY - rect.top;
+    resultPanel.style.position = 'fixed';
+    resultPanel.style.zIndex = 10000;
 });
 
 document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
-    const panel = document.elementFromPoint(e.clientX - dragOffsetX, e.clientY - dragOffsetY);
-    const activePanel = [resultPanel, slopePanel].find(p => p.contains(panel));
-    if (activePanel) {
-        activePanel.style.left = (e.clientX - dragOffsetX) + 'px';
-        activePanel.style.top = (e.clientY - dragOffsetY) + 'px';
-    }
+    resultPanel.style.left = (e.clientX - dragOffsetX) + 'px';
+    resultPanel.style.top = (e.clientY - dragOffsetY) + 'px';
 });
 
 document.addEventListener('mouseup', () => {
