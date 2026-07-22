@@ -925,11 +925,12 @@ tr.highlight {
 
 <script>
 /* ========================================================================
-   全域變數初始化
+   ★修正版本：改善 CGSWMS 圖層顯示問題
    ======================================================================== */
 
 let map = L.map('map').setView([25.012098, 121.465675], 15);
 
+// 基底圖層
 const nlscEMAP = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
     { maxZoom:19, attribution:'© NLSC' }
@@ -947,13 +948,14 @@ const osmLayer = L.tileLayer(
 
 nlscEMAP.addTo(map);
 
+// ★修正：調降地籍圖透明度，避免遮蔽 CGSWMS
 const cadastralLayer = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
-    { maxZoom:20, opacity:0.75, attribution:'© NLSC' }
+    { maxZoom:20, opacity:0.5, attribution:'© NLSC', zIndex:200 }
 );
 cadastralLayer.addTo(map);
 
-/* ★新增：中央地調所 CGSWMS 都市計畫分區圖層 */
+// ★修正：改善 CGSWMS 圖層設定（方案 A：LANDZONING）
 const cgswmsLayer = L.tileLayer.wms(
     'https://cgswms.moeacgs.gov.tw/gis/wms',
     {
@@ -961,12 +963,33 @@ const cgswmsLayer = L.tileLayer.wms(
         styles: '',
         format: 'image/png',
         transparent: true,
-        attribution: '© 中央地調所',
+        attribution: '© 中央地調所 CGSWMS',
         maxZoom: 18,
-        opacity: 0.5,
-        crossOrigin: true
+        minZoom: 9,
+        opacity: 0.7,  // ★增加到 0.7，更容易看到
+        crossOrigin: 'anonymous',
+        zIndex: 300,
+        tiled: true
     }
 );
+
+// ★備選方案 B：RASTERMAP（地形圖）
+const cgswmsRasterLayer = L.tileLayer.wms(
+    'https://cgswms.moeacgs.gov.tw/gis/wms',
+    {
+        layers: 'NLSC:RASTERMAP',
+        format: 'image/png',
+        transparent: true,
+        attribution: '© 中央地調所（地形圖）',
+        maxZoom: 18,
+        minZoom: 9,
+        opacity: 0.6,
+        crossOrigin: 'anonymous',
+        zIndex: 250
+    }
+);
+
+// 預設加入 CGSWMS 都市計畫分區圖
 cgswmsLayer.addTo(map);
 
 const baseMaps = {
@@ -977,10 +1000,30 @@ const baseMaps = {
 
 const overlayMaps = {
     "地籍圖": cadastralLayer,
-    "都市計畫分區圖 (CGSWMS)": cgswmsLayer
+    "🏗️ 都市計畫分區圖（推薦）": cgswmsLayer,
+    "🗺️ CGSWMS 地形圖（備選）": cgswmsRasterLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
+
+// ★新增：除錯事件監聽
+cgswmsLayer.on('loading', () => console.log('📡 CGSWMS 正在加載...'));
+cgswmsLayer.on('load', () => {
+    console.log('✅ CGSWMS 都市計畫圖加載成功');
+    showToast('✅ 都市計畫分區圖已顯示');
+});
+cgswmsLayer.on('tileerror', (e) => {
+    console.error('❌ CGSWMS 加載失敗', e);
+    showToast('⚠️ 圖層載入失敗，請檢查網路');
+});
+
+map.on('zoomend', () => {
+    const z = map.getZoom();
+    if (z < 9 && map.hasLayer(cgswmsLayer)) {
+        console.warn('⚠️ 縮放層級過低，CGSWMS 可能不顯示。請放大地圖到 Zoom 10+');
+    }
+});
+
 
 /* 查詢變數 */
 let markerLayer = L.layerGroup().addTo(map);
