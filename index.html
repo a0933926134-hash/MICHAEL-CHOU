@@ -1,106 +1,95 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台灣都市計畫圖</title>
+    <title>台灣地圖 - NLSC EMAP5</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: Arial, sans-serif;
-        }
-        
-        #map {
-            width: 100%;
-            height: 100vh;
-        }
-        
-        .controls {
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html, #map { width: 100%; height: 100%; }
+        .control-panel {
             position: absolute;
             top: 10px;
-            left: 10px;
-            z-index: 1000;
+            right: 10px;
             background: white;
             padding: 15px;
             border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+            font-family: Arial, sans-serif;
         }
-        
-        .controls label {
-            display: block;
+        .control-item {
             margin-bottom: 10px;
         }
-        
-        .controls input[type="checkbox"] {
-            margin-right: 5px;
-        }
-        
-        .controls input[type="range"] {
-            width: 100%;
-        }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="checkbox"], input[type="range"] { cursor: pointer; }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div class="controls">
-        <label>
-            <input type="checkbox" id="emap5-toggle" checked> 都市計畫圖層
-        </label>
-        <label>
-            透明度: <input type="range" id="opacity-slider" min="0" max="100" value="70">
-        </label>
+    <div class="control-panel">
+        <div class="control-item">
+            <label>
+                <input type="checkbox" id="emap5-toggle" checked> EMAP5 圖層
+            </label>
+        </div>
+        <div class="control-item">
+            <label for="opacity-slider">透明度:</label>
+            <input type="range" id="opacity-slider" min="0" max="1" step="0.1" value="0.7">
+            <span id="opacity-value">70%</span>
+        </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        console.log('頁面已載入');
-        
-        const map = L.map('map').setView([25.0330, 121.5654], 13);
-        console.log('地圖已初始化');
+        console.log('頁面加載開始...');
 
-        // 基礎圖層
+        // 初始化地圖
+        const map = L.map('map').setView([23.97, 120.96], 8);
+        console.log('地圖初始化完成');
+
+        // 基底層 - EMAP
         const baseLayer = L.tileLayer(
-            'https://wmts.nlsc.gov.tw/EMAP/default/GoogleMapsCompatible_Level/{z}/{y}/{x}.jpg',
-            { 
-                attribution: '© NLSC', 
-                crossOrigin: true 
-            }
-        ).addTo(map);
-        console.log('基礎圖層已加載');
-
-        // 都市計畫圖層
-        const emap5Layer = L.tileLayer(
-            'https://wmts.nlsc.gov.tw/EMAP5/default/GoogleMapsCompatible_Level/{z}/{y}/{x}.png',
-            { 
-                attribution: '© NLSC EMAP5',
+            'https://wmts.nlsc.gov.tw/EMAP/default/GoogleMapsCompatible_Level/{z}/{y}/{x}.png',
+            {
+                attribution: '© NLSC',
                 crossOrigin: true,
-                opacity: 0.7
+                maxZoom: 18
             }
         ).addTo(map);
-        console.log('都市計畫圖層已加載');
+        console.log('基底層 (EMAP) 加載中...');
 
-        // 控制器
+        // EMAP5 圖層 - 使用 CORS Proxy
+        const corsProxy = 'https://cors-anywhere.herokuapp.com/';
+        const emap5Url = corsProxy + 'https://wmts.nlsc.gov.tw/EMAP5/default/GoogleMapsCompatible_Level/{z}/{y}/{x}.png';
+
+        const emap5Layer = L.tileLayer(emap5Url, {
+            attribution: '© NLSC Urban Planning',
+            crossOrigin: true,
+            maxZoom: 18
+        });
+        console.log('EMAP5 圖層已建立（初始隱藏）');
+
+        // 控制項事件監聽
         document.getElementById('emap5-toggle').addEventListener('change', (e) => {
             if (e.target.checked) {
-                emap5Layer.addTo(map);
-                console.log('都市計畫圖層已啟用');
+                map.addLayer(emap5Layer);
+                console.log('✅ EMAP5 圖層已顯示');
             } else {
                 map.removeLayer(emap5Layer);
-                console.log('都市計畫圖層已停用');
+                console.log('❌ EMAP5 圖層已隱藏');
             }
         });
 
         document.getElementById('opacity-slider').addEventListener('input', (e) => {
-            emap5Layer.setOpacity(e.target.value / 100);
+            const opacity = e.target.value;
+            emap5Layer.setOpacity(opacity);
+            document.getElementById('opacity-value').textContent = Math.round(opacity * 100) + '%';
+            console.log('透明度已改為:', opacity);
         });
-        
-        console.log('所有控制器已綁定');
+
+        console.log('所有控制項事件監聽已設定');
     </script>
 </body>
 </html>
