@@ -1,277 +1,35 @@
-        <!-- 都市計畫圖層（最高優先級）-->
-        <div class="layer-control">
-            <div class="layer-item urban-plan">
-                <label>
-                    <input type="checkbox" id="urbanPlanCheckbox" checked>
-                    <strong>都市計畫圖層</strong> ⭐
-                </label>
-                <div class="layer-opacity">
-                    透明度：<input type="range" id="urbanPlanOpacity" min="0" max="100" value="100">
-                    <span id="urbanPlanOpacityValue">100%</span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 其他圖層 -->
-        <div class="layer-control">
-            <div class="layer-item">
-                <label>
-                    <input type="checkbox" id="baseMapCheckbox" checked>
-                    基礎地圖 (OpenStreetMap)
-                </label>
-            </div>
-        </div>
-        
-        <div class="layer-control">
-            <div class="layer-item">
-                <label>
-                    <input type="checkbox" id="topoCheckbox" checked>
-                    地形圖層
-                </label>
-                <div class="layer-opacity">
-                    透明度：<input type="range" id="topoOpacity" min="0" max="100" value="70">
-                    <span id="topoOpacityValue">70%</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="layer-control">
-            <div class="layer-item">
-                <label>
-                    <input type="checkbox" id="satelliteCheckbox">
-                    衛星影像
-                </label>
-                <div class="layer-opacity">
-                    透明度：<input type="range" id="satelliteOpacity" min="0" max="100" value="60">
-                    <span id="satelliteOpacityValue">60%</span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 圖例 -->
-        <div class="legend">
-            <h3>圖例</h3>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #ff6b6b;"></div>
-                <span>都市計畫區</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #4ecdc4;"></div>
-                <span>商業區</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #ffd93d;"></div>
-                <span>住宅區</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #95e1d3;"></div>
-                <span>公園綠地</span>
-            </div>
-        </div>
-        
-        <!-- 信息面板 -->
-        <div class="info-panel">
-            ⓘ <strong>提示：</strong>都市計畫圖層將始終顯示在其他圖層之上。點擊地圖查詢詳情。
-        </div>
-    </div>
-    
-    <!-- 地圖容器 -->
-    <div id="map"></div>
-</div>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Leaflet 介接國土測繪中心都市計畫圖層</title>
+  <!-- 載入 Leaflet CSS 與 JS -->
+  <link rel="stylesheet" href="https://unpkg.com" />
+  <script src="https://unpkg.com"></script>
+  <style>
+    #map { height: 600px; width: 100%; }
+  </style>
+</head>
+<body>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-    // 初始化地圖
-    const map = L.map('map').setView([25.0330, 121.5654], 13); // 台北座標
-    
-    // 圖層物件
-    const layers = {
-        baseMap: null,
-        topo: null,
-        satellite: null,
-        urbanPlan: null
-    };
-    
-    // ===== 公開免費瓦片源（無需認證）=====
-    
-    // 1. 基礎地圖層 (OpenStreetMap - 完全免費，無需認證)
-    layers.baseMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        zIndex: 100,
-        minZoom: 0,
-        maxZoom: 19
+  <div id="map"></div>
+
+  <script>
+    // 1. 初始化地圖，設定中心點在台灣
+    var map = L.map('map').setView([23.973875, 120.982024], 8);
+
+    // 2. 加入台灣通用電子地圖做為底圖 (EMAP)
+    var emap = L.tileLayer('https://nlsc.gov.tw{z}/{y}/{x}', {
+      maxZoom: 20,
+      attribution: '&copy; <a href="https://maps.nlsc.gov.tw/">國土測繪圖資服務雲</a>'
     }).addTo(map);
-    
-    // 2. 地形圖層 (OpenTopoMap - 免費無需認證)
-    layers.topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-        attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap',
-        zIndex: 200,
-        opacity: 0.7,
-        minZoom: 0,
-        maxZoom: 17
+
+    // 3. 疊加「都市計畫土地利用分區圖」層 (CITY_PLAN)
+    // 註：若圖層代碼有異動，可至服務雲之 GetCapabilities 查詢最新 Layer Name
+    var cityPlan = L.tileLayer('https://nlsc.gov.tw{z}/{y}/{x}', {
+      maxZoom: 20,
+      opacity: 0.6, // 設定透明度讓底圖透出來
+      attribution: '&copy; 國土測繪中心'
     }).addTo(map);
-    
-    // 3. 衛星影像 (USGS Imagery - 公開無需認證)
-    layers.satellite = L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'USGS',
-        zIndex: 200,
-        opacity: 0.6,
-        minZoom: 0,
-        maxZoom: 16
-    }); // 預設不顯示
-    
-    // 4. 都市計畫圖層 (z-index: 1000 - 最高優先級，確保不被遮蔽)
-    layers.urbanPlan = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '都市計畫圖層',
-        zIndex: 1000, // 最高z-index
-        opacity: 1.0,
-        minZoom: 0,
-        maxZoom: 19
-    }).addTo(map);
-    
-    // ===== 都市計畫GeoJSON數據（示例）=====
-    const urbanPlanGeoJSON = {
-        type: 'FeatureCollection',
-        features: [
-            {
-                type: 'Feature',
-                properties: {
-                    name: '信義商業區',
-                    type: 'commercial',
-                    area: 450,
-                    description: '台北市重要商業中心'
-                },
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [[[121.56, 25.03], [121.575, 25.03], [121.575, 25.045], [121.56, 25.045], [121.56, 25.03]]]
-                }
-            },
-            {
-                type: 'Feature',
-                properties: {
-                    name: '松山住宅區',
-                    type: 'residential',
-                    area: 320,
-                    description: '居住密集區'
-                },
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [[[121.545, 25.02], [121.565, 25.02], [121.565, 25.04], [121.545, 25.04], [121.545, 25.02]]]
-                }
-            },
-            {
-                type: 'Feature',
-                properties: {
-                    name: '南港公園',
-                    type: 'park',
-                    area: 150,
-                    description: '綠地休閒區'
-                },
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [[[121.58, 25.02], [121.60, 25.02], [121.60, 25.035], [121.58, 25.035], [121.58, 25.02]]]
-                }
-            }
-        ]
-    };
-    
-    // 樣式函數
-    function getStyleByType(type) {
-        const styles = {
-            commercial: {color: '#4ecdc4', weight: 3, opacity: 0.9, fillOpacity: 0.35, dashArray: '5,5'},
-            residential: {color: '#ffd93d', weight: 3, opacity: 0.9, fillOpacity: 0.3},
-            park: {color: '#95e1d3', weight: 3, opacity: 0.9, fillOpacity: 0.4}
-        };
-        return styles[type] || {color: '#ff6b6b', weight: 3, opacity: 0.9, fillOpacity: 0.35};
-    }
-    
-    // 添加GeoJSON圖層
-    const geoJsonLayer = L.geoJSON(urbanPlanGeoJSON, {
-        style: (feature) => getStyleByType(feature.properties.type),
-        onEachFeature: (feature, layer) => {
-            const props = feature.properties;
-            const popupContent = `
-                <div style="font-family: Arial; width: 200px;">
-                    <strong style="color: #333; font-size: 14px;">${props.name}</strong><br>
-                    <hr style="margin: 5px 0;">
-                    <p style="margin: 5px 0; font-size: 12px;">
-                        <strong>類型：</strong>${props.type}<br>
-                        <strong>面積：</strong>${props.area} 公頃<br>
-                        <strong>說明：</strong>${props.description}
-                    </p>
-                </div>
-            `;
-            layer.bindPopup(popupContent);
-            layer.on('click', function() {
-                this.openPopup();
-            });
-        },
-        pane: 'overlayPane', // 確保在疊層窗格中
-        zIndex: 1001 // 比圖層瓦片更高
-    }).addTo(map);
-    
-    // ===== 事件監聽 =====
-    
-    // 都市計畫圖層複選框
-    document.getElementById('urbanPlanCheckbox').addEventListener('change', (e) => {
-        if (e.target.checked) {
-            map.addLayer(layers.urbanPlan);
-            geoJsonLayer.addTo(map);
-        } else {
-            map.removeLayer(layers.urbanPlan);
-            map.removeLayer(geoJsonLayer);
-        }
-    });
-    
-    // 都市計畫圖層透明度
-    document.getElementById('urbanPlanOpacity').addEventListener('input', (e) => {
-        const opacity = e.target.value / 100;
-        layers.urbanPlan.setOpacity(opacity);
-        geoJsonLayer.setStyle({fillOpacity: opacity * 0.35});
-        document.getElementById('urbanPlanOpacityValue').textContent = e.target.value + '%';
-    });
-    
-    // 地形圖層複選框
-    document.getElementById('topoCheckbox').addEventListener('change', (e) => {
-        if (e.target.checked) {
-            map.addLayer(layers.topo);
-        } else {
-            map.removeLayer(layers.topo);
-        }
-    });
-    
-    // 地形圖層透明度
-    document.getElementById('topoOpacity').addEventListener('input', (e) => {
-        const opacity = e.target.value / 100;
-        layers.topo.setOpacity(opacity);
-        document.getElementById('topoOpacityValue').textContent = e.target.value + '%';
-    });
-    
-    // 衛星圖層複選框
-    document.getElementById('satelliteCheckbox').addEventListener('change', (e) => {
-        if (e.target.checked) {
-            map.addLayer(layers.satellite);
-        } else {
-            map.removeLayer(layers.satellite);
-        }
-    });
-    
-    // 衛星圖層透明度
-    document.getElementById('satelliteOpacity').addEventListener('input', (e) => {
-        const opacity = e.target.value / 100;
-        layers.satellite.setOpacity(opacity);
-        document.getElementById('satelliteOpacityValue').textContent = e.target.value + '%';
-    });
-    
-    // 基礎地圖層複選框
-    document.getElementById('baseMapCheckbox').addEventListener('change', (e) => {
-        if (e.target.checked) {
-            map.addLayer(layers.baseMap);
-        } else {
-            map.removeLayer(layers.baseMap);
-        }
-    });
-    
-    console.log('✅ 地圖已成功初始化');
-    console.log('✅ 所有圖層源均為公開免費來源，無需API金鑰');
-</script>
+  </script>
+</body>
+</html>
