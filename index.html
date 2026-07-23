@@ -1,30 +1,426 @@
-import 'ol/ol.css';
-import Map from 'ol/Map';
-import View from 'ol/View';
-import TileLayer from 'ol/layer/Tile';
-import XYZ from 'ol/source/XYZ';
-import {fromLonLat} from 'ol/proj';
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-// 建立底圖與都市計畫圖層 (XYZ 方式)
-const map = new Map({
-  target: 'map',
-  layers: [
-    new TileLayer({
-      source: new XYZ({
-        url: 'https://nlsc.gov.tw{z}/{y}/{x}',
-        attributions: '&copy; <a href="https://maps.nlsc.gov.tw/">國土測繪圖資服務雲</a>'
-      })
-    }),
-    new TileLayer({
-      source: new XYZ({
-        url: 'https://nlsc.gov.tw{z}/{y}/{x}',
-        attributions: '&copy; 國土測繪中心'
-      }),
-      opacity: 0.6
-    })
-  ],
-  view: new View({
-    center: fromLonLat([120.982024, 23.973875]),
-    zoom: 8
-  })
-});
+<!-- Font Awesome 圖標 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    html, body {
+        height: 100%;
+        width: 100%;
+        font-family: 'Microsoft JhengHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f5f5;
+        overflow: hidden;
+    }
+    
+    .container {
+        display: flex;
+        height: 100vh;
+        width: 100vw;
+    }
+    
+    #map {
+        flex: 1;
+        position: relative;
+        z-index: 1;
+        background-color: #e8e8e8;
+    }
+    
+    .leaflet-container {
+        background-color: #e8e8e8;
+        font-family: 'Microsoft JhengHei', Arial, sans-serif;
+    }
+    
+    .sidebar {
+        width: 340px;
+        background-color: #ffffff;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.15);
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0;
+        z-index: 100;
+        border-right: 1px solid #e0e0e0;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .sidebar::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .sidebar::-webkit-scrollbar-track {
+        background: #f9f9f9;
+    }
+    
+    .sidebar::-webkit-scrollbar-thumb {
+        background: #bdbdbd;
+        border-radius: 4px;
+    }
+    
+    .sidebar::-webkit-scrollbar-thumb:hover {
+        background: #9e9e9e;
+    }
+    
+    .sidebar-content {
+        padding: 20px;
+        flex: 1;
+        overflow-y: auto;
+    }
+    
+    .sidebar-header {
+        background: linear-gradient(135deg, #003d82 0%, #005a9c 100%);
+        color: white;
+        padding: 20px;
+        text-align: center;
+        border-bottom: 3px solid #002855;
+    }
+    
+    .sidebar-header h1 {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    
+    .sidebar-header p {
+        font-size: 12px;
+        opacity: 0.9;
+        margin: 0;
+    }
+    
+    .sidebar-header .icon {
+        font-size: 24px;
+        margin-bottom: 10px;
+    }
+    
+    .info-banner {
+        background-color: #e3f2fd;
+        border-left: 4px solid #1976d2;
+        padding: 12px;
+        margin-bottom: 18px;
+        border-radius: 2px;
+        font-size: 12px;
+        color: #0d47a1;
+        line-height: 1.5;
+    }
+    
+    .section {
+        margin-bottom: 20px;
+    }
+    
+    .section-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 8px;
+    }
+    
+    .section-title i {
+        margin-right: 8px;
+        color: #003d82;
+        width: 16px;
+        text-align: center;
+    }
+    
+    .layer-item {
+        margin-bottom: 10px;
+        padding: 10px;
+        background-color: #fafafa;
+        border-radius: 4px;
+        border-left: 3px solid #ccc;
+        transition: all 0.2s ease;
+    }
+    
+    .layer-item:hover {
+        background-color: #f5f5f5;
+        border-left-color: #003d82;
+    }
+    
+    .layer-item.highlight {
+        border-left-color: #ff5252;
+        background-color: #ffebee;
+    }
+    
+    .layer-item.highlight:hover {
+        background-color: #ffcdd2;
+    }
+    
+    .layer-item label {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        font-size: 13px;
+        color: #333;
+        font-weight: 500;
+        margin: 0;
+    }
+    
+    .layer-item input[type="checkbox"] {
+        margin-right: 10px;
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: #003d82;
+    }
+    
+    .layer-item.highlight input[type="checkbox"] {
+        accent-color: #ff5252;
+    }
+    
+    .opacity-control {
+        margin-top: 10px;
+        padding-left: 28px;
+    }
+    
+    .opacity-label {
+        font-size: 11px;
+        color: #666;
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+    }
+    
+    .opacity-slider {
+        width: 100%;
+        height: 5px;
+        border-radius: 3px;
+        background: linear-gradient(to right, #e0e0e0 0%, #9e9e9e 100%);
+        outline: none;
+        -webkit-appearance: none;
+        appearance: none;
+    }
+    
+    .opacity-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #003d82;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .opacity-slider::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #003d82;
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .layer-item.highlight .opacity-slider::-webkit-slider-thumb {
+        background: #ff5252;
+    }
+    
+    .layer-item.highlight .opacity-slider::-moz-range-thumb {
+        background: #ff5252;
+    }
+    
+    .legend {
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 16px;
+    }
+    
+    .legend h3 {
+        font-size: 13px;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 10px;
+        margin: 0 0 10px 0;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 12px;
+    }
+    
+    .legend-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+        border: 1px solid #999;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+    
+    .legend-text {
+        color: #555;
+        font-size: 12px;
+    }
+    
+    .coord-section {
+        background-color: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 16px;
+    }
+    
+    .coord-section h3 {
+        font-size: 12px;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    
+    .coordinates {
+        background-color: #ffffff;
+        padding: 8px;
+        border-radius: 3px;
+        font-size: 11px;
+        color: #555;
+        font-family: 'Courier New', monospace;
+        border: 1px solid #e0e0e0;
+        line-height: 1.6;
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    
+    .btn {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        background-color: #ffffff;
+        color: #333;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    
+    .btn:hover {
+        background-color: #f5f5f5;
+        border-color: #999;
+    }
+    
+    .btn:active {
+        transform: scale(0.98);
+    }
+    
+    .btn.primary {
+        background-color: #003d82;
+        color: #ffffff;
+        border-color: #003d82;
+    }
+    
+    .btn.primary:hover {
+        background-color: #002855;
+        border-color: #002855;
+    }
+    
+    .footer {
+        padding: 12px 20px;
+        border-top: 1px solid #e0e0e0;
+        background-color: #fafafa;
+        font-size: 11px;
+        color: #999;
+        text-align: center;
+    }
+    
+    /* Leaflet 控制按鈕樣式 */
+    .leaflet-control-zoom {
+        background-color: rgba(255, 255, 255, 0.9) !important;
+        border: 2px solid #ddd !important;
+        border-radius: 4px !important;
+    }
+    
+    .leaflet-control-zoom a {
+        color: #333 !important;
+        font-size: 18px !important;
+        width: 36px !important;
+        height: 36px !important;
+        line-height: 36px !important;
+        border-bottom: 1px solid #ddd !important;
+    }
+    
+    .leaflet-control-zoom a:last-child {
+        border-bottom: none !important;
+    }
+    
+    .leaflet-control-zoom a:hover {
+        background-color: #f0f0f0 !important;
+    }
+    
+    .leaflet-popup-content-wrapper {
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 4px;
+    }
+    
+    .leaflet-popup-content {
+        margin: 0;
+        font-size: 12px;
+        color: #333;
+    }
+    
+    /* 響應式設計 */
+    @media (max-width: 768px) {
+        .sidebar {
+            width: 100%;
+            height: auto;
+            max-height: 35%;
+            border-right: none;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .container {
+            flex-direction: column;
+        }
+        
+        #map {
+            height: 65%;
+        }
+        
+        .sidebar-header h1 {
+            font-size: 16px;
+        }
+        
+        .sidebar-header p {
+            font-size: 11px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .sidebar {
+            width: 100%;
+            max-height: 40%;
+        }
+        
+        #map {
+            height: 60%;
+        }
+        
+        .sidebar-content {
+            padding: 15px;
+        }
+        
+        .section {
+            margin-bottom: 15px;
+        }
+    }
+</style>
