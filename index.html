@@ -1,11 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台灣都市計畫圖</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; padding: 0; }
-        #map { width: 100%; height: 100vh; }
-        .controls { position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; padding: 10px; border-radius: 5px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .controls label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .controls input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        
+        .controls input[type="range"] {
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -13,19 +51,28 @@
     <div class="controls">
         <label>
             <input type="checkbox" id="emap5-toggle" checked> 都市計畫圖層
-        </label><br>
-        透明度: <input type="range" id="opacity-slider" min="0" max="100" value="70">
+        </label>
+        <label>
+            透明度: <input type="range" id="opacity-slider" min="0" max="100" value="70">
+        </label>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        console.log('頁面已載入');
+        
         const map = L.map('map').setView([25.0330, 121.5654], 13);
+        console.log('地圖已初始化');
 
         // 基礎圖層
-        L.tileLayer(
+        const baseLayer = L.tileLayer(
             'https://wmts.nlsc.gov.tw/EMAP/default/GoogleMapsCompatible_Level/{z}/{y}/{x}.jpg',
-            { attribution: '© NLSC', crossOrigin: true }
+            { 
+                attribution: '© NLSC', 
+                crossOrigin: true 
+            }
         ).addTo(map);
+        console.log('基礎圖層已加載');
 
         // 都市計畫圖層
         const emap5Layer = L.tileLayer(
@@ -36,15 +83,24 @@
                 opacity: 0.7
             }
         ).addTo(map);
+        console.log('都市計畫圖層已加載');
 
         // 控制器
         document.getElementById('emap5-toggle').addEventListener('change', (e) => {
-            e.target.checked ? emap5Layer.addTo(map) : map.removeLayer(emap5Layer);
+            if (e.target.checked) {
+                emap5Layer.addTo(map);
+                console.log('都市計畫圖層已啟用');
+            } else {
+                map.removeLayer(emap5Layer);
+                console.log('都市計畫圖層已停用');
+            }
         });
 
         document.getElementById('opacity-slider').addEventListener('input', (e) => {
             emap5Layer.setOpacity(e.target.value / 100);
         });
+        
+        console.log('所有控制器已綁定');
     </script>
 </body>
 </html>
