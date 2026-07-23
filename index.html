@@ -1,35 +1,30 @@
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Leaflet 介接國土測繪中心都市計畫圖層</title>
-  <!-- 載入 Leaflet CSS 與 JS -->
-  <link rel="stylesheet" href="https://unpkg.com" />
-  <script src="https://unpkg.com"></script>
-  <style>
-    #map { height: 600px; width: 100%; }
-  </style>
-</head>
-<body>
+import 'ol/ol.css';
+import Map from 'ol/Map';
+import View from 'ol/View';
+import TileLayer from 'ol/layer/Tile';
+import XYZ from 'ol/source/XYZ';
+import {fromLonLat} from 'ol/proj';
 
-  <div id="map"></div>
-
-  <script>
-    // 1. 初始化地圖，設定中心點在台灣
-    var map = L.map('map').setView([23.973875, 120.982024], 8);
-
-    // 2. 加入台灣通用電子地圖做為底圖 (EMAP)
-    var emap = L.tileLayer('https://nlsc.gov.tw{z}/{y}/{x}', {
-      maxZoom: 20,
-      attribution: '&copy; <a href="https://maps.nlsc.gov.tw/">國土測繪圖資服務雲</a>'
-    }).addTo(map);
-
-    // 3. 疊加「都市計畫土地利用分區圖」層 (CITY_PLAN)
-    // 註：若圖層代碼有異動，可至服務雲之 GetCapabilities 查詢最新 Layer Name
-    var cityPlan = L.tileLayer('https://nlsc.gov.tw{z}/{y}/{x}', {
-      maxZoom: 20,
-      opacity: 0.6, // 設定透明度讓底圖透出來
-      attribution: '&copy; 國土測繪中心'
-    }).addTo(map);
-  </script>
-</body>
-</html>
+// 建立底圖與都市計畫圖層 (XYZ 方式)
+const map = new Map({
+  target: 'map',
+  layers: [
+    new TileLayer({
+      source: new XYZ({
+        url: 'https://nlsc.gov.tw{z}/{y}/{x}',
+        attributions: '&copy; <a href="https://maps.nlsc.gov.tw/">國土測繪圖資服務雲</a>'
+      })
+    }),
+    new TileLayer({
+      source: new XYZ({
+        url: 'https://nlsc.gov.tw{z}/{y}/{x}',
+        attributions: '&copy; 國土測繪中心'
+      }),
+      opacity: 0.6
+    })
+  ],
+  view: new View({
+    center: fromLonLat([120.982024, 23.973875]),
+    zoom: 8
+  })
+});
