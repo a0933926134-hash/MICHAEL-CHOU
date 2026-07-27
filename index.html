@@ -1144,26 +1144,54 @@ function escapeHtml(str) {
 }
 
 /* ========================================================================
-   GeoJSON 處理函數
+   核心修正：增強的樣式提取函數 - 支援 OpenLayers 格式的 styleConfig
    ======================================================================== */
 
 function extractStyleFromProperties(properties) {
-    const style = { ...defaultStyles };
+    let style = { ...defaultStyles };
     
     if (!properties) return style;
     
+    // 【新增】優先解析 styleConfig（OpenLayers 格式）
+    // 針對你的都市計畫圖層結構：styleConfig.styleCache.outer[0].stroke_.color_
+    if (properties.styleConfig && 
+        typeof properties.styleConfig === 'object' &&
+        properties.styleConfig.styleCache && 
+        properties.styleConfig.styleCache.outer && 
+        Array.isArray(properties.styleConfig.styleCache.outer) &&
+        properties.styleConfig.styleCache.outer.length > 0) {
+        
+        const outerStyle = properties.styleConfig.styleCache.outer[0];
+        
+        // 直接提取 stroke 顏色
+        if (outerStyle.stroke_ && 
+            typeof outerStyle.stroke_.color_ === 'string' &&
+            outerStyle.stroke_.color_.match(/^#[0-9A-Fa-f]{6}$/)) {
+            style.color = outerStyle.stroke_.color_;
+            style.fillColor = outerStyle.stroke_.color_;
+        }
+        
+        // 提取 stroke 寬度
+        if (outerStyle.stroke_ && typeof outerStyle.stroke_.width_ === 'number') {
+            style.weight = Math.max(1, outerStyle.stroke_.width_);
+        }
+    }
+    
+    // 備用：直接屬性提取（相容舊格式）
     const colorProps = ['color', 'fill_color', 'fillColor', 'stroke_color', 'strokeColor', 'border_color'];
-    for (let prop of colorProps) {
-        if (properties[prop]) {
-            style.color = properties[prop];
-            style.fillColor = properties[prop];
-            break;
+    if (!properties.styleConfig || !properties.styleConfig.styleCache) {
+        for (let prop of colorProps) {
+            if (properties[prop]) {
+                style.color = properties[prop];
+                style.fillColor = properties[prop];
+                break;
+            }
         }
     }
     
     const strokeProps = ['stroke_color', 'strokeColor', 'border_color'];
     for (let prop of strokeProps) {
-        if (properties[prop]) {
+        if (properties[prop] && !properties.styleConfig) {
             style.color = properties[prop];
             break;
         }
@@ -1194,6 +1222,10 @@ function extractStyleFromProperties(properties) {
     return style;
 }
 
+/* ========================================================================
+   GeoJSON 處理函數
+   ======================================================================== */
+
 function createPopupContent(properties, layerName) {
     if (!properties || Object.keys(properties).length === 0) {
         return `<div class="popup"><strong>${escapeHtml(layerName)}</strong><br>無屬性資料</div>`;
@@ -1205,7 +1237,8 @@ function createPopupContent(properties, layerName) {
         if (key.toLowerCase().includes('color') || 
             key.toLowerCase().includes('opacity') ||
             key.toLowerCase().includes('width') ||
-            key.toLowerCase().includes('style')) {
+            key.toLowerCase().includes('style') ||
+            key === 'styleConfig') {
             continue;
         }
         
@@ -1222,7 +1255,12 @@ async function importGeoJSON(file, mapObj) {
         
         reader.onload = (e) => {
             try {
-                const geoJsonData = JSON.parse(e.target.result);
+                let geoJsonData = JSON.parse(e.target.result);
+                
+                // 處理嵌套的 features 結構
+                if (geoJsonData.features && geoJsonData.features.features) {
+                    geoJsonData = { type: 'FeatureCollection', features: geoJsonData.features.features };
+                }
                 
                 if (!geoJsonData.type || !geoJsonData.features) {
                     throw new Error('無效的 GeoJSON 格式');
@@ -2195,6 +2233,66 @@ function exportExcel() {
 }
 
 /* ========================================================================
+   核心修正：完整的 TWD97 座標轉換邏輯
+   ======================================================================== */
+
+function isTWD97Coordinate(x, y) {
+    // TWD97 座標範圍檢測
+    return x > 100000 && x < 400000 && y > 2000000 && y < 2900000;
+}
+
+function twd97ToWGS84(x, y) {
+    // 台灣 TWD97 轉換為 WGS84
+    const a = 6378137.0;           // WGS84 長軸
+    const f = 1 / 298.257222101;   // WGS84 扁率
+    const b = a * (1 - f);
+    const e2 = (a * a - b * b) / (a * a);  // 第一離心率平方
+    const k0 = 0.9999;             // 縮放因子
+    const dx = 250000;             // 東偏
+    const lon0 = 121 * Math.PI / 180;  // 中央經線
+
+    const M = y / k0;
+    const mu = M / (a * (1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
+
+    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    const J1 = (3*e1/2 - 27*e1*e1*e1/32);
+    const J2 = (21*e1*e1/16 - 55*e1*e1*e1*e1/32);
+    const J3 = (151*e1*e1*e1/96);
+    const J4 = (1097*e1*e1*e1*e1/512);
+
+    const fp = mu + J1*Math.sin(2*mu) + J2*Math.sin(4*mu) + J3*Math.sin(6*mu) + J4*Math.sin(8*mu);
+
+    const e2p = e2 / (1 - e2);
+    const C1 = e2p * Math.pow(Math.cos(fp), 2);
+    const T1 = Math.pow(Math.tan(fp), 2);
+    const R1 = a * (1 - e2) / Math.pow(1 - e2*Math.pow(Math.sin(fp),2), 1.5);
+    const N1 = a / Math.sqrt(1 - e2*Math.pow(Math.sin(fp),2));
+    const D = (x - dx) / (N1 * k0);
+
+    const lat = fp - (N1*Math.tan(fp)/R1) * (
+        D*D/2 -
+        (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2p) * Math.pow(D,4)/24 +
+        (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*e2p - 3*C1*C1) * Math.pow(D,6)/720
+    );
+
+    const lon = lon0 + (
+        D - (1 + 2*T1 + C1) * Math.pow(D,3)/6 +
+        (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2p + 24*T1*T1) * Math.pow(D,5)/120
+    ) / Math.cos(fp);
+
+    return [lon * 180 / Math.PI, lat * 180 / Math.PI];
+}
+
+function convertRingIfNeeded(ring) {
+    if (!ring || ring.length === 0) return ring;
+    const sample = ring[0];
+    if (isTWD97Coordinate(sample[0], sample[1])) {
+        return ring.map(coord => twd97ToWGS84(coord[0], coord[1]));
+    }
+    return ring;
+}
+
+/* ========================================================================
    多邊形匯出匯入
    ======================================================================== */
 
@@ -2270,62 +2368,10 @@ function importPolygonsFromSHP(event) {
     document.getElementById('shp-file-input').value = '';
 }
 
-function isTWD97Coordinate(x, y) {
-    return x > 100000 && x < 400000 && y > 2000000 && y < 2900000;
-}
-
-function twd97ToWGS84(x, y) {
-    const a = 6378137.0;
-    const f = 1 / 298.257222101;
-    const b = a * (1 - f);
-    const e2 = (a * a - b * b) / (a * a);
-    const k0 = 0.9999;
-    const dx = 250000;
-    const lon0 = 121 * Math.PI / 180;
-
-    const M = y / k0;
-    const mu = M / (a * (1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
-
-    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
-    const J1 = (3*e1/2 - 27*e1*e1*e1/32);
-    const J2 = (21*e1*e1/16 - 55*e1*e1*e1*e1/32);
-    const J3 = (151*e1*e1*e1/96);
-    const J4 = (1097*e1*e1*e1*e1/512);
-
-    const fp = mu + J1*Math.sin(2*mu) + J2*Math.sin(4*mu) + J3*Math.sin(6*mu) + J4*Math.sin(8*mu);
-
-    const e2p = e2 / (1 - e2);
-    const C1 = e2p * Math.pow(Math.cos(fp), 2);
-    const T1 = Math.pow(Math.tan(fp), 2);
-    const R1 = a * (1 - e2) / Math.pow(1 - e2*Math.pow(Math.sin(fp),2), 1.5);
-    const N1 = a / Math.sqrt(1 - e2*Math.pow(Math.sin(fp),2));
-    const D = (x - dx) / (N1 * k0);
-
-    const lat = fp - (N1*Math.tan(fp)/R1) * (
-        D*D/2 -
-        (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2p) * Math.pow(D,4)/24 +
-        (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*e2p - 3*C1*C1) * Math.pow(D,6)/720
-    );
-
-    const lon = lon0 + (
-        D - (1 + 2*T1 + C1) * Math.pow(D,3)/6 +
-        (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2p + 24*T1*T1) * Math.pow(D,5)/120
-    ) / Math.cos(fp);
-
-    return [lon * 180 / Math.PI, lat * 180 / Math.PI];
-}
-
-function convertRingIfNeeded(ring) {
-    const sample = ring[0];
-    if (isTWD97Coordinate(sample[0], sample[1])) {
-        return ring.map(coord => twd97ToWGS84(coord[0], coord[1]));
-    }
-    return ring;
-}
-
 function processImportedPolygons(geojson) {
     let data = geojson;
 
+    // 處理嵌套結構
     let guard = 0;
     while (data && data.features && !Array.isArray(data.features) &&
            data.features.type === "FeatureCollection" && guard < 5) {
