@@ -350,7 +350,6 @@ body {
     box-sizing: border-box;
 }
 
-/* GeoJSON 匯入/匯出相關樣式 */
 .geojson-section {
     display: flex;
     flex-direction: column;
@@ -381,7 +380,6 @@ body {
     opacity: 0.8;
 }
 
-/* 彈出視窗樣式 */
 .popup {
     font-size: 12px;
     min-width: 200px;
@@ -912,7 +910,6 @@ tr.highlight {
             </div>
         </div>
 
-        <!-- ★新增：GeoJSON 匯入/匯出區域 -->
         <div class="sidebar-section">
             <h3><span>📁</span> 圖層匯入/匯出</h3>
             <div class="geojson-section">
@@ -1105,6 +1102,88 @@ const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
 
 /* ========================================================================
+   修正 1: 新增 normalizeGeoJSON 輔助函數
+   支援展平嵌套結構、驗證格式、提供清晰錯誤訊息
+   ======================================================================== */
+
+function normalizeGeoJSON(data) {
+    if (!data) {
+        throw new Error('資料為空或 undefined');
+    }
+
+    // 遞迴展平嵌套的 FeatureCollection
+    let current = data;
+    let iterationCount = 0;
+    const maxIterations = 10;
+
+    while (
+        current &&
+        current.features &&
+        !Array.isArray(current.features) &&
+        current.features.type === 'FeatureCollection' &&
+        iterationCount < maxIterations
+    ) {
+        console.log(`ℹ️ 展平嵌套層級 ${iterationCount + 1}`);
+        current = current.features;
+        iterationCount++;
+    }
+
+    // 檢查最終結構
+    if (!current.type) {
+        throw new Error(`無法辨識的 GeoJSON 格式：缺少 type 欄位`);
+    }
+
+    // 根據 type 轉換為標準 FeatureCollection
+    if (current.type === 'FeatureCollection') {
+        if (!Array.isArray(current.features)) {
+            throw new Error(`FeatureCollection 的 features 不是陣列`);
+        }
+
+        current.features.forEach((feature, idx) => {
+            if (feature.type !== 'Feature') {
+                throw new Error(`features[${idx}] 不是有效的 Feature（type="${feature.type}"）`);
+            }
+            if (!feature.geometry) {
+                throw new Error(`features[${idx}] 缺少 geometry`);
+            }
+            if (!feature.geometry.type) {
+                throw new Error(`features[${idx}].geometry 缺少 type`);
+            }
+        });
+
+        console.log(`✅ FeatureCollection 驗證成功，包含 ${current.features.length} 個特徵`);
+        return current;
+
+    } else if (current.type === 'Feature') {
+        if (!current.geometry) {
+            throw new Error('Feature 缺少 geometry 欄位');
+        }
+        if (!current.geometry.type) {
+            throw new Error('geometry 缺少 type 欄位');
+        }
+        console.log(`✅ 轉換單一 Feature 為 FeatureCollection`);
+        return {
+            type: 'FeatureCollection',
+            features: [current]
+        };
+
+    } else if (['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection'].includes(current.type)) {
+        console.log(`✅ 轉換 ${current.type} 為 FeatureCollection`);
+        return {
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                geometry: current,
+                properties: {}
+            }]
+        };
+
+    } else {
+        throw new Error(`不支援的 type: "${current.type}"`);
+    }
+}
+
+/* ========================================================================
    UI 交互
    ======================================================================== */
 
@@ -1144,10 +1223,9 @@ function escapeHtml(str) {
 }
 
 /* ========================================================================
-   GeoJSON 處理函數 - 修正 1: extractStyleFromProperties 函數
+   GeoJSON 處理函數
    ======================================================================== */
 
-// 輔助函數：驗證 Hex 顏色
 function isValidHexColor(color) {
     if (!color || typeof color !== 'string') return false;
     return /^#[0-9A-Fa-f]{6}$/.test(color) || /^#[0-9A-Fa-f]{3}$/.test(color);
@@ -1162,7 +1240,6 @@ function extractStyleFromProperties(properties) {
     }
     
     // ====== 優先級 1: OpenLayers styleConfig.styleCache.outer[0].stroke_ ======
-    // 這是台灣地政圖層的標準格式
     if (properties.styleConfig && 
         typeof properties.styleConfig === 'object' &&
         properties.styleConfig.styleCache &&
@@ -1171,18 +1248,16 @@ function extractStyleFromProperties(properties) {
         
         const outerStyle = properties.styleConfig.styleCache.outer[0];
         
-        // 提取 stroke 顏色
         if (outerStyle.stroke_ && outerStyle.stroke_.color_) {
             const color = String(outerStyle.stroke_.color_).trim();
             if (isValidHexColor(color)) {
                 style.color = color;
                 style.fillColor = color;
                 console.log(`✓ 從 styleConfig.stroke_.color_ 提取顏色: ${color}`);
-                return style; // 直接返回，不繼續尋找其他欄位
+                return style;
             }
         }
         
-        // 提取 stroke 寬度
         if (outerStyle.stroke_ && outerStyle.stroke_.width_) {
             const width = parseInt(outerStyle.stroke_.width_);
             if (!isNaN(width) && width > 0) {
@@ -1191,7 +1266,7 @@ function extractStyleFromProperties(properties) {
         }
     }
     
-    // ====== 優先級 2: 直接 properties 欄位 (英文和中文) ======
+    // ====== 優先級 2: 直接 properties 欄位 ======
     const directColorFields = [
         'color', 'fill_color', 'fillColor', 'stroke_color', 'strokeColor',
         'border_color', 'borderColor', 'line_color', 'lineColor',
@@ -1251,10 +1326,6 @@ function extractStyleFromProperties(properties) {
     return style;
 }
 
-/* ========================================================================
-   修正 2: 更新 addGeoJSONToMap 函數
-   ======================================================================== */
-
 function createPopupContent(properties, layerName) {
     if (!properties || Object.keys(properties).length === 0) {
         return `<div class="popup"><strong>${escapeHtml(layerName)}</strong><br>無屬性資料</div>`;
@@ -1285,7 +1356,6 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
     
     L.geoJSON(geoJsonData, {
         style: (feature) => {
-            // ★ 使用修正後的 extractStyleFromProperties
             const extractedStyle = extractStyleFromProperties(feature.properties);
             return {
                 color: extractedStyle.color,
@@ -1350,36 +1420,46 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
     console.log(`✓ GeoJSON 圖層已新增：${layerName}`);
 }
 
+/* ========================================================================
+   修正 2: 新增 importGeoJSON 函數
+   支援嵌套結構、單一 Feature、Geometry 物件
+   ======================================================================== */
+
 async function importGeoJSON(file, mapObj) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        
+
         reader.onload = (e) => {
             try {
-                const geoJsonData = JSON.parse(e.target.result);
-                
-                if (!geoJsonData.type || !geoJsonData.features) {
-                    throw new Error('無效的 GeoJSON 格式');
-                }
-                
-                const layerName = file.name.replace('.geojson', '').replace('.json', '');
-                addGeoJSONToMap(geoJsonData, layerName, mapObj);
-                
-                showToast(`✓ 已匯入圖層：${layerName}`);
+                const rawData = JSON.parse(e.target.result);
+                console.log('📥 原始 GeoJSON 結構:', rawData);
+
+                // ★ 使用 normalizeGeoJSON 規範化
+                const normalizedData = normalizeGeoJSON(rawData);
+                console.log('✅ 規範化後的 GeoJSON:', normalizedData);
+
+                const layerName = file.name
+                    .replace('.geojson', '')
+                    .replace('.json', '')
+                    .trim();
+
+                addGeoJSONToMap(normalizedData, layerName, mapObj);
+                showToast(`✓ 已匯入圖層：${layerName} (${normalizedData.features.length} 個特徵)`);
                 resolve(layerName);
-                
+
             } catch (error) {
-                console.error('GeoJSON 匯入失敗:', error);
+                console.error('❌ GeoJSON 匯入失敗:', error);
+                console.error('錯誤堆疊:', error.stack);
                 showToast(`❌ GeoJSON 匯入失敗：${error.message}`);
                 reject(error);
             }
         };
-        
+
         reader.onerror = () => {
             showToast('❌ 檔案讀取失敗');
             reject(new Error('檔案讀取失敗'));
         };
-        
+
         reader.readAsText(file);
     });
 }
@@ -1548,6 +1628,7 @@ function createPolygonObject(points, customName) {
     const defaultName = `多邊形 ${polygons.length + 1}`;
     const finalName = (customName && String(customName).trim()) ? String(customName).trim() : defaultName;
     
+    // ★ 修正 7: 新增 originalProperties 欄位
     const polygonObj = {
         id: id,
         name: finalName,
@@ -1557,7 +1638,8 @@ function createPolygonObject(points, customName) {
         isEditing: false,
         centroid: null,
         isSelected: false,
-        color: color
+        color: color,
+        originalProperties: {}  // ★ 新增欄位
     };
     
     updatePolygonCentroid(polygonObj);
@@ -2277,79 +2359,90 @@ function exportExcel() {
 }
 
 /* ========================================================================
-   多邊形匯出匯入
+   修正 3: 新增 exportPolygonsToGeoJSON 函數
+   保留所有原始屬性、顏色、styleConfig 等信息
    ======================================================================== */
 
-function exportPolygonsToSHP() {
+function exportPolygonsToGeoJSON() {
     if (polygons.length === 0) {
-        alert("沒有多邊形可匯出");
+        showToast('❌ 沒有多邊形可匯出');
         return;
     }
 
     try {
-        const features = polygons.map((poly) => {
+        const features = polygons.map((poly, index) => {
             let ring = poly.points.map(p => [Number(p[1]), Number(p[0])]);
-            ring.push([Number(poly.points[0][1]), Number(poly.points[0][0])]);
+            if (ring.length > 0 &&
+                (ring[0][0] !== ring[ring.length - 1][0] ||
+                 ring[0][1] !== ring[ring.length - 1][1])) {
+                ring.push([Number(poly.points[0][1]), Number(poly.points[0][0])]);
+            }
+
+            const turfPoly = turf.polygon([ring]);
+            const areaM2 = turf.area(turfPoly);
+
+            // ★ 構建 properties，保留原始屬性
+            const properties = {
+                id: poly.id,
+                name: poly.name,
+                color: poly.color,
+                areaM2: Math.round(areaM2),
+                areaHa: (areaM2 / 10000).toFixed(4),
+                createdAt: new Date().toISOString(),
+                exportFormat: 'GeoJSON',
+                ...(poly.originalProperties || {})
+            };
+
             return {
-                geometry: { type: 'Polygon', coordinates: [ring] },
-                properties: {
-                    PolyID: poly.id,
-                    Name: poly.name,
-                    Area_Sqm: Math.round(turf.area(turf.polygon([ring]))),
-                    Color: poly.color
-                }
+                type: 'Feature',
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [ring]
+                },
+                properties: properties
             };
         });
-        shpwrite.download(features);
-        showToast('✓ SHP 檔案已下載');
-    } catch (err) {
-        let geojsonObj = {
-            type: "FeatureCollection",
-            features: polygons.map((poly) => {
-                let ring = poly.points.map(p => [Number(p[1]), Number(p[0])]);
-                ring.push([Number(poly.points[0][1]), Number(poly.points[0][0])]);
-                return {
-                    type: "Feature",
-                    geometry: { type: "Polygon", coordinates: [ring] },
-                    properties: { Name: poly.name, Color: poly.color }
-                };
-            })
+
+        const geoJsonData = {
+            type: 'FeatureCollection',
+            features: features
         };
-        let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojsonObj));
-        let downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", "Polygons.geojson");
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        showToast('✓ GeoJSON 已下載');
+
+        const jsonStr = JSON.stringify(geoJsonData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `polygons-${new Date().toISOString().split('T')[0]}.geojson`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+        showToast(`✓ 已下載 GeoJSON：${link.download}`);
+        console.log('✓ GeoJSON 匯出成功，包含 ' + features.length + ' 個多邊形');
+
+    } catch (err) {
+        console.error('❌ GeoJSON 匯出失敗:', err);
+        showToast('❌ GeoJSON 匯出失敗：' + err.message);
     }
 }
 
-function importPolygonsFromSHP(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+/* ========================================================================
+   修正 4: 替換 exportPolygonsToSHP 函數
+   優先使用 GeoJSON（推薦），因為可完整保留屬性
+   ======================================================================== */
 
-    const reader = new FileReader();
-    if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
-        reader.onload = (e) => {
-            try {
-                const geojson = JSON.parse(e.target.result);
-                processImportedPolygons(geojson);
-            } catch (err) {
-                alert("GeoJSON 解析失敗");
-            }
-        };
-        reader.readAsText(file);
-    } else if (file.name.endsWith('.zip')) {
-        reader.onload = (e) => {
-            shp(e.target.result).then(geojson => {
-                processImportedPolygons(geojson);
-            }).catch(() => alert("SHP 解析失敗"));
-        };
-        reader.readAsArrayBuffer(file);
+function exportPolygonsToSHP() {
+    if (polygons.length === 0) {
+        showToast('❌ 沒有多邊形可匯出');
+        return;
     }
-    document.getElementById('shp-file-input').value = '';
+
+    // ★ 優先使用 GeoJSON（更完整保留屬性）
+    console.log('📥 開始匯出多邊形為 GeoJSON 格式（推薦）...');
+    exportPolygonsToGeoJSON();
 }
 
 function isTWD97Coordinate(x, y) {
@@ -2405,12 +2498,18 @@ function convertRingIfNeeded(ring) {
     return ring;
 }
 
+/* ========================================================================
+   修正 5: 改進 processImportedPolygons 函數
+   保留原始 properties、支援 Polygon 和 MultiPolygon
+   ======================================================================== */
+
 function processImportedPolygons(geojson) {
     let data = geojson;
 
     let guard = 0;
     while (data && data.features && !Array.isArray(data.features) &&
            data.features.type === "FeatureCollection" && guard < 5) {
+        console.log(`ℹ️ 展平嵌套層級 ${guard + 1}`);
         data = data.features;
         guard++;
     }
@@ -2421,9 +2520,14 @@ function processImportedPolygons(geojson) {
     } else if (data.type === "Feature") {
         features = [data];
     } else if (data.geometry) {
-        features = [{ type: "Feature", geometry: data.geometry, properties: {} }];
+        features = [{
+            type: "Feature",
+            geometry: data.geometry,
+            properties: data.properties || {}
+        }];
     } else {
-        alert("檔案格式錯誤：無法辨識的 GeoJSON 結構");
+        showToast("❌ 無效的 GeoJSON 格式");
+        console.error('無法識別的結構:', data);
         return;
     }
 
@@ -2431,63 +2535,96 @@ function processImportedPolygons(geojson) {
     let skippedCount = 0;
     let convertedCount = 0;
 
-    features.forEach(feature => {
-        if (!feature.geometry) { skippedCount++; return; }
+    features.forEach((feature, featureIdx) => {
+        if (!feature.geometry) {
+            console.warn(`Feature[${featureIdx}] 缺少 geometry，已跳過`);
+            skippedCount++;
+            return;
+        }
 
         const geomType = feature.geometry.type;
         let polygonsCoords = [];
 
         if (geomType === "Polygon") {
-            polygonsCoords.push(feature.geometry.coordinates[0]);
+            if (feature.geometry.coordinates && feature.geometry.coordinates[0]) {
+                polygonsCoords.push({
+                    ring: feature.geometry.coordinates[0],
+                    multiIndex: 0,
+                    totalPolygons: 1
+                });
+            }
         } else if (geomType === "MultiPolygon") {
-            feature.geometry.coordinates.forEach(polygonCoords => {
+            feature.geometry.coordinates.forEach((polygonCoords, polyIdx) => {
                 if (polygonCoords && polygonCoords[0]) {
-                    polygonsCoords.push(polygonCoords[0]);
+                    polygonsCoords.push({
+                        ring: polygonCoords[0],
+                        multiIndex: polyIdx,
+                        totalPolygons: feature.geometry.coordinates.length
+                    });
                 }
             });
         } else {
+            console.warn(`Feature[${featureIdx}] geometry type="${geomType}" 不支援，已跳過`);
             skippedCount++;
             return;
         }
 
         const props = feature.properties || {};
-        const baseName = props.Name || props.name || props.NAME ||
+        const baseName = props.name || props.Name || props.NAME ||
                           props['名稱'] || props.PolyName || null;
-        const multiCount = polygonsCoords.length;
 
-        polygonsCoords.forEach((rings, subIdx) => {
-            if (!rings || rings.length < 3) { skippedCount++; return; }
+        polygonsCoords.forEach((coordData) => {
+            const rings = coordData.ring;
+            const multiIndex = coordData.multiIndex;
+            const totalPolygons = coordData.totalPolygons;
 
-            const beforeSample = rings[0];
-            const wasTWD97 = isTWD97Coordinate(beforeSample[0], beforeSample[1]);
-            if (wasTWD97) {
-                rings = convertRingIfNeeded(rings);
-                convertedCount++;
-            }
-
-            const invalidCoord = rings.some(coord =>
-                Math.abs(coord[1]) > 90 || Math.abs(coord[0]) > 180
-            );
-            if (invalidCoord) {
-                alert("座標系統可能不是 WGS84 或 TWD97，已跳過該筆資料");
+            if (!rings || rings.length < 3) {
+                console.warn(`Feature[${featureIdx}].polygon[${multiIndex}] 頂點少於 3 個，已跳過`);
                 skippedCount++;
                 return;
             }
 
-            if (rings.length > 1 &&
-                rings[0][0] === rings[rings.length-1][0] &&
-                rings[0][1] === rings[rings.length-1][1]) {
-                rings.pop();
+            const beforeSample = rings[0];
+            const wasTWD97 = isTWD97Coordinate(beforeSample[0], beforeSample[1]);
+            let convertedRings = rings;
+            if (wasTWD97) {
+                convertedRings = convertRingIfNeeded(rings);
+                convertedCount++;
+                console.log(`✓ 自動轉換 Feature[${featureIdx}].polygon[${multiIndex}] 的座標系統 (TWD97 → WGS84)`);
             }
 
-            const points = rings.map(coord => [coord[1], coord[0]]);
+            const invalidCoord = convertedRings.some(coord =>
+                Math.abs(coord[1]) > 90 || Math.abs(coord[0]) > 180
+            );
+            if (invalidCoord) {
+                console.error(`Feature[${featureIdx}].polygon[${multiIndex}] 座標超出有效範圍，已跳過`);
+                showToast("⚠️ 部分座標超出有效範圍（lat: ±90°, lon: ±180°），已自動跳過");
+                skippedCount++;
+                return;
+            }
+
+            if (convertedRings.length > 1 &&
+                convertedRings[0][0] === convertedRings[convertedRings.length - 1][0] &&
+                convertedRings[0][1] === convertedRings[convertedRings.length - 1][1]) {
+                convertedRings.pop();
+            }
+
+            const points = convertedRings.map(coord => [coord[1], coord[0]]);
 
             let finalName = null;
             if (baseName) {
-                finalName = multiCount > 1 ? `${baseName}_${subIdx + 1}` : baseName;
+                finalName = totalPolygons > 1 
+                    ? `${baseName}_${multiIndex + 1}` 
+                    : baseName;
             }
 
-            createPolygonObject(points, finalName);
+            // ★ 重點：保留原始 properties
+            const polygonObj = createPolygonObject(points, finalName);
+            if (polygonObj) {
+                polygonObj.originalProperties = { ...props };
+                console.log(`✓ 已保留 Feature[${featureIdx}].polygon[${multiIndex}] 的原始屬性:`, props);
+            }
+
             importedCount++;
         });
     });
@@ -2496,6 +2633,61 @@ function processImportedPolygons(geojson) {
     if (convertedCount > 0) msg += `（已自動轉換 ${convertedCount} 個 TWD97 座標）`;
     if (skippedCount > 0) msg += `，跳過 ${skippedCount} 筆異常資料`;
     showToast(msg);
+    console.log(msg);
+}
+
+/* ========================================================================
+   修正 6: 更新 importPolygonsFromSHP 函數
+   支援新的 normalizeGeoJSON 函數自動展平嵌套結構
+   ======================================================================== */
+
+function importPolygonsFromSHP(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
+        reader.onload = (e) => {
+            try {
+                const rawGeoJSON = JSON.parse(e.target.result);
+                console.log('📥 原始 GeoJSON 結構:', rawGeoJSON);
+                
+                // ★ 使用 normalizeGeoJSON 規範化（自動展平嵌套結構）
+                const normalizedGeoJSON = normalizeGeoJSON(rawGeoJSON);
+                console.log('✅ 規範化後的 GeoJSON:', normalizedGeoJSON);
+                
+                processImportedPolygons(normalizedGeoJSON);
+            } catch (err) {
+                console.error('❌ GeoJSON 解析失敗:', err);
+                showToast(`❌ 解析失敗：${err.message}`);
+            }
+        };
+        reader.readAsText(file);
+    } else if (file.name.endsWith('.zip')) {
+        reader.onload = (e) => {
+            shp(e.target.result).then(geojson => {
+                try {
+                    console.log('📥 原始 SHP GeoJSON:', geojson);
+                    
+                    // ★ 使用 normalizeGeoJSON 規範化
+                    const normalizedGeoJSON = normalizeGeoJSON(geojson);
+                    console.log('✅ 規範化後的 GeoJSON:', normalizedGeoJSON);
+                    
+                    processImportedPolygons(normalizedGeoJSON);
+                } catch (err) {
+                    console.error('❌ GeoJSON 規範化失敗:', err);
+                    showToast(`❌ 規範化失敗：${err.message}`);
+                }
+            }).catch(err => {
+                console.error('❌ SHP 解析失敗:', err);
+                showToast('❌ SHP 解析失敗');
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        showToast('❌ 不支援的檔案格式（只支援 .geojson、.json 或 .zip）');
+    }
+    document.getElementById('shp-file-input').value = '';
 }
 
 /* ========================================================================
