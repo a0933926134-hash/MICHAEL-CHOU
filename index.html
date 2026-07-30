@@ -966,7 +966,7 @@ tr.highlight {
     <div class="draw-section">
         <h4>檔案操作</h4>
         <div class="draw-button-group">
-            <button onclick="exportPolygonsToSHP()" style="background: #10b981; color: white; border-color: #059669;">📥 匯出</button>
+            <button onclick="exportPolygonsToGeoJSON()" style="background: #10b981; color: white; border-color: #059669;">📥 匯出</button>
             <label class="file-upload-label">
                 📤 匯入
                 <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" onchange="importPolygonsFromSHP(event)">
@@ -1010,6 +1010,29 @@ tr.highlight {
 </div>
 
 <script>
+/* ========================================================================
+   ★ 修正 0: 全域顏色欄位配置
+   支援自訂欄位名稱，系統將依優先級自動檢查
+   ======================================================================== */
+
+const colorFieldsConfig = {
+    // 標準欄位（直接支援，無需配置）
+    standardFields: [
+        'color', 'fill_color', 'fillColor', 'stroke_color', 'strokeColor',
+        'border_color', 'borderColor', 'line_color', 'lineColor',
+        '顏色', '顏色值', '填充顏色', '邊界顏色', '線條顏色', '色碼'
+    ],
+    
+    // 自訂欄位配置（根據你的GeoJSON修改此處）
+    // 例如：你的GeoJSON如果使用 'myColor' 或 'custom_style_color' 等
+    customFields: [
+        // 'myColor',           // 取消註解並修改為你的欄位名
+        // 'custom_color',
+        // 'style_color',
+        // 'feature_color'
+    ]
+};
+
 /* ========================================================================
    全域變數初始化
    ======================================================================== */
@@ -1102,7 +1125,7 @@ const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
 
 /* ========================================================================
-   修正 1: 新增 normalizeGeoJSON 輔助函數
+   ★ 修正 1: 新增 normalizeGeoJSON 輔助函數
    支援展平嵌套結構、驗證格式、提供清晰錯誤訊息
    ======================================================================== */
 
@@ -1223,19 +1246,26 @@ function escapeHtml(str) {
 }
 
 /* ========================================================================
-   GeoJSON 處理函數
+   ★ 修正 2: 改進 extractStyleFromProperties 函數
+   支援自訂欄位、更好的顏色驗證、詳細的診斷日誌
    ======================================================================== */
 
 function isValidHexColor(color) {
     if (!color || typeof color !== 'string') return false;
-    return /^#[0-9A-Fa-f]{6}$/.test(color) || /^#[0-9A-Fa-f]{3}$/.test(color);
+    // 支援 #RGB 和 #RRGGBB
+    return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(color);
+}
+
+function isValidRGBColor(color) {
+    if (!color || typeof color !== 'string') return false;
+    return /^rgba?\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*[\d.]+\s*)?\)$/i.test(color);
 }
 
 function extractStyleFromProperties(properties) {
     const style = { ...defaultStyles };
     
     if (!properties) {
-        console.log('⚠ 未傳入任何屬性資料');
+        console.warn('⚠️ 未傳入任何屬性資料，使用預設顏色');
         return style;
     }
     
@@ -1250,10 +1280,19 @@ function extractStyleFromProperties(properties) {
         
         if (outerStyle.stroke_ && outerStyle.stroke_.color_) {
             const color = String(outerStyle.stroke_.color_).trim();
-            if (isValidHexColor(color)) {
+            if (isValidHexColor(color) || isValidRGBColor(color)) {
                 style.color = color;
                 style.fillColor = color;
                 console.log(`✓ 從 styleConfig.stroke_.color_ 提取顏色: ${color}`);
+                return style;
+            }
+        }
+        
+        if (outerStyle.fill_ && outerStyle.fill_.color_) {
+            const color = String(outerStyle.fill_.color_).trim();
+            if (isValidHexColor(color) || isValidRGBColor(color)) {
+                style.fillColor = color;
+                console.log(`✓ 從 styleConfig.fill_.color_ 提取顏色: ${color}`);
                 return style;
             }
         }
@@ -1266,35 +1305,36 @@ function extractStyleFromProperties(properties) {
         }
     }
     
-    // ====== 優先級 2: 直接 properties 欄位 ======
-    const directColorFields = [
-        'color', 'fill_color', 'fillColor', 'stroke_color', 'strokeColor',
-        'border_color', 'borderColor', 'line_color', 'lineColor',
-        '顏色', '顏色值', '填充顏色', '邊界顏色', '線條顏色', '色碼'
-    ];
+    // ====== 優先級 2: 標準 properties 欄位 ======
+    const standardColorFields = colorFieldsConfig.standardFields;
     
-    for (let field of directColorFields) {
-        if (properties[field]) {
+    for (let field of standardColorFields) {
+        if (properties.hasOwnProperty(field) && properties[field]) {
             const colorValue = String(properties[field]).trim();
-            if (isValidHexColor(colorValue)) {
+            if (isValidHexColor(colorValue) || isValidRGBColor(colorValue)) {
                 style.color = colorValue;
                 style.fillColor = colorValue;
-                console.log(`✓ 從 "${field}" 提取顏色: ${colorValue}`);
+                console.log(`✓ 從標準欄位 "${field}" 提取顏色: ${colorValue}`);
                 return style;
+            } else {
+                console.warn(`⚠️ 欄位 "${field}" 值無效（${colorValue}）`);
             }
         }
     }
     
-    // ====== 優先級 3: RGB 字符串 ======
-    const rgbFields = ['fill', 'fillColor', 'stroke', 'strokeColor', 'backgroundColor', 'bgColor'];
-    for (let field of rgbFields) {
-        if (properties[field]) {
-            const fillStr = String(properties[field]).trim();
-            if (fillStr.toLowerCase().startsWith('rgb')) {
-                style.fillColor = fillStr;
-                style.color = fillStr;
-                console.log(`✓ 從 "${field}" 提取 RGB: ${fillStr}`);
+    // ====== 優先級 3: 自訂欄位配置 ======
+    const customFields = colorFieldsConfig.customFields;
+    
+    for (let field of customFields) {
+        if (properties.hasOwnProperty(field) && properties[field]) {
+            const colorValue = String(properties[field]).trim();
+            if (isValidHexColor(colorValue) || isValidRGBColor(colorValue)) {
+                style.color = colorValue;
+                style.fillColor = colorValue;
+                console.log(`✓ 從自訂欄位 "${field}" 提取顏色: ${colorValue}`);
                 return style;
+            } else {
+                console.warn(`⚠️ 自訂欄位 "${field}" 值無效（${colorValue}）`);
             }
         }
     }
@@ -1302,10 +1342,11 @@ function extractStyleFromProperties(properties) {
     // ====== 優先級 4: 不透明度和寬度 ======
     const opacityFields = ['opacity', 'fill_opacity', 'fillOpacity', 'alpha', '不透明度'];
     for (let field of opacityFields) {
-        if (properties[field] !== undefined) {
+        if (properties.hasOwnProperty(field) && properties[field] !== undefined) {
             const opacity = parseFloat(properties[field]);
             if (!isNaN(opacity) && opacity >= 0 && opacity <= 1) {
                 style.fillOpacity = opacity;
+                console.log(`✓ 從欄位 "${field}" 提取不透明度: ${opacity}`);
                 break;
             }
         }
@@ -1313,18 +1354,37 @@ function extractStyleFromProperties(properties) {
     
     const weightFields = ['weight', 'stroke_width', 'linewidth', 'line_width', 'width', '寬度'];
     for (let field of weightFields) {
-        if (properties[field] !== undefined) {
+        if (properties.hasOwnProperty(field) && properties[field] !== undefined) {
             const weight = parseInt(properties[field]);
             if (!isNaN(weight) && weight > 0) {
                 style.weight = weight;
+                console.log(`✓ 從欄位 "${field}" 提取寬度: ${weight}`);
                 break;
             }
         }
     }
     
-    console.log(`⚠ 未找到有效的顏色信息，使用默認顏色: ${style.color}`);
+    // 記錄找到的所有欄位（用於診斷）
+    const foundFields = Object.keys(properties).filter(k => 
+        k.toLowerCase().includes('color') || 
+        k.toLowerCase().includes('fill') || 
+        k.toLowerCase().includes('stroke') ||
+        k.toLowerCase().includes('顏色')
+    );
+    
+    if (foundFields.length > 0) {
+        console.warn(`⚠️ 未找到有效的顏色信息（找到的相關欄位：${foundFields.join(', ')}），使用默認顏色: ${style.color}`);
+        console.info(`💡 若要支援這些欄位，請在 colorFieldsConfig.customFields 中添加名稱`);
+    } else {
+        console.warn(`⚠️ 未找到任何顏色相關欄位，使用默認顏色: ${style.color}`);
+    }
+    
     return style;
 }
+
+/* ========================================================================
+   GeoJSON 處理函數
+   ======================================================================== */
 
 function createPopupContent(properties, layerName) {
     if (!properties || Object.keys(properties).length === 0) {
@@ -1421,7 +1481,7 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
 }
 
 /* ========================================================================
-   修正 2: 新增 importGeoJSON 函數
+   修正 1a: 改進 importGeoJSON 函數
    支援嵌套結構、單一 Feature、Geometry 物件
    ======================================================================== */
 
@@ -1639,7 +1699,7 @@ function createPolygonObject(points, customName) {
         centroid: null,
         isSelected: false,
         color: color,
-        originalProperties: {}  // ★ 新增欄位
+        originalProperties: {}  // ★ 保留原始屬性
     };
     
     updatePolygonCentroid(polygonObj);
@@ -2359,7 +2419,7 @@ function exportExcel() {
 }
 
 /* ========================================================================
-   修正 3: 新增 exportPolygonsToGeoJSON 函數
+   ★ 修正 3: 新增 exportPolygonsToGeoJSON 函數
    保留所有原始屬性、顏色、styleConfig 等信息
    ======================================================================== */
 
@@ -2430,20 +2490,9 @@ function exportPolygonsToGeoJSON() {
 }
 
 /* ========================================================================
-   修正 4: 替換 exportPolygonsToSHP 函數
-   優先使用 GeoJSON（推薦），因為可完整保留屬性
+   ★ 修正 4: 改進 processImportedPolygons 函數
+   支援 Polygon 和 MultiPolygon、自動座標系統轉換
    ======================================================================== */
-
-function exportPolygonsToSHP() {
-    if (polygons.length === 0) {
-        showToast('❌ 沒有多邊形可匯出');
-        return;
-    }
-
-    // ★ 優先使用 GeoJSON（更完整保留屬性）
-    console.log('📥 開始匯出多邊形為 GeoJSON 格式（推薦）...');
-    exportPolygonsToGeoJSON();
-}
 
 function isTWD97Coordinate(x, y) {
     return x > 100000 && x < 400000 && y > 2000000 && y < 2900000;
@@ -2497,11 +2546,6 @@ function convertRingIfNeeded(ring) {
     }
     return ring;
 }
-
-/* ========================================================================
-   修正 5: 改進 processImportedPolygons 函數
-   保留原始 properties、支援 Polygon 和 MultiPolygon
-   ======================================================================== */
 
 function processImportedPolygons(geojson) {
     let data = geojson;
@@ -2637,7 +2681,7 @@ function processImportedPolygons(geojson) {
 }
 
 /* ========================================================================
-   修正 6: 更新 importPolygonsFromSHP 函數
+   ★ 修正 5: 更新 importPolygonsFromSHP 函數
    支援新的 normalizeGeoJSON 函數自動展平嵌套結構
    ======================================================================== */
 
