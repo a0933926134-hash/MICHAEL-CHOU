@@ -1010,6 +1010,60 @@ tr.highlight {
 </div>
 
 <script>
+/* ================================================
+   ★ 修正 0.1: 色彩驗證函數庫
+   ================================================ */
+
+const namedColorsMap = {
+    'red': '#ff0000', 'blue': '#0000ff', 'green': '#008000',
+    'white': '#ffffff', 'black': '#000000', 'gray': '#808080',
+    'yellow': '#ffff00', 'cyan': '#00ffff', 'magenta': '#ff00ff',
+    'orange': '#ffa500', 'purple': '#800080', 'pink': '#ffc0cb',
+    'brown': '#a52a2a', 'navy': '#000080', 'maroon': '#800000',
+    'teal': '#008080', 'olive': '#808000', 'lime': '#00ff00',
+    'aqua': '#00ffff', 'silver': '#c0c0c0', 'transparent': 'rgba(0,0,0,0)'
+};
+
+function isValidHexColor(color) {
+    if (!color || typeof color !== 'string') return false;
+    const trimmed = color.trim();
+    return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(trimmed);
+}
+
+function isValidRGBColor(color) {
+    if (!color || typeof color !== 'string') return false;
+    const trimmed = color.trim();
+    return /^rgba?\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(?:,\s*[\d.]+\s*)?\)$/i.test(trimmed);
+}
+
+function isValidNamedColor(color) {
+    if (!color || typeof color !== 'string') return false;
+    const trimmed = color.trim().toLowerCase();
+    return trimmed in namedColorsMap;
+}
+
+function isValidColor(color) {
+    return isValidHexColor(color) || isValidRGBColor(color) || isValidNamedColor(color);
+}
+
+function normalizeColor(color) {
+    if (!color) return null;
+    const trimmed = String(color).trim();
+    if (isValidHexColor(trimmed) || isValidRGBColor(trimmed)) return trimmed;
+    const lowerName = trimmed.toLowerCase();
+    return (lowerName in namedColorsMap) ? namedColorsMap[lowerName] : null;
+}
+
+function getNestedProperty(obj, path) {
+    return path.split('.').reduce((current, prop) => {
+        return (current && current[prop]) ? current[prop] : undefined;
+    }, obj);
+}
+
+function hasNestedProperty(obj, path) {
+    return getNestedProperty(obj, path) !== undefined;
+}
+
 /* ========================================================================
    ★ 修正 0: 全域顏色欄位配置
    支援自訂欄位名稱，系統將依優先級自動檢查
@@ -1024,12 +1078,19 @@ const colorFieldsConfig = {
     ],
     
     // 自訂欄位配置（根據你的GeoJSON修改此處）
-    // 例如：你的GeoJSON如果使用 'myColor' 或 'custom_style_color' 等
     customFields: [
-        // 'myColor',           // 取消註解並修改為你的欄位名
-        // 'custom_color',
-        // 'style_color',
-        // 'feature_color'
+        // 例如: 'myColor', 'custom_color', 'style_color', 'feature_color'
+    ],
+    
+    // 深層嵌套路徑支援（OpenLayers 風格 + 其他複雜結構）
+    nestedPaths: [
+        'styleConfig.styleCache.outer[0].stroke_.color_',
+        'styleConfig.styleCache.outer[0].fill_.color_',
+        'styleConfig.labels.info.color.primary',
+        'styleConfig.soLine.color',
+        'style.color',
+        'properties.color',
+        'attributes.color'
     ]
 };
 
@@ -1247,99 +1308,125 @@ function escapeHtml(str) {
 
 /* ========================================================================
    ★ 修正 2: 改進 extractStyleFromProperties 函數
-   支援自訂欄位、更好的顏色驗證、詳細的診斷日誌
+   支援自訂欄位、深層嵌套、多種色彩格式、完整診斷日誌
    ======================================================================== */
-
-function isValidHexColor(color) {
-    if (!color || typeof color !== 'string') return false;
-    // 支援 #RGB 和 #RRGGBB
-    return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(color);
-}
-
-function isValidRGBColor(color) {
-    if (!color || typeof color !== 'string') return false;
-    return /^rgba?\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*[\d.]+\s*)?\)$/i.test(color);
-}
 
 function extractStyleFromProperties(properties) {
     const style = { ...defaultStyles };
     
-    if (!properties) {
+    if (!properties || Object.keys(properties).length === 0) {
         console.warn('⚠️ 未傳入任何屬性資料，使用預設顏色');
         return style;
     }
     
     // ====== 優先級 1: OpenLayers styleConfig.styleCache.outer[0].stroke_ ======
-    if (properties.styleConfig && 
-        typeof properties.styleConfig === 'object' &&
-        properties.styleConfig.styleCache &&
-        Array.isArray(properties.styleConfig.styleCache.outer) &&
-        properties.styleConfig.styleCache.outer.length > 0) {
-        
-        const outerStyle = properties.styleConfig.styleCache.outer[0];
-        
-        if (outerStyle.stroke_ && outerStyle.stroke_.color_) {
-            const color = String(outerStyle.stroke_.color_).trim();
-            if (isValidHexColor(color) || isValidRGBColor(color)) {
-                style.color = color;
-                style.fillColor = color;
-                console.log(`✓ 從 styleConfig.stroke_.color_ 提取顏色: ${color}`);
-                return style;
+    if (properties.styleConfig && typeof properties.styleConfig === 'object') {
+        // 方案 A: 直接路徑存取
+        try {
+            const strokeColor = getNestedProperty(properties, 'styleConfig.styleCache.outer[0].stroke_.color_');
+            if (strokeColor && isValidColor(strokeColor)) {
+                const normalized = normalizeColor(strokeColor);
+                if (normalized) {
+                    style.color = normalized;
+                    style.fillColor = normalized;
+                    console.log(`✓ 從 styleConfig.stroke_.color_ 提取顏色: ${normalized}`);
+                    return style;
+                }
             }
+        } catch (e) {
+            console.debug('ℹ️ styleConfig.strokeColor 存取異常（預期）');
         }
         
-        if (outerStyle.fill_ && outerStyle.fill_.color_) {
-            const color = String(outerStyle.fill_.color_).trim();
-            if (isValidHexColor(color) || isValidRGBColor(color)) {
-                style.fillColor = color;
-                console.log(`✓ 從 styleConfig.fill_.color_ 提取顏色: ${color}`);
-                return style;
+        // 方案 B: 陣列索引存取（OpenLayers 標準）
+        if (properties.styleConfig.styleCache && 
+            Array.isArray(properties.styleConfig.styleCache.outer) &&
+            properties.styleConfig.styleCache.outer.length > 0) {
+            
+            const outerStyle = properties.styleConfig.styleCache.outer[0];
+            
+            if (outerStyle.stroke_ && outerStyle.stroke_.color_) {
+                const color = String(outerStyle.stroke_.color_).trim();
+                if (isValidColor(color)) {
+                    const normalized = normalizeColor(color);
+                    if (normalized) {
+                        style.color = normalized;
+                        style.fillColor = normalized;
+                        console.log(`✓ 從 styleConfig.styleCache.outer[0].stroke_.color_ 提取顏色: ${normalized}`);
+                        return style;
+                    }
+                }
             }
-        }
-        
-        if (outerStyle.stroke_ && outerStyle.stroke_.width_) {
-            const width = parseInt(outerStyle.stroke_.width_);
-            if (!isNaN(width) && width > 0) {
-                style.weight = width;
+            
+            if (outerStyle.fill_ && outerStyle.fill_.color_) {
+                const color = String(outerStyle.fill_.color_).trim();
+                if (isValidColor(color)) {
+                    const normalized = normalizeColor(color);
+                    if (normalized) {
+                        style.fillColor = normalized;
+                        console.log(`✓ 從 styleConfig.fill_.color_ 提取顏色: ${normalized}`);
+                        return style;
+                    }
+                }
+            }
+            
+            if (outerStyle.stroke_ && outerStyle.stroke_.width_) {
+                const width = parseInt(outerStyle.stroke_.width_);
+                if (!isNaN(width) && width > 0) {
+                    style.weight = width;
+                }
             }
         }
     }
     
-    // ====== 優先級 2: 標準 properties 欄位 ======
-    const standardColorFields = colorFieldsConfig.standardFields;
+    // ====== 優先級 2: 深層嵌套路徑 ======
+    for (let nestedPath of colorFieldsConfig.nestedPaths) {
+        if (hasNestedProperty(properties, nestedPath)) {
+            const colorValue = String(getNestedProperty(properties, nestedPath)).trim();
+            if (isValidColor(colorValue)) {
+                const normalized = normalizeColor(colorValue);
+                if (normalized) {
+                    style.color = normalized;
+                    style.fillColor = normalized;
+                    console.log(`✓ 從深層路徑 "${nestedPath}" 提取顏色: ${normalized}`);
+                    return style;
+                }
+            }
+        }
+    }
     
-    for (let field of standardColorFields) {
+    // ====== 優先級 3: 標準欄位 ======
+    for (let field of colorFieldsConfig.standardFields) {
         if (properties.hasOwnProperty(field) && properties[field]) {
             const colorValue = String(properties[field]).trim();
-            if (isValidHexColor(colorValue) || isValidRGBColor(colorValue)) {
-                style.color = colorValue;
-                style.fillColor = colorValue;
-                console.log(`✓ 從標準欄位 "${field}" 提取顏色: ${colorValue}`);
-                return style;
-            } else {
-                console.warn(`⚠️ 欄位 "${field}" 值無效（${colorValue}）`);
+            if (isValidColor(colorValue)) {
+                const normalized = normalizeColor(colorValue);
+                if (normalized) {
+                    style.color = normalized;
+                    style.fillColor = normalized;
+                    console.log(`✓ 從標準欄位 "${field}" 提取顏色: ${normalized}`);
+                    return style;
+                }
             }
         }
     }
     
-    // ====== 優先級 3: 自訂欄位配置 ======
-    const customFields = colorFieldsConfig.customFields;
-    
-    for (let field of customFields) {
+    // ====== 優先級 4: 自訂欄位 ======
+    for (let field of colorFieldsConfig.customFields) {
         if (properties.hasOwnProperty(field) && properties[field]) {
             const colorValue = String(properties[field]).trim();
-            if (isValidHexColor(colorValue) || isValidRGBColor(colorValue)) {
-                style.color = colorValue;
-                style.fillColor = colorValue;
-                console.log(`✓ 從自訂欄位 "${field}" 提取顏色: ${colorValue}`);
-                return style;
-            } else {
-                console.warn(`⚠️ 自訂欄位 "${field}" 值無效（${colorValue}）`);
+            if (isValidColor(colorValue)) {
+                const normalized = normalizeColor(colorValue);
+                if (normalized) {
+                    style.color = normalized;
+                    style.fillColor = normalized;
+                    console.log(`✓ 從自訂欄位 "${field}" 提取顏色: ${normalized}`);
+                    return style;
+                }
             }
         }
     }
     
-    // ====== 優先級 4: 不透明度和寬度 ======
+    // ====== 優先級 5: 不透明度和寬度 ======
     const opacityFields = ['opacity', 'fill_opacity', 'fillOpacity', 'alpha', '不透明度'];
     for (let field of opacityFields) {
         if (properties.hasOwnProperty(field) && properties[field] !== undefined) {
@@ -1364,17 +1451,19 @@ function extractStyleFromProperties(properties) {
         }
     }
     
-    // 記錄找到的所有欄位（用於診斷）
-    const foundFields = Object.keys(properties).filter(k => 
-        k.toLowerCase().includes('color') || 
-        k.toLowerCase().includes('fill') || 
-        k.toLowerCase().includes('stroke') ||
-        k.toLowerCase().includes('顏色')
-    );
+    // ====== 診斷日誌：記錄所有找到的顏色相關欄位 ======
+    const foundFields = Object.keys(properties).filter(k => {
+        const lowerKey = k.toLowerCase();
+        return lowerKey.includes('color') || lowerKey.includes('fill') || 
+               lowerKey.includes('stroke') || k.includes('顏色');
+    });
     
     if (foundFields.length > 0) {
         console.warn(`⚠️ 未找到有效的顏色信息（找到的相關欄位：${foundFields.join(', ')}），使用默認顏色: ${style.color}`);
-        console.info(`💡 若要支援這些欄位，請在 colorFieldsConfig.customFields 中添加名稱`);
+        console.info(`💡 診斷建議：`);
+        console.info(`   1. 請在瀏覽器 F12 開發工具的 Console 查看上方欄位列表`);
+        console.info(`   2. 若要支援這些欄位，請在 colorFieldsConfig.customFields 或 nestedPaths 中添加`);
+        console.info(`   3. 範例：colorFieldsConfig.customFields.push('${foundFields[0]}')`);
     } else {
         console.warn(`⚠️ 未找到任何顏色相關欄位，使用默認顏色: ${style.color}`);
     }
