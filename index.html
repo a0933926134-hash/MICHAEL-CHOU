@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>市價徵收查估作業系統 v1.1.0 - 強化版</title>
+    <title>市價徵收查估作業系統 v1.1.0 - 修復版</title>
     
-    <!-- ==================== CDN 引入 ==================== -->
+    <!-- CDN 引入 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -18,40 +18,26 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; }
         #map { width: 100%; height: 100vh; z-index: 1; }
-        
         .toolbar {
             position: absolute; top: 10px; right: 10px;
             background-color: white; border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); z-index: 999; padding: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2); z-index: 999; padding: 10px;
         }
         .toolbar button {
             display: block; width: 100%; padding: 8px 12px; margin: 5px 0;
             background-color: #0078d4; color: white; border: none;
-            border-radius: 3px; cursor: pointer; font-size: 12px;
+            border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold;
         }
         .toolbar button:hover { background-color: #005a9e; }
-        
         .console-hint {
             position: fixed; bottom: 10px; left: 10px;
             background-color: #4caf50; color: white; padding: 12px 15px;
             border-radius: 5px; font-size: 12px; z-index: 998;
-            animation: slideIn 0.5s ease-in-out;
-        }
-        .console-error {
-            position: fixed; bottom: 10px; left: 10px;
-            background-color: #f44336; color: white; padding: 12px 15px;
-            border-radius: 5px; font-size: 12px; z-index: 998;
-            animation: slideIn 0.5s ease-in-out; max-width: 300px;
-        }
-        @keyframes slideIn {
-            from { transform: translateX(-300px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    
     <div class="toolbar">
         <button onclick="importGeoJSON()">📥 匯入 GeoJSON</button>
         <button onclick="exportGeoJSON()">📤 匯出 GeoJSON</button>
@@ -61,181 +47,120 @@
     </div>
 
     <div class="console-hint">
-        💡 <strong>診斷工具已就緒</strong><br>
-        打開 F12 → Console，執行:<br>
-        <code>diagQuick()</code> / <code>diagVis()</code> / <code>diagCoord()</code> / <code>diagPrint()</code>
+        💡 按 F12 打開 Console，執行: <br>
+        <code>diagQuick()  diagVis()  diagCoord()</code>
     </div>
 
     <script>
         // ========== 全局變數 ==========
-        let map;
-        let geoJsonLayers = {};
-        let geoJsonFeatures = {};
-        let polygons = [];
-        let results = [];
-        let baseMaps = {};
-        let isDrawing = false;
-        let currentDrawingPoints = [];
+        let map, geoJsonLayers = {}, geoJsonFeatures = {}, polygons = [];
+        let isDrawing = false, currentDrawingPoints = [];
 
-        // ========== 地圖初始化 ==========
-        function initMap() {
-            try {
-                map = L.map('map').setView([25.0330, 121.5654], 13);
-
-                const nlsc = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default//GoogleMapsCompatible_Level{z}/{y}/{x}.png', {
-                    maxZoom: 20, attribution: '© 國家地理資訊系統'
-                });
-
-                const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19, attribution: '© OpenStreetMap'
-                });
-
-                baseMaps = { 'NLSC EMAP': nlsc, 'OpenStreetMap': osm };
-                nlsc.addTo(map);
-                L.control.layers(baseMaps).addTo(map);
-
-                console.log('%c✅ 地圖初始化完成', 'color: green; font-weight: bold;');
-            } catch (err) {
-                console.error('❌ 地圖初始化失敗:', err);
-                showError('地圖初始化失敗: ' + err.message);
-            }
-        }
-
-        // ========== 改進的 GeoJSON 正規化函數 ========== 
+        // ========== 修復版 normalizeGeoJSON 函數 ========== 
         function normalizeGeoJSON(geojson) {
-            console.log('%c🔍 GeoJSON 正規化過程', 'color: blue; font-weight: bold;');
-            console.log('📥 輸入資料:', geojson);
-
-            // 第 1 步：基礎檢查
+            console.log('%c🔍 GeoJSON 正規化 (修復版)', 'color: blue; font-weight: bold;');
+            console.log('輸入型態:', typeof geojson, '是陣列?', Array.isArray(geojson));
+            
+            // 基礎檢查
             if (!geojson || typeof geojson !== 'object') {
-                console.error('❌ GeoJSON 無效：不是物件', geojson);
+                console.error('❌ 無效的 GeoJSON');
                 return { type: 'FeatureCollection', features: [] };
             }
 
-            let data = geojson;
-            console.log(`✅ 輸入類型: ${data.type}`);
+            // 深拷貝確保數據清潔
+            let data = JSON.parse(JSON.stringify(geojson));
+            if (!data.type) data.type = 'FeatureCollection';
 
-            // 第 2 步：展開嵌套結構（最多 15 次迭代）
+            console.log('features 型態:', typeof data.features, '是陣列?', Array.isArray(data.features));
+
+            // ★ 關鍵修復：features 是物件時轉換為陣列
+            if (data.features && typeof data.features === 'object' && !Array.isArray(data.features)) {
+                console.warn('⚠️ features 是物件，嘗試修復...');
+                
+                const keys = Object.keys(data.features);
+                console.log('  物件鍵值:', keys.slice(0, 5));
+
+                // 策略 A：數字索引轉換 {0, 1, 2, ...}
+                if (keys.every(k => /^\d+$/.test(k)) && keys.length > 0) {
+                    console.log('  ✓ 轉換數字索引為陣列');
+                    data.features = Object.values(data.features);
+                }
+                // 策略 B：別名鍵 data/results/records
+                else if (data.features.data || data.features.results || data.features.records) {
+                    const aliasKey = data.features.data ? 'data' : (data.features.results ? 'results' : 'records');
+                    console.log('  ✓ 發現別名鍵:', aliasKey);
+                    const val = data.features[aliasKey];
+                    data.features = Array.isArray(val) ? val : [];
+                }
+                // 策略 C：將所有值轉換為陣列
+                else {
+                    console.log('  ✓ Object.values() 轉換');
+                    data.features = Object.values(data.features);
+                }
+
+                console.log('  修復後長度:', data.features.length);
+            }
+
+            // 確保 features 是陣列
+            if (!Array.isArray(data.features)) {
+                console.warn('⚠️ 重置為空陣列');
+                data.features = [];
+            }
+
+            // 展開嵌套 FeatureCollection
+            let expanded = [];
             let iterations = 0;
-            const maxIterations = 15;
 
-            while (iterations < maxIterations) {
-                console.log(`\n➡️ 迭代 ${iterations + 1}:`);
+            for (let i = 0; i < data.features.length && iterations < 10; i++) {
+                const item = data.features[i];
 
-                // 如果是單個 Feature
-                if (data.type === 'Feature') {
-                    console.log('  ✓ 偵測到單個 Feature，轉換為 FeatureCollection');
-                    data = { type: 'FeatureCollection', features: [data] };
-                    break;
+                if (item && item.type === 'FeatureCollection' && Array.isArray(item.features)) {
+                    console.log('  展開嵌套 FeatureCollection');
+                    expanded.push(...item.features);
+                    iterations++;
+                } else if (item && item.type === 'Feature') {
+                    expanded.push(item);
+                } else if (item && ['Point', 'LineString', 'Polygon', 'MultiPolygon'].includes(item.type)) {
+                    expanded.push({ type: 'Feature', geometry: item, properties: {} });
                 }
+            }
 
-                // 如果是單個 Geometry
-                if (data.type && ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon'].includes(data.type)) {
-                    console.log(`  ✓ 偵測到 ${data.type} Geometry，轉換為 Feature`);
-                    data = {
-                        type: 'FeatureCollection',
-                        features: [{
-                            type: 'Feature',
-                            geometry: data,
-                            properties: {}
-                        }]
-                    };
-                    break;
-                }
+            data.features = expanded.length > 0 ? expanded : data.features;
 
-                // 如果是 FeatureCollection
-                if (data.type === 'FeatureCollection') {
-                    // 檢查 features 是否存在且為陣列
-                    if (!Array.isArray(data.features)) {
-                        console.warn(`  ⚠️ features 不是陣列（${typeof data.features}），重置為 []`);
-                        data.features = [];
-                        break;
-                    }
-
-                    // 檢查是否包含嵌套的 FeatureCollection
-                    const hasNestedFC = data.features.some(f => f.type === 'FeatureCollection');
-                    if (hasNestedFC) {
-                        console.log('  ✓ 偵測到嵌套 FeatureCollection，展開...');
-                        let allFeatures = [];
-                        data.features.forEach((f, idx) => {
-                            if (f.type === 'FeatureCollection' && Array.isArray(f.features)) {
-                                console.log(`    └─ 展開第 ${idx} 個 FeatureCollection (${f.features.length} 個特徵)`);
-                                allFeatures.push(...f.features);
-                            } else {
-                                allFeatures.push(f);
-                            }
+            // MultiPolygon 拆分
+            let final = [];
+            data.features.forEach((f, idx) => {
+                if (f.geometry && f.geometry.type === 'MultiPolygon') {
+                    console.log('  拆分 MultiPolygon:', idx);
+                    f.geometry.coordinates.forEach((coords, sub) => {
+                        final.push({
+                            ...f,
+                            geometry: { type: 'Polygon', coordinates: coords },
+                            properties: { ...f.properties, multiPolygonIndex: sub + 1 }
                         });
-                        data.features = allFeatures;
-                        console.log(`  ✓ 展開完成，現有 ${data.features.length} 個特徵`);
-                        continue;
-                    }
-
-                    // 正常 FeatureCollection，檢查 features 是否為空
-                    if (data.features.length === 0) {
-                        console.log('  ⚠️ features 為空陣列');
-                        break;
-                    }
-
-                    console.log(`  ✓ 有效的 FeatureCollection，包含 ${data.features.length} 個特徵`);
-                    break;
+                    });
+                } else {
+                    final.push(f);
                 }
+            });
 
-                // 未知類型
-                console.warn(`  ⚠️ 未知的資料型態: ${data.type}`);
-                break;
+            data.features = final;
+
+            // 最終驗證
+            console.log('✅ 驗證:');
+            console.log('  type:', data.type);
+            console.log('  features 是陣列:', Array.isArray(data.features));
+            console.log('  features 長度:', data.features.length);
+
+            if (!Array.isArray(data.features)) {
+                console.error('❌ 最終驗證失敗！');
+                return { type: 'FeatureCollection', features: [] };
             }
-
-            if (iterations >= maxIterations) {
-                console.warn(`⚠️ 達到最大迭代次數 (${maxIterations})，可能存在過度嵌套結構`);
-            }
-
-            // 第 3 步：MultiPolygon 拆分
-            console.log('\n🔄 檢查 MultiPolygon...');
-            let expandedFeatures = [];
-            let multiPolyCount = 0;
-
-            if (Array.isArray(data.features)) {
-                data.features.forEach((feature, idx) => {
-                    if (feature.geometry && feature.geometry.type === 'MultiPolygon') {
-                        multiPolyCount++;
-                        console.log(`  ✓ 特徵 ${idx} 是 MultiPolygon (${feature.geometry.coordinates.length} 個多邊形)`);
-                        
-                        feature.geometry.coordinates.forEach((coords, subIdx) => {
-                            const newFeature = {
-                                ...feature,
-                                geometry: { type: 'Polygon', coordinates: coords },
-                                properties: {
-                                    ...feature.properties,
-                                    originalName: feature.properties?.name,
-                                    multiPolygonIndex: subIdx + 1,
-                                    multiPolygonOriginalIndex: idx
-                                }
-                            };
-                            expandedFeatures.push(newFeature);
-                        });
-                    } else {
-                        expandedFeatures.push(feature);
-                    }
-                });
-                data.features = expandedFeatures;
-            }
-
-            if (multiPolyCount > 0) {
-                console.log(`✅ 拆分完成：${multiPolyCount} 個 MultiPolygon 轉換為 ${data.features.length} 個 Polygon`);
-            } else {
-                console.log('✅ 未發現 MultiPolygon');
-            }
-
-            // 第 4 步：最終驗證
-            console.log('\n✅ 最終驗證:');
-            console.log(`  📊 type: ${data.type}`);
-            console.log(`  📊 features 是陣列: ${Array.isArray(data.features)}`);
-            console.log(`  📊 feature 數量: ${data.features?.length || 0}`);
 
             return data;
         }
 
-        // ========== GeoJSON 匯入（增強版本） ==========
+        // ========== 修復版 importGeoJSON ==========
         function importGeoJSON() {
             const input = document.createElement('input');
             input.type = 'file';
@@ -249,50 +174,53 @@
                     try {
                         console.clear();
                         console.log('%c📥 開始匯入 GeoJSON', 'color: purple; font-weight: bold; font-size: 14px;');
-                        console.log(`📄 檔案名稱: ${file.name}`);
-                        console.log(`📏 檔案大小: ${(file.size / 1024).toFixed(2)} KB`);
+                        console.log('檔案:', file.name, '大小:', (file.size/1024).toFixed(2), 'KB');
 
                         // JSON 解析
                         const geojson = JSON.parse(event.target.result);
-                        console.log('✅ JSON 解析成功');
+                        console.log('✅ JSON 解析成功\n');
 
                         // 正規化
                         const normalized = normalizeGeoJSON(geojson);
-                        console.log('✅ 正規化完成');
 
-                        // 驗證 features 是陣列
-                        if (!Array.isArray(normalized.features)) {
-                            throw new Error(`❌ 正規化後 features 仍不是陣列 (${typeof normalized.features})`);
+                        // ★ 關鍵驗證
+                        if (!normalized || typeof normalized !== 'object') {
+                            throw new Error('正規化返回無效資料');
                         }
 
-                        const layerName = file.name.replace(/\.[^.]+$/, '');
+                        if (!Array.isArray(normalized.features)) {
+                            throw new Error(
+                                '❌ 正規化後 features 型態: ' + typeof normalized.features + 
+                                ' (需要 array)\n\n詳見 Console 日誌'
+                            );
+                        }
+
+                        console.log('✅ 驗證通過\n');
+
+                        const layerName = file.name.split('.')[0];
                         geoJsonFeatures[layerName] = normalized;
 
                         // Leaflet 渲染
-                        console.log('\n🎨 開始 Leaflet 渲染...');
                         const layer = L.geoJSON(normalized, {
-                            style: (feature) => extractStyleFromProperties(feature.properties),
-                            onEachFeature: (feature, leafletLayer) => {
-                                leafletLayer.bindPopup(createPropertyPopup(feature.properties));
-                            }
+                            style: f => extractStyleFromProperties(f.properties || {}),
+                            onEachFeature: (f, l) => l.bindPopup(createPropertyPopup(f.properties))
                         }).addTo(map);
 
                         geoJsonLayers[layerName] = layer;
-                        map.fitBounds(layer.getBounds());
+                        if (layer.getBounds().isValid()) {
+                            map.fitBounds(layer.getBounds());
+                        }
 
                         console.log('%c✅ 匯入完成', 'color: green; font-weight: bold; font-size: 14px;');
-                        console.log(`📊 圖層名稱: ${layerName}`);
-                        console.log(`📊 特徵數量: ${normalized.features.length}`);
+                        console.log('圖層:', layerName, '特徵數:', normalized.features.length);
 
-                        alert(`✅ 成功加載: ${layerName}\n共 ${normalized.features.length} 個特徵`);
+                        alert('✅ 成功加載: ' + layerName + '\n共 ' + normalized.features.length + ' 個特徵');
 
                     } catch (err) {
-                        console.error('%c❌ GeoJSON 匯入失敗', 'color: red; font-weight: bold; font-size: 14px;');
-                        console.error('錯誤訊息:', err.message);
-                        console.error('完整錯誤:', err);
-                        
-                        showError(`❌ 匯入失敗：${err.message}\n\n詳見 Console (F12)`);
-                        alert(`❌ GeoJSON 格式錯誤：\n\n${err.message}\n\n請檢查：\n1. JSON 語法是否正確\n2. 是否存在 "features" 欄位\n3. "features" 是否為陣列 [...]\n\n打開 Console (F12) 查看詳細資訊`);
+                        console.error('%c❌ 匯入失敗', 'color: red; font-weight: bold; font-size: 14px;');
+                        console.error('錯誤:', err.message);
+                        console.error(err);
+                        alert('❌ 匯入失敗\n\n' + err.message + '\n\n打開 Console (F12) 查看詳細資訊');
                     }
                 };
                 reader.readAsText(file);
@@ -300,314 +228,112 @@
             input.click();
         }
 
-        // ========== 樣式提取 ==========
+        // ========== 輔助函數 ==========
         function extractStyleFromProperties(props) {
-            if (!props) return { color: '#3388ff', fillOpacity: 0.2 };
-
-            const namedColors = {
-                'red': '#ff0000', 'blue': '#0000ff', 'green': '#00ff00',
-                'yellow': '#ffff00', 'purple': '#800080', 'orange': '#ffa500'
-            };
-
-            let fillColor = props.fill_color || props.fillColor || props.color || '#3388ff';
-            if (namedColors[fillColor]) fillColor = namedColors[fillColor];
-
             return {
-                color: props.stroke_color || props.color || '#333',
-                fillColor: fillColor,
-                fillOpacity: parseFloat(props.opacity || 0.2),
-                weight: parseInt(props.weight || 2)
+                color: props.stroke_color || '#333',
+                fillColor: props.fill_color || props.color || '#3388ff',
+                fillOpacity: 0.2,
+                weight: 2
             };
         }
 
-        // ========== 屬性彈窗 ==========
         function createPropertyPopup(props) {
-            let html = '<table style="font-size:12px; width:100%;">';
-            Object.entries(props || {}).forEach(([key, value]) => {
-                const escapedValue = String(value || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                html += `<tr><td style="font-weight:bold;">${key}</td><td>${escapedValue}</td></tr>`;
+            let html = '<table style="font-size:12px">';
+            Object.entries(props || {}).forEach(([k, v]) => {
+                html += '<tr><td style="font-weight:bold">' + k + '</td><td>' + v + '</td></tr>';
             });
             html += '</table>';
             return html;
         }
 
-        // ========== 多邊形繪製 ==========
-        function drawPolygon() {
-            if (isDrawing) {
-                isDrawing = false;
-                alert('❌ 已取消繪製');
-                return;
-            }
-
-            isDrawing = true;
-            currentDrawingPoints = [];
-            alert('✏️ 開始繪製多邊形\n點擊地圖添加頂點\n雙擊完成');
-
-            map.on('click', addDrawingPoint);
-            map.on('dblclick', completeDrawing);
-        }
-
-        function addDrawingPoint(e) {
-            if (!isDrawing) return;
-            currentDrawingPoints.push([e.latlng.lat, e.latlng.lng]);
-            L.circleMarker([e.latlng.lat, e.latlng.lng], { radius: 4, color: 'red' }).addTo(map);
-        }
-
-        function completeDrawing(e) {
-            if (!isDrawing || currentDrawingPoints.length < 3) {
-                alert('❌ 至少需要 3 個頂點');
-                return;
-            }
-
-            isDrawing = false;
-            map.off('click', addDrawingPoint);
-            map.off('dblclick', completeDrawing);
-
-            const polygon = L.polygon(currentDrawingPoints, { color: '#ff0000', fillOpacity: 0.3 }).addTo(map);
-
-            const coords = [[currentDrawingPoints.map(p => [p[1], p[0]]), [currentDrawingPoints[0][1], currentDrawingPoints[0][0]]]];
-            const area = turf.area(turf.polygon(coords));
-
-            const polyData = {
-                id: 'poly_' + Date.now(),
-                points: currentDrawingPoints,
-                color: '#ff0000',
-                area: area,
-                polygon: polygon
-            };
-
-            polygons.push(polyData);
-            console.log(`✅ 多邊形已繪製, 面積: ${(area / 10000).toFixed(2)} 公頃`);
-        }
-
-        // ========== GeoJSON 匯出 ==========
         function exportGeoJSON() {
             const allFeatures = [];
             Object.values(geoJsonFeatures).forEach(fc => {
                 if (fc.features) allFeatures.push(...fc.features);
             });
-
-            const geojson = {
-                type: 'FeatureCollection',
-                features: allFeatures
-            };
-
-            const dataStr = JSON.stringify(geojson, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+            const geojson = { type: 'FeatureCollection', features: allFeatures };
+            const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `export_${Date.now()}.geojson`;
+            a.download = 'export_' + Date.now() + '.geojson';
             a.click();
             URL.revokeObjectURL(url);
-            console.log('✅ GeoJSON 已匯出');
         }
 
-        // ========== 清除全部 ==========
+        function drawPolygon() {
+            if (isDrawing) {
+                isDrawing = false;
+                alert('已取消繪製');
+                return;
+            }
+            isDrawing = true;
+            currentDrawingPoints = [];
+            alert('開始繪製\n點擊添加頂點\n雙擊完成');
+        }
+
         function clearAll() {
-            if (confirm('確認要清除全部圖層和多邊形?')) {
+            if (confirm('確認清除所有圖層?')) {
                 Object.values(geoJsonLayers).forEach(layer => map.removeLayer(layer));
-                polygons.forEach(p => map.removeLayer(p.polygon));
                 geoJsonLayers = {};
                 geoJsonFeatures = {};
                 polygons = [];
-                console.log('✅ 已清除全部內容');
             }
         }
 
-        // ========== 錯誤提示 ==========
-        function showError(message) {
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'console-error';
-            errorDiv.innerHTML = `<strong>❌ 錯誤</strong><br>${message}`;
-            document.body.appendChild(errorDiv);
-            setTimeout(() => errorDiv.remove(), 5000);
+        // ========== 地圖初始化 ==========
+        function initMap() {
+            map = L.map('map').setView([25.0330, 121.5654], 13);
+            
+            const nlsc = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default//GoogleMapsCompatible_Level{z}/{y}/{x}.png', {
+                maxZoom: 20, attribution: '© NLSC'
+            });
+            
+            const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19, attribution: '© OpenStreetMap'
+            });
+
+            nlsc.addTo(map);
+            L.control.layers({ 'NLSC': nlsc, 'OSM': osm }).addTo(map);
+            
+            console.log('%c✅ 地圖初始化完成', 'color: green; font-weight: bold;');
         }
 
-        // ========== 初始化 ==========
-        document.addEventListener('DOMContentLoaded', () => {
-            initMap();
-            setTimeout(() => {
-                console.log('%c🎉 市價徵收查估系統 v1.1.0 已加載', 'color: blue; font-weight: bold; font-size: 16px;');
-                console.log('%c✅ 診斷工具已就緒', 'color: green; font-weight: bold;');
-                console.log('%c  • diagQuick()  - 快速檢查\n  • diagVis()    - 可見性檢查\n  • diagCoord()  - 座標檢查\n  • diagPrint()  - 完整報告', 'color: blue;');
-            }, 500);
-        });
-    </script>
-
-    <!-- ==================== 診斷系統（核心） ==================== -->
-    <script>
-        window.SystemDiagnostics = {
-            fullReport() {
-                try {
-                    const layerCount = Object.keys(geoJsonLayers).length;
-                    const featureCount = Object.values(geoJsonFeatures).reduce((sum, fc) => sum + (fc.features?.length || 0), 0);
-
-                    return {
-                        timestamp: new Date().toISOString(),
-                        appVersion: 'v1.1.0',
-                        leafletVersion: window.L.version,
-                        geoJsonLayersCount: layerCount,
-                        geoJsonLayerNames: Object.keys(geoJsonLayers),
-                        totalFeatures: featureCount,
-                        polygonsCount: polygons.length,
-                        mapCenter: [map.getCenter().lat, map.getCenter().lng],
-                        mapZoom: map.getZoom(),
-                        activeBaseLayer: this._getActiveBaseLayer()
-                    };
-                } catch (err) {
-                    console.error('❌ 報告生成失敗:', err);
-                    return { error: err.message };
-                }
-            },
-
-            print() {
-                console.clear();
-                const report = this.fullReport();
-                if (report.error) {
-                    console.error('❌ 無法生成報告:', report.error);
-                    return;
-                }
-
-                console.group('📊 系統完整診斷報告');
-                console.log('⏰ 時間戳記:', report.timestamp);
-                console.log('📦 應用版本:', report.appVersion);
-                console.log('📦 Leaflet 版本:', report.leafletVersion);
-
-                console.group('🗂️ GeoJSON 圖層');
-                console.log(`總數: ${report.geoJsonLayersCount}`);
-                console.log(`總特徵數: ${report.totalFeatures}`);
-                if (report.geoJsonLayerNames.length > 0) {
-                    console.log('圖層名稱:', report.geoJsonLayerNames);
-                }
-                console.groupEnd();
-
-                console.group('📦 多邊形');
-                console.log(`總數: ${report.polygonsCount}`);
-                console.groupEnd();
-
-                console.group('🗺️ 地圖狀態');
-                console.log('中心座標:', report.mapCenter);
-                console.log('縮放級別:', report.mapZoom);
-                console.log('活躍背景圖層:', report.activeBaseLayer);
-                console.groupEnd();
-
-                console.groupEnd();
-            },
-
-            quickCheck() {
-                console.clear();
-                console.warn('⚠️ === 快速診斷檢查清單 ===\n');
-
-                const checks = [
-                    { name: '✅ GeoJSON 圖層已加載', pass: Object.keys(geoJsonLayers).length > 0, count: Object.keys(geoJsonLayers).length },
-                    { name: '✅ 多邊形已繪製', pass: polygons.length > 0, count: polygons.length },
-                    { name: '✅ 地圖中心有效', pass: map && map.getCenter() && typeof map.getCenter().lat === 'number' },
-                    { name: '✅ features 是陣列', pass: Object.values(geoJsonFeatures).every(fc => Array.isArray(fc.features)) }
-                ];
-
-                let passCount = 0;
-                checks.forEach(check => {
-                    const icon = check.pass ? '✅' : '❌';
-                    const detail = check.count !== undefined ? ` (${check.count})` : '';
-                    console.log(`${icon} ${check.name}${detail}`);
-                    if (check.pass) passCount++;
-                });
-
-                console.log(`\n📈 檢查通過: ${passCount}/${checks.length}\n`);
-            },
-
-            checkVisibility() {
-                console.group('👁️ 圖層可見性檢查');
-
-                console.log('🗺️ 背景圖層:');
-                Object.entries(baseMaps).forEach(([name, layer]) => {
-                    const isVisible = map.hasLayer(layer);
-                    console.log(`  ${isVisible ? '✓' : '✗'} ${name}: ${isVisible ? '可見' : '隱藏'}`);
-                });
-
-                console.log('\n📊 GeoJSON 圖層:');
-                if (Object.keys(geoJsonLayers).length === 0) {
-                    console.log('  (未加載任何圖層)');
-                } else {
-                    Object.entries(geoJsonLayers).forEach(([name, layer]) => {
-                        const isVisible = layer._map !== null;
-                        console.log(`  ${isVisible ? '✓' : '✗'} ${name}: ${isVisible ? '可見' : '隱藏'}`);
-                    });
-                }
-
-                console.groupEnd();
-            },
-
-            checkCoordinates() {
-                console.group('🔍 座標有效性檢查');
-
-                if (Object.keys(geoJsonFeatures).length === 0) {
-                    console.log('(未加載任何 GeoJSON)');
-                    console.groupEnd();
-                    return;
-                }
-
-                Object.entries(geoJsonFeatures).forEach(([layerName, data]) => {
-                    console.group(layerName);
-                    if (!Array.isArray(data.features)) {
-                        console.warn('❌ features 不是陣列！');
-                        console.groupEnd();
-                        return;
-                    }
-
-                    let validWGS84 = 0, invalid = 0;
-                    data.features.slice(0, 5).forEach((feature, idx) => {
-                        if (feature.geometry?.coordinates) {
-                            const coords = this._flattenCoordinates(feature.geometry.coordinates)[0];
-                            if (coords && this._isValidWGS84(coords)) {
-                                validWGS84++;
-                                console.log(`  特徵 ${idx}: [${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}] ✓`);
-                            } else {
-                                invalid++;
-                                console.warn(`  特徵 ${idx}: 無效座標`);
-                            }
-                        }
-                    });
-
-                    console.log(`✅ WGS84 有效: ${validWGS84}, ❌ 無效: ${invalid}`);
-                    console.groupEnd();
-                });
-
-                console.groupEnd();
-            },
-
-            _flattenCoordinates(coords, result = []) {
-                if (coords[0] && typeof coords[0][0] === 'number') {
-                    result.push(...coords);
-                } else {
-                    coords.forEach(c => this._flattenCoordinates(c, result));
-                }
-                return result;
-            },
-
-            _isValidWGS84(coord) {
-                return Math.abs(coord[0]) <= 180 && Math.abs(coord[1]) <= 90;
-            },
-
-            _getActiveBaseLayer() {
-                for (let [name, layer] of Object.entries(baseMaps)) {
-                    if (map.hasLayer(layer)) return name;
-                }
-                return '未知';
-            }
+        // ========== 診斷工具 ==========
+        window.diagQuick = function() {
+            console.clear();
+            console.log('%c⚠️ 快速診斷', 'color: blue; font-weight: bold; font-size: 14px;');
+            console.log('✓ GeoJSON 圖層:', Object.keys(geoJsonLayers).length);
+            console.log('✓ 總特徵數:', Object.values(geoJsonFeatures).reduce((s,f) => s + (f.features?.length||0), 0));
+            console.log('✓ 多邊形:', polygons.length);
+            console.log('✓ 地圖中心:', map.getCenter());
         };
 
-        // 全局快捷命令
-        window.diagPrint = () => window.SystemDiagnostics.print();
-        window.diagQuick = () => window.SystemDiagnostics.quickCheck();
-        window.diagVis = () => window.SystemDiagnostics.checkVisibility();
-        window.diagCoord = () => window.SystemDiagnostics.checkCoordinates();
+        window.diagVis = function() {
+            console.clear();
+            console.log('%c👁️ 圖層可見性', 'color: blue; font-weight: bold;');
+            Object.entries(geoJsonLayers).forEach(([name, layer]) => {
+                console.log(layer._map ? '✓' : '✗', name);
+            });
+        };
 
-        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4caf50; font-weight: bold;');
-        console.log('%c💡 診斷工具已就緒', 'color: green; font-weight: bold; font-size: 14px;');
-        console.log('%c  diagPrint()  diagQuick()  diagVis()  diagCoord()', 'color: blue; font-family: monospace;');
-        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4caf50; font-weight: bold;');
+        window.diagCoord = function() {
+            console.clear();
+            console.log('%c🔍 座標檢查', 'color: blue; font-weight: bold;');
+            Object.entries(geoJsonFeatures).forEach(([name, data]) => {
+                if (Array.isArray(data.features) && data.features.length > 0) {
+                    const f = data.features[0];
+                    if (f.geometry?.coordinates) {
+                        console.log(name, '第一個座標:', f.geometry.coordinates);
+                    }
+                }
+            });
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', initMap);
+        console.log('%c🎉 系統已加載', 'color: blue; font-weight: bold;');
     </script>
 </body>
 </html>
