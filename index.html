@@ -752,6 +752,17 @@ tr.highlight {
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
+.in-polygon-badge {
+    display: inline-block;
+    background: #dbeafe;
+    color: #1e40af;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 @media (max-width: 1024px) {
     #sidebar {
         width: 320px;
@@ -1073,16 +1084,11 @@ tr.highlight {
 
 <script>
 /* ================================================
-   ★ 修正 9.0: 地圖重新定位問題修正初始化
+   ★ 修正 10.0: 多邊形範圍內距離顯示優化
    ================================================ */
 
-// ★ 修正 9.1: 防止重複執行 fitBounds 的全域鎖
 let fitBoundsLock = false;
-
-// ★ 修正 9.2: 分離的 GeoJSON 標籤圖層管理
 let geoJsonLabelLayers = {};
-
-// ★ 修正 9.3: 防止地圖事件干擾的標誌位
 let isUpdatingView = false;
 
 /* ================================================
@@ -1161,18 +1167,10 @@ const colorFieldsConfig = {
     ]
 };
 
-/* ========================================================================
-   GeoJSON 欄位管理全域變數
-   ======================================================================== */
-
 let geoJsonFieldInfo = {
     activeField: null,
     layerFields: {}
 };
-
-/* ========================================================================
-   GeoJSON 選取狀態
-   ======================================================================== */
 
 let geoJsonSelection = {};
 
@@ -1323,12 +1321,7 @@ function updateGeoJSONFieldSelector() {
     }
 }
 
-/* ========================================================================
-   ★ 修正 9.4: renderGeoJSONLabels 獨立函數
-   ======================================================================== */
-
 function renderGeoJSONLabels(explodedData, layerName, mapObj) {
-    // 清除之前的標籤圖層
     if (geoJsonLabelLayers[layerName]) {
         mapObj.removeLayer(geoJsonLabelLayers[layerName]);
     }
@@ -1361,10 +1354,6 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
     console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}`);
 }
 
-/* ========================================================================
-   updateGeoJSONFieldLabel 函數（修正版）
-   ======================================================================== */
-
 function updateGeoJSONFieldLabel() {
     const selector = document.getElementById('geojsonFieldSelector');
     const fieldValue = selector.value;
@@ -1373,7 +1362,6 @@ function updateGeoJSONFieldLabel() {
 
     geoJsonFieldInfo.activeField = fieldValue || null;
 
-    // ★ 修正 9.4: 只更新標籤圖層，不重新繪製主圖層
     Object.keys(geoJsonFeatures).forEach(layerName => {
         const data = geoJsonFeatures[layerName];
         if (data.features) {
@@ -1389,7 +1377,6 @@ function updateGeoJSONFieldLabel() {
     } else {
         statusDiv.style.display = 'none';
         
-        // 清除所有標籤圖層
         Object.keys(geoJsonLabelLayers).forEach(layerName => {
             if (geoJsonLabelLayers[layerName]) {
                 map.removeLayer(geoJsonLabelLayers[layerName]);
@@ -1401,10 +1388,6 @@ function updateGeoJSONFieldLabel() {
         console.log('✓ GeoJSON 欄位標籤已隱藏');
     }
 }
-
-/* ========================================================================
-   normalizeGeoJSON 輔助函數
-   ======================================================================== */
 
 function normalizeGeoJSON(data) {
     if (!data) {
@@ -1800,10 +1783,6 @@ function createPopupContent(properties, layerName) {
     return html;
 }
 
-/* ========================================================================
-   explodeMultiPolygons - 多邊形爆炸分解
-   ======================================================================== */
-
 function explodeMultiPolygons(geojson) {
     if (!geojson || !Array.isArray(geojson.features)) return geojson;
 
@@ -1921,12 +1900,7 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     showToast(`✓ 已選取多邊形：${label}`);
 }
 
-/* ========================================================================
-   ★ 修正 9.3: optimizeAddGeoJSONToMap - 優化版本
-   ======================================================================== */
-
 function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
-    // ★ 修正 8: 爆炸 MultiPolygon
     const explodedData = explodeMultiPolygons(geoJsonData);
 
     const featureGroup = L.featureGroup();
@@ -2003,7 +1977,6 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
         }
     }).addTo(mapObj);
     
-    // ★ 修正 9.4: 分離標籤圖層渲染
     if (geoJsonFieldInfo.activeField) {
         renderGeoJSONLabels(explodedData, layerName, mapObj);
     }
@@ -2011,7 +1984,6 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     geoJsonLayers[layerName] = featureGroup;
     addGeoJSONLayerControl(layerName, featureGroup, mapObj);
 
-    // ★ 修正 9.1: fitBounds 一次性執行
     if (!fitBoundsLock) {
         try {
             const bounds = featureGroup.getBounds();
@@ -2028,10 +2000,6 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     
     console.log(`✓ GeoJSON 圖層已新增：${layerName}（${explodedData.features.length} 個可選多邊形）`);
 }
-
-/* ========================================================================
-   GeoJSON 匯入
-   ======================================================================== */
 
 async function importGeoJSON(file, mapObj) {
     return new Promise((resolve, reject) => {
@@ -2126,7 +2094,6 @@ function removeGeoJSONLayer(layerName, mapObj) {
         delete geoJsonLayers[layerName];
     }
     
-    // ★ 修正 9.3: 完整清理標籤圖層
     if (geoJsonLabelLayers[layerName]) {
         mapObj.removeLayer(geoJsonLabelLayers[layerName]);
         delete geoJsonLabelLayers[layerName];
@@ -2218,10 +2185,6 @@ function initGeoJSONEvents(mapObj) {
         });
     }
 }
-
-/* ========================================================================
-   多邊形繪製邏輯
-   ======================================================================== */
 
 function startDrawing() {
     isDrawingPolygon = true;
@@ -2472,7 +2435,6 @@ function renderPolygonList() {
     `).join('');
 }
 
-/* ★ 修正 9.5: 防止地圖事件干擾 fitBounds */
 map.on('click', (e) => {
     if (isUpdatingView) return;
 
@@ -2497,10 +2459,6 @@ map.on('click', (e) => {
     lonInput.value = lon.toFixed(6);
     origin = [lat, lon];
 });
-
-/* ========================================================================
-   定位和其他通用函數
-   ======================================================================== */
 
 function getCurrentLocation() {
     if (!navigator.geolocation) {
@@ -2537,10 +2495,6 @@ function showToast(msg) {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 }
-
-/* ========================================================================
-   距離和路網分析
-   ======================================================================== */
 
 function haversine(lat1, lon1, lat2, lon2) {
     const R = 6371000;
@@ -2660,7 +2614,7 @@ async function drawRoute(to, item) {
     try {
         if (!origin) return;
         if (item.在範圍內) {
-            routeInfo.innerText = "位於範圍內（距離 = 0 m）";
+            routeInfo.innerText = "位於範圍內（距離 = 在區段範圍內）";
             routeCard.classList.remove('hidden');
             if (routeLayer) map.removeLayer(routeLayer);
             return;
@@ -2710,7 +2664,7 @@ function selectItemById(id) {
 }
 
 /* ========================================================================
-   主查詢函數
+   ★ 修正 10.1 - 10.5: 主查詢函數
    ======================================================================== */
 
 async function runQuery() {
@@ -2737,6 +2691,7 @@ async function runQuery() {
         let turfZonePolygon = null;
         let centroidForQuery = [lat, lon];
 
+        // ★ 修正 10.1: 多邊形檢測邏輯
         if (currentPolygonId) {
             const selectedPoly = polygons.find(p => p.id === currentPolygonId);
             if (selectedPoly && selectedPoly.centroid) {
@@ -2845,6 +2800,7 @@ async function runQuery() {
                 let typeName = rawType;
                 if (rawType === "motorway_junction") typeName = "交流道";
                 
+                // ★ 修正 10.2: 判斷是否在多邊形範圍內
                 let inside = false;
                 if (turfZonePolygon) {
                     let pt = turf.point([lon2, lat2]);
@@ -2859,8 +2815,8 @@ async function runQuery() {
                     座標: [lat2, lon2],
                     在範圍內: inside,
                     距離: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], lat2, lon2)),
-                    直線距離顯示: inside ? "0" : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], lat2, lon2)),
-                    路線距離: inside ? "0" : "計算中...",
+                    直線距離顯示: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], lat2, lon2)),
+                    路線距離: inside ? 0 : "計算中...",
                     路線距離數值: inside ? 0 : null
                 });
             }
@@ -2870,6 +2826,7 @@ async function runQuery() {
             let finalLat = sch.lat;
             let finalLon = sch.lon;
 
+            // ★ 修正 10.2: 判斷是否在多邊形範圍內
             let inside = false;
             if (turfZonePolygon) {
                 let pt = turf.point([finalLon, finalLat]);
@@ -2884,8 +2841,8 @@ async function runQuery() {
                 座標: [finalLat, finalLon],
                 在範圍內: inside,
                 距離: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                直線距離顯示: inside ? "0" : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                路線距離: inside ? "0" : "計算中...",
+                直線距離顯示: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
+                路線距離: inside ? 0 : "計算中...",
                 路線距離數值: inside ? 0 : null
             });
         });
@@ -2899,6 +2856,7 @@ async function runQuery() {
                         item.座標 = bestEntrance.coordinate;
                         item.類型 = "交流道入口";
                         
+                        // ★ 修正 10.2: 重新判斷交流道入口是否在範圍內
                         let inside = false;
                         if (turfZonePolygon) {
                             let pt = turf.point([item.座標[1], item.座標[0]]);
@@ -2906,7 +2864,7 @@ async function runQuery() {
                         }
                         item.在範圍內 = inside;
                         item.距離 = inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], item.座標[0], item.座標[1]));
-                        item.直線距離顯示 = inside ? "0" : item.距離;
+                        item.直線距離顯示 = inside ? 0 : item.距離;
                     }
                 } catch (err) {
                     console.error("交流道搜尋失敗:", err);
@@ -2929,8 +2887,9 @@ async function runQuery() {
 
         queryBtn.innerText = "🚗 計算路線中...";
 
+        // ★ 修正 10.4 & 10.5: 優化 OSRM 計算邏輯
         for (const item of results.slice(0, 80)) {
-            if (item.在範圍內) continue;
+            if (item.在範圍內) continue;  // ★ 修正 10.5: 跳過範圍內的項目，不計算 OSRM
             let isJunc = item.原始類型 === "motorway_junction";
             const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
             item.路線距離數值 = routeRes.value;
@@ -2963,17 +2922,34 @@ function sortResults(type) {
     renderTable();
 }
 
+/* ========================================================================
+   ★ 修正 10.2 & 10.3: 表格渲染函數
+   ======================================================================== */
+
 function renderTable() {
     tbody.innerHTML = "";
     results.forEach(item => {
         const tr = document.createElement("tr");
         tr.dataset.id = item.id;
         tr.onclick = () => selectItemById(item.id);
+        
+        // ★ 修正 10.3: 直線距離顯示邏輯
+        let distanceDisplay = item.直線距離顯示;
+        if (item.在範圍內) {
+            distanceDisplay = '<span class="in-polygon-badge">在區段範圍內</span>';
+        }
+        
+        // ★ 修正 10.3: 路線距離顯示邏輯
+        let routeDisplay = item.路線距離;
+        if (item.在範圍內) {
+            routeDisplay = '<span class="in-polygon-badge">在區段範圍內</span>';
+        }
+        
         tr.innerHTML = `
             <td>${escapeHtml(item.名稱)}</td>
             <td>${escapeHtml(item.類型)}</td>
-            <td>${item.直線距離顯示}</td>
-            <td id="route-${item.id}">${item.路線距離}</td>
+            <td>${distanceDisplay}</td>
+            <td id="route-${item.id}">${routeDisplay}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -2981,12 +2957,16 @@ function renderTable() {
 
 function exportExcel() {
     if (!results.length) { alert("無資料"); return; }
-    const ws = XLSX.utils.json_to_sheet(results.map(r => ({
+    
+    // ★ 修正 10.3: Excel 匯出時保留「在區段範圍內」標籤
+    const exportData = results.map(r => ({
         名稱: r.名稱,
         類型: r.類型,
-        直線距離: r.直線距離顯示,
-        路線距離: r.路線距離 || ""
-    })));
+        直線距離: r.在範圍內 ? "在區段範圍內" : r.直線距離顯示,
+        路線距離: r.在範圍內 ? "在區段範圍內" : (r.路線距離 || "")
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "查詢結果");
     XLSX.writeFile(wb, "市價徵收查詢結果.xlsx");
@@ -3289,10 +3269,6 @@ function importPolygonsFromSHP(event) {
     document.getElementById('shp-file-input').value = '';
 }
 
-/* ========================================================================
-   拖曳面板
-   ======================================================================== */
-
 let isDragging = false;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
@@ -3318,13 +3294,9 @@ document.addEventListener('mouseup', () => {
     isDragging = false;
 });
 
-/* ========================================================================
-   初始化 GeoJSON 事件
-   ======================================================================== */
-
 document.addEventListener('DOMContentLoaded', () => {
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v1.1.2 - 地圖重新定位問題修正）');
+    console.log('✅ 系統初始化完成（v1.1.3 - 多邊形範圍內距離顯示優化）');
 });
 
 </script>
