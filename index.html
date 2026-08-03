@@ -704,7 +704,7 @@ tr.highlight {
     display: none;
 }
 
-/* ★ 修正：GeoJSON 欄位選擇器樣式 */
+/* ★ 修正 5.0: GeoJSON 欄位選擇器樣式 */
 .geojson-field-selector {
     padding: 12px;
     background: #f0f9ff;
@@ -740,7 +740,7 @@ tr.highlight {
     color: #0369a1;
 }
 
-/* ★ 修正：GeoJSON 多邊形標籤 */
+/* ★ 修正 5.0: GeoJSON 多邊形標籤 */
 .geojson-field-label {
     background: rgba(255, 255, 255, 0.92);
     border: 1px solid #e5e7eb;
@@ -752,16 +752,6 @@ tr.highlight {
     pointer-events: none;
     white-space: nowrap;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-/* ★ 修正：GeoJSON 選中多邊形樣式 */
-.geojson-selected-style {
-    color: #ff4500 !important;
-    weight: 4 !important;
-    fillColor: #ff4500 !important;
-    fillOpacity: 0.35 !important;
-    opacity: 1 !important;
-    dashArray: null !important;
 }
 
 @media (max-width: 1024px) {
@@ -971,7 +961,7 @@ tr.highlight {
                 ℹ️ 選中多邊形後，查詢將以其形心為中心點進行；雙擊名稱或點擊 ✎ 可編輯名稱
             </div>
             
-            <!-- ★ 修正：GeoJSON 欄位選擇器 -->
+            <!-- ★ 修正 5.0: GeoJSON 欄位選擇器 -->
             <div id="geojsonFieldContainer" style="display: none;">
                 <div class="geojson-field-selector">
                     <h4>📋 GeoJSON 標籤欄位</h4>
@@ -1235,6 +1225,7 @@ let renameCancelled = false;
 let geoJsonLayers = {};
 let geoJsonFeatures = {};
 
+/* ★ 修正 5.0: 已選取 GeoJSON 多邊形樣式 */
 const selectedGeoJSONStyle = {
     color: '#ff4500',
     weight: 4,
@@ -1249,6 +1240,7 @@ const polygonColors = [
     '#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#6366f1'
 ];
 
+/* ★ 修正 5.1: 調整預設樣式 - 極淡底色 */
 const defaultStyles = {
     stroke: true,
     color: '#3388ff',
@@ -1256,8 +1248,8 @@ const defaultStyles = {
     opacity: 0.8,
     fill: true,
     fillColor: '#3388ff',
-    fillOpacity: 0.08,  // ★ 修正：改為極淡（0.08）
-    dashArray: null     // ★ 修正：改為實線
+    fillOpacity: 0.08,  // ★ 修正 5.1: 改為極淡（0.08）
+    dashArray: null     // ★ 修正 5.1: 改為實線
 };
 
 const latInput = document.getElementById('lat');
@@ -1584,7 +1576,7 @@ function escapeHtml(str) {
 }
 
 /* ========================================================================
-   ★ 修正 2: extractStyleFromProperties 改進版本
+   ★ 修正 5.1: extractStyleFromProperties 改進版本
    ======================================================================== */
 
 function extractStyleFromProperties(properties) {
@@ -1808,13 +1800,17 @@ function explodeMultiPolygons(geojson) {
     };
 }
 
+/* ★ 修正 5.2: applyGeoJSONFeatureStyle - 選取樣式邏輯 */
 function applyGeoJSONFeatureStyle(layer) {
     if (!layer || typeof layer.setStyle !== 'function') return;
 
     const sel = geoJsonSelection[layer._layerName];
     if (sel && sel === layer) {
+        // ★ 修正 5.2: 已選取 - 使用鮮明橙色
         layer.setStyle(selectedGeoJSONStyle);
+        console.log(`✓ 應用已選取樣式於 ${layer._featureId}`);
     } else {
+        // ★ 修正 5.2: 未選取 - 恢復淡色
         const s = layer._extractedStyle || defaultStyles;
         layer.setStyle({
             color: s.color,
@@ -1824,18 +1820,17 @@ function applyGeoJSONFeatureStyle(layer) {
             fillOpacity: s.fillOpacity,
             dashArray: s.dashArray
         });
+        console.log(`✓ 恢復未選取樣式於 ${layer._featureId}`);
     }
 }
 
-/* ========================================================================
-   ★ 修正 3【新增】: toggleGeoJSONFeatureSelection - GeoJSON多邊形選取
-   ======================================================================== */
-
+/* ★ 修正 5.3: toggleGeoJSONFeatureSelection - GeoJSON多邊形選取交互邏輯 */
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     const current = geoJsonSelection[layerName];
 
     if (current === layer) {
         // 取消選擇
+        console.log(`🔄 取消選取 ${layer._featureId}`);
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(layer);
         showToast('已取消選取多邊形');
@@ -1843,14 +1838,17 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     }
 
     if (current) {
+        // 清除前一個選擇
         const prevLayer = current;
+        console.log(`🔄 清除前一個選取 ${prevLayer._featureId}`);
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(prevLayer);
     }
 
-    // 選擇新的多邊形
+    // ★ 修正 5.3: 選擇新的多邊形
     geoJsonSelection[layerName] = layer;
     applyGeoJSONFeatureStyle(layer);
+    console.log(`✅ 已選取 ${layer._featureId}`);
 
     // 計算形心並更新查詢原點
     const coords = feature.geometry.coordinates;
@@ -1874,20 +1872,20 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
         origin = [centroidLat, centroidLon];
         latInput.value = centroidLat.toFixed(6);
         lonInput.value = centroidLon.toFixed(6);
+        console.log(`📍 已更新查詢原點: (${centroidLat.toFixed(6)}, ${centroidLon.toFixed(6)})`);
     }
 
     const props = feature.properties || {};
     const label = props.name || props.NAME || props.Name || props['名稱'] || layer._featureId || '未命名';
     showToast(`✓ 已選取多邊形：${label}`);
-    console.log('✅ 選取 GeoJSON 多邊形:', layer._featureId, props);
 }
 
 /* ========================================================================
-   ★ 修正 2.0: addGeoJSONToMap - 支援多邊形爆炸與選取
+   ★ 修正 5.4: addGeoJSONToMap - 支援多邊形爆炸與選取視覺反饋
    ======================================================================== */
 
 function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
-    // ★ 修正 A: 爆炸 MultiPolygon
+    // ★ 修正 8: 爆炸 MultiPolygon
     const explodedData = explodeMultiPolygons(geoJsonData);
 
     const featureGroup = L.featureGroup();
@@ -1904,8 +1902,8 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 fillColor: extractedStyle.fillColor,
                 weight: 2,
                 opacity: 0.8,
-                fillOpacity: 0.08,  // ★ 極淡透明
-                dashArray: null     // ★ 實線邊界
+                fillOpacity: 0.08,  // ★ 修正 5.1: 極淡透明
+                dashArray: null     // ★ 修正 5.1: 實線邊界
             };
         },
         onEachFeature: (feature, layer) => {
@@ -1941,11 +1939,12 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 this.closePopup();
             });
 
-            // ★ 修正 B: 點擊多邊形時選取
+            // ★ 修正 5.4: 點擊多邊形時選取（完整事件綁定）
             layer.on('click', function (e) {
                 if (L.DomEvent && e) {
                     L.DomEvent.stopPropagation(e);
                 }
+                console.log(`🖱️ 用戶點擊多邊形: ${this._featureId}`);
                 toggleGeoJSONFeatureSelection(layerName, layer, feature);
             });
             
@@ -1964,7 +1963,7 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
         }
     }).addTo(mapObj);
     
-    // ★ 修正 2.1: 新增 GeoJSON 欄位標籤
+    // ★ 修正 1.2: 新增 GeoJSON 欄位標籤
     if (geoJsonFieldInfo.activeField) {
         L.geoJSON(explodedData, {
             onEachFeature: (feature, layer) => {
@@ -2667,7 +2666,7 @@ function selectItemById(id) {
 }
 
 /* ========================================================================
-   ★ 修正 4【新增】: 主查詢函數 - 優先級邏輯
+   主查詢函數
    ======================================================================== */
 
 async function runQuery() {
@@ -2692,28 +2691,12 @@ async function runQuery() {
         results = [];
 
         let turfZonePolygon = null;
-        
-        // ★ 修正 C: 優先級邏輯（GeoJSON多邊形 > 手繪多邊形 > 手動輸入）
         let centroidForQuery = [lat, lon];
-        let queryOriginLabel = '手動輸入';
 
-        // 1. 檢查 GeoJSON 多邊形選取
-        let selectedGeoJSONFeature = null;
-        for (let layerName in geoJsonSelection) {
-            const layer = geoJsonSelection[layerName];
-            if (layer && layer._featureId) {
-                selectedGeoJSONFeature = layer;
-                queryOriginLabel = `GeoJSON 多邊形: ${layer._featureId}`;
-                break;
-            }
-        }
-
-        // 2. 如果沒有 GeoJSON 選取，檢查手繪多邊形
-        if (!selectedGeoJSONFeature && currentPolygonId) {
+        if (currentPolygonId) {
             const selectedPoly = polygons.find(p => p.id === currentPolygonId);
             if (selectedPoly && selectedPoly.centroid) {
                 centroidForQuery = selectedPoly.centroid;
-                queryOriginLabel = `手繪多邊形: ${selectedPoly.name}`;
                 let ring = selectedPoly.points.map(p => [p[1], p[0]]);
                 if (ring.length > 2 && (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1])) {
                     ring.push(ring[0]);
@@ -2722,12 +2705,7 @@ async function runQuery() {
                     turfZonePolygon = turf.polygon([ring]);
                 }
             }
-        } else if (selectedGeoJSONFeature) {
-            // GeoJSON 多邊形形心計算
-            centroidForQuery = [lat, lon]; // 將使用手動輸入的座標
         }
-
-        console.log(`📍 查詢原點: ${queryOriginLabel} (${centroidForQuery[0].toFixed(6)}, ${centroidForQuery[1].toFixed(6)})`);
 
         const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
         if (checkedBoxes.length === 0) {
@@ -3300,6 +3278,7 @@ document.addEventListener('mouseup', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     initGeoJSONEvents(map);
+    console.log('✅ 系統初始化完成（v1.1.1 - GeoJSON 多邊形選取視覺反饋）');
 });
 
 </script>
