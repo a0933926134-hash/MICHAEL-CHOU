@@ -704,7 +704,6 @@ tr.highlight {
     display: none;
 }
 
-/* ★ 修正 5.0: GeoJSON 欄位選擇器樣式 */
 .geojson-field-selector {
     padding: 12px;
     background: #f0f9ff;
@@ -740,7 +739,6 @@ tr.highlight {
     color: #0369a1;
 }
 
-/* ★ 修正 5.0: GeoJSON 多邊形標籤 */
 .geojson-field-label {
     background: rgba(255, 255, 255, 0.92);
     border: 1px solid #e5e7eb;
@@ -961,7 +959,6 @@ tr.highlight {
                 ℹ️ 選中多邊形後，查詢將以其形心為中心點進行；雙擊名稱或點擊 ✎ 可編輯名稱
             </div>
             
-            <!-- ★ 修正 5.0: GeoJSON 欄位選擇器 -->
             <div id="geojsonFieldContainer" style="display: none;">
                 <div class="geojson-field-selector">
                     <h4>📋 GeoJSON 標籤欄位</h4>
@@ -1076,7 +1073,20 @@ tr.highlight {
 
 <script>
 /* ================================================
-   ★ 色彩驗證函數庫
+   ★ 修正 9.0: 地圖重新定位問題修正初始化
+   ================================================ */
+
+// ★ 修正 9.1: 防止重複執行 fitBounds 的全域鎖
+let fitBoundsLock = false;
+
+// ★ 修正 9.2: 分離的 GeoJSON 標籤圖層管理
+let geoJsonLabelLayers = {};
+
+// ★ 修正 9.3: 防止地圖事件干擾的標誌位
+let isUpdatingView = false;
+
+/* ================================================
+   色彩驗證函數庫
    ================================================ */
 
 const namedColorsMap = {
@@ -1130,7 +1140,7 @@ function hasNestedProperty(obj, path) {
 }
 
 /* ========================================================================
-   ★ 色彩欄位全域配置
+   色彩欄位全域配置
    ======================================================================== */
 
 const colorFieldsConfig = {
@@ -1152,7 +1162,7 @@ const colorFieldsConfig = {
 };
 
 /* ========================================================================
-   ★ GeoJSON 欄位管理全域變數
+   GeoJSON 欄位管理全域變數
    ======================================================================== */
 
 let geoJsonFieldInfo = {
@@ -1161,7 +1171,7 @@ let geoJsonFieldInfo = {
 };
 
 /* ========================================================================
-   ★ GeoJSON 選取狀態
+   GeoJSON 選取狀態
    ======================================================================== */
 
 let geoJsonSelection = {};
@@ -1225,7 +1235,6 @@ let renameCancelled = false;
 let geoJsonLayers = {};
 let geoJsonFeatures = {};
 
-/* ★ 修正 5.0: 已選取 GeoJSON 多邊形樣式 */
 const selectedGeoJSONStyle = {
     color: '#ff4500',
     weight: 4,
@@ -1240,7 +1249,6 @@ const polygonColors = [
     '#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#6366f1'
 ];
 
-/* ★ 修正 5.1: 調整預設樣式 - 極淡底色 */
 const defaultStyles = {
     stroke: true,
     color: '#3388ff',
@@ -1248,8 +1256,8 @@ const defaultStyles = {
     opacity: 0.8,
     fill: true,
     fillColor: '#3388ff',
-    fillOpacity: 0.08,  // ★ 修正 5.1: 改為極淡（0.08）
-    dashArray: null     // ★ 修正 5.1: 改為實線
+    fillOpacity: 0.08,
+    dashArray: null
 };
 
 const latInput = document.getElementById('lat');
@@ -1265,7 +1273,7 @@ const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
 
 /* ========================================================================
-   ★ 修正 1.1: updateGeoJSONFieldSelector 函數
+   updateGeoJSONFieldSelector 函數
    ======================================================================== */
 
 function updateGeoJSONFieldSelector() {
@@ -1316,7 +1324,45 @@ function updateGeoJSONFieldSelector() {
 }
 
 /* ========================================================================
-   ★ 修正 1.2: updateGeoJSONFieldLabel 函數
+   ★ 修正 9.4: renderGeoJSONLabels 獨立函數
+   ======================================================================== */
+
+function renderGeoJSONLabels(explodedData, layerName, mapObj) {
+    // 清除之前的標籤圖層
+    if (geoJsonLabelLayers[layerName]) {
+        mapObj.removeLayer(geoJsonLabelLayers[layerName]);
+    }
+
+    if (!geoJsonFieldInfo.activeField) return;
+
+    const labelLayerGroup = L.featureGroup();
+
+    L.geoJSON(explodedData, {
+        onEachFeature: (feature, layer) => {
+            const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
+            if (fieldValue) {
+                const label = L.tooltip({
+                    permanent: true,
+                    direction: 'center',
+                    className: 'geojson-field-label'
+                });
+                label.setContent(String(fieldValue));
+                layer.bindTooltip(label);
+            }
+        },
+        pointToLayer: (feature, latlng) => {
+            return L.circleMarker(latlng, { radius: 0 });
+        },
+        style: () => ({ color: 'transparent', weight: 0, fillOpacity: 0 })
+    }).addTo(labelLayerGroup);
+
+    labelLayerGroup.addTo(mapObj);
+    geoJsonLabelLayers[layerName] = labelLayerGroup;
+    console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}`);
+}
+
+/* ========================================================================
+   updateGeoJSONFieldLabel 函數（修正版）
    ======================================================================== */
 
 function updateGeoJSONFieldLabel() {
@@ -1327,16 +1373,11 @@ function updateGeoJSONFieldLabel() {
 
     geoJsonFieldInfo.activeField = fieldValue || null;
 
-    Object.values(geoJsonLayers).forEach(layerGroup => {
-        if (layerGroup) {
-            map.removeLayer(layerGroup);
-        }
-    });
-
+    // ★ 修正 9.4: 只更新標籤圖層，不重新繪製主圖層
     Object.keys(geoJsonFeatures).forEach(layerName => {
         const data = geoJsonFeatures[layerName];
         if (data.features) {
-            addGeoJSONToMap(data, layerName, map);
+            renderGeoJSONLabels(data, layerName, map);
         }
     });
 
@@ -1347,6 +1388,15 @@ function updateGeoJSONFieldLabel() {
         console.log(`✓ GeoJSON 欄位標籤已設定為：${fieldValue}`);
     } else {
         statusDiv.style.display = 'none';
+        
+        // 清除所有標籤圖層
+        Object.keys(geoJsonLabelLayers).forEach(layerName => {
+            if (geoJsonLabelLayers[layerName]) {
+                map.removeLayer(geoJsonLabelLayers[layerName]);
+                delete geoJsonLabelLayers[layerName];
+            }
+        });
+
         showToast('✓ GeoJSON 標籤已隱藏');
         console.log('✓ GeoJSON 欄位標籤已隱藏');
     }
@@ -1576,7 +1626,7 @@ function escapeHtml(str) {
 }
 
 /* ========================================================================
-   ★ 修正 5.1: extractStyleFromProperties 改進版本
+   extractStyleFromProperties 改進版本
    ======================================================================== */
 
 function extractStyleFromProperties(properties) {
@@ -1751,7 +1801,7 @@ function createPopupContent(properties, layerName) {
 }
 
 /* ========================================================================
-   ★ 修正 8【新增】: explodeMultiPolygons - 多邊形爆炸分解
+   explodeMultiPolygons - 多邊形爆炸分解
    ======================================================================== */
 
 function explodeMultiPolygons(geojson) {
@@ -1800,17 +1850,14 @@ function explodeMultiPolygons(geojson) {
     };
 }
 
-/* ★ 修正 5.2: applyGeoJSONFeatureStyle - 選取樣式邏輯 */
 function applyGeoJSONFeatureStyle(layer) {
     if (!layer || typeof layer.setStyle !== 'function') return;
 
     const sel = geoJsonSelection[layer._layerName];
     if (sel && sel === layer) {
-        // ★ 修正 5.2: 已選取 - 使用鮮明橙色
         layer.setStyle(selectedGeoJSONStyle);
         console.log(`✓ 應用已選取樣式於 ${layer._featureId}`);
     } else {
-        // ★ 修正 5.2: 未選取 - 恢復淡色
         const s = layer._extractedStyle || defaultStyles;
         layer.setStyle({
             color: s.color,
@@ -1824,12 +1871,10 @@ function applyGeoJSONFeatureStyle(layer) {
     }
 }
 
-/* ★ 修正 5.3: toggleGeoJSONFeatureSelection - GeoJSON多邊形選取交互邏輯 */
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     const current = geoJsonSelection[layerName];
 
     if (current === layer) {
-        // 取消選擇
         console.log(`🔄 取消選取 ${layer._featureId}`);
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(layer);
@@ -1838,26 +1883,22 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     }
 
     if (current) {
-        // 清除前一個選擇
         const prevLayer = current;
         console.log(`🔄 清除前一個選取 ${prevLayer._featureId}`);
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(prevLayer);
     }
 
-    // ★ 修正 5.3: 選擇新的多邊形
     geoJsonSelection[layerName] = layer;
     applyGeoJSONFeatureStyle(layer);
     console.log(`✅ 已選取 ${layer._featureId}`);
 
-    // 計算形心並更新查詢原點
     const coords = feature.geometry.coordinates;
     let centroidLat, centroidLon;
 
     if (feature.geometry.type === 'Polygon' && coords[0]) {
         const ring = coords[0].map(c => [c[1], c[0]]);
         if (ring.length >= 3) {
-            // 閉合多邊形
             if (ring[ring.length-1][0] !== ring[0][0] || ring[ring.length-1][1] !== ring[0][1]) {
                 ring.push(ring[0]);
             }
@@ -1881,10 +1922,10 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
 }
 
 /* ========================================================================
-   ★ 修正 5.4: addGeoJSONToMap - 支援多邊形爆炸與選取視覺反饋
+   ★ 修正 9.3: optimizeAddGeoJSONToMap - 優化版本
    ======================================================================== */
 
-function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
+function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     // ★ 修正 8: 爆炸 MultiPolygon
     const explodedData = explodeMultiPolygons(geoJsonData);
 
@@ -1902,8 +1943,8 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 fillColor: extractedStyle.fillColor,
                 weight: 2,
                 opacity: 0.8,
-                fillOpacity: 0.08,  // ★ 修正 5.1: 極淡透明
-                dashArray: null     // ★ 修正 5.1: 實線邊界
+                fillOpacity: 0.08,
+                dashArray: null
             };
         },
         onEachFeature: (feature, layer) => {
@@ -1939,7 +1980,6 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 this.closePopup();
             });
 
-            // ★ 修正 5.4: 點擊多邊形時選取（完整事件綁定）
             layer.on('click', function (e) {
                 if (L.DomEvent && e) {
                     L.DomEvent.stopPropagation(e);
@@ -1963,42 +2003,35 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
         }
     }).addTo(mapObj);
     
-    // ★ 修正 1.2: 新增 GeoJSON 欄位標籤
+    // ★ 修正 9.4: 分離標籤圖層渲染
     if (geoJsonFieldInfo.activeField) {
-        L.geoJSON(explodedData, {
-            onEachFeature: (feature, layer) => {
-                const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
-                if (fieldValue) {
-                    const label = L.tooltip({
-                        permanent: true,
-                        direction: 'center',
-                        className: 'geojson-field-label'
-                    });
-                    label.setContent(String(fieldValue));
-                    layer.bindTooltip(label);
-                }
-            },
-            pointToLayer: (feature, latlng) => {
-                return L.circleMarker(latlng, { radius: 0 });
-            },
-            style: () => ({ color: 'transparent', weight: 0, fillOpacity: 0 })
-        }).addTo(mapObj);
+        renderGeoJSONLabels(explodedData, layerName, mapObj);
     }
     
     geoJsonLayers[layerName] = featureGroup;
     addGeoJSONLayerControl(layerName, featureGroup, mapObj);
 
-    try {
-        const bounds = featureGroup.getBounds();
-        if (bounds.isValid()) {
-            mapObj.fitBounds(bounds, { maxZoom: 18, padding: [20, 20] });
+    // ★ 修正 9.1: fitBounds 一次性執行
+    if (!fitBoundsLock) {
+        try {
+            const bounds = featureGroup.getBounds();
+            if (bounds.isValid()) {
+                isUpdatingView = true;
+                mapObj.fitBounds(bounds, { maxZoom: 18, padding: [20, 20] });
+                fitBoundsLock = true;
+                setTimeout(() => { isUpdatingView = false; }, 500);
+            }
+        } catch (e) {
+            console.warn('⚠️ fitBounds 失敗（可能圖層為空）:', e);
         }
-    } catch (e) {
-        console.warn('⚠️ fitBounds 失敗（可能圖層為空）:', e);
     }
     
     console.log(`✓ GeoJSON 圖層已新增：${layerName}（${explodedData.features.length} 個可選多邊形）`);
 }
+
+/* ========================================================================
+   GeoJSON 匯入
+   ======================================================================== */
 
 async function importGeoJSON(file, mapObj) {
     return new Promise((resolve, reject) => {
@@ -2020,9 +2053,8 @@ async function importGeoJSON(file, mapObj) {
                     .replace('.json', '')
                     .trim();
 
-                addGeoJSONToMap(finalData, layerName, mapObj);
+                optimizeAddGeoJSONToMap(finalData, layerName, mapObj);
                 
-                // ★ 修正 1.3: 匯入後立即更新欄位選擇器
                 updateGeoJSONFieldSelector();
 
                 let msg = `✓ 已匯入圖層：${layerName} (${finalData.features.length} 個特徵)`;
@@ -2093,6 +2125,13 @@ function removeGeoJSONLayer(layerName, mapObj) {
         mapObj.removeLayer(geoJsonLayers[layerName]);
         delete geoJsonLayers[layerName];
     }
+    
+    // ★ 修正 9.3: 完整清理標籤圖層
+    if (geoJsonLabelLayers[layerName]) {
+        mapObj.removeLayer(geoJsonLabelLayers[layerName]);
+        delete geoJsonLabelLayers[layerName];
+    }
+    
     if (geoJsonFeatures[layerName]) {
         delete geoJsonFeatures[layerName];
     }
@@ -2433,7 +2472,10 @@ function renderPolygonList() {
     `).join('');
 }
 
+/* ★ 修正 9.5: 防止地圖事件干擾 fitBounds */
 map.on('click', (e) => {
+    if (isUpdatingView) return;
+
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
 
@@ -2472,7 +2514,9 @@ function getCurrentLocation() {
             latInput.value = lat.toFixed(6);
             lonInput.value = lon.toFixed(6);
             origin = [lat, lon];
+            isUpdatingView = true;
             map.flyTo([lat, lon], 17, { duration: 1.2 });
+            setTimeout(() => { isUpdatingView = false; }, 1500);
             showToast('✓ 已定位到您的位置');
         },
         (err) => alert('定位失敗'),
@@ -2876,7 +2920,9 @@ async function runQuery() {
         results.forEach(item => {
             const m = L.marker(item.座標).addTo(markerLayer).bindTooltip(item.名稱, { direction: "top" });
             m.on("click", () => {
+                isUpdatingView = true;
                 map.flyTo(item.座標, 17, { duration: 0.8 });
+                setTimeout(() => { isUpdatingView = false; }, 1000);
                 selectItem(item);
             });
         });
@@ -3278,7 +3324,7 @@ document.addEventListener('mouseup', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v1.1.1 - GeoJSON 多邊形選取視覺反饋）');
+    console.log('✅ 系統初始化完成（v1.1.2 - 地圖重新定位問題修正）');
 });
 
 </script>
