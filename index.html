@@ -1054,6 +1054,43 @@ function normalizeColor(color) {
     return (lowerName in namedColorsMap) ? namedColorsMap[lowerName] : null;
 }
 
+/* ========================================================================
+   ★ 新增：顏色淺化函數
+   目的：滿足「匯入 GeoJSON 以最淺的顏色填滿」需求
+   說明：
+     - 將任何十六進位顏色與白色混合，產生極淺的色調版本
+     - amount 越接近 1，代表越接近純白（越淺）
+     - 邊框（stroke）仍保留原始偵測到的顏色，維持圖層辨識度
+     - 填色（fill）統一套用淺化版本，避免遮擋底圖/地籍圖，
+       同時因為 fill 仍為有效區域，Leaflet 判定多邊形內部為可點擊範圍
+   ======================================================================== */
+
+function lightenColor(hex, amount = 0.85) {
+    if (!hex || typeof hex !== 'string') return '#cce4ff';
+
+    let cleanHex = hex.replace('#', '').trim();
+    if (cleanHex.length === 3) {
+        cleanHex = cleanHex.split('').map(c => c + c).join('');
+    }
+    if (cleanHex.length !== 6 || /[^0-9A-Fa-f]/.test(cleanHex)) {
+        return '#cce4ff'; // 無法解析時，回傳預設淺藍色
+    }
+
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+
+    const clamp = v => Math.max(0, Math.min(255, Math.round(v)));
+
+    const newR = clamp(r + (255 - r) * amount);
+    const newG = clamp(g + (255 - g) * amount);
+    const newB = clamp(b + (255 - b) * amount);
+
+    const toHex = v => v.toString(16).padStart(2, '0');
+
+    return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+}
+
 function getNestedProperty(obj, path) {
     return path.split('.').reduce((current, prop) => {
         return (current && current[prop]) ? current[prop] : undefined;
@@ -1165,17 +1202,21 @@ let geoJsonFeatures = {};
 // 記錄每個圖層目前被選取的 Leaflet Layer（key: layerName, value: Layer 物件）
 let geoJsonSelection = {};
 
-// ★ 修正2【新增】: 記錄目前選取的 GeoJSON 多邊形（含形心），供距離查詢使用
-let currentGeoJSONSelectedFeature = null;
+/* ========================================================================
+   ★ 新增：記錄「目前作為查詢原點」的匯入 GeoJSON 多邊形
+   結構：{ layerName, layer, feature } 或 null（代表沒有 GeoJSON 多邊形被選取）
+   用途：
+     1. 點選匯入的多邊形後，以其形心更新 origin/lat/lon 輸入框
+     2. runQuery() 執行查詢時，優先以此多邊形的幾何範圍判斷「範圍內/外」
+   ======================================================================== */
+let activeGeoJSONSelection = null;
 
 // 選取後的高亮樣式（與 hover 樣式區分，點擊後會持續顯示，不因滑鼠移開而消失）
-// ★ 修正1：fillOpacity 改為 0、fill 改為 false，選取後只顯示邊框顏色，不填滿
 const selectedGeoJSONStyle = {
     color: '#ff4500',
     weight: 4,
     fillColor: '#ff4500',
-    fillOpacity: 0,
-    fill: false,
+    fillOpacity: 0.35,
     opacity: 1,
     dashArray: null
 };
@@ -1293,21 +1334,8 @@ function normalizeGeoJSON(data) {
 
 /* ========================================================================
    ★ 修正 6【新增】: 通用 GeoJSON 座標系統自動偵測與轉換
-   目的：修補「一般圖層匯入」（importGeoJSON）完全沒有座標轉換的漏洞
-   說明：
-     1. isTWD97Coordinate() / twd97ToWGS84() 定義於下方「多邊形匯入」區塊，
-        因為是 function 宣告（非箭頭函式賦值），JS 會做 Hoisting，
-        所以這裡可以提前呼叫，不需搬動或重複定義。
-     2. 採「取樣偵測」策略：從整份 GeoJSON 找出第一個座標點，
-        判斷是否落在 TWD97 (EPSG:3826) 常見數值範圍，
-        若是，才對「全部」Feature 的座標做遞迴轉換；
-        若原本就是 WGS84 經緯度，則完全不動，避免誤轉。
-     3. 支援 Point / LineString / Polygon / MultiPoint /
-        MultiLineString / MultiPolygon / GeometryCollection
-        任意巢狀深度的座標陣列。
    ======================================================================== */
 
-// 遞迴找出 GeoJSON 結構中「第一個」座標點 [x, y]，用來做座標系統取樣判斷
 function findFirstCoordinatePair(node) {
     if (!node) return null;
 
@@ -1338,11 +1366,10 @@ function findFirstCoordinatePair(node) {
     return null;
 }
 
-// 遞迴挖出座標陣列裡的第一組 [x, y]（不管巢狀幾層）
 function extractFirstNumberPair(coords) {
     if (!Array.isArray(coords) || coords.length === 0) return null;
     if (typeof coords[0] === 'number') {
-        return coords; // 已經是 [x, y] 或 [x, y, z]
+        return coords;
     }
     for (const c of coords) {
         const r = extractFirstNumberPair(c);
@@ -1351,20 +1378,17 @@ function extractFirstNumberPair(coords) {
     return null;
 }
 
-// 遞迴轉換任意深度的座標陣列（單一座標 or 巢狀陣列皆可）
 function transformCoordinatesDeep(coords, transformFn) {
     if (!Array.isArray(coords)) return coords;
     if (typeof coords[0] === 'number') {
         const x = coords[0];
         const y = coords[1];
         const [lon, lat] = transformFn(x, y);
-        // 若有 Z 值（高程），原樣保留在第三位
         return coords.length > 2 ? [lon, lat, ...coords.slice(2)] : [lon, lat];
     }
     return coords.map(c => transformCoordinatesDeep(c, transformFn));
 }
 
-// 遞迴走訪整個 GeoJSON（FeatureCollection / Feature / Geometry），套用座標轉換
 function deepTransformGeoJSON(node, transformFn) {
     if (!node) return node;
 
@@ -1399,11 +1423,6 @@ function deepTransformGeoJSON(node, transformFn) {
     return node;
 }
 
-/**
- * 自動偵測 GeoJSON 座標系統，若判定為 TWD97 (EPSG:3826) 則整批轉換為 WGS84。
- * @param {Object} geojson - 標準化後的 FeatureCollection
- * @returns {{ data: Object, converted: boolean, sample: number[]|null }}
- */
 function convertGeoJSONToWGS84IfNeeded(geojson) {
     const sample = findFirstCoordinatePair(geojson);
 
@@ -1414,7 +1433,6 @@ function convertGeoJSONToWGS84IfNeeded(geojson) {
 
     const [x, y] = sample;
 
-    // 依賴下方「多邊形匯入」區塊已定義的 isTWD97Coordinate()（Hoisting 生效）
     if (!isTWD97Coordinate(x, y)) {
         console.log(`ℹ️ 座標樣本 (${x}, ${y}) 判定為 WGS84 經緯度，不需轉換`);
         return { data: geojson, converted: false, sample };
@@ -1422,7 +1440,6 @@ function convertGeoJSONToWGS84IfNeeded(geojson) {
 
     console.log(`🔄 偵測到 TWD97 座標（X=${x.toFixed(2)}, Y=${y.toFixed(2)}），開始自動轉換為 WGS84...`);
 
-    // 依賴下方已定義的 twd97ToWGS84()（Hoisting 生效）
     const convertedData = deepTransformGeoJSON(geojson, (px, py) => twd97ToWGS84(px, py));
 
     console.log('✅ TWD97 → WGS84 座標轉換完成（一般 GeoJSON 圖層匯入流程）');
@@ -1469,11 +1486,31 @@ function escapeHtml(str) {
 }
 
 /* ========================================================================
-   ★ 修正 2: 改進 extractStyleFromProperties 函數
-   支援自訂欄位、深層嵌套、多種色彩格式、完整診斷日誌
+   ★ 修正 2: extractStyleFromProperties（外層包裝函數）
+   目的：不論偵測到什麼顏色，「填色」統一採用該顏色的最淺版本，
+        「邊框」則保留原始偵測到的顏色，確保：
+          1. 視覺上不會遮擋底圖/地籍圖
+          2. 多邊形內部仍有填色 → Leaflet 判定為可點擊區域
+          3. 點選後可正確計算形心並作為查詢原點
    ======================================================================== */
 
 function extractStyleFromProperties(properties) {
+    const style = extractRawColorStyle(properties);
+
+    // ★ 統一以「最淺色調」填滿多邊形
+    style.fillColor = lightenColor(style.color, 0.88);
+    style.fillOpacity = 0.55;
+    style.fill = true;
+
+    return style;
+}
+
+/* ========================================================================
+   ★ 修正 2 原始邏輯（重命名為 extractRawColorStyle）
+   支援自訂欄位、深層嵌套、多種色彩格式、完整診斷日誌
+   ======================================================================== */
+
+function extractRawColorStyle(properties) {
     const style = { ...defaultStyles };
     
     if (!properties || Object.keys(properties).length === 0) {
@@ -1662,11 +1699,6 @@ function createPopupContent(properties, layerName) {
 
 /* ========================================================================
    ★ 修正 8【新增】: explodeMultiPolygons
-   目的：將 MultiPolygon Feature 拆解成多個獨立的 Polygon Feature，
-         使 Leaflet 能各自建立獨立的 Layer 物件，讓每一塊多邊形都能被單獨點擊選取。
-   說明：
-     - 不會修改 feature.properties 內容（不污染原始屬性、匯出檔案、彈出視窗）。
-     - Polygon（含孔洞環）與其他幾何型別（Point / LineString...）維持原樣直接通過。
    ======================================================================== */
 
 function explodeMultiPolygons(geojson) {
@@ -1713,17 +1745,15 @@ function explodeMultiPolygons(geojson) {
 }
 
 /* ========================================================================
-   ★ 修正 8【新增】: GeoJSON 多邊形選取樣式套用 / 切換選取
-   ★ 修正1：所有樣式皆強制 fillOpacity: 0 / fill: false，只顯示邊框顏色，不填滿
+   ★ 修正 8【新增】: GeoJSON 多邊形選取樣式套用
    ======================================================================== */
 
-// 依照目前選取狀態，為指定 Layer 套用「選取樣式」或「原始樣式」
 function applyGeoJSONFeatureStyle(layer) {
     if (!layer || typeof layer.setStyle !== 'function') return;
 
     const sel = geoJsonSelection[layer._layerName];
     if (sel && sel === layer) {
-        layer.setStyle(selectedGEOJSONStyleSafe());
+        layer.setStyle(selectedGeoJSONStyle);
     } else {
         const s = layer._extractedStyle || defaultStyles;
         layer.setStyle({
@@ -1731,24 +1761,20 @@ function applyGeoJSONFeatureStyle(layer) {
             fillColor: s.fillColor,
             weight: s.weight,
             opacity: s.opacity,
-            fillOpacity: 0,   // ★ 修正1：不填滿，只顯示邊框
-            fill: false,
+            fillOpacity: s.fillOpacity,
             dashArray: s.dashArray
         });
     }
 }
 
-// 內部小工具：回傳選取樣式（確保 fillOpacity/fill 一定是不填滿）
-function selectedGEOJSONStyleSafe() {
-    return {
-        ...selectedGeoJSONStyle,
-        fillOpacity: 0,
-        fill: false
-    };
-}
+/* ========================================================================
+   ★ 修正：點選匯入的 GeoJSON 多邊形
+   1. 切換選取狀態（同層只能選一個；再次點擊同一個 = 取消選取）
+   2. 選取時：計算形心（turf.centroid）→ 更新 lat/lon 輸入框與 origin，
+      並記錄至 activeGeoJSONSelection，供 runQuery() 判斷查詢範圍使用
+   3. 自動取消手繪多邊形的選取狀態，避免查詢原點衝突
+   ======================================================================== */
 
-// 點擊多邊形時：切換選取狀態（同層只能選一個；再次點擊同一個 = 取消選取）
-// ★ 修正2：選取時計算形心，並更新查詢定位點（origin / 經緯度輸入框），供距離計算使用
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     const current = geoJsonSelection[layerName];
 
@@ -1757,8 +1783,8 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(layer);
 
-        if (currentGeoJSONSelectedFeature && currentGeoJSONSelectedFeature.layer === layer) {
-            currentGeoJSONSelectedFeature = null;
+        if (activeGeoJSONSelection && activeGeoJSONSelection.layer === layer) {
+            activeGeoJSONSelection = null;
         }
 
         showToast('已取消選取多邊形');
@@ -1776,46 +1802,40 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     geoJsonSelection[layerName] = layer;
     applyGeoJSONFeatureStyle(layer);
 
-    // ★ 修正2【核心】: 計算該多邊形形心，設為查詢定位點
-    let centroidMsg = '';
-    try {
-        const centroidFeature = turf.centroid(feature);
-        const centroid = [
-            centroidFeature.geometry.coordinates[1],
-            centroidFeature.geometry.coordinates[0]
-        ]; // [lat, lon]
-
-        // 若原本有選取中的「手繪多邊形」，先取消其選取狀態，避免定位點衝突
-        if (currentPolygonId) {
-            const prevPoly = polygons.find(p => p.id === currentPolygonId);
-            if (prevPoly) {
-                prevPoly.isSelected = false;
-                renderPolygonLayer(prevPoly);
+    // ★ 自動取消手繪多邊形的選取狀態，避免座標衝突
+    if (currentPolygonId) {
+        polygons.forEach(p => {
+            if (p.isSelected) {
+                p.isSelected = false;
+                renderPolygonLayer(p);
             }
-            currentPolygonId = null;
-            renderPolygonList();
-        }
+        });
+        currentPolygonId = null;
+        renderPolygonList();
+    }
 
-        origin = [...centroid];
-        latInput.value = centroid[0].toFixed(6);
-        lonInput.value = centroid[1].toFixed(6);
+    // ★ 以形心作為查詢原點，更新輸入框與 origin 變數
+    try {
+        const centroid = turf.centroid(feature);
+        const centroidLon = centroid.geometry.coordinates[0];
+        const centroidLat = centroid.geometry.coordinates[1];
 
-        currentGeoJSONSelectedFeature = {
-            layerName,
-            layer,
-            feature,
-            centroid
-        };
+        latInput.value = centroidLat.toFixed(6);
+        lonInput.value = centroidLon.toFixed(6);
+        origin = [centroidLat, centroidLon];
 
-        centroidMsg = '（定位點已更新為形心，可計算距離）';
-        console.log('✓ GeoJSON 多邊形形心已計算並設為定位點:', centroid);
+        // ★ 記錄目前選取中的 GeoJSON 多邊形，供 runQuery() 判斷「範圍內/外」使用
+        activeGeoJSONSelection = { layerName, layer, feature };
+
+        console.log(`✅ 已將形心設定為查詢原點: (${centroidLat.toFixed(6)}, ${centroidLon.toFixed(6)})`);
     } catch (err) {
-        console.error('❌ 計算形心失敗:', err);
+        console.error('❌ 形心計算失敗:', err);
+        showToast('⚠️ 形心計算失敗，請確認多邊形幾何是否正確');
     }
 
     const props = feature.properties || {};
     const label = props.name || props.NAME || props.Name || props['名稱'] || layer._featureId || '未命名';
-    showToast(`✓ 已選取多邊形：${label}${centroidMsg}`);
+    showToast(`✓ 已選取多邊形：${label}（形心已設為查詢原點）`);
     console.log('✅ 選取 GeoJSON 多邊形:', layer._featureId, props);
 }
 
@@ -1837,9 +1857,9 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 fillColor: extractedStyle.fillColor,
                 weight: extractedStyle.weight,
                 opacity: extractedStyle.opacity,
-                fillOpacity: 0,     // ★ 修正1：不填滿，只顯示邊框顏色
-                fill: false,
-                dashArray: extractedStyle.dashArray
+                fillOpacity: extractedStyle.fillOpacity,
+                dashArray: extractedStyle.dashArray,
+                fill: true
             };
         },
         onEachFeature: (feature, layer) => {
@@ -1860,8 +1880,7 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
                         fillColor: extractedStyle.fillColor,
                         weight: extractedStyle.weight + 2,
                         opacity: 1,
-                        fillOpacity: 0,   // ★ 修正1：hover 時也不填滿
-                        fill: false
+                        fillOpacity: Math.min(extractedStyle.fillOpacity + 0.15, 0.8)
                     };
                     this.setStyle(highlightStyle);
                 }
@@ -1869,14 +1888,12 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
             });
             
             layer.on('mouseout', function () {
-                // ★ 修正 8：改用 applyGeoJSONFeatureStyle，
-                // 若此 Layer 目前為「已選取」狀態，滑鼠移開時會維持選取樣式，不會被還原成預設樣式
+                // ★ 修正 8：若此 Layer 目前為「已選取」狀態，滑鼠移開時會維持選取樣式
                 applyGeoJSONFeatureStyle(this);
                 this.closePopup();
             });
 
-            // ★ 修正 8：新增點擊選取事件（點擊 = 持續高亮選取，再點一次 = 取消選取）
-            // ★ 修正2：點擊時同步更新形心定位點
+            // ★ 修正 8：新增點擊選取事件（點擊 = 持續高亮選取並設為查詢原點，再點一次 = 取消選取）
             layer.on('click', function (e) {
                 if (L.DomEvent && e) {
                     L.DomEvent.stopPropagation(e);
@@ -1894,8 +1911,7 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 color: extractedStyle.color,
                 weight: extractedStyle.weight,
                 opacity: extractedStyle.opacity,
-                fillOpacity: 0,   // ★ 修正1：不填滿
-                fill: false
+                fillOpacity: extractedStyle.fillOpacity
             });
         }
     }).addTo(mapObj);
@@ -1913,13 +1929,11 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
         console.warn('⚠️ fitBounds 失敗（可能圖層為空）:', e);
     }
     
-    console.log(`✓ GeoJSON 圖層已新增：${layerName}（可個別點選多邊形，僅顯示邊框）`);
+    console.log(`✓ GeoJSON 圖層已新增：${layerName}（淺色填滿，可個別點選並設為查詢原點）`);
 }
 
 /* ========================================================================
-   修正 1a: 改進 importGeoJSON 函數
-   支援嵌套結構、單一 Feature、Geometry 物件
-   ★ 修正 6：新增 TWD97 → WGS84 自動偵測與轉換
+   修正 1a: importGeoJSON 函數
    ======================================================================== */
 
 async function importGeoJSON(file, mapObj) {
@@ -1931,14 +1945,9 @@ async function importGeoJSON(file, mapObj) {
                 const rawData = JSON.parse(e.target.result);
                 console.log('📥 原始 GeoJSON 結構:', rawData);
 
-                // ★ 使用 normalizeGeoJSON 規範化
                 const normalizedData = normalizeGeoJSON(rawData);
                 console.log('✅ 規範化後的 GeoJSON:', normalizedData);
 
-                // ★ 修正 6【核心修補】: 自動偵測座標系統，若為 TWD97 則整批轉換為 WGS84
-                // 這一步正是原本缺漏的環節：過去只有 processImportedPolygons()（多邊形匯入）
-                // 有做這個轉換，一般「📁 匯入 GeoJSON」流程完全沒有，
-                // 導致 TWD97 地籍圖資匯入後座標跑到地球另一端、無法與底圖疊合。
                 const conversionResult = convertGeoJSONToWGS84IfNeeded(normalizedData);
                 const finalData = conversionResult.data;
 
@@ -2023,9 +2032,9 @@ function removeGeoJSONLayer(layerName, mapObj) {
     if (geoJsonSelection[layerName]) {
         delete geoJsonSelection[layerName];
     }
-    // ★ 修正2：若移除的圖層正是目前選取定位點來源，一併清除記錄
-    if (currentGeoJSONSelectedFeature && currentGeoJSONSelectedFeature.layerName === layerName) {
-        currentGeoJSONSelectedFeature = null;
+    // ★ 新增：若被移除的圖層正是目前查詢原點來源，一併清除
+    if (activeGeoJSONSelection && activeGeoJSONSelection.layerName === layerName) {
+        activeGeoJSONSelection = null;
     }
     showToast(`✓ 已移除圖層：${layerName}`);
     console.log(`✓ 圖層已移除：${layerName}`);
@@ -2234,16 +2243,21 @@ function renderEditHandles(polygonObj) {
     polygonObj.markers.addTo(map);
 }
 
+/* ========================================================================
+   ★ 修正：selectPolygon（手繪多邊形選取）
+   新增：選取手繪多邊形時，自動取消所有匯入 GeoJSON 圖層的選取狀態，
+        避免與 activeGeoJSONSelection 同時存在造成查詢原點衝突
+   ======================================================================== */
+
 function selectPolygon(id) {
-    // ★ 修正2：選取手繪多邊形時，若原本選取的是 GeoJSON 多邊形，一併清除其記錄，避免定位點衝突
-    if (currentGeoJSONSelectedFeature) {
-        const prevLayer = currentGeoJSONSelectedFeature.layer;
-        const prevLayerName = currentGeoJSONSelectedFeature.layerName;
-        if (geoJsonSelection[prevLayerName] === prevLayer) {
-            delete geoJsonSelection[prevLayerName];
-            applyGeoJSONFeatureStyle(prevLayer);
-        }
-        currentGeoJSONSelectedFeature = null;
+    // ★ 新增：清除匯入 GeoJSON 圖層的選取狀態
+    if (Object.keys(geoJsonSelection).length > 0) {
+        Object.keys(geoJsonSelection).forEach(layerName => {
+            const layer = geoJsonSelection[layerName];
+            delete geoJsonSelection[layerName];
+            applyGeoJSONFeatureStyle(layer);
+        });
+        activeGeoJSONSelection = null;
     }
 
     polygons.forEach(p => {
@@ -2607,9 +2621,8 @@ function selectItemById(id) {
 
 /* ========================================================================
    主查詢函數
-   ★ 修正2：新增判斷 currentGeoJSONSelectedFeature，
-   若目前選取的是匯入的 GeoJSON 多邊形，以其形心為查詢中心，
-   並嘗試建立範圍 Polygon 供「在範圍內」判斷（與手繪多邊形邏輯一致）
+   ★ 修正：優先採用「匯入 GeoJSON 選取中的多邊形」作為查詢範圍與原點，
+          其次才是手繪多邊形，最後才是手動輸入的經緯度
    ======================================================================== */
 
 async function runQuery() {
@@ -2636,7 +2649,22 @@ async function runQuery() {
         let turfZonePolygon = null;
         let centroidForQuery = [lat, lon];
 
-        if (currentPolygonId) {
+        // ★ 優先順序 1：若目前有選取「匯入的 GeoJSON 多邊形」，以其幾何範圍與形心為準
+        if (activeGeoJSONSelection && activeGeoJSONSelection.feature && activeGeoJSONSelection.feature.geometry) {
+            try {
+                const geom = activeGeoJSONSelection.feature.geometry;
+                if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+                    turfZonePolygon = geom;
+                    const centroid = turf.centroid(activeGeoJSONSelection.feature);
+                    centroidForQuery = [centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]];
+                    console.log('ℹ️ 查詢範圍採用匯入 GeoJSON 多邊形：', activeGeoJSONSelection.layerName);
+                }
+            } catch (err) {
+                console.error('❌ GeoJSON 選取範圍解析失敗，改用手動座標:', err);
+            }
+        }
+        // ★ 優先順序 2：若無 GeoJSON 選取，改用手繪多邊形
+        else if (currentPolygonId) {
             const selectedPoly = polygons.find(p => p.id === currentPolygonId);
             if (selectedPoly && selectedPoly.centroid) {
                 centroidForQuery = selectedPoly.centroid;
@@ -2647,17 +2675,6 @@ async function runQuery() {
                 if (ring.length >= 4) {
                     turfZonePolygon = turf.polygon([ring]);
                 }
-            }
-        } else if (currentGeoJSONSelectedFeature && currentGeoJSONSelectedFeature.centroid) {
-            // ★ 修正2：使用目前選取的匯入 GeoJSON 多邊形形心作為查詢中心
-            centroidForQuery = currentGeoJSONSelectedFeature.centroid;
-            try {
-                const geom = currentGeoJSONSelectedFeature.feature.geometry;
-                if (geom && geom.type === 'Polygon' && geom.coordinates && geom.coordinates[0]) {
-                    turfZonePolygon = turf.polygon(geom.coordinates);
-                }
-            } catch (e) {
-                console.warn('⚠️ 建立 GeoJSON 選取範圍失敗，僅使用形心作為查詢中心:', e);
             }
         }
 
@@ -2901,8 +2918,7 @@ function exportExcel() {
 }
 
 /* ========================================================================
-   ★ 修正 3: 新增 exportPolygonsToGeoJSON 函數
-   保留所有原始屬性、顏色、styleConfig 等信息
+   ★ 修正 3: exportPolygonsToGeoJSON 函數
    ======================================================================== */
 
 function exportPolygonsToGeoJSON() {
@@ -2923,7 +2939,6 @@ function exportPolygonsToGeoJSON() {
             const turfPoly = turf.polygon([ring]);
             const areaM2 = turf.area(turfPoly);
 
-            // ★ 構建 properties，保留原始屬性
             const properties = {
                 id: poly.id,
                 name: poly.name,
@@ -2972,8 +2987,7 @@ function exportPolygonsToGeoJSON() {
 }
 
 /* ========================================================================
-   ★ 修正 4: 改進 processImportedPolygons 函數
-   支援 Polygon 和 MultiPolygon、自動座標系統轉換
+   ★ 修正 4: processImportedPolygons 函數
    ======================================================================== */
 
 function isTWD97Coordinate(x, y) {
@@ -3144,7 +3158,6 @@ function processImportedPolygons(geojson) {
                     : baseName;
             }
 
-            // ★ 重點：保留原始 properties
             const polygonObj = createPolygonObject(points, finalName);
             if (polygonObj) {
                 polygonObj.originalProperties = { ...props };
@@ -3163,8 +3176,7 @@ function processImportedPolygons(geojson) {
 }
 
 /* ========================================================================
-   ★ 修正 5: 更新 importPolygonsFromSHP 函數
-   支援新的 normalizeGeoJSON 函數自動展平嵌套結構
+   ★ 修正 5: importPolygonsFromSHP 函數
    ======================================================================== */
 
 function importPolygonsFromSHP(event) {
@@ -3178,7 +3190,6 @@ function importPolygonsFromSHP(event) {
                 const rawGeoJSON = JSON.parse(e.target.result);
                 console.log('📥 原始 GeoJSON 結構:', rawGeoJSON);
                 
-                // ★ 使用 normalizeGeoJSON 規範化（自動展平嵌套結構）
                 const normalizedGeoJSON = normalizeGeoJSON(rawGeoJSON);
                 console.log('✅ 規範化後的 GeoJSON:', normalizedGeoJSON);
                 
@@ -3195,7 +3206,6 @@ function importPolygonsFromSHP(event) {
                 try {
                     console.log('📥 原始 SHP GeoJSON:', geojson);
                     
-                    // ★ 使用 normalizeGeoJSON 規範化
                     const normalizedGeoJSON = normalizeGeoJSON(geojson);
                     console.log('✅ 規範化後的 GeoJSON:', normalizedGeoJSON);
                     
