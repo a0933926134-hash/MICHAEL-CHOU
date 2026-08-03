@@ -1165,12 +1165,17 @@ let geoJsonFeatures = {};
 // 記錄每個圖層目前被選取的 Leaflet Layer（key: layerName, value: Layer 物件）
 let geoJsonSelection = {};
 
+// ★ 修正2【新增】: 記錄目前選取的 GeoJSON 多邊形（含形心），供距離查詢使用
+let currentGeoJSONSelectedFeature = null;
+
 // 選取後的高亮樣式（與 hover 樣式區分，點擊後會持續顯示，不因滑鼠移開而消失）
+// ★ 修正1：fillOpacity 改為 0、fill 改為 false，選取後只顯示邊框顏色，不填滿
 const selectedGeoJSONStyle = {
     color: '#ff4500',
     weight: 4,
     fillColor: '#ff4500',
-    fillOpacity: 0.35,
+    fillOpacity: 0,
+    fill: false,
     opacity: 1,
     dashArray: null
 };
@@ -1709,6 +1714,7 @@ function explodeMultiPolygons(geojson) {
 
 /* ========================================================================
    ★ 修正 8【新增】: GeoJSON 多邊形選取樣式套用 / 切換選取
+   ★ 修正1：所有樣式皆強制 fillOpacity: 0 / fill: false，只顯示邊框顏色，不填滿
    ======================================================================== */
 
 // 依照目前選取狀態，為指定 Layer 套用「選取樣式」或「原始樣式」
@@ -1717,7 +1723,7 @@ function applyGeoJSONFeatureStyle(layer) {
 
     const sel = geoJsonSelection[layer._layerName];
     if (sel && sel === layer) {
-        layer.setStyle(selectedGeoJSONStyle);
+        layer.setStyle(selectedGEOJSONStyleSafe());
     } else {
         const s = layer._extractedStyle || defaultStyles;
         layer.setStyle({
@@ -1725,13 +1731,24 @@ function applyGeoJSONFeatureStyle(layer) {
             fillColor: s.fillColor,
             weight: s.weight,
             opacity: s.opacity,
-            fillOpacity: s.fillOpacity,
+            fillOpacity: 0,   // ★ 修正1：不填滿，只顯示邊框
+            fill: false,
             dashArray: s.dashArray
         });
     }
 }
 
+// 內部小工具：回傳選取樣式（確保 fillOpacity/fill 一定是不填滿）
+function selectedGEOJSONStyleSafe() {
+    return {
+        ...selectedGeoJSONStyle,
+        fillOpacity: 0,
+        fill: false
+    };
+}
+
 // 點擊多邊形時：切換選取狀態（同層只能選一個；再次點擊同一個 = 取消選取）
+// ★ 修正2：選取時計算形心，並更新查詢定位點（origin / 經緯度輸入框），供距離計算使用
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     const current = geoJsonSelection[layerName];
 
@@ -1739,6 +1756,11 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     if (current === layer) {
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(layer);
+
+        if (currentGeoJSONSelectedFeature && currentGeoJSONSelectedFeature.layer === layer) {
+            currentGeoJSONSelectedFeature = null;
+        }
+
         showToast('已取消選取多邊形');
         return;
     }
@@ -1754,9 +1776,46 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     geoJsonSelection[layerName] = layer;
     applyGeoJSONFeatureStyle(layer);
 
+    // ★ 修正2【核心】: 計算該多邊形形心，設為查詢定位點
+    let centroidMsg = '';
+    try {
+        const centroidFeature = turf.centroid(feature);
+        const centroid = [
+            centroidFeature.geometry.coordinates[1],
+            centroidFeature.geometry.coordinates[0]
+        ]; // [lat, lon]
+
+        // 若原本有選取中的「手繪多邊形」，先取消其選取狀態，避免定位點衝突
+        if (currentPolygonId) {
+            const prevPoly = polygons.find(p => p.id === currentPolygonId);
+            if (prevPoly) {
+                prevPoly.isSelected = false;
+                renderPolygonLayer(prevPoly);
+            }
+            currentPolygonId = null;
+            renderPolygonList();
+        }
+
+        origin = [...centroid];
+        latInput.value = centroid[0].toFixed(6);
+        lonInput.value = centroid[1].toFixed(6);
+
+        currentGeoJSONSelectedFeature = {
+            layerName,
+            layer,
+            feature,
+            centroid
+        };
+
+        centroidMsg = '（定位點已更新為形心，可計算距離）';
+        console.log('✓ GeoJSON 多邊形形心已計算並設為定位點:', centroid);
+    } catch (err) {
+        console.error('❌ 計算形心失敗:', err);
+    }
+
     const props = feature.properties || {};
     const label = props.name || props.NAME || props.Name || props['名稱'] || layer._featureId || '未命名';
-    showToast(`✓ 已選取多邊形：${label}`);
+    showToast(`✓ 已選取多邊形：${label}${centroidMsg}`);
     console.log('✅ 選取 GeoJSON 多邊形:', layer._featureId, props);
 }
 
@@ -1778,7 +1837,8 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 fillColor: extractedStyle.fillColor,
                 weight: extractedStyle.weight,
                 opacity: extractedStyle.opacity,
-                fillOpacity: extractedStyle.fillOpacity,
+                fillOpacity: 0,     // ★ 修正1：不填滿，只顯示邊框顏色
+                fill: false,
                 dashArray: extractedStyle.dashArray
             };
         },
@@ -1800,7 +1860,8 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
                         fillColor: extractedStyle.fillColor,
                         weight: extractedStyle.weight + 2,
                         opacity: 1,
-                        fillOpacity: extractedStyle.fillOpacity
+                        fillOpacity: 0,   // ★ 修正1：hover 時也不填滿
+                        fill: false
                     };
                     this.setStyle(highlightStyle);
                 }
@@ -1815,6 +1876,7 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
             });
 
             // ★ 修正 8：新增點擊選取事件（點擊 = 持續高亮選取，再點一次 = 取消選取）
+            // ★ 修正2：點擊時同步更新形心定位點
             layer.on('click', function (e) {
                 if (L.DomEvent && e) {
                     L.DomEvent.stopPropagation(e);
@@ -1832,7 +1894,8 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 color: extractedStyle.color,
                 weight: extractedStyle.weight,
                 opacity: extractedStyle.opacity,
-                fillOpacity: extractedStyle.fillOpacity
+                fillOpacity: 0,   // ★ 修正1：不填滿
+                fill: false
             });
         }
     }).addTo(mapObj);
@@ -1850,7 +1913,7 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
         console.warn('⚠️ fitBounds 失敗（可能圖層為空）:', e);
     }
     
-    console.log(`✓ GeoJSON 圖層已新增：${layerName}（可個別點選多邊形）`);
+    console.log(`✓ GeoJSON 圖層已新增：${layerName}（可個別點選多邊形，僅顯示邊框）`);
 }
 
 /* ========================================================================
@@ -1959,6 +2022,10 @@ function removeGeoJSONLayer(layerName, mapObj) {
     // ★ 修正 8：圖層移除時同步清除該圖層的選取記錄，避免殘留無效參考
     if (geoJsonSelection[layerName]) {
         delete geoJsonSelection[layerName];
+    }
+    // ★ 修正2：若移除的圖層正是目前選取定位點來源，一併清除記錄
+    if (currentGeoJSONSelectedFeature && currentGeoJSONSelectedFeature.layerName === layerName) {
+        currentGeoJSONSelectedFeature = null;
     }
     showToast(`✓ 已移除圖層：${layerName}`);
     console.log(`✓ 圖層已移除：${layerName}`);
@@ -2168,6 +2235,17 @@ function renderEditHandles(polygonObj) {
 }
 
 function selectPolygon(id) {
+    // ★ 修正2：選取手繪多邊形時，若原本選取的是 GeoJSON 多邊形，一併清除其記錄，避免定位點衝突
+    if (currentGeoJSONSelectedFeature) {
+        const prevLayer = currentGeoJSONSelectedFeature.layer;
+        const prevLayerName = currentGeoJSONSelectedFeature.layerName;
+        if (geoJsonSelection[prevLayerName] === prevLayer) {
+            delete geoJsonSelection[prevLayerName];
+            applyGeoJSONFeatureStyle(prevLayer);
+        }
+        currentGeoJSONSelectedFeature = null;
+    }
+
     polygons.forEach(p => {
         const wasSelected = p.isSelected;
         p.isSelected = (p.id === id);
@@ -2529,6 +2607,9 @@ function selectItemById(id) {
 
 /* ========================================================================
    主查詢函數
+   ★ 修正2：新增判斷 currentGeoJSONSelectedFeature，
+   若目前選取的是匯入的 GeoJSON 多邊形，以其形心為查詢中心，
+   並嘗試建立範圍 Polygon 供「在範圍內」判斷（與手繪多邊形邏輯一致）
    ======================================================================== */
 
 async function runQuery() {
@@ -2566,6 +2647,17 @@ async function runQuery() {
                 if (ring.length >= 4) {
                     turfZonePolygon = turf.polygon([ring]);
                 }
+            }
+        } else if (currentGeoJSONSelectedFeature && currentGeoJSONSelectedFeature.centroid) {
+            // ★ 修正2：使用目前選取的匯入 GeoJSON 多邊形形心作為查詢中心
+            centroidForQuery = currentGeoJSONSelectedFeature.centroid;
+            try {
+                const geom = currentGeoJSONSelectedFeature.feature.geometry;
+                if (geom && geom.type === 'Polygon' && geom.coordinates && geom.coordinates[0]) {
+                    turfZonePolygon = turf.polygon(geom.coordinates);
+                }
+            } catch (e) {
+                console.warn('⚠️ 建立 GeoJSON 選取範圍失敗，僅使用形心作為查詢中心:', e);
             }
         }
 
