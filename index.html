@@ -1,765 +1,2045 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>市價徵收查估作業系統 v1.1.0 Enhanced TWD97 Edition</title>
+<title>市價徵收查估作業系統</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/shpjs@4.0.4/dist/shp.js"></script>
+<script src="https://unpkg.com/shp-write@latest/shpwrite.js"></script>
+<script src="https://unpkg.com/geotiff/dist-browser/geotiff.js"></script>    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 
 <style>
-  * { box-sizing: border-box; }
-  html, body { margin:0; padding:0; height:100%; font-family:"Microsoft JhengHei","Segoe UI",Arial,sans-serif; }
-  #app { display:flex; height:100vh; }
-  #sidebar {
-    width:360px; min-width:360px; background:#fff; border-right:1px solid #e2e8f0;
-    overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:14px;
-  }
-  #map { flex:1; position:relative; }
-  h1 { font-size:16px; margin:0 0 4px; color:#1e293b; }
-  .subtitle { font-size:11px; color:#94a3b8; margin-bottom:8px; }
-  .section { border:1px solid #e2e8f0; border-radius:10px; padding:10px; }
-  .section-title { font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
-  label { font-size:12px; color:#475569; }
-  input[type=text], input[type=number], select {
-    width:100%; padding:7px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; margin-top:3px;
-  }
-  .row { display:flex; gap:8px; }
-  .row > div { flex:1; }
-  button {
-    cursor:pointer; border:1px solid #cbd5e1; background:#fff; border-radius:6px;
-    padding:8px 10px; font-size:13px; transition:.15s;
-  }
-  button:hover { background:#f1f5f9; }
-  button.primary { background:#2563eb; color:#fff; border-color:#2563eb; }
-  button.primary:hover { background:#1d4ed8; }
-  button.danger { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
-  button.danger:hover { background:#fee2e2; }
-  button.active { background:#dcfce7; border-color:#22c55e; color:#166534; }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  .btn-small { padding:5px 9px; font-size:12px; }
-  .checkbox-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px; }
-  .checkbox-grid label { display:flex; align-items:center; gap:5px; cursor:pointer; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-  /* 多邊形清單（手繪 / 匯入為可編輯多邊形） */
-  .polygon-item {
-    display:flex; align-items:center; justify-content:space-between; padding:7px 8px;
-    border-radius:6px; cursor:pointer; font-size:12px; margin-bottom:4px; border:1px solid transparent;
-  }
-  .polygon-item:hover { background:#f8fafc; }
-  .polygon-item.selected { background:#eff6ff; border-color:#93c5fd; }
-  .polygon-item-info { display:flex; align-items:center; gap:8px; overflow:hidden; }
-  .polygon-item-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px; }
-  .polygon-item-actions { display:flex; gap:4px; flex-shrink:0; }
-  .polygon-item-btn { border:none; background:transparent; padding:2px 5px; font-size:12px; }
-  .polygon-rename-btn:hover { color:#2563eb; }
-  .polygon-delete-btn:hover { color:#dc2626; }
-  .polygon-rename-input { width:100%; padding:2px 4px; font-size:12px; border:1px solid #93c5fd; border-radius:4px; }
+body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Microsoft JhengHei", sans-serif;
+    background: #f5f5f5;
+    overflow: hidden;
+}
 
-  /* ★ 新增：GeoJSON 參考圖層欄位選擇 面板 */
-  .field-selector-panel {
-    display:none; flex-direction:column; gap:8px; padding:10px;
-    background:#f8fafc; border:1px dashed #94a3b8; border-radius:8px;
-  }
-  .field-selector-row { display:flex; gap:6px; align-items:center; }
-  .field-selector-row select { flex:1; }
+#map { height: 100vh; width: 100%; }
 
-  /* ★ 新增：GeoJSON 參考圖層 面圖徵清單 */
-  .geojson-list-item {
-    display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px;
-    cursor:pointer; font-size:12px; margin-bottom:3px;
-  }
-  .geojson-list-item:hover { background:#f8fafc; }
-  .geojson-list-item.selected { background:#fef2f2; border:1px solid #fca5a5; }
+#sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 380px;
+    height: 100vh;
+    background: #ffffff;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease;
+    overflow: hidden;
+}
 
-  /* ★ 新增：地圖上顯示於多邊形內部的欄位標籤樣式 */
-  .geojson-field-label {
-    background: rgba(255,255,255,0.92) !important;
-    border: 1px solid #1e293b !important;
-    border-radius: 5px !important;
-    padding: 2px 7px !important;
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    color: #1e293b !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+#sidebar.collapsed {
+    transform: translateX(-380px);
+}
+
+#sidebarToggle {
+    position: absolute;
+    right: -40px;
+    top: 12px;
+    width: 40px;
+    height: 40px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0 8px 8px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    z-index: 999;
+    transition: all 0.3s;
+}
+
+#sidebarToggle:hover {
+    background: #f3f4f6;
+}
+
+#sidebarHeader {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: white;
+    padding: 20px;
+    border-bottom: 1px solid #1e40af;
+}
+
+#sidebarHeader h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.4;
+}
+
+#sidebarHeader p {
+    font-size: 12px;
+    opacity: 0.9;
+    margin: 6px 0 0 0;
+}
+
+#sidebarContent {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+#sidebarContent::-webkit-scrollbar {
+    width: 6px;
+}
+
+#sidebarContent::-webkit-scrollbar-track {
+    background: #f3f4f6;
+}
+
+#sidebarContent::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+#sidebarContent::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.sidebar-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sidebar-section h3 span {
+    font-size: 18px;
+}
+
+.input-group {
+    margin-bottom: 10px;
+}
+
+.input-group label {
+    display: block;
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.input-group input[type="text"],
+.input-group input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.2s;
+    background: #f9fafb;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.checkbox-item:hover {
+    background: #f3f4f6;
+}
+
+.checkbox-item input[type="checkbox"] {
+    margin-top: 3px;
+    cursor: pointer;
+    accent-color: #2563eb;
+}
+
+.checkbox-item label {
+    flex: 1;
+    cursor: pointer;
+    font-size: 13px;
+    color: #374151;
+    margin: 0;
+}
+
+.button-group {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.button-group button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-primary {
+    background: #2563eb;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-secondary {
+    background: #10b981;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #059669;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+.btn-small {
+    padding: 6px 10px;
+    font-size: 11px;
+}
+
+#polygonManager {
+    background: #f9fafb;
+    border-top: 2px solid #e5e7eb;
+}
+
+#polygonList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.polygon-item {
+    padding: 10px;
+    background: white;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
+}
+
+.polygon-item:hover {
+    background: #f3f4f6;
+}
+
+.polygon-item.selected {
+    background: #fef08a;
+    border-color: #fbbf24;
+    font-weight: 600;
+}
+
+.polygon-item-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.polygon-item-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .leaflet-tooltip.geojson-field-label::before { display:none !important; }
+}
 
-  .edit-handle { width:12px; height:12px; background:#fff; border:2px solid #2563eb; border-radius:50%; }
+.polygon-item-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
 
-  #resultPanel {
-    position:fixed; top:80px; right:20px; width:520px; max-height:70vh; background:#fff;
-    border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.25); display:flex; flex-direction:column;
-    overflow:hidden; z-index:9000;
-  }
-  #resultPanel.hidden, #routeCard.hidden { display:none; }
-  #resultHeader {
-    background:#1e293b; color:#fff; padding:10px 14px; display:flex; justify-content:space-between;
-    align-items:center; cursor:move; font-size:13px; font-weight:600;
-  }
-  #resultHeader button { background:transparent; border:none; color:#fff; font-size:16px; }
-  #resultBody { padding:10px 14px; overflow-y:auto; }
-  table { width:100%; border-collapse:collapse; font-size:12px; }
-  th, td { padding:6px 8px; border-bottom:1px solid #e2e8f0; text-align:left; }
-  th { cursor:pointer; background:#f8fafc; position:sticky; top:0; }
-  tr.highlight { background:#fef9c3; }
-  tr:hover { background:#f8fafc; }
+.polygon-item-btn {
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 600;
+}
 
-  #routeCard {
-    position:fixed; bottom:20px; right:20px; background:#fff; padding:12px 16px; border-radius:10px;
-    box-shadow:0 6px 20px rgba(0,0,0,.2); font-size:13px; z-index:9000;
-  }
+.polygon-delete-btn {
+    background: #fee2e2;
+    color: #dc2626;
+}
 
-  .toast {
-    position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#1e293b; color:#fff;
-    padding:10px 18px; border-radius:8px; font-size:13px; z-index:99999; animation:fadeInOut 3s ease;
-  }
-  @keyframes fadeInOut {
-    0% { opacity:0; transform:translate(-50%,10px); }
-    10%, 90% { opacity:1; transform:translate(-50%,0); }
-    100% { opacity:0; transform:translate(-50%,-10px); }
-  }
+.polygon-delete-btn:hover {
+    background: #fecaca;
+}
+
+.polygon-rename-btn {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.polygon-rename-btn:hover {
+    background: #bfdbfe;
+}
+
+.polygon-rename-input {
+    width: 100%;
+    padding: 3px 6px;
+    border: 1px solid #2563eb;
+    border-radius: 4px;
+    font-size: 12px;
+    outline: none;
+    background: white;
+    box-sizing: border-box;
+}
+
+.geojson-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.geojson-layer-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    gap: 8px;
+}
+
+.btn-remove {
+    background: #ff6b6b;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    transition: opacity 0.2s;
+}
+
+.btn-remove:hover {
+    opacity: 0.8;
+}
+
+.popup {
+    font-size: 12px;
+    min-width: 200px;
+}
+
+.popup strong {
+    color: #667eea;
+    display: block;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 6px;
+}
+
+.popup-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.popup-table td {
+    padding: 4px 6px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.popup-table tr:last-child td {
+    border-bottom: none;
+}
+
+.popup-table td:first-child {
+    font-weight: 600;
+    color: #333;
+    width: 40%;
+}
+
+.popup-table td:last-child {
+    color: #666;
+    word-break: break-word;
+}
+
+#toolbar {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 900;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.toolbar-section {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.toolbar-section:not(:last-child) {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.toolbar-btn {
+    padding: 10px 14px;
+    border: none;
+    background: white;
+    color: #374151;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+    background: #f3f4f6;
+}
+
+.toolbar-btn.active {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+#statusBar {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: white;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    color: #6b7280;
+    z-index: 800;
+}
+
+#resultPanel {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 600px;
+    max-height: 400px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    z-index: 950;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.3s;
+}
+
+#resultPanel.hidden {
+    display: none;
+}
+
+#resultHeader {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+    color: white;
+    padding: 12px 16px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: grab;
+    user-select: none;
+}
+
+#resultHeader:active {
+    cursor: grabbing;
+}
+
+.result-header-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.result-header-actions button {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.result-header-actions button:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+#resultTableWrapper {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+#resultTableWrapper::-webkit-scrollbar {
+    width: 6px;
+}
+
+#resultTableWrapper::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+th, td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+
+th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #1f2937;
+    position: sticky;
+    top: 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+th:hover {
+    background: #f3f4f6;
+}
+
+tr:hover {
+    background: #f9fafb;
+}
+
+tr.highlight {
+    background: #fef08a !important;
+}
+
+#routeCard {
+    position: absolute;
+    top: 80px;
+    right: 12px;
+    background: white;
+    border-left: 4px solid #10b981;
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 880;
+    max-width: 320px;
+    font-size: 12px;
+}
+
+#routeCard.hidden {
+    display: none;
+}
+
+#routeCard strong {
+    color: #10b981;
+    font-size: 14px;
+}
+
+#drawToolbar {
+    position: absolute;
+    top: 12px;
+    left: 400px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 900;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+    transition: all 0.3s;
+}
+
+#drawToolbar.hidden {
+    display: none;
+}
+
+.draw-section {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.draw-section:last-child {
+    border-bottom: none;
+}
+
+.draw-section h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 10px 0;
+}
+
+.draw-button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.draw-button-group button {
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.draw-button-group button:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.draw-button-group button.active {
+    background: #ef4444;
+    color: white;
+    border-color: #dc2626;
+}
+
+.draw-button-group button.success {
+    background: #10b981;
+    color: white;
+    border-color: #059669;
+}
+
+.file-upload-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    background: #dbeafe;
+    border: 1px solid #93c5fd;
+    border-radius: 6px;
+    color: #1d4ed8;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.file-upload-label:hover {
+    background: #bfdbfe;
+}
+
+.file-upload-label input {
+    display: none;
+}
+
+@media (max-width: 1024px) {
+    #sidebar {
+        width: 320px;
+    }
+    
+    #sidebarToggle {
+        right: -35px;
+        width: 35px;
+    }
+    
+    #resultPanel {
+        width: 500px;
+        max-height: 350px;
+    }
+}
+
+@media (max-width: 768px) {
+    #sidebar {
+        width: 100%;
+        height: 50vh;
+        bottom: 0;
+        left: 0;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+    }
+    
+    #sidebar:not(.collapsed) {
+        transform: translateY(0);
+    }
+    
+    #sidebarToggle {
+        position: fixed;
+        right: auto;
+        left: 50%;
+        bottom: 50vh;
+        transform: translateX(-50%);
+        border-radius: 8px 8px 0 0;
+    }
+    
+    #resultPanel {
+        width: 90vw;
+        right: 5vw;
+        bottom: 50vh;
+    }
+    
+    #toolbar {
+        right: 5px;
+        left: auto;
+    }
+}
+
+.edit-handle {
+    width: 12px;
+    height: 12px;
+    background: white;
+    border: 2px solid #dc2626;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+.map-tooltip {
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.toast {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: #1f2937;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 10000;
+    font-size: 12px;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
 </style>
 </head>
 <body>
 
-<div id="app">
-  <div id="sidebar">
-    <div>
-      <h1>市價徵收查估作業系統</h1>
-      <div class="subtitle">v1.1.0 Enhanced TWD97 Edition</div>
+<div id="sidebar">
+    <div id="sidebarToggle">◀</div>
+    
+    <div id="sidebarHeader">
+        <h1>🗺️ 市價徵收查估</h1>
+        <p>影響地價區域因素分析系統</p>
     </div>
-
-    <div class="section">
-      <div class="section-title">📍 查詢原點</div>
-      <div class="row">
-        <div><label>緯度</label><input type="text" id="latInput" value="25.0330"></div>
-        <div><label>經度</label><input type="text" id="lonInput" value="121.5654"></div>
-      </div>
-      <div style="margin-top:8px;"><label>搜尋半徑（公尺，上限 3000）</label>
-        <input type="number" id="radiusInput" value="1000" max="3000"></div>
-      <div style="margin-top:8px; display:flex; gap:6px;">
-        <button onclick="getCurrentLocation()">🛰 使用目前位置</button>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">🔎 分析類型</div>
-      <div class="checkbox-grid">
-        <label><input type="checkbox" value="station" checked> 車站</label>
-        <label><input type="checkbox" value="bus_stop"> 公車站</label>
-        <label><input type="checkbox" value="motorway_junction"> 交流道</label>
-        <label><input type="checkbox" value="parking"> 停車場</label>
-        <label><input type="checkbox" value="marketplace"> 市場/超市</label>
-        <label><input type="checkbox" value="waste_disposal"> 垃圾轉運站</label>
-        <label><input type="checkbox" value="park"> 公園</label>
-        <label><input type="checkbox" value="tourism"> 觀光景點</label>
-        <label><input type="checkbox" value="bank"> 金融/醫療</label>
-        <label><input type="checkbox" value="cemetery"> 墓地</label>
-        <label><input type="checkbox" value="school"> 學校</label>
-        <label><input type="checkbox" value="gas"> 變電所</label>
-        <label><input type="checkbox" value="pollution"> 污水處理廠</label>
-      </div>
-      <button class="primary" style="width:100%; margin-top:10px;" id="queryBtn" onclick="runQuery()">🔍 查詢分析</button>
-    </div>
-
-    <div class="section">
-      <div class="section-title">✏️ 手繪多邊形</div>
-      <div style="display:flex; gap:6px;">
-        <button id="btn-draw-mode" onclick="startDrawing()">開始繪製</button>
-        <button id="btn-end-draw" style="display:none;" onclick="finishPolygon()">結束繪製</button>
-        <button class="danger" onclick="clearAllPolygons()">清除全部</button>
-      </div>
-      <div style="margin-top:8px; display:flex; gap:6px;">
-        <button class="btn-small" onclick="exportPolygonsToGeoJSON()">⬇ 匯出 GeoJSON</button>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">📂 匯入為可編輯多邊形（SHP / GeoJSON）</div>
-      <input type="file" id="shp-file-input" accept=".geojson,.json,.zip" onchange="importPolygonsFromSHP(event)">
-      <div style="font-size:11px; color:#94a3b8; margin-top:6px;">支援 TWD97/WGS84 自動偵測轉換，匯入後可編輯/拖曳頂點</div>
-    </div>
-
-    <!-- ★★★ 新增功能：匯入 GeoJSON 參考圖層 ＋ 欄位標籤選擇 ★★★ -->
-    <div class="section">
-      <div class="section-title">🗺️ 匯入 GeoJSON 參考圖層（可選擇顯示欄位）</div>
-      <input type="file" id="geojson-reference-input" accept=".geojson,.json">
-      <div style="font-size:11px; color:#94a3b8; margin:6px 0;">
-        載入後可從下方選單挑選 JSON 屬性欄位，該欄位的值將以標籤顯示在<b>每個多邊形內部</b>
-      </div>
-
-      <div class="field-selector-panel" id="geoJsonFieldPanel">
-        <label>📌 顯示欄位標籤</label>
-        <div class="field-selector-row">
-          <select id="geoJsonFieldSelect" onchange="onGeoJSONFieldChange(this.value)">
-            <option value="">-- 不顯示標籤 --</option>
-          </select>
-          <button class="btn-small" onclick="clearGeoJSONFieldLabels()">清除</button>
+    
+    <div id="sidebarContent">
+        <div class="sidebar-section">
+            <h3><span>📍</span> 查詢位置</h3>
+            
+            <div class="input-group">
+                <label>緯度</label>
+                <input type="text" id="lat" value="25.012098">
+            </div>
+            
+            <div class="input-group">
+                <label>經度</label>
+                <input type="text" id="lon" value="121.465675">
+            </div>
+            
+            <div class="input-group">
+                <label>查詢半徑 (公尺)</label>
+                <input type="number" id="radius" value="1000" min="100" max="3000">
+            </div>
+            
+            <div class="button-group">
+                <button class="btn-primary" onclick="getCurrentLocation()" style="background: #0ea5e9;">📡 定位</button>
+                <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
+            </div>
         </div>
-      </div>
+        
+        <div class="sidebar-section">
+            <h3><span>🏢</span> 分析設施類型</h3>
+            
+            <div style="font-size: 11px; color: #999; margin-bottom: 10px;">
+                交通運輸
+            </div>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-station" value="station">
+                    <label for="chk-station">大型車站</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-bus" value="bus_stop">
+                    <label for="chk-bus">公車站牌</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-junction" value="motorway_junction">
+                    <label for="chk-junction">交流道</label>
+                </div>
+            </div>
+            
+            <div style="font-size: 11px; color: #999; margin: 12px 0 8px 0;">
+                公共建設
+            </div>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-school" value="school" checked>
+                    <label for="chk-school">學校</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-market" value="marketplace">
+                    <label for="chk-market">市場/超市</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-park" value="park">
+                    <label for="chk-park">公園</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-tourism" value="tourism">
+                    <label for="chk-tourism">觀光景點</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-parking" value="parking">
+                    <label for="chk-parking">停車場</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-bank" value="bank">
+                    <label for="chk-bank">銀行/郵局</label>
+                </div>
+            </div>
+            
+            <div style="font-size: 11px; color: #999; margin: 12px 0 8px 0;">
+                特殊設施
+            </div>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-gas" value="gas">
+                    <label for="chk-gas">電氣/瓦斯</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-cemetery" value="cemetery">
+                    <label for="chk-cemetery">殯葬設施</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-waste" value="waste_disposal">
+                    <label for="chk-waste">廢棄物處理</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="chk-pollution" value="pollution">
+                    <label for="chk-pollution">環境汙染</label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar-section" id="polygonManager">
+            <h3><span>📦</span> 繪製範圍 (<span id="polyCount">0</span>)</h3>
+            
+            <div id="polygonList"></div>
+            
+            <div style="font-size: 11px; color: #666; padding: 8px 0; margin: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
+                ℹ️ 選中多邊形後，查詢將以其形心為中心點進行；雙擊名稱或點擊 ✎ 可編輯名稱
+            </div>
+        </div>
 
-      <div id="geoJsonLayerList" style="margin-top:8px; max-height:180px; overflow-y:auto;">
-        <div style="padding:8px;color:#999;font-size:12px;">尚未載入參考圖層</div>
-      </div>
-      <div style="margin-top:6px;">
-        <button class="btn-small danger" onclick="clearAllGeoJSONReferenceLayers()">移除所有參考圖層</button>
-      </div>
+        <div class="sidebar-section">
+            <h3><span>📁</span> 圖層匯入/匯出</h3>
+            <div class="geojson-section">
+                <label for="geojson-file-input" class="btn-primary" style="text-align: center; cursor: pointer; display: block; padding: 10px; margin: 0; border-radius: 6px; text-decoration: none;">
+                    📁 匯入 GeoJSON
+                </label>
+                <input 
+                    type="file" 
+                    id="geojson-file-input" 
+                    accept=".geojson,.json" 
+                    style="display: none;"
+                >
+                <button id="export-geojson-btn" class="btn-primary" style="width: 100%; padding: 10px; margin: 0; border: none; border-radius: 6px; cursor: pointer;">
+                    💾 導出 GeoJSON
+                </button>
+            </div>
+        </div>
+        
+        <div class="sidebar-section">
+            <button class="btn-primary" id="query-btn" onclick="runQuery()" style="width: 100%; padding: 12px; font-size: 14px;">🔍 查詢分析</button>
+        </div>
     </div>
-    <!-- ★★★ 新增功能結束 ★★★ -->
+</div>
 
-    <div class="section" style="flex:1;">
-      <div class="section-title">📋 多邊形清單 (<span id="polyCount">0</span>)</div>
-      <div id="polygonList">
-        <div style="padding:8px;color:#999;font-size:12px;">尚無多邊形 - 點擊工具列開始繪製</div>
-      </div>
+<div id="map"></div>
+
+<div id="toolbar">
+    <div class="toolbar-section">
+        <button class="toolbar-btn" onclick="toggleDrawMode(this)">
+            📐 開始繪製
+        </button>
+        <button class="toolbar-btn" onclick="toggleLayerControl()">
+            🗺️ 圖層控制
+        </button>
     </div>
-  </div>
+</div>
 
-  <div id="map"></div>
+<div id="drawToolbar" class="hidden">
+    <div class="draw-section">
+        <h4>繪製模式</h4>
+        <div class="draw-button-group">
+            <button id="btn-draw-mode" class="active" onclick="startDrawing()">🖍️ 繪製多邊形</button>
+            <button id="btn-end-draw" style="display:none" class="success" onclick="finishPolygon()">✓ 完成閉合</button>
+        </div>
+    </div>
+    
+    <div class="draw-section">
+        <h4>多邊形操作</h4>
+        <div class="draw-button-group">
+            <button onclick="clearAllPolygons()" class="btn-danger btn-small">✕ 清除全部</button>
+        </div>
+    </div>
+    
+    <div class="draw-section">
+        <h4>檔案操作</h4>
+        <div class="draw-button-group">
+            <button onclick="exportPolygonsToGeoJSON()" style="background: #10b981; color: white; border-color: #059669;">📥 匯出</button>
+            <label class="file-upload-label">
+                📤 匯入
+                <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" onchange="importPolygonsFromSHP(event)">
+            </label>
+        </div>
+    </div>
 </div>
 
 <div id="resultPanel" class="hidden">
-  <div id="resultHeader">
-    <span>📊 查詢結果</span>
-    <div>
-      <button class="btn-small" style="color:#fff;" onclick="exportExcel()">⬇ Excel</button>
-      <button onclick="document.getElementById('resultPanel').classList.add('hidden')">✕</button>
+    <div id="resultHeader">
+        📊 查詢結果
+        <div class="result-header-actions">
+            <button onclick="exportExcel()">📄 Excel</button>
+            <button onclick="toggleResultPanel()">✕</button>
+        </div>
     </div>
-  </div>
-  <div id="resultBody">
-    <table>
-      <thead>
-        <tr>
-          <th>名稱</th>
-          <th>類型</th>
-          <th onclick="sortResults('distance')">直線距離(m) ⇅</th>
-          <th onclick="sortResults('route')">路線距離 ⇅</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
+    <div id="resultTableWrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th onclick="sortResults('name')">名稱 ↕</th>
+                    <th>類型</th>
+                    <th onclick="sortResults('distance')">直線距離 ↕</th>
+                    <th onclick="sortResults('route')">路線距離 ↕</th>
+                </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+    </div>
 </div>
 
 <div id="routeCard" class="hidden">
-  🚗 路線距離：<span id="routeInfo">尚未計算</span>
-  <button class="btn-small" style="margin-left:8px;" onclick="clearRoute()">清除路線</button>
+    <strong>🛣️ 路線距離</strong>
+    <div id="routeInfo" style="margin-top: 6px;">
+        尚未計算
+    </div>
+</div>
+
+<div id="statusBar">
+    圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 離線模式
 </div>
 
 <script>
+/* ================================================
+   ★ 修正 0.1: 色彩驗證函數庫
+   ================================================ */
+
+const namedColorsMap = {
+    'red': '#ff0000', 'blue': '#0000ff', 'green': '#008000',
+    'white': '#ffffff', 'black': '#000000', 'gray': '#808080',
+    'yellow': '#ffff00', 'cyan': '#00ffff', 'magenta': '#ff00ff',
+    'orange': '#ffa500', 'purple': '#800080', 'pink': '#ffc0cb',
+    'brown': '#a52a2a', 'navy': '#000080', 'maroon': '#800000',
+    'teal': '#008080', 'olive': '#808000', 'lime': '#00ff00',
+    'aqua': '#00ffff', 'silver': '#c0c0c0', 'transparent': 'rgba(0,0,0,0)'
+};
+
+function isValidHexColor(color) {
+    if (!color || typeof color !== 'string') return false;
+    const trimmed = color.trim();
+    return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(trimmed);
+}
+
+function isValidRGBColor(color) {
+    if (!color || typeof color !== 'string') return false;
+    const trimmed = color.trim();
+    return /^rgba?\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(?:,\s*[\d.]+\s*)?\)$/i.test(trimmed);
+}
+
+function isValidNamedColor(color) {
+    if (!color || typeof color !== 'string') return false;
+    const trimmed = color.trim().toLowerCase();
+    return trimmed in namedColorsMap;
+}
+
+function isValidColor(color) {
+    return isValidHexColor(color) || isValidRGBColor(color) || isValidNamedColor(color);
+}
+
+function normalizeColor(color) {
+    if (!color) return null;
+    const trimmed = String(color).trim();
+    if (isValidHexColor(trimmed) || isValidRGBColor(trimmed)) return trimmed;
+    const lowerName = trimmed.toLowerCase();
+    return (lowerName in namedColorsMap) ? namedColorsMap[lowerName] : null;
+}
+
+function getNestedProperty(obj, path) {
+    return path.split('.').reduce((current, prop) => {
+        return (current && current[prop]) ? current[prop] : undefined;
+    }, obj);
+}
+
+function hasNestedProperty(obj, path) {
+    return getNestedProperty(obj, path) !== undefined;
+}
+
 /* ========================================================================
-   全域變數與地圖初始化
+   ★ 修正 0: 全域顏色欄位配置
+   支援自訂欄位名稱，系統將依優先級自動檢查
    ======================================================================== */
-const map = L.map('map', { zoomControl: true }).setView([25.0330, 121.5654], 15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
-    maxZoom: 19
-}).addTo(map);
 
-const latInput = document.getElementById('latInput');
-const lonInput = document.getElementById('lonInput');
-const radiusInput = document.getElementById('radiusInput');
-const queryBtn = document.getElementById('queryBtn');
-const resultPanel = document.getElementById('resultPanel');
-const routeCard = document.getElementById('routeCard');
-const routeInfo = document.getElementById('routeInfo');
-const tbody = document.getElementById('tbody');
+const colorFieldsConfig = {
+    // 標準欄位（直接支援，無需配置）
+    standardFields: [
+        'color', 'fill_color', 'fillColor', 'stroke_color', 'strokeColor',
+        'border_color', 'borderColor', 'line_color', 'lineColor',
+        '顏色', '顏色值', '填充顏色', '邊界顏色', '線條顏色', '色碼'
+    ],
+    
+    // 自訂欄位配置（根據你的GeoJSON修改此處）
+    customFields: [
+        // 例如: 'myColor', 'custom_color', 'style_color', 'feature_color'
+    ],
+    
+    // 深層嵌套路徑支援（OpenLayers 風格 + 其他複雜結構）
+    nestedPaths: [
+        'styleConfig.styleCache.outer[0].stroke_.color_',
+        'styleConfig.styleCache.outer[0].fill_.color_',
+        'styleConfig.labels.info.color.primary',
+        'styleConfig.soLine.color',
+        'style.color',
+        'properties.color',
+        'attributes.color'
+    ]
+};
 
-const markerLayer = L.layerGroup().addTo(map);
-const drawMarkers = L.layerGroup().addTo(map);
+/* ========================================================================
+   全域變數初始化
+   ======================================================================== */
 
-let origin = [parseFloat(latInput.value), parseFloat(lonInput.value)];
+let map = L.map('map').setView([25.012098, 121.465675], 15);
+
+const nlscEMAP = L.tileLayer(
+    'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
+    { maxZoom:19, attribution:'© NLSC' }
+);
+
+const nlscPHOTO = L.tileLayer(
+    'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/EPSG:3857/{z}/{y}/{x}',
+    { maxZoom:20, attribution:'© NLSC 正射影像' }
+);
+
+const osmLayer = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { maxZoom:19, attribution:'© OpenStreetMap' }
+);
+
+nlscEMAP.addTo(map);
+
+const cadastralLayer = L.tileLayer(
+    'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
+    { maxZoom:20, opacity:0.75, attribution:'© NLSC' }
+);
+cadastralLayer.addTo(map);
+
+const baseMaps = {
+    "NLSC 電子地圖": nlscEMAP,
+    "NLSC 正射影像": nlscPHOTO,
+    "OpenStreetMap": osmLayer
+};
+
+const overlayMaps = {
+    "地籍圖": cadastralLayer
+};
+
+L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'topright' }).addTo(map);
+
+/* 查詢變數 */
+let markerLayer = L.layerGroup().addTo(map);
+let origin = [25.012098, 121.465675];
 let results = [];
 let routeLayer = null;
 let sortState = { distance: true, route: true };
 
-let isDrawingPolygon = false;
+/* 多邊形管理變數 */
+let polygons = [];
+let currentPolygonId = null;
 let drawPoints = [];
 let previewPolyline = null;
-
-let polygons = [];
+let isDrawingPolygon = false;
+let drawMarkers = L.layerGroup().addTo(map);
 let polygonIdCounter = 0;
-let currentPolygonId = null;
 let renameCancelled = false;
 
-const polygonColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
-
-function escapeHtml(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-}
+/* GeoJSON 變數 */
+let geoJsonLayers = {};
+let geoJsonFeatures = {};
 
 /* ========================================================================
-   TWD97 (EPSG:3826) ↔ WGS84 座標轉換引擎
-   Transverse Mercator, a=6378137.0, f=1/298.257222101, k0=0.9999
+   ★ 修正 8【新增】: GeoJSON 多邊形「個別選取」狀態管理
+   目的：解決匯入圖層包含多個多邊形（尤其 MultiPolygon）時，
+         無法單獨點選其中一塊多邊形的問題
    ======================================================================== */
 
-function isTWD97Coordinate(x, y) {
-    return x > 100000 && x < 400000 && y > 2000000 && y < 2900000;
-}
+// 記錄每個圖層目前被選取的 Leaflet Layer（key: layerName, value: Layer 物件）
+let geoJsonSelection = {};
 
-function twd97ToWGS84(x, y) {
-    const a = 6378137.0;
-    const f = 1 / 298.257222101;
-    const b = a * (1 - f);
-    const e2 = (a * a - b * b) / (a * a);
-    const k0 = 0.9999;
-    const dx = 250000;
-    const lon0 = 121 * Math.PI / 180;
+// 選取後的高亮樣式（與 hover 樣式區分，點擊後會持續顯示，不因滑鼠移開而消失）
+const selectedGeoJSONStyle = {
+    color: '#ff4500',
+    weight: 4,
+    fillColor: '#ff4500',
+    fillOpacity: 0.35,
+    opacity: 1,
+    dashArray: null
+};
 
-    const M = y / k0;
-    const mu = M / (a * (1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
+const polygonColors = [
+    '#dc2626', '#f97316', '#eab308', '#22c55e', '#06b6d4',
+    '#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#6366f1'
+];
 
-    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
-    const J1 = (3*e1/2 - 27*e1*e1*e1/32);
-    const J2 = (21*e1*e1/16 - 55*e1*e1*e1*e1/32);
-    const J3 = (151*e1*e1*e1/96);
-    const J4 = (1097*e1*e1*e1*e1/512);
+const defaultStyles = {
+    stroke: true,
+    color: '#3388ff',
+    weight: 2,
+    opacity: 0.8,
+    fill: true,
+    fillColor: '#3388ff',
+    fillOpacity: 0.3,
+    dashArray: null
+};
 
-    const fp = mu + J1*Math.sin(2*mu) + J2*Math.sin(4*mu) + J3*Math.sin(6*mu) + J4*Math.sin(8*mu);
-
-    const e2p = e2 / (1 - e2);
-    const C1 = e2p * Math.pow(Math.cos(fp), 2);
-    const T1 = Math.pow(Math.tan(fp), 2);
-    const R1 = a * (1 - e2) / Math.pow(1 - e2*Math.pow(Math.sin(fp),2), 1.5);
-    const N1 = a / Math.sqrt(1 - e2*Math.pow(Math.sin(fp),2));
-    const D = (x - dx) / (N1 * k0);
-
-    const lat = fp - (N1*Math.tan(fp)/R1) * (
-        D*D/2 -
-        (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2p) * Math.pow(D,4)/24 +
-        (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*e2p - 3*C1*C1) * Math.pow(D,6)/720
-    );
-
-    const lon = lon0 + (
-        D - (1 + 2*T1 + C1) * Math.pow(D,3)/6 +
-        (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2p + 24*T1*T1) * Math.pow(D,5)/120
-    ) / Math.cos(fp);
-
-    return [lon * 180 / Math.PI, lat * 180 / Math.PI];
-}
+/* DOM 參考 */
+const latInput = document.getElementById('lat');
+const lonInput = document.getElementById('lon');
+const radiusInput = document.getElementById('radius');
+const tbody = document.getElementById('tbody');
+const queryBtn = document.getElementById('query-btn');
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const drawToolbar = document.getElementById('drawToolbar');
+const resultPanel = document.getElementById('resultPanel');
+const routeCard = document.getElementById('routeCard');
+const routeInfo = document.getElementById('routeInfo');
 
 /* ========================================================================
-   GeoJSON 通用處理：normalizeGeoJSON / deepTransformGeoJSON / explodeMultiPolygons
+   ★ 修正 1: 新增 normalizeGeoJSON 輔助函數
+   支援展平嵌套結構、驗證格式、提供清晰錯誤訊息
    ======================================================================== */
 
-function normalizeGeoJSON(raw) {
-    let data = raw;
-    let guard = 0;
-    while (data && data.type === 'FeatureCollection' && data.features &&
-           !Array.isArray(data.features) && guard < 5) {
-        data = data.features;
-        guard++;
+function normalizeGeoJSON(data) {
+    if (!data) {
+        throw new Error('資料為空或 undefined');
     }
-    if (Array.isArray(data)) {
-        let allFeatures = [];
-        data.forEach(item => {
-            if (item && item.type === 'FeatureCollection') allFeatures.push(...(item.features || []));
-            else if (item && item.type === 'Feature') allFeatures.push(item);
-        });
-        return { type: 'FeatureCollection', features: allFeatures };
-    }
-    if (data.type === 'FeatureCollection') return data;
-    if (data.type === 'Feature') return { type: 'FeatureCollection', features: [data] };
-    if (data.type && data.coordinates) {
-        return { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: data, properties: {} }] };
-    }
-    return data;
-}
 
-function deepTransformGeoJSON(geojson) {
-    const clone = JSON.parse(JSON.stringify(geojson));
-    function transformCoordArray(coords) {
-        if (typeof coords[0] === 'number') {
-            if (isTWD97Coordinate(coords[0], coords[1])) {
-                return twd97ToWGS84(coords[0], coords[1]);
+    // 遞迴展平嵌套的 FeatureCollection
+    let current = data;
+    let iterationCount = 0;
+    const maxIterations = 10;
+
+    while (
+        current &&
+        current.features &&
+        !Array.isArray(current.features) &&
+        current.features.type === 'FeatureCollection' &&
+        iterationCount < maxIterations
+    ) {
+        console.log(`ℹ️ 展平嵌套層級 ${iterationCount + 1}`);
+        current = current.features;
+        iterationCount++;
+    }
+
+    // 檢查最終結構
+    if (!current.type) {
+        throw new Error(`無法辨識的 GeoJSON 格式：缺少 type 欄位`);
+    }
+
+    // 根據 type 轉換為標準 FeatureCollection
+    if (current.type === 'FeatureCollection') {
+        if (!Array.isArray(current.features)) {
+            throw new Error(`FeatureCollection 的 features 不是陣列`);
+        }
+
+        current.features.forEach((feature, idx) => {
+            if (feature.type !== 'Feature') {
+                throw new Error(`features[${idx}] 不是有效的 Feature（type="${feature.type}"）`);
             }
-            return coords;
-        }
-        return coords.map(transformCoordArray);
-    }
-    (clone.features || []).forEach(f => {
-        if (f.geometry && f.geometry.coordinates) {
-            f.geometry.coordinates = transformCoordArray(f.geometry.coordinates);
-        }
-    });
-    return clone;
-}
-
-function explodeMultiPolygons(geojson) {
-    const exploded = { type: 'FeatureCollection', features: [] };
-    (geojson.features || []).forEach(f => {
-        if (f.geometry && f.geometry.type === 'MultiPolygon') {
-            f.geometry.coordinates.forEach((polyCoords, idx) => {
-                exploded.features.push({
-                    type: 'Feature',
-                    geometry: { type: 'Polygon', coordinates: polyCoords },
-                    properties: { ...f.properties, __multiIndex: idx }
-                });
-            });
-        } else if (f.geometry && f.geometry.type === 'Polygon') {
-            exploded.features.push(f);
-        }
-    });
-    return exploded;
-}
-
-/* ========================================================================
-   色彩處理：lightenColor / extractStyleFromProperties / defaultGeoJSONStyle
-   ======================================================================== */
-
-function lightenColor(hex, percent = 0.86) {
-    if (!hex || typeof hex !== 'string') return '#93c5fd';
-    hex = hex.replace('#', '');
-    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-    if (hex.length !== 6 || /[^0-9a-fA-F]/.test(hex)) return '#93c5fd';
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    const nr = Math.round(r + (255 - r) * percent);
-    const ng = Math.round(g + (255 - g) * percent);
-    const nb = Math.round(b + (255 - b) * percent);
-    return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb.toString(16).padStart(2, '0')}`;
-}
-
-function extractStyleFromProperties(props) {
-    props = props || {};
-    const rawColor = props.color || props.stroke || props.fill || props.COLOR || '#3b82f6';
-    const fillColor = lightenColor(rawColor, 0.86);
-    return { strokeColor: rawColor, fillColor: fillColor };
-}
-
-function defaultGeoJSONStyle(feature) {
-    const s = extractStyleFromProperties(feature.properties);
-    return { color: s.strokeColor, weight: 2, fillColor: s.fillColor, fillOpacity: 0.55, opacity: 0.9 };
-}
-
-function selectedGeoJSONStyle(feature) {
-    const s = extractStyleFromProperties(feature.properties);
-    return { color: '#dc2626', weight: 4, fillColor: s.fillColor, fillOpacity: 0.65, opacity: 1 };
-}
-
-/* ========================================================================
-   ★★★ 新增功能核心：GeoJSON 參考圖層子系統
-   （匯入 GeoJSON → 個別面選取 → 選擇顯示欄位 → 於多邊形內顯示標籤）
-   ======================================================================== */
-
-let importedGeoJSONLayers = {};      // { layerName: L.geoJSON 圖層群組 }
-let geoJsonFeaturesRegistry = [];    // [{ layerName, feature, layer }]
-let geoJsonSelection = {};           // { featureKey: leafletLayer } 目前高亮選取
-let activeGeoJSONSelection = null;   // { layerName, feature, layer } 查詢原點使用
-let geoJsonAllFieldKeys = [];        // 所有已載入圖層的屬性欄位聯集
-let geoJsonLabelField = null;        // 目前選擇要顯示的欄位名稱
-
-function loadGeoJSONReferenceLayer(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const raw = JSON.parse(e.target.result);
-            const normalized = normalizeGeoJSON(raw);
-            const transformed = deepTransformGeoJSON(normalized);
-            const exploded = explodeMultiPolygons(transformed);
-            if (!exploded.features || exploded.features.length === 0) {
-                showToast('❌ 檔案中未偵測到有效的 Polygon/MultiPolygon');
-                return;
+            if (!feature.geometry) {
+                throw new Error(`features[${idx}] 缺少 geometry`);
             }
-            const layerName = file.name.replace(/\.[^.]+$/, '') + '_' + Date.now();
-            addGeoJSONReferenceLayer(layerName, exploded);
-        } catch (err) {
-            console.error('❌ GeoJSON 讀取失敗:', err);
-            showToast('❌ GeoJSON 讀取失敗：' + err.message);
-        }
-    };
-    reader.readAsText(file);
-    event.target.value = '';
-}
-
-function addGeoJSONReferenceLayer(layerName, geojson) {
-    const leafletLayer = L.geoJSON(geojson, {
-        style: defaultGeoJSONStyle,
-        onEachFeature: (feature, layer) => {
-            const featureKey = layerName + '_f' + geoJsonFeaturesRegistry.length;
-            feature.properties = feature.properties || {};
-            feature.properties.__featureKey = featureKey;
-            geoJsonFeaturesRegistry.push({ layerName, feature, layer });
-
-            layer.on('click', (e) => {
-                L.DomEvent.stopPropagation(e);
-                toggleGeoJSONFeatureSelection(layerName, feature, layer);
-            });
-        }
-    }).addTo(map);
-
-    importedGeoJSONLayers[layerName] = leafletLayer;
-
-    updateGeoJSONFieldSelector();
-    applyGeoJSONFieldLabels();
-    buildPolygonListPanel();
-
-    try { map.fitBounds(leafletLayer.getBounds(), { maxZoom: 17 }); } catch (err) {}
-    showToast(`✅ 已載入參考圖層，共 ${geojson.features.length} 個面`);
-}
-
-function clearAllGeoJSONReferenceLayers() {
-    if (Object.keys(importedGeoJSONLayers).length === 0) {
-        showToast('目前無參考圖層');
-        return;
-    }
-    if (!confirm('確定要移除所有已匯入的 GeoJSON 參考圖層嗎？')) return;
-
-    Object.values(importedGeoJSONLayers).forEach(layer => map.removeLayer(layer));
-    importedGeoJSONLayers = {};
-    geoJsonFeaturesRegistry = [];
-    geoJsonSelection = {};
-    activeGeoJSONSelection = null;
-    geoJsonAllFieldKeys = [];
-    geoJsonLabelField = null;
-
-    updateGeoJSONFieldSelector();
-    buildPolygonListPanel();
-    showToast('✕ 已移除所有參考圖層');
-}
-
-/* ---- 個別面選取（含互斥手繪多邊形選取、自動更新查詢原點） ---- */
-
-function toggleGeoJSONFeatureSelection(layerName, feature, layer) {
-    const key = feature.properties.__featureKey;
-
-    // 若點擊已選取的面 → 取消選取
-    if (geoJsonSelection[key]) {
-        delete geoJsonSelection[key];
-        applyGeoJSONFeatureStyle(layer, feature, false);
-        if (activeGeoJSONSelection && activeGeoJSONSelection.feature === feature) {
-            activeGeoJSONSelection = null;
-        }
-        buildPolygonListPanel();
-        return;
-    }
-
-    // ★ 互斥：清除手繪多邊形的選取，避免查詢原點衝突
-    if (currentPolygonId) {
-        const prevPoly = polygons.find(p => p.id === currentPolygonId);
-        currentPolygonId = null;
-        if (prevPoly) {
-            prevPoly.isSelected = false;
-            renderPolygonLayer(prevPoly);
-        }
-        renderPolygonList();
-    }
-
-    // 清除先前選取的 GeoJSON 面（維持單一有效查詢原點）
-    Object.keys(geoJsonSelection).forEach(k => {
-        const prevEntry = geoJsonFeaturesRegistry.find(r => r.feature.properties.__featureKey === k);
-        if (prevEntry) applyGeoJSONFeatureStyle(prevEntry.layer, prevEntry.feature, false);
-    });
-    geoJsonSelection = {};
-
-    geoJsonSelection[key] = layer;
-    applyGeoJSONFeatureStyle(layer, feature, true);
-    activeGeoJSONSelection = { layerName, feature, layer };
-
-    // ★ 自動以 turf.centroid 更新查詢原點
-    try {
-        const centroid = turf.centroid(feature);
-        const lon = centroid.geometry.coordinates[0];
-        const lat = centroid.geometry.coordinates[1];
-        latInput.value = lat.toFixed(6);
-        lonInput.value = lon.toFixed(6);
-        origin = [lat, lon];
-    } catch (err) {
-        console.error('形心計算失敗:', err);
-    }
-
-    buildPolygonListPanel();
-    const label = getDisplayLabelForFeature(feature) || key;
-    showToast('✓ 已選取匯入圖層面：' + label);
-}
-
-function applyGeoJSONFeatureStyle(layer, feature, isSelected) {
-    const style = isSelected ? selectedGeoJSONStyle(feature) : defaultGeoJSONStyle(feature);
-    layer.setStyle(style);
-    if (isSelected) layer.bringToFront();
-}
-
-/* ---- ★★★ 欄位選擇與標籤顯示（本次新增主功能） ★★★ ---- */
-
-function updateGeoJSONFieldSelector() {
-    const keySet = new Set();
-    geoJsonFeaturesRegistry.forEach(entry => {
-        Object.keys(entry.feature.properties || {}).forEach(k => {
-            if (!k.startsWith('__')) keySet.add(k);
+            if (!feature.geometry.type) {
+                throw new Error(`features[${idx}].geometry 缺少 type`);
+            }
         });
-    });
-    geoJsonAllFieldKeys = Array.from(keySet).sort();
 
-    const panel = document.getElementById('geoJsonFieldPanel');
-    const select = document.getElementById('geoJsonFieldSelect');
-    if (!panel || !select) return;
+        console.log(`✅ FeatureCollection 驗證成功，包含 ${current.features.length} 個特徵`);
+        return current;
 
-    if (geoJsonAllFieldKeys.length === 0) {
-        panel.style.display = 'none';
-        select.innerHTML = '<option value="">-- 不顯示標籤 --</option>';
-        geoJsonLabelField = null;
-        return;
-    }
-
-    panel.style.display = 'flex';
-    const current = geoJsonLabelField || '';
-    select.innerHTML = '<option value="">-- 不顯示標籤 --</option>' +
-        geoJsonAllFieldKeys.map(k => `<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('');
-    select.value = geoJsonAllFieldKeys.includes(current) ? current : '';
-}
-
-function onGeoJSONFieldChange(fieldName) {
-    geoJsonLabelField = fieldName || null;
-    applyGeoJSONFieldLabels();
-    buildPolygonListPanel();
-    showToast(fieldName ? `✓ 已套用欄位標籤：${fieldName}` : '已清除欄位標籤');
-}
-
-function clearGeoJSONFieldLabels() {
-    geoJsonLabelField = null;
-    const select = document.getElementById('geoJsonFieldSelect');
-    if (select) select.value = '';
-    applyGeoJSONFieldLabels();
-    buildPolygonListPanel();
-    showToast('✓ 已清除所有欄位標籤');
-}
-
-// 將目前選擇的欄位值，以置中永久標籤方式顯示在每個多邊形內部
-function applyGeoJSONFieldLabels() {
-    geoJsonFeaturesRegistry.forEach(entry => {
-        const { feature, layer } = entry;
-        if (layer.getTooltip && layer.getTooltip()) {
-            layer.unbindTooltip();
+    } else if (current.type === 'Feature') {
+        if (!current.geometry) {
+            throw new Error('Feature 缺少 geometry 欄位');
         }
-        if (!geoJsonLabelField) return;
-
-        const value = feature.properties ? feature.properties[geoJsonLabelField] : undefined;
-        if (value === undefined || value === null || String(value).trim() === '') return;
-
-        try {
-            layer.bindTooltip(String(value), {
-                permanent: true,
-                direction: 'center',
-                className: 'geojson-field-label',
-                opacity: 0.95
-            });
-            if (map.hasLayer(layer)) layer.openTooltip();
-        } catch (err) {
-            console.warn('標籤綁定失敗:', err);
+        if (!current.geometry.type) {
+            throw new Error('geometry 缺少 type 欄位');
         }
-    });
-}
-
-function getDisplayLabelForFeature(feature) {
-    if (geoJsonLabelField && feature.properties && feature.properties[geoJsonLabelField] !== undefined) {
-        return feature.properties[geoJsonLabelField];
-    }
-    return feature.properties?.name || feature.properties?.NAME || feature.properties?.['名稱'] || null;
-}
-
-/* ---- 側邊欄清單（buildPolygonListPanel：GeoJSON 面清單，含雙向同步） ---- */
-
-function buildPolygonListPanel() {
-    const container = document.getElementById('geoJsonLayerList');
-    if (!container) return;
-
-    if (geoJsonFeaturesRegistry.length === 0) {
-        container.innerHTML = '<div style="padding:8px;color:#999;font-size:12px;">尚未載入參考圖層</div>';
-        return;
-    }
-
-    container.innerHTML = geoJsonFeaturesRegistry.map(entry => {
-        const key = entry.feature.properties.__featureKey;
-        const isSelected = !!geoJsonSelection[key];
-        const style = extractStyleFromProperties(entry.feature.properties);
-        const label = getDisplayLabelForFeature(entry.feature) || key;
-        return `<div class="geojson-list-item ${isSelected ? 'selected' : ''}" onclick="focusGeoJSONFeature('${key}')">
-                    <div style="width:12px;height:12px;background:${style.strokeColor};border-radius:2px;flex-shrink:0;"></div>
-                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(String(label))}</span>
-                </div>`;
-    }).join('');
-}
-
-function focusGeoJSONFeature(key) {
-    const entry = geoJsonFeaturesRegistry.find(r => r.feature.properties.__featureKey === key);
-    if (!entry) return;
-    if (!geoJsonSelection[key]) {
-        toggleGeoJSONFeatureSelection(entry.layerName, entry.feature, entry.layer);
-    }
-    try { map.fitBounds(entry.layer.getBounds(), { maxZoom: 18 }); } catch (err) {}
-}
-
-/* ---- 事件初始化 ---- */
-
-function initGeoJSONEvents(mapInstance) {
-    const input = document.getElementById('geojson-reference-input');
-    if (input) {
-        input.addEventListener('change', loadGeoJSONReferenceLayer);
-    }
-    updateGeoJSONFieldSelector();
-    buildPolygonListPanel();
-}
-
-/* ========================================================================
-   Module E：window.geoCache（LocalStorage 持久化，2000ms 防抖自動儲存）
-   ======================================================================== */
-
-window.geoCache = (function () {
-    const STORAGE_KEY = 'marketValueAppraisal_geoCache_v1';
-    let saveTimer = null;
-
-    function serializeState() {
+        console.log(`✅ 轉換單一 Feature 為 FeatureCollection`);
         return {
-            polygons: polygons.map(p => ({
-                id: p.id, name: p.name, points: p.points, color: p.color,
-                originalProperties: p.originalProperties || {}
-            })),
-            geoJsonLabelField: geoJsonLabelField,
-            savedAt: new Date().toISOString()
+            type: 'FeatureCollection',
+            features: [current]
+        };
+
+    } else if (['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection'].includes(current.type)) {
+        console.log(`✅ 轉換 ${current.type} 為 FeatureCollection`);
+        return {
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                geometry: current,
+                properties: {}
+            }]
+        };
+
+    } else {
+        throw new Error(`不支援的 type: "${current.type}"`);
+    }
+}
+
+/* ========================================================================
+   ★ 修正 6【新增】: 通用 GeoJSON 座標系統自動偵測與轉換
+   目的：修補「一般圖層匯入」（importGeoJSON）完全沒有座標轉換的漏洞
+   說明：
+     1. isTWD97Coordinate() / twd97ToWGS84() 定義於下方「多邊形匯入」區塊，
+        因為是 function 宣告（非箭頭函式賦值），JS 會做 Hoisting，
+        所以這裡可以提前呼叫，不需搬動或重複定義。
+     2. 採「取樣偵測」策略：從整份 GeoJSON 找出第一個座標點，
+        判斷是否落在 TWD97 (EPSG:3826) 常見數值範圍，
+        若是，才對「全部」Feature 的座標做遞迴轉換；
+        若原本就是 WGS84 經緯度，則完全不動，避免誤轉。
+     3. 支援 Point / LineString / Polygon / MultiPoint /
+        MultiLineString / MultiPolygon / GeometryCollection
+        任意巢狀深度的座標陣列。
+   ======================================================================== */
+
+// 遞迴找出 GeoJSON 結構中「第一個」座標點 [x, y]，用來做座標系統取樣判斷
+function findFirstCoordinatePair(node) {
+    if (!node) return null;
+
+    if (node.type === 'FeatureCollection' && Array.isArray(node.features)) {
+        for (const f of node.features) {
+            const r = findFirstCoordinatePair(f);
+            if (r) return r;
+        }
+        return null;
+    }
+
+    if (node.type === 'Feature') {
+        return findFirstCoordinatePair(node.geometry);
+    }
+
+    if (node.type === 'GeometryCollection' && Array.isArray(node.geometries)) {
+        for (const g of node.geometries) {
+            const r = findFirstCoordinatePair(g);
+            if (r) return r;
+        }
+        return null;
+    }
+
+    if (node.coordinates) {
+        return extractFirstNumberPair(node.coordinates);
+    }
+
+    return null;
+}
+
+// 遞迴挖出座標陣列裡的第一組 [x, y]（不管巢狀幾層）
+function extractFirstNumberPair(coords) {
+    if (!Array.isArray(coords) || coords.length === 0) return null;
+    if (typeof coords[0] === 'number') {
+        return coords; // 已經是 [x, y] 或 [x, y, z]
+    }
+    for (const c of coords) {
+        const r = extractFirstNumberPair(c);
+        if (r) return r;
+    }
+    return null;
+}
+
+// 遞迴轉換任意深度的座標陣列（單一座標 or 巢狀陣列皆可）
+function transformCoordinatesDeep(coords, transformFn) {
+    if (!Array.isArray(coords)) return coords;
+    if (typeof coords[0] === 'number') {
+        const x = coords[0];
+        const y = coords[1];
+        const [lon, lat] = transformFn(x, y);
+        // 若有 Z 值（高程），原樣保留在第三位
+        return coords.length > 2 ? [lon, lat, ...coords.slice(2)] : [lon, lat];
+    }
+    return coords.map(c => transformCoordinatesDeep(c, transformFn));
+}
+
+// 遞迴走訪整個 GeoJSON（FeatureCollection / Feature / Geometry），套用座標轉換
+function deepTransformGeoJSON(node, transformFn) {
+    if (!node) return node;
+
+    if (node.type === 'FeatureCollection') {
+        return {
+            ...node,
+            features: node.features.map(f => deepTransformGeoJSON(f, transformFn))
         };
     }
 
-    function save() {
+    if (node.type === 'Feature') {
+        return {
+            ...node,
+            geometry: deepTransformGeoJSON(node.geometry, transformFn)
+        };
+    }
+
+    if (node.type === 'GeometryCollection') {
+        return {
+            ...node,
+            geometries: node.geometries.map(g => deepTransformGeoJSON(g, transformFn))
+        };
+    }
+
+    if (node.coordinates) {
+        return {
+            ...node,
+            coordinates: transformCoordinatesDeep(node.coordinates, transformFn)
+        };
+    }
+
+    return node;
+}
+
+/**
+ * 自動偵測 GeoJSON 座標系統，若判定為 TWD97 (EPSG:3826) 則整批轉換為 WGS84。
+ * @param {Object} geojson - 標準化後的 FeatureCollection
+ * @returns {{ data: Object, converted: boolean, sample: number[]|null }}
+ */
+function convertGeoJSONToWGS84IfNeeded(geojson) {
+    const sample = findFirstCoordinatePair(geojson);
+
+    if (!sample) {
+        console.warn('⚠️ 無法從 GeoJSON 取得座標樣本，略過座標系統自動偵測');
+        return { data: geojson, converted: false, sample: null };
+    }
+
+    const [x, y] = sample;
+
+    // 依賴下方「多邊形匯入」區塊已定義的 isTWD97Coordinate()（Hoisting 生效）
+    if (!isTWD97Coordinate(x, y)) {
+        console.log(`ℹ️ 座標樣本 (${x}, ${y}) 判定為 WGS84 經緯度，不需轉換`);
+        return { data: geojson, converted: false, sample };
+    }
+
+    console.log(`🔄 偵測到 TWD97 座標（X=${x.toFixed(2)}, Y=${y.toFixed(2)}），開始自動轉換為 WGS84...`);
+
+    // 依賴下方已定義的 twd97ToWGS84()（Hoisting 生效）
+    const convertedData = deepTransformGeoJSON(geojson, (px, py) => twd97ToWGS84(px, py));
+
+    console.log('✅ TWD97 → WGS84 座標轉換完成（一般 GeoJSON 圖層匯入流程）');
+    return { data: convertedData, converted: true, sample };
+}
+
+/* ========================================================================
+   UI 交互
+   ======================================================================== */
+
+sidebarToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('collapsed');
+    sidebarToggle.innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+});
+
+function toggleDrawMode(btn) {
+    drawToolbar.classList.toggle('hidden');
+    btn.classList.toggle('active');
+}
+
+function toggleResultPanel() {
+    resultPanel.classList.toggle('hidden');
+}
+
+function toggleLayerControl() {
+    const control = document.querySelector('.leaflet-control-layers');
+    if (control) {
+        control.style.display = control.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+/* ========================================================================
+   工具函數：HTML 轉義
+   ======================================================================== */
+
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/* ========================================================================
+   ★ 修正 2: 改進 extractStyleFromProperties 函數
+   支援自訂欄位、深層嵌套、多種色彩格式、完整診斷日誌
+   ======================================================================== */
+
+function extractStyleFromProperties(properties) {
+    const style = { ...defaultStyles };
+    
+    if (!properties || Object.keys(properties).length === 0) {
+        console.warn('⚠️ 未傳入任何屬性資料，使用預設顏色');
+        return style;
+    }
+    
+    // ====== 優先級 1: OpenLayers styleConfig.styleCache.outer[0].stroke_ ======
+    if (properties.styleConfig && typeof properties.styleConfig === 'object') {
+        // 方案 A: 直接路徑存取
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState()));
-        } catch (err) {
-            console.warn('LocalStorage 儲存失敗:', err);
+            const strokeColor = getNestedProperty(properties, 'styleConfig.styleCache.outer[0].stroke_.color_');
+            if (strokeColor && isValidColor(strokeColor)) {
+                const normalized = normalizeColor(strokeColor);
+                if (normalized) {
+                    style.color = normalized;
+                    style.fillColor = normalized;
+                    console.log(`✓ 從 styleConfig.stroke_.color_ 提取顏色: ${normalized}`);
+                    return style;
+                }
+            }
+        } catch (e) {
+            console.debug('ℹ️ styleConfig.strokeColor 存取異常（預期）');
+        }
+        
+        // 方案 B: 陣列索引存取（OpenLayers 標準）
+        if (properties.styleConfig.styleCache && 
+            Array.isArray(properties.styleConfig.styleCache.outer) &&
+            properties.styleConfig.styleCache.outer.length > 0) {
+            
+            const outerStyle = properties.styleConfig.styleCache.outer[0];
+            
+            if (outerStyle.stroke_ && outerStyle.stroke_.color_) {
+                const color = String(outerStyle.stroke_.color_).trim();
+                if (isValidColor(color)) {
+                    const normalized = normalizeColor(color);
+                    if (normalized) {
+                        style.color = normalized;
+                        style.fillColor = normalized;
+                        console.log(`✓ 從 styleConfig.styleCache.outer[0].stroke_.color_ 提取顏色: ${normalized}`);
+                        return style;
+                    }
+                }
+            }
+            
+            if (outerStyle.fill_ && outerStyle.fill_.color_) {
+                const color = String(outerStyle.fill_.color_).trim();
+                if (isValidColor(color)) {
+                    const normalized = normalizeColor(color);
+                    if (normalized) {
+                        style.fillColor = normalized;
+                        console.log(`✓ 從 styleConfig.fill_.color_ 提取顏色: ${normalized}`);
+                        return style;
+                    }
+                }
+            }
+            
+            if (outerStyle.stroke_ && outerStyle.stroke_.width_) {
+                const width = parseInt(outerStyle.stroke_.width_);
+                if (!isNaN(width) && width > 0) {
+                    style.weight = width;
+                }
+            }
         }
     }
-
-    function debouncedSave() {
-        if (saveTimer) clearTimeout(saveTimer);
-        saveTimer = setTimeout(save, 2000);
-    }
-
-    function load() {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            return raw ? JSON.parse(raw) : null;
-        } catch (err) {
-            console.warn('LocalStorage 讀取失敗:', err);
-            return null;
+    
+    // ====== 優先級 2: 深層嵌套路徑 ======
+    for (let nestedPath of colorFieldsConfig.nestedPaths) {
+        if (hasNestedProperty(properties, nestedPath)) {
+            const colorValue = String(getNestedProperty(properties, nestedPath)).trim();
+            if (isValidColor(colorValue)) {
+                const normalized = normalizeColor(colorValue);
+                if (normalized) {
+                    style.color = normalized;
+                    style.fillColor = normalized;
+                    console.log(`✓ 從深層路徑 "${nestedPath}" 提取顏色: ${normalized}`);
+                    return style;
+                }
+            }
         }
     }
+    
+    // ====== 優先級 3: 標準欄位 ======
+    for (let field of colorFieldsConfig.standardFields) {
+        if (properties.hasOwnProperty(field) && properties[field]) {
+            const colorValue = String(properties[field]).trim();
+            if (isValidColor(colorValue)) {
+                const normalized = normalizeColor(colorValue);
+                if (normalized) {
+                    style.color = normalized;
+                    style.fillColor = normalized;
+                    console.log(`✓ 從標準欄位 "${field}" 提取顏色: ${normalized}`);
+                    return style;
+                }
+            }
+        }
+    }
+    
+    // ====== 優先級 4: 自訂欄位 ======
+    for (let field of colorFieldsConfig.customFields) {
+        if (properties.hasOwnProperty(field) && properties[field]) {
+            const colorValue = String(properties[field]).trim();
+            if (isValidColor(colorValue)) {
+                const normalized = normalizeColor(colorValue);
+                if (normalized) {
+                    style.color = normalized;
+                    style.fillColor = normalized;
+                    console.log(`✓ 從自訂欄位 "${field}" 提取顏色: ${normalized}`);
+                    return style;
+                }
+            }
+        }
+    }
+    
+    // ====== 優先級 5: 不透明度和寬度 ======
+    const opacityFields = ['opacity', 'fill_opacity', 'fillOpacity', 'alpha', '不透明度'];
+    for (let field of opacityFields) {
+        if (properties.hasOwnProperty(field) && properties[field] !== undefined) {
+            const opacity = parseFloat(properties[field]);
+            if (!isNaN(opacity) && opacity >= 0 && opacity <= 1) {
+                style.fillOpacity = opacity;
+                console.log(`✓ 從欄位 "${field}" 提取不透明度: ${opacity}`);
+                break;
+            }
+        }
+    }
+    
+    const weightFields = ['weight', 'stroke_width', 'linewidth', 'line_width', 'width', '寬度'];
+    for (let field of weightFields) {
+        if (properties.hasOwnProperty(field) && properties[field] !== undefined) {
+            const weight = parseInt(properties[field]);
+            if (!isNaN(weight) && weight > 0) {
+                style.weight = weight;
+                console.log(`✓ 從欄位 "${field}" 提取寬度: ${weight}`);
+                break;
+            }
+        }
+    }
+    
+    // ====== 診斷日誌：記錄所有找到的顏色相關欄位 ======
+    const foundFields = Object.keys(properties).filter(k => {
+        const lowerKey = k.toLowerCase();
+        return lowerKey.includes('color') || lowerKey.includes('fill') || 
+               lowerKey.includes('stroke') || k.includes('顏色');
+    });
+    
+    if (foundFields.length > 0) {
+        console.warn(`⚠️ 未找到有效的顏色信息（找到的相關欄位：${foundFields.join(', ')}），使用默認顏色: ${style.color}`);
+        console.info(`💡 診斷建議：`);
+        console.info(`   1. 請在瀏覽器 F12 開發工具的 Console 查看上方欄位列表`);
+        console.info(`   2. 若要支援這些欄位，請在 colorFieldsConfig.customFields 或 nestedPaths 中添加`);
+        console.info(`   3. 範例：colorFieldsConfig.customFields.push('${foundFields[0]}')`);
+    } else {
+        console.warn(`⚠️ 未找到任何顏色相關欄位，使用默認顏色: ${style.color}`);
+    }
+    
+    return style;
+}
 
-    function clear() {
-        localStorage.removeItem(STORAGE_KEY);
+/* ========================================================================
+   GeoJSON 處理函數
+   ======================================================================== */
+
+function createPopupContent(properties, layerName) {
+    if (!properties || Object.keys(properties).length === 0) {
+        return `<div class="popup"><strong>${escapeHtml(layerName)}</strong><br>無屬性資料</div>`;
+    }
+    
+    let html = `<div class="popup"><strong>${escapeHtml(layerName)}</strong><br><table class="popup-table">`;
+    
+    for (let [key, value] of Object.entries(properties)) {
+        if (key.toLowerCase().includes('color') || 
+            key.toLowerCase().includes('opacity') ||
+            key.toLowerCase().includes('width') ||
+            key.toLowerCase().includes('style') ||
+            key === 'styleConfig') {
+            continue;
+        }
+        
+        html += `<tr><td><strong>${escapeHtml(key)}</strong></td><td>${escapeHtml(String(value))}</td></tr>`;
+    }
+    
+    html += `</table></div>`;
+    return html;
+}
+
+/* ========================================================================
+   ★ 修正 8【新增】: explodeMultiPolygons
+   目的：將 MultiPolygon Feature 拆解成多個獨立的 Polygon Feature，
+         使 Leaflet 能各自建立獨立的 Layer 物件，讓每一塊多邊形都能被單獨點擊選取。
+   說明：
+     - 不會修改 feature.properties 內容（不污染原始屬性、匯出檔案、彈出視窗）。
+     - Polygon（含孔洞環）與其他幾何型別（Point / LineString...）維持原樣直接通過。
+   ======================================================================== */
+
+function explodeMultiPolygons(geojson) {
+    if (!geojson || !Array.isArray(geojson.features)) return geojson;
+
+    const explodedFeatures = [];
+    let multiPolygonCount = 0;
+    let splitCount = 0;
+
+    geojson.features.forEach((feature) => {
+        const geom = feature.geometry;
+
+        if (!geom) {
+            explodedFeatures.push(feature);
+            return;
+        }
+
+        if (geom.type === 'MultiPolygon') {
+            multiPolygonCount++;
+            geom.coordinates.forEach((polygonRings) => {
+                explodedFeatures.push({
+                    type: 'Feature',
+                    properties: { ...feature.properties },
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: polygonRings
+                    }
+                });
+                splitCount++;
+            });
+        } else {
+            explodedFeatures.push(feature);
+        }
+    });
+
+    if (multiPolygonCount > 0) {
+        console.log(`🔨 已拆解 ${multiPolygonCount} 個 MultiPolygon → 共產生 ${splitCount} 個獨立多邊形（皆可單獨選取）`);
     }
 
-    return { save, debouncedSave, load, clear };
-})();
+    return {
+        type: 'FeatureCollection',
+        features: explodedFeatures
+    };
+}
+
+/* ========================================================================
+   ★ 修正 8【新增】: GeoJSON 多邊形選取樣式套用 / 切換選取
+   ======================================================================== */
+
+// 依照目前選取狀態，為指定 Layer 套用「選取樣式」或「原始樣式」
+function applyGeoJSONFeatureStyle(layer) {
+    if (!layer || typeof layer.setStyle !== 'function') return;
+
+    const sel = geoJsonSelection[layer._layerName];
+    if (sel && sel === layer) {
+        layer.setStyle(selectedGeoJSONStyle);
+    } else {
+        const s = layer._extractedStyle || defaultStyles;
+        layer.setStyle({
+            color: s.color,
+            fillColor: s.fillColor,
+            weight: s.weight,
+            opacity: s.opacity,
+            fillOpacity: s.fillOpacity,
+            dashArray: s.dashArray
+        });
+    }
+}
+
+// 點擊多邊形時：切換選取狀態（同層只能選一個；再次點擊同一個 = 取消選取）
+function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
+    const current = geoJsonSelection[layerName];
+
+    // 點擊「目前已選取」的同一個多邊形 → 取消選取
+    if (current === layer) {
+        delete geoJsonSelection[layerName];
+        applyGeoJSONFeatureStyle(layer);
+        showToast('已取消選取多邊形');
+        return;
+    }
+
+    // 若同圖層已有其他選取中的多邊形 → 先還原其樣式
+    if (current) {
+        const prevLayer = current;
+        delete geoJsonSelection[layerName];
+        applyGeoJSONFeatureStyle(prevLayer);
+    }
+
+    // 設定新的選取目標
+    geoJsonSelection[layerName] = layer;
+    applyGeoJSONFeatureStyle(layer);
+
+    const props = feature.properties || {};
+    const label = props.name || props.NAME || props.Name || props['名稱'] || layer._featureId || '未命名';
+    showToast(`✓ 已選取多邊形：${label}`);
+    console.log('✅ 選取 GeoJSON 多邊形:', layer._featureId, props);
+}
+
+function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
+    // ★ 修正 8：先拆解 MultiPolygon，確保每個多邊形都能獨立被點擊選取
+    const explodedData = explodeMultiPolygons(geoJsonData);
+
+    const featureGroup = L.featureGroup();
+
+    geoJsonFeatures[layerName] = explodedData;
+
+    let featureCounter = 0;
+
+    L.geoJSON(explodedData, {
+        style: (feature) => {
+            const extractedStyle = extractStyleFromProperties(feature.properties);
+            return {
+                color: extractedStyle.color,
+                fillColor: extractedStyle.fillColor,
+                weight: extractedStyle.weight,
+                opacity: extractedStyle.opacity,
+                fillOpacity: extractedStyle.fillOpacity,
+                dashArray: extractedStyle.dashArray
+            };
+        },
+        onEachFeature: (feature, layer) => {
+            const extractedStyle = extractStyleFromProperties(feature.properties);
+
+            // ★ 修正 8：在 Layer 物件上記錄選取相關資訊（不寫入 properties，避免污染資料）
+            layer._extractedStyle = extractedStyle;
+            layer._layerName = layerName;
+            layer._featureId = `${layerName}_${featureCounter++}`;
+
+            const popupContent = createPopupContent(feature.properties, layerName);
+            layer.bindPopup(popupContent);
+            
+            layer.on('mouseover', function () {
+                if (this.setStyle && typeof this.setStyle === 'function') {
+                    const highlightStyle = {
+                        color: extractedStyle.color,
+                        fillColor: extractedStyle.fillColor,
+                        weight: extractedStyle.weight + 2,
+                        opacity: 1,
+                        fillOpacity: extractedStyle.fillOpacity
+                    };
+                    this.setStyle(highlightStyle);
+                }
+                this.openPopup();
+            });
+            
+            layer.on('mouseout', function () {
+                // ★ 修正 8：改用 applyGeoJSONFeatureStyle，
+                // 若此 Layer 目前為「已選取」狀態，滑鼠移開時會維持選取樣式，不會被還原成預設樣式
+                applyGeoJSONFeatureStyle(this);
+                this.closePopup();
+            });
+
+            // ★ 修正 8：新增點擊選取事件（點擊 = 持續高亮選取，再點一次 = 取消選取）
+            layer.on('click', function (e) {
+                if (L.DomEvent && e) {
+                    L.DomEvent.stopPropagation(e);
+                }
+                toggleGeoJSONFeatureSelection(layerName, layer, feature);
+            });
+            
+            featureGroup.addLayer(layer);
+        },
+        pointToLayer: (feature, latlng) => {
+            const extractedStyle = extractStyleFromProperties(feature.properties);
+            return L.circleMarker(latlng, {
+                radius: 6,
+                fillColor: extractedStyle.fillColor,
+                color: extractedStyle.color,
+                weight: extractedStyle.weight,
+                opacity: extractedStyle.opacity,
+                fillOpacity: extractedStyle.fillOpacity
+            });
+        }
+    }).addTo(mapObj);
+    
+    geoJsonLayers[layerName] = featureGroup;
+    addGeoJSONLayerControl(layerName, featureGroup, mapObj);
+
+    // ★ 修正 6：加入圖層後自動 fitBounds，確保轉換後的座標能立刻對齊視野
+    try {
+        const bounds = featureGroup.getBounds();
+        if (bounds.isValid()) {
+            mapObj.fitBounds(bounds, { maxZoom: 18, padding: [20, 20] });
+        }
+    } catch (e) {
+        console.warn('⚠️ fitBounds 失敗（可能圖層為空）:', e);
+    }
+    
+    console.log(`✓ GeoJSON 圖層已新增：${layerName}（可個別點選多邊形）`);
+}
+
+/* ========================================================================
+   修正 1a: 改進 importGeoJSON 函數
+   支援嵌套結構、單一 Feature、Geometry 物件
+   ★ 修正 6：新增 TWD97 → WGS84 自動偵測與轉換
+   ======================================================================== */
+
+async function importGeoJSON(file, mapObj) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            try {
+                const rawData = JSON.parse(e.target.result);
+                console.log('📥 原始 GeoJSON 結構:', rawData);
+
+                // ★ 使用 normalizeGeoJSON 規範化
+                const normalizedData = normalizeGeoJSON(rawData);
+                console.log('✅ 規範化後的 GeoJSON:', normalizedData);
+
+                // ★ 修正 6【核心修補】: 自動偵測座標系統，若為 TWD97 則整批轉換為 WGS84
+                // 這一步正是原本缺漏的環節：過去只有 processImportedPolygons()（多邊形匯入）
+                // 有做這個轉換，一般「📁 匯入 GeoJSON」流程完全沒有，
+                // 導致 TWD97 地籍圖資匯入後座標跑到地球另一端、無法與底圖疊合。
+                const conversionResult = convertGeoJSONToWGS84IfNeeded(normalizedData);
+                const finalData = conversionResult.data;
+
+                const layerName = file.name
+                    .replace('.geojson', '')
+                    .replace('.json', '')
+                    .trim();
+
+                addGeoJSONToMap(finalData, layerName, mapObj);
+
+                let msg = `✓ 已匯入圖層：${layerName} (${finalData.features.length} 個特徵)`;
+                if (conversionResult.converted) {
+                    msg += `｜已自動轉換 TWD97 → WGS84 座標`;
+                }
+                showToast(msg);
+                resolve(layerName);
+
+            } catch (error) {
+                console.error('❌ GeoJSON 匯入失敗:', error);
+                console.error('錯誤堆疊:', error.stack);
+                showToast(`❌ GeoJSON 匯入失敗：${error.message}`);
+                reject(error);
+            }
+        };
+
+        reader.onerror = () => {
+            showToast('❌ 檔案讀取失敗');
+            reject(new Error('檔案讀取失敗'));
+        };
+
+        reader.readAsText(file);
+    });
+}
+
+function addGeoJSONLayerControl(layerName, featureGroup, mapObj) {
+    const controlContainer = document.getElementById('polygonManager');
+    if (!controlContainer) return;
+    
+    const layerItem = document.createElement('div');
+    layerItem.className = 'geojson-layer-item';
+    layerItem.style.padding = '8px 0';
+    layerItem.innerHTML = `
+        <div style="display: flex; gap: 8px; flex: 1; align-items: center;">
+            <input 
+                type="checkbox" 
+                id="layer-geojson-${escapeHtml(layerName)}" 
+                checked
+                class="geojson-checkbox"
+            >
+            <label for="layer-geojson-${escapeHtml(layerName)}" style="flex: 1; cursor: pointer; margin: 0; font-size: 13px;">${escapeHtml(layerName)}</label>
+            <button class="btn-remove" data-layer="${escapeHtml(layerName)}" title="移除圖層" style="padding: 4px 8px;">✕</button>
+        </div>
+    `;
+    
+    controlContainer.appendChild(layerItem);
+    
+    const checkbox = layerItem.querySelector('input[type="checkbox"]');
+    checkbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            mapObj.addLayer(featureGroup);
+        } else {
+            mapObj.removeLayer(featureGroup);
+        }
+    });
+    
+    const removeBtn = layerItem.querySelector('.btn-remove');
+    removeBtn.addEventListener('click', () => {
+        removeGeoJSONLayer(layerName, mapObj);
+        layerItem.remove();
+    });
+}
+
+function removeGeoJSONLayer(layerName, mapObj) {
+    if (geoJsonLayers[layerName]) {
+        mapObj.removeLayer(geoJsonLayers[layerName]);
+        delete geoJsonLayers[layerName];
+    }
+    if (geoJsonFeatures[layerName]) {
+        delete geoJsonFeatures[layerName];
+    }
+    // ★ 修正 8：圖層移除時同步清除該圖層的選取記錄，避免殘留無效參考
+    if (geoJsonSelection[layerName]) {
+        delete geoJsonSelection[layerName];
+    }
+    showToast(`✓ 已移除圖層：${layerName}`);
+    console.log(`✓ 圖層已移除：${layerName}`);
+}
+
+function exportGeoJSON(layerName = null) {
+    if (layerName) {
+        const data = geoJsonFeatures[layerName];
+        if (!data) {
+            showToast('❌ 圖層不存在');
+            return;
+        }
+        downloadGeoJSON(data, layerName);
+    } else {
+        const allFeatures = [];
+        for (let [name, features] of Object.entries(geoJsonFeatures)) {
+            if (features.features) {
+                allFeatures.push(...features.features);
+            }
+        }
+        
+        if (allFeatures.length === 0) {
+            showToast('❌ 沒有可匯出的圖層');
+            return;
+        }
+        
+        const geoJsonData = {
+            type: 'FeatureCollection',
+            features: allFeatures
+        };
+        
+        downloadGeoJSON(geoJsonData, 'all-layers');
+    }
+}
+
+function downloadGeoJSON(geoJsonData, filename) {
+    const jsonStr = JSON.stringify(geoJsonData, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}-${new Date().toISOString().split('T')[0]}.geojson`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    URL.revokeObjectURL(url);
+    showToast(`✓ 已下載：${link.download}`);
+    console.log(`✓ GeoJSON 已下載：${link.download}`);
+}
+
+function initGeoJSONEvents(mapObj) {
+    const fileInput = document.getElementById('geojson-file-input');
+    if (!fileInput) return;
+    
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (!file.name.endsWith('.geojson') && !file.name.endsWith('.json')) {
+            showToast('❌ 只支援 .geojson 或 .json 檔案');
+            return;
+        }
+        
+        try {
+            await importGeoJSON(file, mapObj);
+        } catch (error) {
+            console.error('匯入失敗:', error);
+        }
+        
+        fileInput.value = '';
+    });
+    
+    const exportBtn = document.getElementById('export-geojson-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            exportGeoJSON();
+        });
+    }
+}
 
 /* ========================================================================
    多邊形繪製邏輯
@@ -797,7 +2077,8 @@ function createPolygonObject(points, customName) {
 
     const defaultName = `多邊形 ${polygons.length + 1}`;
     const finalName = (customName && String(customName).trim()) ? String(customName).trim() : defaultName;
-
+    
+    // ★ 修正 7: 新增 originalProperties 欄位
     const polygonObj = {
         id: id,
         name: finalName,
@@ -808,23 +2089,22 @@ function createPolygonObject(points, customName) {
         centroid: null,
         isSelected: false,
         color: color,
-        originalProperties: {}
+        originalProperties: {}  // ★ 保留原始屬性
     };
-
+    
     updatePolygonCentroid(polygonObj);
     renderPolygonLayer(polygonObj);
-
+    
     polygons.push(polygonObj);
     selectPolygon(id);
     renderPolygonList();
-    window.geoCache.debouncedSave();
     return polygonObj;
 }
 
 function updatePolygonCentroid(polygonObj) {
     if (!polygonObj.points || polygonObj.points.length < 3) return;
     let coordinates = polygonObj.points.map(p => [p[1], p[0]]);
-    if (coordinates[0][0] !== coordinates[coordinates.length-1][0] ||
+    if (coordinates[0][0] !== coordinates[coordinates.length-1][0] || 
         coordinates[0][1] !== coordinates[coordinates.length-1][1]) {
         coordinates.push([polygonObj.points[0][1], polygonObj.points[0][0]]);
     }
@@ -849,7 +2129,7 @@ function renderPolygonLayer(polygonObj) {
         if (isDrawingPolygon) return;
         selectPolygon(polygonObj.id);
     });
-
+    
     if (polygonObj.isEditing || polygonObj.isSelected) {
         renderEditHandles(polygonObj);
     } else {
@@ -869,42 +2149,25 @@ function renderEditHandles(polygonObj) {
             }),
             draggable: true
         });
-
+        
         marker.on('drag', (e) => {
             let newLatLng = e.target.getLatLng();
             polygonObj.points[index] = [newLatLng.lat, newLatLng.lng];
             polygonObj.layer.setLatLngs(polygonObj.points);
         });
-
+        
         marker.on('dragend', () => {
             updatePolygonCentroid(polygonObj);
             updateLatLonInputs(polygonObj);
             renderPolygonLayer(polygonObj);
-            window.geoCache.debouncedSave();
         });
-
+        
         marker.addTo(polygonObj.markers);
     });
     polygonObj.markers.addTo(map);
 }
 
-/* ========================================================================
-   ★ selectPolygon（手繪多邊形選取）
-   選取手繪多邊形時，自動取消所有匯入 GeoJSON 圖層的選取狀態，
-   避免與 activeGeoJSONSelection 同時存在造成查詢原點衝突
-   ======================================================================== */
-
 function selectPolygon(id) {
-    if (Object.keys(geoJsonSelection).length > 0) {
-        Object.keys(geoJsonSelection).forEach(key => {
-            const entry = geoJsonFeaturesRegistry.find(r => r.feature.properties.__featureKey === key);
-            delete geoJsonSelection[key];
-            if (entry) applyGeoJSONFeatureStyle(entry.layer, entry.feature, false);
-        });
-        activeGeoJSONSelection = null;
-        buildPolygonListPanel();
-    }
-
     polygons.forEach(p => {
         const wasSelected = p.isSelected;
         p.isSelected = (p.id === id);
@@ -926,16 +2189,15 @@ function selectPolygon(id) {
 function deletePolygon(id) {
     const index = polygons.findIndex(p => p.id === id);
     if (index < 0) return;
-
+    
     const polygon = polygons[index];
     if (polygon.layer) map.removeLayer(polygon.layer);
     if (polygon.markers) polygon.markers.clearLayers();
-
+    
     polygons.splice(index, 1);
     if (currentPolygonId === id) currentPolygonId = null;
-
+    
     renderPolygonList();
-    window.geoCache.debouncedSave();
     showToast('多邊形已刪除');
 }
 
@@ -948,7 +2210,6 @@ function clearAllPolygons() {
     polygons = [];
     currentPolygonId = null;
     renderPolygonList();
-    window.geoCache.debouncedSave();
     showToast('✕ 所有多邊形已清除');
 }
 
@@ -1000,7 +2261,6 @@ function finishRenamePolygon(id, newValue) {
     if (trimmed) {
         poly.name = trimmed;
         showToast('✓ 名稱已更新');
-        window.geoCache.debouncedSave();
     }
     renderPolygonList();
 }
@@ -1009,12 +2269,12 @@ function renderPolygonList() {
     const listDiv = document.getElementById('polygonList');
     const countSpan = document.getElementById('polyCount');
     countSpan.innerText = polygons.length;
-
+    
     if (polygons.length === 0) {
         listDiv.innerHTML = '<div style="padding:8px;color:#999;font-size:12px;">尚無多邊形 - 點擊工具列開始繪製</div>';
         return;
     }
-
+    
     listDiv.innerHTML = polygons.map((poly) => `
         <div class="polygon-item ${poly.isSelected ? 'selected' : ''}" onclick="selectPolygon('${poly.id}')">
             <div class="polygon-item-info">
@@ -1156,7 +2416,7 @@ async function buildEntranceCandidates(junction) {
     const lat = junction[0];
     const lon = junction[1];
     const query = `[out:json][timeout:25]; (way["highway"="motorway_link"](around:${SEARCH_RADIUS},${lat},${lon});); out body; >; out skel qt;`;
-
+    
     try {
         const res = await fetch("https://overpass-api.de/api/interpreter", {
             method: "POST",
@@ -1269,8 +2529,6 @@ function selectItemById(id) {
 
 /* ========================================================================
    主查詢函數
-   優先採用「匯入 GeoJSON 選取中的多邊形」作為查詢範圍與原點，
-   其次才是手繪多邊形，最後才是手動輸入的經緯度
    ======================================================================== */
 
 async function runQuery() {
@@ -1297,20 +2555,7 @@ async function runQuery() {
         let turfZonePolygon = null;
         let centroidForQuery = [lat, lon];
 
-        if (activeGeoJSONSelection && activeGeoJSONSelection.feature && activeGeoJSONSelection.feature.geometry) {
-            try {
-                const geom = activeGeoJSONSelection.feature.geometry;
-                if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
-                    turfZonePolygon = geom;
-                    const centroid = turf.centroid(activeGeoJSONSelection.feature);
-                    centroidForQuery = [centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]];
-                    console.log('ℹ️ 查詢範圍採用匯入 GeoJSON 多邊形：', activeGeoJSONSelection.layerName);
-                }
-            } catch (err) {
-                console.error('❌ GeoJSON 選取範圍解析失敗，改用手動座標:', err);
-            }
-        }
-        else if (currentPolygonId) {
+        if (currentPolygonId) {
             const selectedPoly = polygons.find(p => p.id === currentPolygonId);
             if (selectedPoly && selectedPoly.centroid) {
                 centroidForQuery = selectedPoly.centroid;
@@ -1417,7 +2662,7 @@ async function runQuery() {
             } else {
                 let typeName = rawType;
                 if (rawType === "motorway_junction") typeName = "交流道";
-
+                
                 let inside = false;
                 if (turfZonePolygon) {
                     let pt = turf.point([lon2, lat2]);
@@ -1471,7 +2716,7 @@ async function runQuery() {
                         const bestEntrance = candidates[0];
                         item.座標 = bestEntrance.coordinate;
                         item.類型 = "交流道入口";
-
+                        
                         let inside = false;
                         if (turfZonePolygon) {
                             let pt = turf.point([item.座標[1], item.座標[0]]);
@@ -1564,7 +2809,8 @@ function exportExcel() {
 }
 
 /* ========================================================================
-   exportPolygonsToGeoJSON 函數
+   ★ 修正 3: 新增 exportPolygonsToGeoJSON 函數
+   保留所有原始屬性、顏色、styleConfig 等信息
    ======================================================================== */
 
 function exportPolygonsToGeoJSON() {
@@ -1585,6 +2831,7 @@ function exportPolygonsToGeoJSON() {
             const turfPoly = turf.polygon([ring]);
             const areaM2 = turf.area(turfPoly);
 
+            // ★ 構建 properties，保留原始屬性
             const properties = {
                 id: poly.id,
                 name: poly.name,
@@ -1633,8 +2880,54 @@ function exportPolygonsToGeoJSON() {
 }
 
 /* ========================================================================
-   processImportedPolygons 函數（匯入為可編輯多邊形）
+   ★ 修正 4: 改進 processImportedPolygons 函數
+   支援 Polygon 和 MultiPolygon、自動座標系統轉換
    ======================================================================== */
+
+function isTWD97Coordinate(x, y) {
+    return x > 100000 && x < 400000 && y > 2000000 && y < 2900000;
+}
+
+function twd97ToWGS84(x, y) {
+    const a = 6378137.0;
+    const f = 1 / 298.257222101;
+    const b = a * (1 - f);
+    const e2 = (a * a - b * b) / (a * a);
+    const k0 = 0.9999;
+    const dx = 250000;
+    const lon0 = 121 * Math.PI / 180;
+
+    const M = y / k0;
+    const mu = M / (a * (1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
+
+    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    const J1 = (3*e1/2 - 27*e1*e1*e1/32);
+    const J2 = (21*e1*e1/16 - 55*e1*e1*e1*e1/32);
+    const J3 = (151*e1*e1*e1/96);
+    const J4 = (1097*e1*e1*e1*e1/512);
+
+    const fp = mu + J1*Math.sin(2*mu) + J2*Math.sin(4*mu) + J3*Math.sin(6*mu) + J4*Math.sin(8*mu);
+
+    const e2p = e2 / (1 - e2);
+    const C1 = e2p * Math.pow(Math.cos(fp), 2);
+    const T1 = Math.pow(Math.tan(fp), 2);
+    const R1 = a * (1 - e2) / Math.pow(1 - e2*Math.pow(Math.sin(fp),2), 1.5);
+    const N1 = a / Math.sqrt(1 - e2*Math.pow(Math.sin(fp),2));
+    const D = (x - dx) / (N1 * k0);
+
+    const lat = fp - (N1*Math.tan(fp)/R1) * (
+        D*D/2 -
+        (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2p) * Math.pow(D,4)/24 +
+        (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*e2p - 3*C1*C1) * Math.pow(D,6)/720
+    );
+
+    const lon = lon0 + (
+        D - (1 + 2*T1 + C1) * Math.pow(D,3)/6 +
+        (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2p + 24*T1*T1) * Math.pow(D,5)/120
+    ) / Math.cos(fp);
+
+    return [lon * 180 / Math.PI, lat * 180 / Math.PI];
+}
 
 function convertRingIfNeeded(ring) {
     const sample = ring[0];
@@ -1754,11 +3047,12 @@ function processImportedPolygons(geojson) {
 
             let finalName = null;
             if (baseName) {
-                finalName = totalPolygons > 1
-                    ? `${baseName}_${multiIndex + 1}`
+                finalName = totalPolygons > 1 
+                    ? `${baseName}_${multiIndex + 1}` 
                     : baseName;
             }
 
+            // ★ 重點：保留原始 properties
             const polygonObj = createPolygonObject(points, finalName);
             if (polygonObj) {
                 polygonObj.originalProperties = { ...props };
@@ -1777,7 +3071,8 @@ function processImportedPolygons(geojson) {
 }
 
 /* ========================================================================
-   importPolygonsFromSHP 函數
+   ★ 修正 5: 更新 importPolygonsFromSHP 函數
+   支援新的 normalizeGeoJSON 函數自動展平嵌套結構
    ======================================================================== */
 
 function importPolygonsFromSHP(event) {
@@ -1790,10 +3085,11 @@ function importPolygonsFromSHP(event) {
             try {
                 const rawGeoJSON = JSON.parse(e.target.result);
                 console.log('📥 原始 GeoJSON 結構:', rawGeoJSON);
-
+                
+                // ★ 使用 normalizeGeoJSON 規範化（自動展平嵌套結構）
                 const normalizedGeoJSON = normalizeGeoJSON(rawGeoJSON);
                 console.log('✅ 規範化後的 GeoJSON:', normalizedGeoJSON);
-
+                
                 processImportedPolygons(normalizedGeoJSON);
             } catch (err) {
                 console.error('❌ GeoJSON 解析失敗:', err);
@@ -1806,10 +3102,11 @@ function importPolygonsFromSHP(event) {
             shp(e.target.result).then(geojson => {
                 try {
                     console.log('📥 原始 SHP GeoJSON:', geojson);
-
+                    
+                    // ★ 使用 normalizeGeoJSON 規範化
                     const normalizedGeoJSON = normalizeGeoJSON(geojson);
                     console.log('✅ 規範化後的 GeoJSON:', normalizedGeoJSON);
-
+                    
                     processImportedPolygons(normalizedGeoJSON);
                 } catch (err) {
                     console.error('❌ GeoJSON 規範化失敗:', err);
