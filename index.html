@@ -1156,6 +1156,25 @@ let renameCancelled = false;
 let geoJsonLayers = {};
 let geoJsonFeatures = {};
 
+/* ========================================================================
+   ★ 修正 8【新增】: GeoJSON 多邊形「個別選取」狀態管理
+   目的：解決匯入圖層包含多個多邊形（尤其 MultiPolygon）時，
+         無法單獨點選其中一塊多邊形的問題
+   ======================================================================== */
+
+// 記錄每個圖層目前被選取的 Leaflet Layer（key: layerName, value: Layer 物件）
+let geoJsonSelection = {};
+
+// 選取後的高亮樣式（與 hover 樣式區分，點擊後會持續顯示，不因滑鼠移開而消失）
+const selectedGeoJSONStyle = {
+    color: '#ff4500',
+    weight: 4,
+    fillColor: '#ff4500',
+    fillOpacity: 0.35,
+    opacity: 1,
+    dashArray: null
+};
+
 const polygonColors = [
     '#dc2626', '#f97316', '#eab308', '#22c55e', '#06b6d4',
     '#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#6366f1'
@@ -1636,12 +1655,122 @@ function createPopupContent(properties, layerName) {
     return html;
 }
 
+/* ========================================================================
+   ★ 修正 8【新增】: explodeMultiPolygons
+   目的：將 MultiPolygon Feature 拆解成多個獨立的 Polygon Feature，
+         使 Leaflet 能各自建立獨立的 Layer 物件，讓每一塊多邊形都能被單獨點擊選取。
+   說明：
+     - 不會修改 feature.properties 內容（不污染原始屬性、匯出檔案、彈出視窗）。
+     - Polygon（含孔洞環）與其他幾何型別（Point / LineString...）維持原樣直接通過。
+   ======================================================================== */
+
+function explodeMultiPolygons(geojson) {
+    if (!geojson || !Array.isArray(geojson.features)) return geojson;
+
+    const explodedFeatures = [];
+    let multiPolygonCount = 0;
+    let splitCount = 0;
+
+    geojson.features.forEach((feature) => {
+        const geom = feature.geometry;
+
+        if (!geom) {
+            explodedFeatures.push(feature);
+            return;
+        }
+
+        if (geom.type === 'MultiPolygon') {
+            multiPolygonCount++;
+            geom.coordinates.forEach((polygonRings) => {
+                explodedFeatures.push({
+                    type: 'Feature',
+                    properties: { ...feature.properties },
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: polygonRings
+                    }
+                });
+                splitCount++;
+            });
+        } else {
+            explodedFeatures.push(feature);
+        }
+    });
+
+    if (multiPolygonCount > 0) {
+        console.log(`🔨 已拆解 ${multiPolygonCount} 個 MultiPolygon → 共產生 ${splitCount} 個獨立多邊形（皆可單獨選取）`);
+    }
+
+    return {
+        type: 'FeatureCollection',
+        features: explodedFeatures
+    };
+}
+
+/* ========================================================================
+   ★ 修正 8【新增】: GeoJSON 多邊形選取樣式套用 / 切換選取
+   ======================================================================== */
+
+// 依照目前選取狀態，為指定 Layer 套用「選取樣式」或「原始樣式」
+function applyGeoJSONFeatureStyle(layer) {
+    if (!layer || typeof layer.setStyle !== 'function') return;
+
+    const sel = geoJsonSelection[layer._layerName];
+    if (sel && sel === layer) {
+        layer.setStyle(selectedGeoJSONStyle);
+    } else {
+        const s = layer._extractedStyle || defaultStyles;
+        layer.setStyle({
+            color: s.color,
+            fillColor: s.fillColor,
+            weight: s.weight,
+            opacity: s.opacity,
+            fillOpacity: s.fillOpacity,
+            dashArray: s.dashArray
+        });
+    }
+}
+
+// 點擊多邊形時：切換選取狀態（同層只能選一個；再次點擊同一個 = 取消選取）
+function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
+    const current = geoJsonSelection[layerName];
+
+    // 點擊「目前已選取」的同一個多邊形 → 取消選取
+    if (current === layer) {
+        delete geoJsonSelection[layerName];
+        applyGeoJSONFeatureStyle(layer);
+        showToast('已取消選取多邊形');
+        return;
+    }
+
+    // 若同圖層已有其他選取中的多邊形 → 先還原其樣式
+    if (current) {
+        const prevLayer = current;
+        delete geoJsonSelection[layerName];
+        applyGeoJSONFeatureStyle(prevLayer);
+    }
+
+    // 設定新的選取目標
+    geoJsonSelection[layerName] = layer;
+    applyGeoJSONFeatureStyle(layer);
+
+    const props = feature.properties || {};
+    const label = props.name || props.NAME || props.Name || props['名稱'] || layer._featureId || '未命名';
+    showToast(`✓ 已選取多邊形：${label}`);
+    console.log('✅ 選取 GeoJSON 多邊形:', layer._featureId, props);
+}
+
 function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
+    // ★ 修正 8：先拆解 MultiPolygon，確保每個多邊形都能獨立被點擊選取
+    const explodedData = explodeMultiPolygons(geoJsonData);
+
     const featureGroup = L.featureGroup();
-    
-    geoJsonFeatures[layerName] = geoJsonData;
-    
-    L.geoJSON(geoJsonData, {
+
+    geoJsonFeatures[layerName] = explodedData;
+
+    let featureCounter = 0;
+
+    L.geoJSON(explodedData, {
         style: (feature) => {
             const extractedStyle = extractStyleFromProperties(feature.properties);
             return {
@@ -1654,12 +1783,18 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
             };
         },
         onEachFeature: (feature, layer) => {
+            const extractedStyle = extractStyleFromProperties(feature.properties);
+
+            // ★ 修正 8：在 Layer 物件上記錄選取相關資訊（不寫入 properties，避免污染資料）
+            layer._extractedStyle = extractedStyle;
+            layer._layerName = layerName;
+            layer._featureId = `${layerName}_${featureCounter++}`;
+
             const popupContent = createPopupContent(feature.properties, layerName);
             layer.bindPopup(popupContent);
             
             layer.on('mouseover', function () {
                 if (this.setStyle && typeof this.setStyle === 'function') {
-                    const extractedStyle = extractStyleFromProperties(feature.properties);
                     const highlightStyle = {
                         color: extractedStyle.color,
                         fillColor: extractedStyle.fillColor,
@@ -1673,17 +1808,18 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
             });
             
             layer.on('mouseout', function () {
-                if (this.setStyle && typeof this.setStyle === 'function') {
-                    const extractedStyle = extractStyleFromProperties(feature.properties);
-                    this.setStyle({
-                        color: extractedStyle.color,
-                        fillColor: extractedStyle.fillColor,
-                        weight: extractedStyle.weight,
-                        opacity: extractedStyle.opacity,
-                        fillOpacity: extractedStyle.fillOpacity
-                    });
-                }
+                // ★ 修正 8：改用 applyGeoJSONFeatureStyle，
+                // 若此 Layer 目前為「已選取」狀態，滑鼠移開時會維持選取樣式，不會被還原成預設樣式
+                applyGeoJSONFeatureStyle(this);
                 this.closePopup();
+            });
+
+            // ★ 修正 8：新增點擊選取事件（點擊 = 持續高亮選取，再點一次 = 取消選取）
+            layer.on('click', function (e) {
+                if (L.DomEvent && e) {
+                    L.DomEvent.stopPropagation(e);
+                }
+                toggleGeoJSONFeatureSelection(layerName, layer, feature);
             });
             
             featureGroup.addLayer(layer);
@@ -1714,7 +1850,7 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
         console.warn('⚠️ fitBounds 失敗（可能圖層為空）:', e);
     }
     
-    console.log(`✓ GeoJSON 圖層已新增：${layerName}`);
+    console.log(`✓ GeoJSON 圖層已新增：${layerName}（可個別點選多邊形）`);
 }
 
 /* ========================================================================
@@ -1819,6 +1955,10 @@ function removeGeoJSONLayer(layerName, mapObj) {
     }
     if (geoJsonFeatures[layerName]) {
         delete geoJsonFeatures[layerName];
+    }
+    // ★ 修正 8：圖層移除時同步清除該圖層的選取記錄，避免殘留無效參考
+    if (geoJsonSelection[layerName]) {
+        delete geoJsonSelection[layerName];
     }
     showToast(`✓ 已移除圖層：${layerName}`);
     console.log(`✓ 圖層已移除：${layerName}`);
