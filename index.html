@@ -1268,6 +1268,144 @@ function normalizeGeoJSON(data) {
 }
 
 /* ========================================================================
+   ★ 修正 6【新增】: 通用 GeoJSON 座標系統自動偵測與轉換
+   目的：修補「一般圖層匯入」（importGeoJSON）完全沒有座標轉換的漏洞
+   說明：
+     1. isTWD97Coordinate() / twd97ToWGS84() 定義於下方「多邊形匯入」區塊，
+        因為是 function 宣告（非箭頭函式賦值），JS 會做 Hoisting，
+        所以這裡可以提前呼叫，不需搬動或重複定義。
+     2. 採「取樣偵測」策略：從整份 GeoJSON 找出第一個座標點，
+        判斷是否落在 TWD97 (EPSG:3826) 常見數值範圍，
+        若是，才對「全部」Feature 的座標做遞迴轉換；
+        若原本就是 WGS84 經緯度，則完全不動，避免誤轉。
+     3. 支援 Point / LineString / Polygon / MultiPoint /
+        MultiLineString / MultiPolygon / GeometryCollection
+        任意巢狀深度的座標陣列。
+   ======================================================================== */
+
+// 遞迴找出 GeoJSON 結構中「第一個」座標點 [x, y]，用來做座標系統取樣判斷
+function findFirstCoordinatePair(node) {
+    if (!node) return null;
+
+    if (node.type === 'FeatureCollection' && Array.isArray(node.features)) {
+        for (const f of node.features) {
+            const r = findFirstCoordinatePair(f);
+            if (r) return r;
+        }
+        return null;
+    }
+
+    if (node.type === 'Feature') {
+        return findFirstCoordinatePair(node.geometry);
+    }
+
+    if (node.type === 'GeometryCollection' && Array.isArray(node.geometries)) {
+        for (const g of node.geometries) {
+            const r = findFirstCoordinatePair(g);
+            if (r) return r;
+        }
+        return null;
+    }
+
+    if (node.coordinates) {
+        return extractFirstNumberPair(node.coordinates);
+    }
+
+    return null;
+}
+
+// 遞迴挖出座標陣列裡的第一組 [x, y]（不管巢狀幾層）
+function extractFirstNumberPair(coords) {
+    if (!Array.isArray(coords) || coords.length === 0) return null;
+    if (typeof coords[0] === 'number') {
+        return coords; // 已經是 [x, y] 或 [x, y, z]
+    }
+    for (const c of coords) {
+        const r = extractFirstNumberPair(c);
+        if (r) return r;
+    }
+    return null;
+}
+
+// 遞迴轉換任意深度的座標陣列（單一座標 or 巢狀陣列皆可）
+function transformCoordinatesDeep(coords, transformFn) {
+    if (!Array.isArray(coords)) return coords;
+    if (typeof coords[0] === 'number') {
+        const x = coords[0];
+        const y = coords[1];
+        const [lon, lat] = transformFn(x, y);
+        // 若有 Z 值（高程），原樣保留在第三位
+        return coords.length > 2 ? [lon, lat, ...coords.slice(2)] : [lon, lat];
+    }
+    return coords.map(c => transformCoordinatesDeep(c, transformFn));
+}
+
+// 遞迴走訪整個 GeoJSON（FeatureCollection / Feature / Geometry），套用座標轉換
+function deepTransformGeoJSON(node, transformFn) {
+    if (!node) return node;
+
+    if (node.type === 'FeatureCollection') {
+        return {
+            ...node,
+            features: node.features.map(f => deepTransformGeoJSON(f, transformFn))
+        };
+    }
+
+    if (node.type === 'Feature') {
+        return {
+            ...node,
+            geometry: deepTransformGeoJSON(node.geometry, transformFn)
+        };
+    }
+
+    if (node.type === 'GeometryCollection') {
+        return {
+            ...node,
+            geometries: node.geometries.map(g => deepTransformGeoJSON(g, transformFn))
+        };
+    }
+
+    if (node.coordinates) {
+        return {
+            ...node,
+            coordinates: transformCoordinatesDeep(node.coordinates, transformFn)
+        };
+    }
+
+    return node;
+}
+
+/**
+ * 自動偵測 GeoJSON 座標系統，若判定為 TWD97 (EPSG:3826) 則整批轉換為 WGS84。
+ * @param {Object} geojson - 標準化後的 FeatureCollection
+ * @returns {{ data: Object, converted: boolean, sample: number[]|null }}
+ */
+function convertGeoJSONToWGS84IfNeeded(geojson) {
+    const sample = findFirstCoordinatePair(geojson);
+
+    if (!sample) {
+        console.warn('⚠️ 無法從 GeoJSON 取得座標樣本，略過座標系統自動偵測');
+        return { data: geojson, converted: false, sample: null };
+    }
+
+    const [x, y] = sample;
+
+    // 依賴下方「多邊形匯入」區塊已定義的 isTWD97Coordinate()（Hoisting 生效）
+    if (!isTWD97Coordinate(x, y)) {
+        console.log(`ℹ️ 座標樣本 (${x}, ${y}) 判定為 WGS84 經緯度，不需轉換`);
+        return { data: geojson, converted: false, sample };
+    }
+
+    console.log(`🔄 偵測到 TWD97 座標（X=${x.toFixed(2)}, Y=${y.toFixed(2)}），開始自動轉換為 WGS84...`);
+
+    // 依賴下方已定義的 twd97ToWGS84()（Hoisting 生效）
+    const convertedData = deepTransformGeoJSON(geojson, (px, py) => twd97ToWGS84(px, py));
+
+    console.log('✅ TWD97 → WGS84 座標轉換完成（一般 GeoJSON 圖層匯入流程）');
+    return { data: convertedData, converted: true, sample };
+}
+
+/* ========================================================================
    UI 交互
    ======================================================================== */
 
@@ -1565,6 +1703,16 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
     
     geoJsonLayers[layerName] = featureGroup;
     addGeoJSONLayerControl(layerName, featureGroup, mapObj);
+
+    // ★ 修正 6：加入圖層後自動 fitBounds，確保轉換後的座標能立刻對齊視野
+    try {
+        const bounds = featureGroup.getBounds();
+        if (bounds.isValid()) {
+            mapObj.fitBounds(bounds, { maxZoom: 18, padding: [20, 20] });
+        }
+    } catch (e) {
+        console.warn('⚠️ fitBounds 失敗（可能圖層為空）:', e);
+    }
     
     console.log(`✓ GeoJSON 圖層已新增：${layerName}`);
 }
@@ -1572,6 +1720,7 @@ function addGeoJSONToMap(geoJsonData, layerName, mapObj) {
 /* ========================================================================
    修正 1a: 改進 importGeoJSON 函數
    支援嵌套結構、單一 Feature、Geometry 物件
+   ★ 修正 6：新增 TWD97 → WGS84 自動偵測與轉換
    ======================================================================== */
 
 async function importGeoJSON(file, mapObj) {
@@ -1587,13 +1736,25 @@ async function importGeoJSON(file, mapObj) {
                 const normalizedData = normalizeGeoJSON(rawData);
                 console.log('✅ 規範化後的 GeoJSON:', normalizedData);
 
+                // ★ 修正 6【核心修補】: 自動偵測座標系統，若為 TWD97 則整批轉換為 WGS84
+                // 這一步正是原本缺漏的環節：過去只有 processImportedPolygons()（多邊形匯入）
+                // 有做這個轉換，一般「📁 匯入 GeoJSON」流程完全沒有，
+                // 導致 TWD97 地籍圖資匯入後座標跑到地球另一端、無法與底圖疊合。
+                const conversionResult = convertGeoJSONToWGS84IfNeeded(normalizedData);
+                const finalData = conversionResult.data;
+
                 const layerName = file.name
                     .replace('.geojson', '')
                     .replace('.json', '')
                     .trim();
 
-                addGeoJSONToMap(normalizedData, layerName, mapObj);
-                showToast(`✓ 已匯入圖層：${layerName} (${normalizedData.features.length} 個特徵)`);
+                addGeoJSONToMap(finalData, layerName, mapObj);
+
+                let msg = `✓ 已匯入圖層：${layerName} (${finalData.features.length} 個特徵)`;
+                if (conversionResult.converted) {
+                    msg += `｜已自動轉換 TWD97 → WGS84 座標`;
+                }
+                showToast(msg);
                 resolve(layerName);
 
             } catch (error) {
