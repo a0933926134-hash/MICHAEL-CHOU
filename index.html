@@ -482,32 +482,6 @@ body {
     z-index: 800;
 }
 
-#autoFitButton {
-    position: absolute;
-    bottom: 12px;
-    right: 12px;
-    padding: 10px 14px;
-    background: #3b82f6;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    z-index: 800;
-    transition: all 0.2s;
-    display: none;
-}
-
-#autoFitButton:hover {
-    background: #2563eb;
-}
-
-#autoFitButton.show {
-    display: block;
-}
-
 #resultPanel {
     position: absolute;
     bottom: 20px;
@@ -789,6 +763,53 @@ tr.highlight {
     white-space: nowrap;
 }
 
+.query-control-section {
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 8px 0;
+}
+
+.query-control-section label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    margin: 0;
+    color: #92400e;
+    font-weight: 500;
+}
+
+.query-control-section input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: #f59e0b;
+}
+
+.use-selection-btn {
+    width: 100%;
+    padding: 10px;
+    background: #f59e0b;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+}
+
+.use-selection-btn:hover {
+    background: #d97706;
+}
+
+.use-selection-btn:disabled {
+    background: #d1d5db;
+    cursor: not-allowed;
+}
+
 @media (max-width: 1024px) {
     #sidebar {
         width: 320px;
@@ -910,6 +931,17 @@ tr.highlight {
             <div class="button-group">
                 <button class="btn-primary" onclick="getCurrentLocation()" style="background: #0ea5e9;">📡 定位</button>
                 <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
+            </div>
+
+            <!-- ★ 修正 12.0: 新增使用選中多邊形查詢的控制 -->
+            <div class="query-control-section">
+                <label>
+                    <input type="checkbox" id="useSelectedPolygonForQuery" checked>
+                    <span>使用選中多邊形作為查詢中心</span>
+                </label>
+                <div style="font-size: 11px; color: #b45309; margin-top: 6px;">
+                    ℹ️ 勾選此項後，點擊 GeoJSON 多邊形時將自動作為查詢中心，但<strong>不會改變地圖視角</strong>
+                </div>
             </div>
         </div>
         
@@ -1104,26 +1136,22 @@ tr.highlight {
     </div>
 </div>
 
-<button id="autoFitButton" onclick="resetMapViewToFitGeoJSON()" title="點擊自動調整地圖適應目前圖層">🎯 自動適配</button>
-
 <div id="statusBar">
     圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 離線模式
 </div>
 
 <script>
 /* ================================================
-   ★ 修正 11.0: 智能地圖位置記憶系統
+   ★ 修正 12.0: 分離點選多邊形與地圖定位邏輯
    ================================================ */
 
 let fitBoundsLock = false;
 let geoJsonLabelLayers = {};
 let isUpdatingView = false;
 
-// ★ 修正 11.0: 新增全域變數追蹤用戶交互
-let firstGeoJSONLoaded = false;
-let userManuallyMovedMap = false;
-let autoFitBoundsEnabled = true;
-let lastGeoJSONBounds = null;
+// ★ 修正 12.0: 新增防止自動地圖移動的標誌
+let suppressMapPanning = false;
+let selectedGeoJSONPolygonInfo = null;
 
 /* ================================================
    色彩驗證函數庫
@@ -1303,60 +1331,7 @@ const drawToolbar = document.getElementById('drawToolbar');
 const resultPanel = document.getElementById('resultPanel');
 const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
-const autoFitButton = document.getElementById('autoFitButton');
-
-/* ========================================================================
-   ★ 修正 11.0: 地圖事件監聽系統
-   ======================================================================== */
-
-// ★ 修正 11.0: 監聽用戶手動移動地圖
-map.on('dragend', () => {
-    console.log('🖱️ 用戶拖拽地圖 → 禁用自動定位');
-    userManuallyMovedMap = true;
-    updateAutoFitButtonVisibility();
-});
-
-map.on('zoomend', () => {
-    console.log('🔍 用戶縮放地圖 → 禁用自動定位');
-    userManuallyMovedMap = true;
-    updateAutoFitButtonVisibility();
-});
-
-map.on('moveend', () => {
-    if (!isUpdatingView) {
-        console.log('📍 用戶移動地圖 → 禁用自動定位');
-        userManuallyMovedMap = true;
-        updateAutoFitButtonVisibility();
-    }
-});
-
-// ★ 修正 11.0: 更新自動適配按鈕可見性
-function updateAutoFitButtonVisibility() {
-    if (userManuallyMovedMap && lastGeoJSONBounds) {
-        autoFitButton.classList.add('show');
-    } else {
-        autoFitButton.classList.remove('show');
-    }
-}
-
-// ★ 修正 11.0: 重置地圖視圖回到 GeoJSON 邊界
-function resetMapViewToFitGeoJSON() {
-    if (!lastGeoJSONBounds) {
-        showToast('❌ 沒有可適配的邊界');
-        return;
-    }
-    
-    console.log('🎯 用戶點擊自動適配按鈕');
-    isUpdatingView = true;
-    map.fitBounds(lastGeoJSONBounds, { maxZoom: 18, padding: [20, 20] });
-    setTimeout(() => { 
-        isUpdatingView = false;
-        userManuallyMovedMap = false;
-        updateAutoFitButtonVisibility();
-    }, 500);
-    
-    showToast('✓ 已調整地圖到最佳視角');
-}
+const useSelectedPolygonCheckbox = document.getElementById('useSelectedPolygonForQuery');
 
 /* ========================================================================
    updateGeoJSONFieldSelector 函數
@@ -1938,17 +1913,25 @@ function applyGeoJSONFeatureStyle(layer) {
     }
 }
 
+/* ========================================================================
+   ★ 修正 12.0: 重新設計 GeoJSON 多邊形選擇邏輯
+   分離「視覺選中」與「地圖定位」
+   ======================================================================== */
+
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     const current = geoJsonSelection[layerName];
 
+    // ★ 修正 12.0: 如果已經選中，則取消選中
     if (current === layer) {
         console.log(`🔄 取消選取 ${layer._featureId}`);
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(layer);
-        showToast('已取消選取多邊形');
+        selectedGeoJSONPolygonInfo = null;
+        showToast('✓ 已取消選取多邊形');
         return;
     }
 
+    // ★ 修正 12.0: 清除前一個選取
     if (current) {
         const prevLayer = current;
         console.log(`🔄 清除前一個選取 ${prevLayer._featureId}`);
@@ -1956,10 +1939,12 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
         applyGeoJSONFeatureStyle(prevLayer);
     }
 
+    // ★ 修正 12.0: 標記為選中但不改變地圖視角
     geoJsonSelection[layerName] = layer;
     applyGeoJSONFeatureStyle(layer);
-    console.log(`✅ 已選取 ${layer._featureId}`);
+    console.log(`✅ 已視覺上選取 ${layer._featureId}`);
 
+    // ★ 修正 12.0: 計算並儲存形心座標，但不立即改變地圖
     const coords = feature.geometry.coordinates;
     let centroidLat, centroidLon;
 
@@ -1977,20 +1962,28 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     }
 
     if (centroidLat && centroidLon) {
-        origin = [centroidLat, centroidLon];
-        latInput.value = centroidLat.toFixed(6);
-        lonInput.value = centroidLon.toFixed(6);
-        console.log(`📍 已更新查詢原點: (${centroidLat.toFixed(6)}, ${centroidLon.toFixed(6)})`);
+        // ★ 修正 12.0: 儲存多邊形資訊，但不改變 origin 或地圖視角
+        selectedGeoJSONPolygonInfo = {
+            lat: centroidLat,
+            lon: centroidLon,
+            layerName: layerName,
+            featureId: layer._featureId
+        };
+        
+        console.log(`📍 已記錄 GeoJSON 多邊形中心: (${centroidLat.toFixed(6)}, ${centroidLon.toFixed(6)})`);
+        console.log(`⚠️  地圖視角**未改變**，等待用戶確認操作`);
     }
 
+    // ★ 修正 12.0: 提示用戶可選擇是否使用此多邊形進行查詢
     const props = feature.properties || {};
     const label = props.name || props.NAME || props.Name || props['名稱'] || layer._featureId || '未命名';
-    showToast(`✓ 已選取多邊形：${label}`);
+    
+    if (useSelectedPolygonCheckbox.checked) {
+        showToast(`✓ 已選取多邊形：${label}（點擊查詢按鈕使用此中心進行查詢）`);
+    } else {
+        showToast(`✓ 已選取多邊形：${label}（請手動點擊查詢按鈕）`);
+    }
 }
-
-/* ========================================================================
-   ★ 修正 11.0: 優化的 GeoJSON 添加函數
-   ======================================================================== */
 
 function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     const explodedData = explodeMultiPolygons(geoJsonData);
@@ -2046,12 +2039,17 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 this.closePopup();
             });
 
+            // ★ 修正 12.0: 點選時ONLY進行視覺選中，不改變地圖
             layer.on('click', function (e) {
                 if (L.DomEvent && e) {
                     L.DomEvent.stopPropagation(e);
                 }
-                console.log(`🖱️ 用戶點擊多邊形: ${this._featureId}`);
+                console.log(`🖱️ 用戶點擊多邊形（無地圖移動）: ${this._featureId}`);
+                
+                // ★ 修正 12.0: 設置抑制標誌
+                suppressMapPanning = true;
                 toggleGeoJSONFeatureSelection(layerName, layer, feature);
+                suppressMapPanning = false;
             });
             
             featureGroup.addLayer(layer);
@@ -2076,46 +2074,6 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     geoJsonLayers[layerName] = featureGroup;
     addGeoJSONLayerControl(layerName, featureGroup, mapObj);
 
-    // ★ 修正 11.0: 智能 fitBounds 邏輯
-    if (!firstGeoJSONLoaded && !userManuallyMovedMap && autoFitBoundsEnabled) {
-        try {
-            const bounds = featureGroup.getBounds();
-            if (bounds.isValid()) {
-                console.log('📍 首次 GeoJSON 加載 → 執行 fitBounds');
-                lastGeoJSONBounds = bounds;
-                firstGeoJSONLoaded = true;
-                isUpdatingView = true;
-                mapObj.fitBounds(bounds, { maxZoom: 18, padding: [20, 20] });
-                setTimeout(() => { isUpdatingView = false; }, 500);
-            }
-        } catch (e) {
-            console.warn('⚠️ fitBounds 失敗（可能圖層為空）:', e);
-        }
-    } else if (!userManuallyMovedMap && autoFitBoundsEnabled) {
-        // ★ 修正 11.0: 用戶未手動移動時，可選擇更新邊界
-        try {
-            const bounds = featureGroup.getBounds();
-            if (bounds.isValid()) {
-                lastGeoJSONBounds = bounds;
-                console.log('📍 後續 GeoJSON 加載 → 保存邊界但不執行 fitBounds');
-            }
-        } catch (e) {
-            console.warn('⚠️ 邊界計算失敗:', e);
-        }
-    } else {
-        // ★ 修正 11.0: 用戶已手動移動，保存邊界供用戶手動恢復
-        try {
-            const bounds = featureGroup.getBounds();
-            if (bounds.isValid()) {
-                lastGeoJSONBounds = bounds;
-                console.log('📍 用戶已手動移動 → 保存邊界，用戶可點擊 🎯 按鈕恢復');
-                updateAutoFitButtonVisibility();
-            }
-        } catch (e) {
-            console.warn('⚠️ 邊界計算失敗:', e);
-        }
-    }
-    
     console.log(`✓ GeoJSON 圖層已新增：${layerName}（${explodedData.features.length} 個可選多邊形）`);
 }
 
@@ -2782,13 +2740,24 @@ function selectItemById(id) {
 }
 
 /* ========================================================================
-   ★ 修正 10.1 - 10.5: 主查詢函數
+   ★ 修正 12.0: 主查詢函數 - 使用已選中的 GeoJSON 多邊形
    ======================================================================== */
 
 async function runQuery() {
-    const lat = parseFloat(latInput.value);
-    const lon = parseFloat(lonInput.value);
+    let lat = parseFloat(latInput.value);
+    let lon = parseFloat(lonInput.value);
     const radius = parseFloat(radiusInput.value);
+
+    // ★ 修正 12.0: 檢查是否應使用已選中的 GeoJSON 多邊形
+    if (useSelectedPolygonCheckbox.checked && selectedGeoJSONPolygonInfo) {
+        console.log(`🎯 使用已選中的 GeoJSON 多邊形進行查詢`);
+        lat = selectedGeoJSONPolygonInfo.lat;
+        lon = selectedGeoJSONPolygonInfo.lon;
+        origin = [lat, lon];
+        latInput.value = lat.toFixed(6);
+        lonInput.value = lon.toFixed(6);
+        showToast(`✓ 已切換查詢中心到多邊形中心 (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
+    }
 
     if (radius > 3000) {
         alert("半徑超過 3000m 可能造成系統過慢");
@@ -2809,7 +2778,6 @@ async function runQuery() {
         let turfZonePolygon = null;
         let centroidForQuery = [lat, lon];
 
-        // ★ 修正 10.1: 多邊形檢測邏輯
         if (currentPolygonId) {
             const selectedPoly = polygons.find(p => p.id === currentPolygonId);
             if (selectedPoly && selectedPoly.centroid) {
@@ -2918,7 +2886,6 @@ async function runQuery() {
                 let typeName = rawType;
                 if (rawType === "motorway_junction") typeName = "交流道";
                 
-                // ★ 修正 10.2: 判斷是否在多邊形範圍內
                 let inside = false;
                 if (turfZonePolygon) {
                     let pt = turf.point([lon2, lat2]);
@@ -2944,7 +2911,6 @@ async function runQuery() {
             let finalLat = sch.lat;
             let finalLon = sch.lon;
 
-            // ★ 修正 10.2: 判斷是否在多邊形範圍內
             let inside = false;
             if (turfZonePolygon) {
                 let pt = turf.point([finalLon, finalLat]);
@@ -2974,7 +2940,6 @@ async function runQuery() {
                         item.座標 = bestEntrance.coordinate;
                         item.類型 = "交流道入口";
                         
-                        // ★ 修正 10.2: 重新判斷交流道入口是否在範圍內
                         let inside = false;
                         if (turfZonePolygon) {
                             let pt = turf.point([item.座標[1], item.座標[0]]);
@@ -3005,9 +2970,8 @@ async function runQuery() {
 
         queryBtn.innerText = "🚗 計算路線中...";
 
-        // ★ 修正 10.4 & 10.5: 優化 OSRM 計算邏輯
         for (const item of results.slice(0, 80)) {
-            if (item.在範圍內) continue;  // ★ 修正 10.5: 跳過範圍內的項目，不計算 OSRM
+            if (item.在範圍內) continue;
             let isJunc = item.原始類型 === "motorway_junction";
             const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
             item.路線距離數值 = routeRes.value;
@@ -3040,10 +3004,6 @@ function sortResults(type) {
     renderTable();
 }
 
-/* ========================================================================
-   ★ 修正 10.2 & 10.3: 表格渲染函數
-   ======================================================================== */
-
 function renderTable() {
     tbody.innerHTML = "";
     results.forEach(item => {
@@ -3051,13 +3011,11 @@ function renderTable() {
         tr.dataset.id = item.id;
         tr.onclick = () => selectItemById(item.id);
         
-        // ★ 修正 10.3: 直線距離顯示邏輯
         let distanceDisplay = item.直線距離顯示;
         if (item.在範圍內) {
             distanceDisplay = '<span class="in-polygon-badge">在區段範圍內</span>';
         }
         
-        // ★ 修正 10.3: 路線距離顯示邏輯
         let routeDisplay = item.路線距離;
         if (item.在範圍內) {
             routeDisplay = '<span class="in-polygon-badge">在區段範圍內</span>';
@@ -3076,7 +3034,6 @@ function renderTable() {
 function exportExcel() {
     if (!results.length) { alert("無資料"); return; }
     
-    // ★ 修正 10.3: Excel 匯出時保留「在區段範圍內」標籤
     const exportData = results.map(r => ({
         名稱: r.名稱,
         類型: r.類型,
@@ -3414,7 +3371,7 @@ document.addEventListener('mouseup', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v1.1.4 - 智能地圖位置記憶系統）');
+    console.log('✅ 系統初始化完成（v1.1.4 - 修正版本 12.0 - GeoJSON 多邊形點選無地圖重新定位）');
 });
 
 </script>
