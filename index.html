@@ -836,19 +836,36 @@ body.mobile-mode #drawToolbar {
     color: #0369a1;
 }
 
-/* ★ 修正 v15.0: GeoJSON 標籤完全禁用互動 */
+/* ★ 修正 v15.1: GeoJSON 標籤完全禁用互動 */
 .geojson-field-label {
-    background: rgba(255, 255, 255, 0.92);
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 11px;
-    font-weight: 500;
-    color: #1f2937;
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: #1f2937 !important;
     pointer-events: none !important;
-    white-space: nowrap;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    white-space: nowrap !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
     z-index: 100 !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    cursor: auto !important;
+}
+
+.geojson-field-label * {
+    pointer-events: none !important;
+}
+
+/* ★ 確保 tooltip 容器也禁用互動 */
+.leaflet-tooltip {
+    pointer-events: none !important;
+}
+
+.leaflet-tooltip.geojson-field-label {
+    pointer-events: none !important;
+    touch-action: none !important;
 }
 
 .query-control-section {
@@ -967,7 +984,6 @@ body.mobile-mode #drawToolbar {
 </head>
 <body>
 
-<!-- ★ 修正 v15.0: 設備模式切換按鈕 -->
 <div id="deviceToggle" title="切換設備模式">💻</div>
 
 <div id="sidebar">
@@ -1210,10 +1226,10 @@ body.mobile-mode #drawToolbar {
 
 <script>
 /* ================================================
-   ★ 修正 v15.0: 
-   1. 完全禁用 GeoJSON 標籤圖層的互動性
-   2. 確保標籤不會阻止多邊形點擊事件
-   3. 重新設計標籤圖層建立邏輯
+   ★ 修正 v15.1: 
+   1. 標籤圖層使用獨立透明圖層
+   2. interactive: false 確保不阻礙點擊
+   3. pointer-events: none 全面禁用互動
    ================================================ */
 
 let fitBoundsLock = false;
@@ -1474,53 +1490,75 @@ function updateGeoJSONFieldSelector() {
     }
 }
 
-/* ★ 修正 v15.0: 重新設計標籤圖層建立邏輯 */
+/* ★ 修正 v15.1: 完全重新設計標籤圖層 - 使用獨立透明圖層 */
 function renderGeoJSONLabels(explodedData, layerName, mapObj) {
+    // 移除舊標籤圖層
     if (geoJsonLabelLayers[layerName]) {
         mapObj.removeLayer(geoJsonLabelLayers[layerName]);
+        delete geoJsonLabelLayers[layerName];
     }
 
     if (!geoJsonFieldInfo.activeField) return;
 
-    const labelLayerGroup = L.featureGroup();
+    const labelGroup = L.featureGroup();
 
-    L.geoJSON(explodedData, {
+    // 建立透明標籤圖層 - 完全不互動
+    const labelLayer = L.geoJSON(explodedData, {
+        style: () => ({
+            color: 'transparent',
+            weight: 0,
+            fillColor: 'transparent',
+            fillOpacity: 0,
+            opacity: 0
+        }),
+        interactive: false, // ★ 關鍵：禁用所有互動
         onEachFeature: (feature, layer) => {
             const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
             if (fieldValue) {
-                const label = L.tooltip({
-                    permanent: true,
-                    direction: 'center',
-                    className: 'geojson-field-label'
-                });
-                label.setContent(String(fieldValue));
+                // 使用 permanent tooltip 作為標籤
+                const tooltipText = String(fieldValue);
+                layer.bindTooltip(
+                    L.tooltip({
+                        permanent: true,
+                        direction: 'center',
+                        className: 'geojson-field-label',
+                        offset: [0, 0]
+                    }).setContent(tooltipText)
+                );
                 
-                /* ★ 修正 v15.0: 禁用標籤互動 */
-                layer.bindTooltip(label);
-                
-                /* ★ 確保標籤圖層不會干擾點擊 */
-                if (layer.getElement) {
-                    const elem = layer.getElement();
-                    if (elem) {
-                        elem.style.pointerEvents = 'none';
+                // ★ 強制禁用 tooltip 的互動
+                if (layer.getTooltip) {
+                    const tooltip = layer.getTooltip();
+                    if (tooltip && tooltip._container) {
+                        tooltip._container.style.pointerEvents = 'none';
+                        tooltip._container.style.cursor = 'auto';
                     }
                 }
             }
         },
         pointToLayer: (feature, latlng) => {
-            return L.circleMarker(latlng, { radius: 0, opacity: 0 });
-        },
-        style: () => ({ 
-            color: 'transparent', 
-            weight: 0, 
-            fillOpacity: 0,
-            opacity: 0,
-            className: 'geojson-label-wrapper'
-        })
-    }).addTo(labelLayerGroup);
+            return L.circleMarker(latlng, {
+                radius: 0,
+                opacity: 0,
+                fillOpacity: 0,
+                interactive: false // ★ 禁用點標記互動
+            });
+        }
+    });
 
-    labelLayerGroup.addTo(mapObj);
-    geoJsonLabelLayers[layerName] = labelLayerGroup;
+    labelLayer.addTo(mapObj);
+    labelLayer.addTo(labelGroup);
+    
+    geoJsonLabelLayers[layerName] = labelGroup;
+    
+    // ★ 強制設定圖層的 interactive 屬性
+    labelLayer.eachLayer(layer => {
+        layer.interactive = false;
+        if (layer._path) {
+            layer._path.style.pointerEvents = 'none';
+        }
+    });
+
     console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}（完全禁用互動）`);
 }
 
@@ -2072,16 +2110,17 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     }
 }
 
+/* ★ 修正 v15.1: 確保主互動圖層優先級 */
 function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     const explodedData = explodeMultiPolygons(geoJsonData);
-
     const featureGroup = L.featureGroup();
 
     geoJsonFeatures[layerName] = explodedData;
-
     let featureCounter = 0;
 
-    L.geoJSON(explodedData, {
+    // ★ 建立主互動圖層
+    const geoJsonLayer = L.geoJSON(explodedData, {
+        interactive: true, // ★ 確保主圖層可互動
         style: (feature) => {
             const extractedStyle = extractStyleFromProperties(feature.properties);
             return {
@@ -2103,6 +2142,7 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
             };
             layer._layerName = layerName;
             layer._featureId = `${layerName}_${featureCounter++}`;
+            layer.interactive = true; // ★ 確保此圖層互動
 
             const popupContent = createPopupContent(feature.properties, layerName);
             layer.bindPopup(popupContent);
@@ -2117,8 +2157,8 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                         fillOpacity: 0.25
                     };
                     this.setStyle(highlightStyle);
+                    this.bringToFront(); // ★ 帶到前面
                 }
-                console.log(`🖱️ 滑鼠移入: ${this._featureId}`);
             });
             
             layer.on('mouseout', function () {
@@ -2126,9 +2166,12 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 this.closePopup();
             });
 
-            /* ★ 修正 v15.0: 確保點擊事件正確傳遞 */
+            // ★ 修正點擊事件 - 停止事件傳播
             layer.on('click', function (e) {
-                if (L.DomEvent && e) {
+                if (e && e.originalEvent) {
+                    e.originalEvent.stopPropagation();
+                }
+                if (L.DomEvent) {
                     L.DomEvent.stopPropagation(e);
                 }
                 console.log(`🖱️ 點擊多邊形: ${this._featureId}`);
@@ -2147,15 +2190,18 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 color: extractedStyle.color,
                 weight: extractedStyle.weight,
                 opacity: extractedStyle.opacity,
-                fillOpacity: 0.08
+                fillOpacity: 0.08,
+                interactive: true // ★ 確保點標記互動
             });
         }
     }).addTo(mapObj);
     
-    /* ★ 修正 v15.0: 在多邊形圖層之後添加標籤圖層 */
-    if (geoJsonFieldInfo.activeField) {
-        renderGeoJSONLabels(explodedData, layerName, mapObj);
-    }
+    // ★ 標籤圖層應在主圖層之上但完全不互動
+    setTimeout(() => {
+        if (geoJsonFieldInfo.activeField) {
+            renderGeoJSONLabels(explodedData, layerName, mapObj);
+        }
+    }, 100);
     
     geoJsonLayers[layerName] = featureGroup;
     addGeoJSONLayerControl(layerName, featureGroup, mapObj);
@@ -3464,7 +3510,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v1.3.0 - 修正版本 15.0 - 修正 GeoJSON 標籤欄位選取後無法選擇多邊形）');
+    console.log('✅ 系統初始化完成（v15.1 - 修正 GeoJSON 標籤圖層互動性問題）');
 });
 
 </script>
