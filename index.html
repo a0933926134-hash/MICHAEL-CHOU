@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>區段勘查小幫手</title>
+<title>市價徵收查估作業系統</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -25,7 +25,6 @@ body {
 
 #map { height: 100vh; width: 100%; }
 
-/* ★ 修正 v14.0: 新增設備模式變數 */
 :root {
     --device-mode: desktop;
     --sidebar-width: 380px;
@@ -837,6 +836,7 @@ body.mobile-mode #drawToolbar {
     color: #0369a1;
 }
 
+/* ★ 修正 v15.0: GeoJSON 標籤完全禁用互動 */
 .geojson-field-label {
     background: rgba(255, 255, 255, 0.92);
     border: 1px solid #e5e7eb;
@@ -845,9 +845,10 @@ body.mobile-mode #drawToolbar {
     font-size: 11px;
     font-weight: 500;
     color: #1f2937;
-    pointer-events: none;
+    pointer-events: none !important;
     white-space: nowrap;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    z-index: 100 !important;
 }
 
 .query-control-section {
@@ -966,7 +967,7 @@ body.mobile-mode #drawToolbar {
 </head>
 <body>
 
-<!-- ★ 修正 v14.0: 新增設備模式切換按鈕 -->
+<!-- ★ 修正 v15.0: 設備模式切換按鈕 -->
 <div id="deviceToggle" title="切換設備模式">💻</div>
 
 <div id="sidebar">
@@ -1209,10 +1210,10 @@ body.mobile-mode #drawToolbar {
 
 <script>
 /* ================================================
-   ★ 修正 v14.0: 
-   1. 新增設備模式切換功能
-   2. 修正「位於區段內」顯示邏輯
-   3. 修正 GeoJSON 標籤選擇影響多邊形點選問題
+   ★ 修正 v15.0: 
+   1. 完全禁用 GeoJSON 標籤圖層的互動性
+   2. 確保標籤不會阻止多邊形點擊事件
+   3. 重新設計標籤圖層建立邏輯
    ================================================ */
 
 let fitBoundsLock = false;
@@ -1222,7 +1223,6 @@ let suppressMapPanning = false;
 let selectedGeoJSONPolygonInfo = null;
 let deviceMode = 'desktop';
 
-/* ★ 修正 v14.0: 設備模式初始化 */
 function initDeviceMode() {
     const width = window.innerWidth;
     if (width <= 768) {
@@ -1474,6 +1474,7 @@ function updateGeoJSONFieldSelector() {
     }
 }
 
+/* ★ 修正 v15.0: 重新設計標籤圖層建立邏輯 */
 function renderGeoJSONLabels(explodedData, layerName, mapObj) {
     if (geoJsonLabelLayers[layerName]) {
         mapObj.removeLayer(geoJsonLabelLayers[layerName]);
@@ -1493,18 +1494,34 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
                     className: 'geojson-field-label'
                 });
                 label.setContent(String(fieldValue));
+                
+                /* ★ 修正 v15.0: 禁用標籤互動 */
                 layer.bindTooltip(label);
+                
+                /* ★ 確保標籤圖層不會干擾點擊 */
+                if (layer.getElement) {
+                    const elem = layer.getElement();
+                    if (elem) {
+                        elem.style.pointerEvents = 'none';
+                    }
+                }
             }
         },
         pointToLayer: (feature, latlng) => {
-            return L.circleMarker(latlng, { radius: 0 });
+            return L.circleMarker(latlng, { radius: 0, opacity: 0 });
         },
-        style: () => ({ color: 'transparent', weight: 0, fillOpacity: 0 })
+        style: () => ({ 
+            color: 'transparent', 
+            weight: 0, 
+            fillOpacity: 0,
+            opacity: 0,
+            className: 'geojson-label-wrapper'
+        })
     }).addTo(labelLayerGroup);
 
     labelLayerGroup.addTo(mapObj);
     geoJsonLabelLayers[layerName] = labelLayerGroup;
-    console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}`);
+    console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}（完全禁用互動）`);
 }
 
 function updateGeoJSONFieldLabel() {
@@ -1995,7 +2012,6 @@ function applyGeoJSONFeatureStyle(layer) {
     }
 }
 
-/* ★ 修正 v14.0: 修正 GeoJSON 多邊形選擇邏輯 - 防止標籤欄位干擾 */
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     const current = geoJsonSelection[layerName];
 
@@ -2044,7 +2060,6 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
         };
         
         console.log(`📍 已記錄 GeoJSON 多邊形中心: (${centroidLat.toFixed(6)}, ${centroidLon.toFixed(6)})`);
-        console.log(`⚠️  地圖視角**未改變**，等待用戶確認操作`);
     }
 
     const props = feature.properties || {};
@@ -2053,7 +2068,7 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     if (useSelectedPolygonCheckbox.checked) {
         showToast(`✓ 已選取多邊形：${label}（點擊查詢按鈕使用此中心進行查詢）`);
     } else {
-        showToast(`✓ 已選取多邊形：${label}（請手動點擊查詢按鈕）`);
+        showToast(`✓ 已選取多邊形：${label}`);
     }
 }
 
@@ -2103,7 +2118,7 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                     };
                     this.setStyle(highlightStyle);
                 }
-                console.log(`🖱️ 滑鼠移入: ${this._featureId}（不顯示 popup）`);
+                console.log(`🖱️ 滑鼠移入: ${this._featureId}`);
             });
             
             layer.on('mouseout', function () {
@@ -2111,13 +2126,12 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 this.closePopup();
             });
 
-            /* ★ 修正 v14.0: 防止事件冒泡干擾 */
+            /* ★ 修正 v15.0: 確保點擊事件正確傳遞 */
             layer.on('click', function (e) {
                 if (L.DomEvent && e) {
                     L.DomEvent.stopPropagation(e);
                 }
-                console.log(`🖱️ 用戶點擊多邊形（無地圖移動）: ${this._featureId}`);
-                
+                console.log(`🖱️ 點擊多邊形: ${this._featureId}`);
                 suppressMapPanning = true;
                 toggleGeoJSONFeatureSelection(layerName, layer, feature);
                 suppressMapPanning = false;
@@ -2138,6 +2152,7 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
         }
     }).addTo(mapObj);
     
+    /* ★ 修正 v15.0: 在多邊形圖層之後添加標籤圖層 */
     if (geoJsonFieldInfo.activeField) {
         renderGeoJSONLabels(explodedData, layerName, mapObj);
     }
@@ -3070,7 +3085,6 @@ function sortResults(type) {
     renderTable();
 }
 
-/* ★ 修正 v14.0: 修正「位於區段內」顯示邏輯 */
 function renderTable() {
     tbody.innerHTML = "";
     results.forEach(item => {
@@ -3450,7 +3464,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v1.2.0 - 修正版本 14.0 - 新增響應式設計、修正 GeoJSON 標籤干擾、修正位於區段內顯示）');
+    console.log('✅ 系統初始化完成（v1.3.0 - 修正版本 15.0 - 修正 GeoJSON 標籤欄位選取後無法選擇多邊形）');
 });
 
 </script>
