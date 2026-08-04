@@ -382,9 +382,9 @@ body {
     opacity: 0.8;
 }
 
+/* ★ 修正 v13.0: 移除 GeoJSON popup 樣式 */
 .popup {
-    font-size: 12px;
-    min-width: 200px;
+    display: none !important;
 }
 
 .popup strong {
@@ -897,6 +897,15 @@ tr.highlight {
     to { transform: translateX(0); opacity: 1; }
 }
 
+/* ★ 修正 v13.0: 隱藏 Leaflet 預設 popup */
+.leaflet-popup {
+    display: none !important;
+}
+
+.leaflet-popup-content-wrapper {
+    display: none !important;
+}
+
 </style>
 </head>
 <body>
@@ -933,7 +942,6 @@ tr.highlight {
                 <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
             </div>
 
-            <!-- ★ 修正 12.0: 新增使用選中多邊形查詢的控制 -->
             <div class="query-control-section">
                 <label>
                     <input type="checkbox" id="useSelectedPolygonForQuery" checked>
@@ -1142,14 +1150,14 @@ tr.highlight {
 
 <script>
 /* ================================================
-   ★ 修正 12.0: 分離點選多邊形與地圖定位邏輯
+   ★ 修正 v13.0: 分離點選多邊形與地圖定位邏輯
+   移除 GeoJSON popup 顯示
    ================================================ */
 
 let fitBoundsLock = false;
 let geoJsonLabelLayers = {};
 let isUpdatingView = false;
 
-// ★ 修正 12.0: 新增防止自動地圖移動的標誌
 let suppressMapPanning = false;
 let selectedGeoJSONPolygonInfo = null;
 
@@ -1914,14 +1922,13 @@ function applyGeoJSONFeatureStyle(layer) {
 }
 
 /* ========================================================================
-   ★ 修正 12.0: 重新設計 GeoJSON 多邊形選擇邏輯
-   分離「視覺選中」與「地圖定位」
+   ★ 修正 v13.0: 重新設計 GeoJSON 多邊形選擇邏輯
+   分離「視覺選中」與「地圖定位」，並移除 popup 顯示
    ======================================================================== */
 
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     const current = geoJsonSelection[layerName];
 
-    // ★ 修正 12.0: 如果已經選中，則取消選中
     if (current === layer) {
         console.log(`🔄 取消選取 ${layer._featureId}`);
         delete geoJsonSelection[layerName];
@@ -1931,7 +1938,6 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
         return;
     }
 
-    // ★ 修正 12.0: 清除前一個選取
     if (current) {
         const prevLayer = current;
         console.log(`🔄 清除前一個選取 ${prevLayer._featureId}`);
@@ -1939,12 +1945,10 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
         applyGeoJSONFeatureStyle(prevLayer);
     }
 
-    // ★ 修正 12.0: 標記為選中但不改變地圖視角
     geoJsonSelection[layerName] = layer;
     applyGeoJSONFeatureStyle(layer);
     console.log(`✅ 已視覺上選取 ${layer._featureId}`);
 
-    // ★ 修正 12.0: 計算並儲存形心座標，但不立即改變地圖
     const coords = feature.geometry.coordinates;
     let centroidLat, centroidLon;
 
@@ -1962,7 +1966,6 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     }
 
     if (centroidLat && centroidLon) {
-        // ★ 修正 12.0: 儲存多邊形資訊，但不改變 origin 或地圖視角
         selectedGeoJSONPolygonInfo = {
             lat: centroidLat,
             lon: centroidLon,
@@ -1974,7 +1977,6 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
         console.log(`⚠️  地圖視角**未改變**，等待用戶確認操作`);
     }
 
-    // ★ 修正 12.0: 提示用戶可選擇是否使用此多邊形進行查詢
     const props = feature.properties || {};
     const label = props.name || props.NAME || props.Name || props['名稱'] || layer._featureId || '未命名';
     
@@ -2020,6 +2022,7 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
             const popupContent = createPopupContent(feature.properties, layerName);
             layer.bindPopup(popupContent);
             
+            /* ★ 修正 v13.0: 移除 mouseover 自動彈出 popup */
             layer.on('mouseover', function () {
                 if (this.setStyle && typeof this.setStyle === 'function') {
                     const highlightStyle = {
@@ -2031,7 +2034,9 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                     };
                     this.setStyle(highlightStyle);
                 }
-                this.openPopup();
+                // ★ 修正 v13.0: 注釋掉自動 openPopup
+                // this.openPopup();
+                console.log(`🖱️ 滑鼠移入: ${this._featureId}（不顯示 popup）`);
             });
             
             layer.on('mouseout', function () {
@@ -2039,14 +2044,12 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 this.closePopup();
             });
 
-            // ★ 修正 12.0: 點選時ONLY進行視覺選中，不改變地圖
             layer.on('click', function (e) {
                 if (L.DomEvent && e) {
                     L.DomEvent.stopPropagation(e);
                 }
                 console.log(`🖱️ 用戶點擊多邊形（無地圖移動）: ${this._featureId}`);
                 
-                // ★ 修正 12.0: 設置抑制標誌
                 suppressMapPanning = true;
                 toggleGeoJSONFeatureSelection(layerName, layer, feature);
                 suppressMapPanning = false;
@@ -2739,16 +2742,11 @@ function selectItemById(id) {
     selectItem(item);
 }
 
-/* ========================================================================
-   ★ 修正 12.0: 主查詢函數 - 使用已選中的 GeoJSON 多邊形
-   ======================================================================== */
-
 async function runQuery() {
     let lat = parseFloat(latInput.value);
     let lon = parseFloat(lonInput.value);
     const radius = parseFloat(radiusInput.value);
 
-    // ★ 修正 12.0: 檢查是否應使用已選中的 GeoJSON 多邊形
     if (useSelectedPolygonCheckbox.checked && selectedGeoJSONPolygonInfo) {
         console.log(`🎯 使用已選中的 GeoJSON 多邊形進行查詢`);
         lat = selectedGeoJSONPolygonInfo.lat;
@@ -3371,7 +3369,7 @@ document.addEventListener('mouseup', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v1.1.4 - 修正版本 12.0 - GeoJSON 多邊形點選無地圖重新定位）');
+    console.log('✅ 系統初始化完成（v1.1.4 - 修正版本 13.0 - 移除 GeoJSON popup 顯示）');
 });
 
 </script>
