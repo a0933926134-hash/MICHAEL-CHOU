@@ -25,6 +25,40 @@ body {
 
 #map { height: 100vh; width: 100%; }
 
+/* ★ 修正 v14.0: 新增設備模式變數 */
+:root {
+    --device-mode: desktop;
+    --sidebar-width: 380px;
+    --sidebar-position: left;
+}
+
+body.mobile-mode {
+    --device-mode: mobile;
+    --sidebar-width: 100%;
+    --sidebar-position: bottom;
+}
+
+#deviceToggle {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 10001;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+#deviceToggle:hover {
+    background: #f3f4f6;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
 #sidebar {
     position: absolute;
     left: 0;
@@ -42,6 +76,22 @@ body {
 
 #sidebar.collapsed {
     transform: translateX(-380px);
+}
+
+body.mobile-mode #sidebar {
+    position: fixed;
+    width: 100%;
+    height: 50vh;
+    bottom: 0;
+    left: 0;
+    top: auto;
+    transform: translateY(100%);
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+}
+
+body.mobile-mode #sidebar:not(.collapsed) {
+    transform: translateY(0);
 }
 
 #sidebarToggle {
@@ -64,6 +114,18 @@ body {
 
 #sidebarToggle:hover {
     background: #f3f4f6;
+}
+
+body.mobile-mode #sidebarToggle {
+    position: fixed;
+    right: auto;
+    left: 50%;
+    bottom: 50vh;
+    top: auto;
+    transform: translateX(-50%);
+    border-radius: 8px 8px 0 0;
+    width: 35px;
+    height: 35px;
 }
 
 #sidebarHeader {
@@ -382,7 +444,6 @@ body {
     opacity: 0.8;
 }
 
-/* ★ 修正 v13.0: 移除 GeoJSON popup 樣式 */
 .popup {
     display: none !important;
 }
@@ -434,14 +495,32 @@ body {
     gap: 0;
 }
 
+body.mobile-mode #toolbar {
+    flex-direction: row;
+    bottom: 20px;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    top: auto;
+}
+
 .toolbar-section {
     display: flex;
     flex-direction: column;
     padding: 0;
 }
 
+body.mobile-mode .toolbar-section {
+    flex-direction: row;
+}
+
 .toolbar-section:not(:last-child) {
     border-bottom: 1px solid #e5e7eb;
+}
+
+body.mobile-mode .toolbar-section:not(:last-child) {
+    border-bottom: none;
+    border-right: 1px solid #e5e7eb;
 }
 
 .toolbar-btn {
@@ -482,6 +561,10 @@ body {
     z-index: 800;
 }
 
+body.mobile-mode #statusBar {
+    display: none;
+}
+
 #resultPanel {
     position: absolute;
     bottom: 20px;
@@ -500,6 +583,13 @@ body {
 
 #resultPanel.hidden {
     display: none;
+}
+
+body.mobile-mode #resultPanel {
+    width: 90vw;
+    right: 5vw;
+    bottom: 60vh;
+    max-height: 300px;
 }
 
 #resultHeader {
@@ -606,6 +696,10 @@ tr.highlight {
     display: none;
 }
 
+body.mobile-mode #routeCard {
+    display: none;
+}
+
 #routeCard strong {
     color: #10b981;
     font-size: 14px;
@@ -625,6 +719,10 @@ tr.highlight {
     gap: 0;
     overflow: hidden;
     transition: all 0.3s;
+}
+
+body.mobile-mode #drawToolbar {
+    display: none;
 }
 
 #drawToolbar.hidden {
@@ -752,17 +850,6 @@ tr.highlight {
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-.in-polygon-badge {
-    display: inline-block;
-    background: #dbeafe;
-    color: #1e40af;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
 .query-control-section {
     background: #fffbeb;
     border-left: 4px solid #f59e0b;
@@ -827,37 +914,8 @@ tr.highlight {
 }
 
 @media (max-width: 768px) {
-    #sidebar {
-        width: 100%;
-        height: 50vh;
-        bottom: 0;
-        left: 0;
-        transform: translateY(100%);
-        transition: transform 0.3s ease;
-    }
-    
-    #sidebar:not(.collapsed) {
-        transform: translateY(0);
-    }
-    
-    #sidebarToggle {
-        position: fixed;
-        right: auto;
-        left: 50%;
-        bottom: 50vh;
-        transform: translateX(-50%);
-        border-radius: 8px 8px 0 0;
-    }
-    
-    #resultPanel {
-        width: 90vw;
-        right: 5vw;
-        bottom: 50vh;
-    }
-    
-    #toolbar {
-        right: 5px;
-        left: auto;
+    body:not(.mobile-mode) #deviceToggle {
+        display: block;
     }
 }
 
@@ -897,7 +955,6 @@ tr.highlight {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* ★ 修正 v13.0: 隱藏 Leaflet 預設 popup */
 .leaflet-popup {
     display: none !important;
 }
@@ -905,10 +962,12 @@ tr.highlight {
 .leaflet-popup-content-wrapper {
     display: none !important;
 }
-
 </style>
 </head>
 <body>
+
+<!-- ★ 修正 v14.0: 新增設備模式切換按鈕 -->
+<div id="deviceToggle" title="切換設備模式">💻</div>
 
 <div id="sidebar">
     <div id="sidebarToggle">◀</div>
@@ -1150,20 +1209,55 @@ tr.highlight {
 
 <script>
 /* ================================================
-   ★ 修正 v13.0: 分離點選多邊形與地圖定位邏輯
-   移除 GeoJSON popup 顯示
+   ★ 修正 v14.0: 
+   1. 新增設備模式切換功能
+   2. 修正「位於區段內」顯示邏輯
+   3. 修正 GeoJSON 標籤選擇影響多邊形點選問題
    ================================================ */
 
 let fitBoundsLock = false;
 let geoJsonLabelLayers = {};
 let isUpdatingView = false;
-
 let suppressMapPanning = false;
 let selectedGeoJSONPolygonInfo = null;
+let deviceMode = 'desktop';
 
-/* ================================================
-   色彩驗證函數庫
-   ================================================ */
+/* ★ 修正 v14.0: 設備模式初始化 */
+function initDeviceMode() {
+    const width = window.innerWidth;
+    if (width <= 768) {
+        deviceMode = 'mobile';
+        document.body.classList.add('mobile-mode');
+        document.getElementById('deviceToggle').textContent = '📱';
+    } else {
+        deviceMode = 'desktop';
+        document.body.classList.remove('mobile-mode');
+        document.getElementById('deviceToggle').textContent = '💻';
+    }
+    console.log(`✓ 設備模式初始化: ${deviceMode}`);
+}
+
+function toggleDeviceMode() {
+    if (deviceMode === 'desktop') {
+        deviceMode = 'mobile';
+        document.body.classList.add('mobile-mode');
+        document.getElementById('deviceToggle').textContent = '📱';
+        showToast('✓ 已切換至行動模式');
+        console.log('✓ 已切換至行動模式');
+    } else {
+        deviceMode = 'desktop';
+        document.body.classList.remove('mobile-mode');
+        document.getElementById('deviceToggle').textContent = '💻';
+        showToast('✓ 已切換至電腦模式');
+        console.log('✓ 已切換至電腦模式');
+    }
+    
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 300);
+}
+
+document.getElementById('deviceToggle').addEventListener('click', toggleDeviceMode);
 
 const namedColorsMap = {
     'red': '#ff0000', 'blue': '#0000ff', 'green': '#008000',
@@ -1215,10 +1309,6 @@ function hasNestedProperty(obj, path) {
     return getNestedProperty(obj, path) !== undefined;
 }
 
-/* ========================================================================
-   色彩欄位全域配置
-   ======================================================================== */
-
 const colorFieldsConfig = {
     standardFields: [
         'color', 'fill_color', 'fillColor', 'stroke_color', 'strokeColor',
@@ -1243,10 +1333,6 @@ let geoJsonFieldInfo = {
 };
 
 let geoJsonSelection = {};
-
-/* ========================================================================
-   全域變數初始化
-   ======================================================================== */
 
 let map = L.map('map').setView([25.012098, 121.465675], 15);
 
@@ -1340,10 +1426,6 @@ const resultPanel = document.getElementById('resultPanel');
 const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
 const useSelectedPolygonCheckbox = document.getElementById('useSelectedPolygonForQuery');
-
-/* ========================================================================
-   updateGeoJSONFieldSelector 函數
-   ======================================================================== */
 
 function updateGeoJSONFieldSelector() {
     const selector = document.getElementById('geojsonFieldSelector');
@@ -1644,10 +1726,6 @@ function convertGeoJSONToWGS84IfNeeded(geojson) {
     return { data: convertedData, converted: true, sample };
 }
 
-/* ========================================================================
-   UI 交互
-   ======================================================================== */
-
 sidebarToggle.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
     sidebarToggle.innerText = sidebar.classList.contains('collapsed') ? '▶' : '◀';
@@ -1678,10 +1756,6 @@ function escapeHtml(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
-
-/* ========================================================================
-   extractStyleFromProperties 改進版本
-   ======================================================================== */
 
 function extractStyleFromProperties(properties) {
     const style = { ...defaultStyles };
@@ -1921,11 +1995,7 @@ function applyGeoJSONFeatureStyle(layer) {
     }
 }
 
-/* ========================================================================
-   ★ 修正 v13.0: 重新設計 GeoJSON 多邊形選擇邏輯
-   分離「視覺選中」與「地圖定位」，並移除 popup 顯示
-   ======================================================================== */
-
+/* ★ 修正 v14.0: 修正 GeoJSON 多邊形選擇邏輯 - 防止標籤欄位干擾 */
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     const current = geoJsonSelection[layerName];
 
@@ -2022,7 +2092,6 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
             const popupContent = createPopupContent(feature.properties, layerName);
             layer.bindPopup(popupContent);
             
-            /* ★ 修正 v13.0: 移除 mouseover 自動彈出 popup */
             layer.on('mouseover', function () {
                 if (this.setStyle && typeof this.setStyle === 'function') {
                     const highlightStyle = {
@@ -2034,8 +2103,6 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                     };
                     this.setStyle(highlightStyle);
                 }
-                // ★ 修正 v13.0: 注釋掉自動 openPopup
-                // this.openPopup();
                 console.log(`🖱️ 滑鼠移入: ${this._featureId}（不顯示 popup）`);
             });
             
@@ -2044,6 +2111,7 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 this.closePopup();
             });
 
+            /* ★ 修正 v14.0: 防止事件冒泡干擾 */
             layer.on('click', function (e) {
                 if (L.DomEvent && e) {
                     L.DomEvent.stopPropagation(e);
@@ -2693,7 +2761,7 @@ async function drawRoute(to, item) {
     try {
         if (!origin) return;
         if (item.在範圍內) {
-            routeInfo.innerText = "位於範圍內（距離 = 在區段範圍內）";
+            routeInfo.innerText = "位於區段內";
             routeCard.classList.remove('hidden');
             if (routeLayer) map.removeLayer(routeLayer);
             return;
@@ -3002,6 +3070,7 @@ function sortResults(type) {
     renderTable();
 }
 
+/* ★ 修正 v14.0: 修正「位於區段內」顯示邏輯 */
 function renderTable() {
     tbody.innerHTML = "";
     results.forEach(item => {
@@ -3009,15 +3078,8 @@ function renderTable() {
         tr.dataset.id = item.id;
         tr.onclick = () => selectItemById(item.id);
         
-        let distanceDisplay = item.直線距離顯示;
-        if (item.在範圍內) {
-            distanceDisplay = '<span class="in-polygon-badge">在區段範圍內</span>';
-        }
-        
-        let routeDisplay = item.路線距離;
-        if (item.在範圍內) {
-            routeDisplay = '<span class="in-polygon-badge">在區段範圍內</span>';
-        }
+        let distanceDisplay = item.在範圍內 ? '位於區段內' : item.直線距離顯示;
+        let routeDisplay = item.在範圍內 ? '位於區段內' : (item.路線距離 || '');
         
         tr.innerHTML = `
             <td>${escapeHtml(item.名稱)}</td>
@@ -3035,8 +3097,8 @@ function exportExcel() {
     const exportData = results.map(r => ({
         名稱: r.名稱,
         類型: r.類型,
-        直線距離: r.在範圍內 ? "在區段範圍內" : r.直線距離顯示,
-        路線距離: r.在範圍內 ? "在區段範圍內" : (r.路線距離 || "")
+        直線距離: r.在範圍內 ? "位於區段內" : r.直線距離顯示,
+        路線距離: r.在範圍內 ? "位於區段內" : (r.路線距離 || "")
     }));
     
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -3367,9 +3429,28 @@ document.addEventListener('mouseup', () => {
     isDragging = false;
 });
 
+window.addEventListener('resize', () => {
+    const width = window.innerWidth;
+    const newMode = width <= 768 ? 'mobile' : 'desktop';
+    if (newMode !== deviceMode) {
+        deviceMode = newMode;
+        if (newMode === 'mobile') {
+            document.body.classList.add('mobile-mode');
+            document.getElementById('deviceToggle').textContent = '📱';
+        } else {
+            document.body.classList.remove('mobile-mode');
+            document.getElementById('deviceToggle').textContent = '💻';
+        }
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 300);
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
+    initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v1.1.4 - 修正版本 13.0 - 移除 GeoJSON popup 顯示）');
+    console.log('✅ 系統初始化完成（v1.2.0 - 修正版本 14.0 - 新增響應式設計、修正 GeoJSON 標籤干擾、修正位於區段內顯示）');
 });
 
 </script>
