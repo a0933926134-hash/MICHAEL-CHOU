@@ -482,6 +482,32 @@ body {
     z-index: 800;
 }
 
+#autoFitButton {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    padding: 10px 14px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 800;
+    transition: all 0.2s;
+    display: none;
+}
+
+#autoFitButton:hover {
+    background: #2563eb;
+}
+
+#autoFitButton.show {
+    display: block;
+}
+
 #resultPanel {
     position: absolute;
     bottom: 20px;
@@ -1078,18 +1104,26 @@ tr.highlight {
     </div>
 </div>
 
+<button id="autoFitButton" onclick="resetMapViewToFitGeoJSON()" title="點擊自動調整地圖適應目前圖層">🎯 自動適配</button>
+
 <div id="statusBar">
     圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 離線模式
 </div>
 
 <script>
 /* ================================================
-   ★ 修正 10.0: 多邊形範圍內距離顯示優化
+   ★ 修正 11.0: 智能地圖位置記憶系統
    ================================================ */
 
 let fitBoundsLock = false;
 let geoJsonLabelLayers = {};
 let isUpdatingView = false;
+
+// ★ 修正 11.0: 新增全域變數追蹤用戶交互
+let firstGeoJSONLoaded = false;
+let userManuallyMovedMap = false;
+let autoFitBoundsEnabled = true;
+let lastGeoJSONBounds = null;
 
 /* ================================================
    色彩驗證函數庫
@@ -1269,6 +1303,60 @@ const drawToolbar = document.getElementById('drawToolbar');
 const resultPanel = document.getElementById('resultPanel');
 const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
+const autoFitButton = document.getElementById('autoFitButton');
+
+/* ========================================================================
+   ★ 修正 11.0: 地圖事件監聽系統
+   ======================================================================== */
+
+// ★ 修正 11.0: 監聽用戶手動移動地圖
+map.on('dragend', () => {
+    console.log('🖱️ 用戶拖拽地圖 → 禁用自動定位');
+    userManuallyMovedMap = true;
+    updateAutoFitButtonVisibility();
+});
+
+map.on('zoomend', () => {
+    console.log('🔍 用戶縮放地圖 → 禁用自動定位');
+    userManuallyMovedMap = true;
+    updateAutoFitButtonVisibility();
+});
+
+map.on('moveend', () => {
+    if (!isUpdatingView) {
+        console.log('📍 用戶移動地圖 → 禁用自動定位');
+        userManuallyMovedMap = true;
+        updateAutoFitButtonVisibility();
+    }
+});
+
+// ★ 修正 11.0: 更新自動適配按鈕可見性
+function updateAutoFitButtonVisibility() {
+    if (userManuallyMovedMap && lastGeoJSONBounds) {
+        autoFitButton.classList.add('show');
+    } else {
+        autoFitButton.classList.remove('show');
+    }
+}
+
+// ★ 修正 11.0: 重置地圖視圖回到 GeoJSON 邊界
+function resetMapViewToFitGeoJSON() {
+    if (!lastGeoJSONBounds) {
+        showToast('❌ 沒有可適配的邊界');
+        return;
+    }
+    
+    console.log('🎯 用戶點擊自動適配按鈕');
+    isUpdatingView = true;
+    map.fitBounds(lastGeoJSONBounds, { maxZoom: 18, padding: [20, 20] });
+    setTimeout(() => { 
+        isUpdatingView = false;
+        userManuallyMovedMap = false;
+        updateAutoFitButtonVisibility();
+    }, 500);
+    
+    showToast('✓ 已調整地圖到最佳視角');
+}
 
 /* ========================================================================
    updateGeoJSONFieldSelector 函數
@@ -1900,6 +1988,10 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     showToast(`✓ 已選取多邊形：${label}`);
 }
 
+/* ========================================================================
+   ★ 修正 11.0: 優化的 GeoJSON 添加函數
+   ======================================================================== */
+
 function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     const explodedData = explodeMultiPolygons(geoJsonData);
 
@@ -1984,17 +2076,43 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     geoJsonLayers[layerName] = featureGroup;
     addGeoJSONLayerControl(layerName, featureGroup, mapObj);
 
-    if (!fitBoundsLock) {
+    // ★ 修正 11.0: 智能 fitBounds 邏輯
+    if (!firstGeoJSONLoaded && !userManuallyMovedMap && autoFitBoundsEnabled) {
         try {
             const bounds = featureGroup.getBounds();
             if (bounds.isValid()) {
+                console.log('📍 首次 GeoJSON 加載 → 執行 fitBounds');
+                lastGeoJSONBounds = bounds;
+                firstGeoJSONLoaded = true;
                 isUpdatingView = true;
                 mapObj.fitBounds(bounds, { maxZoom: 18, padding: [20, 20] });
-                fitBoundsLock = true;
                 setTimeout(() => { isUpdatingView = false; }, 500);
             }
         } catch (e) {
             console.warn('⚠️ fitBounds 失敗（可能圖層為空）:', e);
+        }
+    } else if (!userManuallyMovedMap && autoFitBoundsEnabled) {
+        // ★ 修正 11.0: 用戶未手動移動時，可選擇更新邊界
+        try {
+            const bounds = featureGroup.getBounds();
+            if (bounds.isValid()) {
+                lastGeoJSONBounds = bounds;
+                console.log('📍 後續 GeoJSON 加載 → 保存邊界但不執行 fitBounds');
+            }
+        } catch (e) {
+            console.warn('⚠️ 邊界計算失敗:', e);
+        }
+    } else {
+        // ★ 修正 11.0: 用戶已手動移動，保存邊界供用戶手動恢復
+        try {
+            const bounds = featureGroup.getBounds();
+            if (bounds.isValid()) {
+                lastGeoJSONBounds = bounds;
+                console.log('📍 用戶已手動移動 → 保存邊界，用戶可點擊 🎯 按鈕恢復');
+                updateAutoFitButtonVisibility();
+            }
+        } catch (e) {
+            console.warn('⚠️ 邊界計算失敗:', e);
         }
     }
     
@@ -3296,7 +3414,7 @@ document.addEventListener('mouseup', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v1.1.3 - 多邊形範圍內距離顯示優化）');
+    console.log('✅ 系統初始化完成（v1.1.4 - 智能地圖位置記憶系統）');
 });
 
 </script>
