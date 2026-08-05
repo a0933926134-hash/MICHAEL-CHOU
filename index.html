@@ -910,6 +910,14 @@ body.mobile-mode #drawToolbar {
     cursor: auto !important;
 }
 
+/* ★ v17.1修正：GeoJSON標籤高亮 */
+.geojson-field-label.highlighted {
+    border: 2px solid #ff0000 !important;
+    background-color: #ffe0e0 !important;
+    font-weight: bold !important;
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.4) !important;
+}
+
 .geojson-field-label * {
     pointer-events: none !important;
 }
@@ -1301,11 +1309,9 @@ body.mobile-mode #drawToolbar {
 
 <script>
 /* ================================================
-   ★ v17.0 修正：
-   1. Sidebar 可最小化/最大化
-   2. 設備切換按鈕位置調整至右側
-   3. Zoom In/Out 移至左下方
-   4. 圖層控制移至右下方
+   ★ v17.1修正：
+   1. 執行定位後在地圖上顯示紅色地標圖示
+   2. 選中GeoJSON多邊形時，標籤以紅色外框高亮
    ================================================ */
 
 let fitBoundsLock = false;
@@ -1314,6 +1320,7 @@ let isUpdatingView = false;
 let suppressMapPanning = false;
 let selectedGeoJSONPolygonInfo = null;
 let deviceMode = 'desktop';
+let locationMarker = null;  // ★ v17.1: 定位標記
 
 // ★ v17: Sidebar最小化函數
 function toggleSidebarMinimize() {
@@ -2131,6 +2138,30 @@ function applyGeoJSONFeatureStyle(layer) {
     }
 }
 
+/* ★ v17.1修正：GeoJSON標籤高亮 */
+function highlightGeoJSONLabel(feature) {
+    if (!geoJsonFieldInfo.activeField || !feature.properties) return;
+    
+    const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
+    if (!fieldValue) return;
+
+    const tooltips = document.querySelectorAll('.geojson-field-label');
+    tooltips.forEach(tooltip => {
+        if (tooltip.textContent === String(fieldValue)) {
+            tooltip.classList.add('highlighted');
+            console.log(`✓ 高亮 GeoJSON 標籤：${fieldValue}`);
+        }
+    });
+}
+
+function clearGeoJSONLabelHighlight() {
+    const tooltips = document.querySelectorAll('.geojson-field-label.highlighted');
+    tooltips.forEach(tooltip => {
+        tooltip.classList.remove('highlighted');
+    });
+    console.log(`✓ 移除 GeoJSON 標籤高亮`);
+}
+
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     const current = geoJsonSelection[layerName];
 
@@ -2139,6 +2170,7 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(layer);
         selectedGeoJSONPolygonInfo = null;
+        clearGeoJSONLabelHighlight();
         showToast('✓ 已取消選取多邊形');
         return;
     }
@@ -2148,10 +2180,12 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
         console.log(`🔄 清除前一個選取 ${prevLayer._featureId}`);
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(prevLayer);
+        clearGeoJSONLabelHighlight();
     }
 
     geoJsonSelection[layerName] = layer;
     applyGeoJSONFeatureStyle(layer);
+    highlightGeoJSONLabel(feature);
     console.log(`✅ 已視覺上選取 ${layer._featureId}`);
 
     const coords = feature.geometry.coordinates;
@@ -2745,6 +2779,7 @@ map.on('click', (e) => {
     origin = [lat, lon];
 });
 
+/* ★ v17.1修正：定位後顯示地標 */
 function getCurrentLocation() {
     if (!navigator.geolocation) {
         alert('瀏覽器不支援 GPS 定位');
@@ -2757,6 +2792,24 @@ function getCurrentLocation() {
             latInput.value = lat.toFixed(6);
             lonInput.value = lon.toFixed(6);
             origin = [lat, lon];
+            
+            // ★ v17.1: 添加定位標記
+            if (locationMarker) {
+                map.removeLayer(locationMarker);
+            }
+            
+            locationMarker = L.marker([lat, lon], {
+                icon: L.icon({
+                    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDMyIDQwIj48cGF0aCBmaWxsPSIjZWY0NDQ0IiBkPSJNMTYgMEM5LjQgMCA0IDUuNCA0IDE2YzAgOC44IDEyIDI0IDEyIDI0czEyLTE1LjIgMTItMjRjMC0xMC42LTUuNC0xNi0xMi0xNnoiLz48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSI0IiBmaWxsPSIjZmZmIi8+PC9zdmc+',
+                    iconSize: [32, 40],
+                    iconAnchor: [16, 40],
+                    popupAnchor: [0, -40]
+                }),
+                title: '目前位置'
+            }).addTo(map);
+            
+            locationMarker.bindPopup(`目前位置<br/>緯度: ${lat.toFixed(6)}<br/>經度: ${lon.toFixed(6)}`);
+            
             isUpdatingView = true;
             map.flyTo([lat, lon], 17, { duration: 1.2 });
             setTimeout(() => { isUpdatingView = false; }, 1500);
@@ -3587,7 +3640,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v17.0 - Sidebar最小化、設備模式位置調整、Zoom控制重新配置）');
+    console.log('✅ 系統初始化完成（v17.1 - 定位標記及GeoJSON標籤高亮）');
 });
 
 </script>
