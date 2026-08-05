@@ -223,10 +223,11 @@ body.mobile-mode #sidebarToggle {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.checkbox-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+/* ★ 修正 v16: 設施類型左右並列佈局 */
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 8px;
     margin: 0;
 }
 
@@ -248,6 +249,7 @@ body.mobile-mode #sidebarToggle {
     margin-top: 3px;
     cursor: pointer;
     accent-color: #2563eb;
+    flex-shrink: 0;
 }
 
 .checkbox-item label {
@@ -256,6 +258,20 @@ body.mobile-mode #sidebarToggle {
     font-size: 13px;
     color: #374151;
     margin: 0;
+}
+
+.category-label {
+    font-size: 11px;
+    color: #999;
+    margin: 12px 0 8px 0;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    grid-column: 1 / -1;
+}
+
+.category-label:first-of-type {
+    margin-top: 0;
 }
 
 .button-group {
@@ -480,9 +496,10 @@ body.mobile-mode #sidebarToggle {
     word-break: break-word;
 }
 
+/* ★ 修正 v16: 工具欄優化位置避免重疊 */
 #toolbar {
     position: absolute;
-    top: 12px;
+    top: 60px;
     right: 12px;
     z-index: 900;
     background: white;
@@ -496,7 +513,7 @@ body.mobile-mode #sidebarToggle {
 
 body.mobile-mode #toolbar {
     flex-direction: row;
-    bottom: 20px;
+    bottom: 60px;
     right: auto;
     left: 50%;
     transform: translateX(-50%);
@@ -587,7 +604,7 @@ body.mobile-mode #statusBar {
 body.mobile-mode #resultPanel {
     width: 90vw;
     right: 5vw;
-    bottom: 60vh;
+    bottom: 60px;
     max-height: 300px;
 }
 
@@ -679,7 +696,7 @@ tr.highlight {
 
 #routeCard {
     position: absolute;
-    top: 80px;
+    top: 160px;
     right: 12px;
     background: white;
     border-left: 4px solid #10b981;
@@ -706,8 +723,8 @@ body.mobile-mode #routeCard {
 
 #drawToolbar {
     position: absolute;
-    top: 12px;
-    left: 400px;
+    top: 60px;
+    left: 420px;
     background: white;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -836,7 +853,6 @@ body.mobile-mode #drawToolbar {
     color: #0369a1;
 }
 
-/* ★ 修正 v15.1: GeoJSON 標籤完全禁用互動 */
 .geojson-field-label {
     background: rgba(255, 255, 255, 0.92) !important;
     border: 1px solid #e5e7eb !important;
@@ -858,7 +874,6 @@ body.mobile-mode #drawToolbar {
     pointer-events: none !important;
 }
 
-/* ★ 確保 tooltip 容器也禁用互動 */
 .leaflet-tooltip {
     pointer-events: none !important;
 }
@@ -928,6 +943,10 @@ body.mobile-mode #drawToolbar {
     #resultPanel {
         width: 500px;
         max-height: 350px;
+    }
+    
+    #drawToolbar {
+        left: 360px;
     }
 }
 
@@ -1032,10 +1051,9 @@ body.mobile-mode #drawToolbar {
         <div class="sidebar-section">
             <h3><span>🏢</span> 分析設施類型</h3>
             
-            <div style="font-size: 11px; color: #999; margin-bottom: 10px;">
-                交通運輸
-            </div>
-            <div class="checkbox-group">
+            <div class="checkbox-grid">
+                <!-- 交通運輸組 -->
+                <div class="category-label">交通運輸</div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-station" value="station">
                     <label for="chk-station">大型車站</label>
@@ -1048,12 +1066,9 @@ body.mobile-mode #drawToolbar {
                     <input type="checkbox" id="chk-junction" value="motorway_junction">
                     <label for="chk-junction">交流道</label>
                 </div>
-            </div>
-            
-            <div style="font-size: 11px; color: #999; margin: 12px 0 8px 0;">
-                公共建設
-            </div>
-            <div class="checkbox-group">
+                
+                <!-- 公共建設組 -->
+                <div class="category-label">公共建設</div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-school" value="school" checked>
                     <label for="chk-school">學校</label>
@@ -1078,12 +1093,9 @@ body.mobile-mode #drawToolbar {
                     <input type="checkbox" id="chk-bank" value="bank">
                     <label for="chk-bank">銀行/郵局</label>
                 </div>
-            </div>
-            
-            <div style="font-size: 11px; color: #999; margin: 12px 0 8px 0;">
-                特殊設施
-            </div>
-            <div class="checkbox-group">
+                
+                <!-- 特殊設施組 -->
+                <div class="category-label">特殊設施</div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-gas" value="gas">
                     <label for="chk-gas">電氣/瓦斯</label>
@@ -1226,10 +1238,10 @@ body.mobile-mode #drawToolbar {
 
 <script>
 /* ================================================
-   ★ 修正 v15.1: 
-   1. 標籤圖層使用獨立透明圖層
-   2. interactive: false 確保不阻礙點擊
-   3. pointer-events: none 全面禁用互動
+   ★ v16.0 修正：
+   1. 設施類型改為左右並列網格佈局
+   2. 工具欄位置優化，避免與 deviceToggle 重疊
+   3. routeCard 和 resultPanel 位置調整
    ================================================ */
 
 let fitBoundsLock = false;
@@ -1490,9 +1502,7 @@ function updateGeoJSONFieldSelector() {
     }
 }
 
-/* ★ 修正 v15.1: 完全重新設計標籤圖層 - 使用獨立透明圖層 */
 function renderGeoJSONLabels(explodedData, layerName, mapObj) {
-    // 移除舊標籤圖層
     if (geoJsonLabelLayers[layerName]) {
         mapObj.removeLayer(geoJsonLabelLayers[layerName]);
         delete geoJsonLabelLayers[layerName];
@@ -1502,7 +1512,6 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
 
     const labelGroup = L.featureGroup();
 
-    // 建立透明標籤圖層 - 完全不互動
     const labelLayer = L.geoJSON(explodedData, {
         style: () => ({
             color: 'transparent',
@@ -1511,11 +1520,10 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
             fillOpacity: 0,
             opacity: 0
         }),
-        interactive: false, // ★ 關鍵：禁用所有互動
+        interactive: false,
         onEachFeature: (feature, layer) => {
             const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
             if (fieldValue) {
-                // 使用 permanent tooltip 作為標籤
                 const tooltipText = String(fieldValue);
                 layer.bindTooltip(
                     L.tooltip({
@@ -1526,7 +1534,6 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
                     }).setContent(tooltipText)
                 );
                 
-                // ★ 強制禁用 tooltip 的互動
                 if (layer.getTooltip) {
                     const tooltip = layer.getTooltip();
                     if (tooltip && tooltip._container) {
@@ -1541,7 +1548,7 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
                 radius: 0,
                 opacity: 0,
                 fillOpacity: 0,
-                interactive: false // ★ 禁用點標記互動
+                interactive: false
             });
         }
     });
@@ -1551,7 +1558,6 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
     
     geoJsonLabelLayers[layerName] = labelGroup;
     
-    // ★ 強制設定圖層的 interactive 屬性
     labelLayer.eachLayer(layer => {
         layer.interactive = false;
         if (layer._path) {
@@ -2110,7 +2116,6 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     }
 }
 
-/* ★ 修正 v15.1: 確保主互動圖層優先級 */
 function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     const explodedData = explodeMultiPolygons(geoJsonData);
     const featureGroup = L.featureGroup();
@@ -2118,9 +2123,8 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     geoJsonFeatures[layerName] = explodedData;
     let featureCounter = 0;
 
-    // ★ 建立主互動圖層
     const geoJsonLayer = L.geoJSON(explodedData, {
-        interactive: true, // ★ 確保主圖層可互動
+        interactive: true,
         style: (feature) => {
             const extractedStyle = extractStyleFromProperties(feature.properties);
             return {
@@ -2142,7 +2146,7 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
             };
             layer._layerName = layerName;
             layer._featureId = `${layerName}_${featureCounter++}`;
-            layer.interactive = true; // ★ 確保此圖層互動
+            layer.interactive = true;
 
             const popupContent = createPopupContent(feature.properties, layerName);
             layer.bindPopup(popupContent);
@@ -2157,7 +2161,7 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                         fillOpacity: 0.25
                     };
                     this.setStyle(highlightStyle);
-                    this.bringToFront(); // ★ 帶到前面
+                    this.bringToFront();
                 }
             });
             
@@ -2166,7 +2170,6 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 this.closePopup();
             });
 
-            // ★ 修正點擊事件 - 停止事件傳播
             layer.on('click', function (e) {
                 if (e && e.originalEvent) {
                     e.originalEvent.stopPropagation();
@@ -2191,12 +2194,11 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 weight: extractedStyle.weight,
                 opacity: extractedStyle.opacity,
                 fillOpacity: 0.08,
-                interactive: true // ★ 確保點標記互動
+                interactive: true
             });
         }
     }).addTo(mapObj);
     
-    // ★ 標籤圖層應在主圖層之上但完全不互動
     setTimeout(() => {
         if (geoJsonFieldInfo.activeField) {
             renderGeoJSONLabels(explodedData, layerName, mapObj);
@@ -3510,7 +3512,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v15.1 - 修正 GeoJSON 標籤圖層互動性問題）');
+    console.log('✅ 系統初始化完成（v16.0 - UI 優化與功能鍵重疊問題修正）');
 });
 
 </script>
