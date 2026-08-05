@@ -1162,6 +1162,24 @@ body.mobile-mode #drawToolbar {
 .leaflet-popup-content-wrapper {
     display: none !important;
 }
+
+/* ★ 修正：定位狀態指示器樣式 */
+.location-status-indicator {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 10001;
+    padding: 6px 10px;
+    background: #10b981;
+    color: white;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.location-status-indicator.inactive {
+    display: none;
+}
 </style>
 </head>
 <body>
@@ -1409,11 +1427,17 @@ body.mobile-mode #drawToolbar {
     圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 離線模式
 </div>
 
+<!-- ★ 修正：定位狀態指示器 -->
+<div id="locationStatusIndicator" class="location-status-indicator inactive">
+    📍 自動定位中... (下次更新: <span id="nextUpdateTime">--</span>)
+</div>
+
 <script>
 /* ================================================
-   ★ v17.3修正：
-   1. GeoJSON標籤優化：僅顯示距離形心最近的標籤
+   ★ v17.3修正 + 新功能：
+   1. GeoJSON標籤優化：僅顯示距離形心最近的標籤（多個時）
    2. 地圖控制面板整合：ZOOM + 設備切換 + 圖層控制在右上角
+   3. ★ 修正2：定位點每隔1分鐘重新定位一次
    ================================================ */
 
 let fitBoundsLock = false;
@@ -1423,6 +1447,11 @@ let suppressMapPanning = false;
 let selectedGeoJSONPolygonInfo = null;
 let deviceMode = 'desktop';
 let locationMarker = null;
+
+// ★ 修正：自動定位相關變量
+let autoRefreshLocationInterval = null;
+let isAutoLocatingEnabled = false;
+let autoLocationRefreshTime = 60000; // 1分鐘 = 60000毫秒
 
 function toggleSidebarMinimize() {
     const sidebar = document.getElementById('sidebar');
@@ -1640,6 +1669,31 @@ const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
 const useSelectedPolygonCheckbox = document.getElementById('useSelectedPolygonForQuery');
 
+// ★ 修正：更新下次定位時間
+function updateNextLocationUpdateTime() {
+    const indicator = document.getElementById('locationStatusIndicator');
+    if (!isAutoLocatingEnabled) {
+        indicator.classList.add('inactive');
+        return;
+    }
+    
+    const now = new Date();
+    const nextTime = new Date(now.getTime() + autoLocationRefreshTime);
+    const timeStr = nextTime.toLocaleTimeString('zh-TW', { hour12: false });
+    document.getElementById('nextUpdateTime').textContent = timeStr;
+}
+
+// ★ 修正：停止自動定位
+function stopAutoLocation() {
+    if (autoRefreshLocationInterval) {
+        clearInterval(autoRefreshLocationInterval);
+        autoRefreshLocationInterval = null;
+    }
+    isAutoLocatingEnabled = false;
+    document.getElementById('locationStatusIndicator').classList.add('inactive');
+    console.log('✓ 已停止自動定位');
+}
+
 function updateGeoJSONFieldSelector() {
     const selector = document.getElementById('geojsonFieldSelector');
     if (!selector) return;
@@ -1687,7 +1741,7 @@ function updateGeoJSONFieldSelector() {
     }
 }
 
-/* ★ v17.3修正：計算標籤到形心最近距離 */
+/* ★ 修正1：計算標籤到形心最近距離，並僅顯示最近的那一個 */
 function findClosestLabelToPolygonCentroid(explodedData, polygonCentroid) {
     if (!explodedData.features || explodedData.features.length === 0) return null;
     if (!geoJsonFieldInfo.activeField) return null;
@@ -1728,7 +1782,7 @@ function findClosestLabelToPolygonCentroid(explodedData, polygonCentroid) {
     return closestFeature;
 }
 
-/* ★ v17.3修正：僅顯示最近的標籤 */
+/* ★ 修正1：僅顯示最近的標籤（多個時），一個時維持不變 */
 function renderGeoJSONLabels(explodedData, layerName, mapObj) {
     if (geoJsonLabelLayers[layerName]) {
         mapObj.removeLayer(geoJsonLabelLayers[layerName]);
@@ -1767,10 +1821,44 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
         selectedPolygonCentroid = [center.lat, center.lng];
     }
 
-    // 找到距離最近的標籤
-    const closestFeature = findClosestLabelToPolygonCentroid(explodedData, selectedPolygonCentroid);
+    // ★ 修正1：計算具有該欄位值的標籤總數
+    const labelFeaturesCount = explodedData.features.filter(f => 
+        f.properties[geoJsonFieldInfo.activeField]
+    ).length;
 
-    const labelLayer = L.geoJSON(explodedData, {
+    console.log(`ℹ️ 圖層 ${layerName} 中共有 ${labelFeaturesCount} 個含有標籤欄位的特徵`);
+
+    // ★ 修正1：如果只有一個標籤，全部顯示；如果有多個，僅顯示最近的
+    let featuresToDisplay = [];
+    if (labelFeaturesCount === 1) {
+        // 一個標籤時：顯示所有含有標籤的特徵
+        featuresToDisplay = explodedData.features.filter(f => 
+            f.properties[geoJsonFieldInfo.activeField]
+        );
+        console.log(`✓ 檢測到 1 個標籤，將全部顯示`);
+    } else if (labelFeaturesCount > 1) {
+        // 多個標籤時：僅顯示最近的一個
+        const closestFeature = findClosestLabelToPolygonCentroid(explodedData, selectedPolygonCentroid);
+        if (closestFeature) {
+            featuresToDisplay = [closestFeature];
+            const distance = turf.distance(
+                turf.point([selectedPolygonCentroid[1], selectedPolygonCentroid[0]]),
+                turf.point([closestFeature.geometry.type === 'Point' 
+                    ? closestFeature.geometry.coordinates[0]
+                    : closestFeature.geometry.coordinates[0][0][0],
+                closestFeature.geometry.type === 'Point'
+                    ? closestFeature.geometry.coordinates[1]
+                    : closestFeature.geometry.coordinates[0][0][1]]),
+                { units: 'meters' }
+            );
+            console.log(`✓ 檢測到 ${labelFeaturesCount} 個標籤，僅顯示距離最近的一個（距離: ${distance.toFixed(2)}m）`);
+        }
+    }
+
+    const labelLayer = L.geoJSON({
+        type: 'FeatureCollection',
+        features: featuresToDisplay
+    }, {
         style: () => ({
             color: 'transparent',
             weight: 0,
@@ -1780,26 +1868,23 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
         }),
         interactive: false,
         onEachFeature: (feature, layer) => {
-            // ★ v17.3修正：只顯示最近的標籤
-            if (closestFeature && feature === closestFeature) {
-                const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
-                if (fieldValue) {
-                    const tooltipText = String(fieldValue);
-                    layer.bindTooltip(
-                        L.tooltip({
-                            permanent: true,
-                            direction: 'center',
-                            className: 'geojson-field-label',
-                            offset: [0, 0]
-                        }).setContent(tooltipText)
-                    );
-                    
-                    if (layer.getTooltip) {
-                        const tooltip = layer.getTooltip();
-                        if (tooltip && tooltip._container) {
-                            tooltip._container.style.pointerEvents = 'none';
-                            tooltip._container.style.cursor = 'auto';
-                        }
+            const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
+            if (fieldValue) {
+                const tooltipText = String(fieldValue);
+                layer.bindTooltip(
+                    L.tooltip({
+                        permanent: true,
+                        direction: 'center',
+                        className: 'geojson-field-label',
+                        offset: [0, 0]
+                    }).setContent(tooltipText)
+                );
+                
+                if (layer.getTooltip) {
+                    const tooltip = layer.getTooltip();
+                    if (tooltip && tooltip._container) {
+                        tooltip._container.style.pointerEvents = 'none';
+                        tooltip._container.style.cursor = 'auto';
                     }
                 }
             }
@@ -1826,7 +1911,7 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
         }
     });
 
-    console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}（僅顯示最近標籤）`);
+    console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}`);
 }
 
 function updateGeoJSONFieldLabel() {
@@ -2957,49 +3042,86 @@ map.on('click', (e) => {
     origin = [lat, lon];
 });
 
+// ★ 修正2：自動定位函數（每隔1分鐘重新定位）
 function getCurrentLocation() {
     if (!navigator.geolocation) {
         alert('瀏覽器不支援 GPS 定位');
         return;
     }
-    navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            const lat = pos.coords.latitude;
-            const lon = pos.coords.longitude;
-            latInput.value = lat.toFixed(6);
-            lonInput.value = lon.toFixed(6);
-            origin = [lat, lon];
-            
-            if (locationMarker) {
-                map.removeLayer(locationMarker);
-            }
-            
-            locationMarker = L.marker([lat, lon], {
-                icon: L.icon({
-                    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDMyIDQwIj48cGF0aCBmaWxsPSIjZWY0NDQ0IiBkPSJNMTYgMEM5LjQgMCA0IDUuNCA0IDE2YzAgOC44IDEyIDI0IDEyIDI0czEyLTE1LjIgMTItMjRjMC0xMC42LTUuNC0xNi0xMi0xNnoiLz48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSI0IiBmaWxsPSIjZmZmIi8+PC9zdmc+',
-                    iconSize: [32, 40],
-                    iconAnchor: [16, 40],
-                    popupAnchor: [0, -40]
-                }),
-                title: '目前位置'
-            }).addTo(map);
-            
-            locationMarker.bindPopup(`目前位置<br/>緯度: ${lat.toFixed(6)}<br/>經度: ${lon.toFixed(6)}`);
-            
-            isUpdatingView = true;
-            map.flyTo([lat, lon], 17, { duration: 1.2 });
-            setTimeout(() => { isUpdatingView = false; }, 1500);
-            showToast('✓ 已定位到您的位置');
-        },
-        (err) => alert('定位失敗'),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+
+    // ★ 停止前一個定位計時
+    stopAutoLocation();
+
+    const performLocationUpdate = () => {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                latInput.value = lat.toFixed(6);
+                lonInput.value = lon.toFixed(6);
+                origin = [lat, lon];
+                
+                if (locationMarker) {
+                    map.removeLayer(locationMarker);
+                }
+                
+                locationMarker = L.marker([lat, lon], {
+                    icon: L.icon({
+                        iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDMyIDQwIj48cGF0aCBmaWxsPSIjZWY0NDQ0IiBkPSJNMTYgMEM5LjQgMCA0IDUuNCA0IDE2YzAgOC44IDEyIDI0IDEyIDI0czEyLTE1LjIgMTItMjRjMC0xMC42LTUuNC0xNi0xMi0xNnoiLz48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSI0IiBmaWxsPSIjZmZmIi8+PC9zdmc+',
+                        iconSize: [32, 40],
+                        iconAnchor: [16, 40],
+                        popupAnchor: [0, -40]
+                    }),
+                    title: '目前位置'
+                }).addTo(map);
+                
+                locationMarker.bindPopup(`目前位置<br/>緯度: ${lat.toFixed(6)}<br/>經度: ${lon.toFixed(6)}`);
+                
+                isUpdatingView = true;
+                map.flyTo([lat, lon], 17, { duration: 1.2 });
+                setTimeout(() => { isUpdatingView = false; }, 1500);
+                showToast('✓ 已定位到您的位置');
+            },
+            (err) => {
+                alert('定位失敗');
+                stopAutoLocation();
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    };
+
+    // 第一次立即執行定位
+    performLocationUpdate();
+
+    // ★ 修正2：設置每隔1分鐘自動定位
+    isAutoLocatingEnabled = true;
+    updateNextLocationUpdateTime();
+    
+    autoRefreshLocationInterval = setInterval(() => {
+        if (isAutoLocatingEnabled) {
+            console.log('🔄 自動重新定位中...');
+            performLocationUpdate();
+            updateNextLocationUpdateTime();
+        }
+    }, autoLocationRefreshTime); // 60000毫秒 = 1分鐘
+
+    console.log('✅ 已啟動自動定位（每隔1分鐘更新一次）');
+    document.getElementById('locationStatusIndicator').classList.remove('inactive');
 }
 
 function clearRoute() {
     if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
     routeInfo.innerText = '尚未計算';
     routeCard.classList.add('hidden');
+    
+    // ★ 修正2：清除定位時停止自動定位
+    stopAutoLocation();
+    
+    // ★ 修正2：清除定位標記
+    if (locationMarker) {
+        map.removeLayer(locationMarker);
+        locationMarker = null;
+    }
 }
 
 function showToast(msg) {
@@ -3816,7 +3938,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v17.3 - GeoJSON標籤優化 + 地圖控制面板整合）');
+    console.log('✅ 系統初始化完成（v17.3 修正版 - GeoJSON標籤優化 + 自動定位）');
 });
 
 </script>
