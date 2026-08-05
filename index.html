@@ -37,26 +37,107 @@ body.mobile-mode {
     --sidebar-position: bottom;
 }
 
+/* ★ v17.2: 地圖控制面板（整合ZOOM、設備切換） */
+#mapControlsPanel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10001;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.map-controls-section {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.map-controls-section:not(:last-child) {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.map-control-btn {
+    padding: 10px 14px;
+    border: none;
+    background: white;
+    color: #374151;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s;
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.map-control-btn:hover {
+    background: #f3f4f6;
+}
+
+.map-control-btn:active {
+    background: #e5e7eb;
+}
+
+/* ★ v17.2: 自訂 Leaflet Zoom 控制樣式 */
+.leaflet-control-zoom {
+    position: absolute !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: 12px !important;
+    top: 12px !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    display: none !important;
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+    display: none !important;
+}
+
 /* ★ v17: 設備切換按鈕位置調整 */
 #deviceToggle {
     position: fixed;
     top: 12px;
-    left: 60px;
-    z-index: 10001;
+    right: 12px;
+    z-index: 10002;
     background: white;
-    border: 1px solid #e5e7eb;
+    border: none;
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     cursor: pointer;
     font-weight: 600;
-    transition: all 0.3s;
-    font-size: 13px;
+    transition: all 0.2s;
+    font-size: 14px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
 }
 
 #deviceToggle:hover {
     background: #f3f4f6;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+#deviceToggle:active {
+    background: #e5e7eb;
 }
 
 #sidebar {
@@ -536,7 +617,6 @@ body.mobile-mode #sidebarToggle {
     word-break: break-word;
 }
 
-/* ★ v17: 工具欄位置優化，Zoom控制移到左下 */
 #toolbar {
     position: absolute;
     top: 60px;
@@ -910,7 +990,7 @@ body.mobile-mode #drawToolbar {
     cursor: auto !important;
 }
 
-/* ★ v17.1修正：GeoJSON標籤高亮 */
+/* ★ v17.2修正：GeoJSON標籤高亮 */
 .geojson-field-label.highlighted {
     border: 2px solid #ff0000 !important;
     background-color: #ffe0e0 !important;
@@ -978,16 +1058,7 @@ body.mobile-mode #drawToolbar {
     cursor: not-allowed;
 }
 
-/* ★ v17: Leaflet Zoom控制定位調整 */
-.leaflet-control-zoom {
-    position: absolute !important;
-    bottom: 80px !important;
-    left: 12px !important;
-    top: auto !important;
-    right: auto !important;
-    border-radius: 8px !important;
-}
-
+/* ★ v17.2修正：Leaflet Zoom控制隱藏，改用自訂控制 */
 .leaflet-control-layers {
     position: absolute !important;
     bottom: 80px !important;
@@ -1017,8 +1088,8 @@ body.mobile-mode #drawToolbar {
 }
 
 @media (max-width: 768px) {
-    body:not(.mobile-mode) #deviceToggle {
-        display: block;
+    body:not(.mobile-mode) #mapControlsPanel {
+        display: flex;
     }
 }
 
@@ -1069,8 +1140,16 @@ body.mobile-mode #drawToolbar {
 </head>
 <body>
 
-<!-- ★ v17: 設備切換按鈕位置右移 -->
-<div id="deviceToggle" title="切換設備模式">💻</div>
+<!-- ★ v17.2: 地圖控制面板（整合ZOOM與設備切換） -->
+<div id="mapControlsPanel">
+    <div class="map-controls-section">
+        <button class="map-control-btn" id="zoomInBtn" title="放大">+</button>
+        <button class="map-control-btn" id="zoomOutBtn" title="縮小">−</button>
+    </div>
+    <div class="map-controls-section" style="border-bottom: none;">
+        <button class="map-control-btn" id="deviceToggle" title="切換設備模式">💻</button>
+    </div>
+</div>
 
 <div id="sidebar">
     <div id="sidebarToggle">◀</div>
@@ -1234,6 +1313,8 @@ body.mobile-mode #drawToolbar {
 
 <div id="map"></div>
 
+<div id="sidebarToggle">◀</div>
+
 <div id="toolbar">
     <div class="toolbar-section">
         <button class="toolbar-btn" onclick="toggleDrawMode(this)">
@@ -1309,9 +1390,9 @@ body.mobile-mode #drawToolbar {
 
 <script>
 /* ================================================
-   ★ v17.1修正：
-   1. 執行定位後在地圖上顯示紅色地標圖示
-   2. 選中GeoJSON多邊形時，標籤以紅色外框高亮
+   ★ v17.2修正：
+   1. GeoJSON標籤優化：僅顯示距離形心最近的標籤
+   2. 地圖控制面板整合：ZOOM + 設備切換在右上角
    ================================================ */
 
 let fitBoundsLock = false;
@@ -1320,7 +1401,7 @@ let isUpdatingView = false;
 let suppressMapPanning = false;
 let selectedGeoJSONPolygonInfo = null;
 let deviceMode = 'desktop';
-let locationMarker = null;  // ★ v17.1: 定位標記
+let locationMarker = null;
 
 // ★ v17: Sidebar最小化函數
 function toggleSidebarMinimize() {
@@ -1477,9 +1558,21 @@ const overlayMaps = {
     "地籍圖": cadastralLayer
 };
 
-// ★ v17: Zoom和圖層控制位置調整
+// ★ v17: 圖層控制保持位置
 const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'bottomright' }).addTo(map);
-L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+// ★ v17.2修正：Zoom控制隱藏，改用自訂控制按鈕
+const defaultZoomControl = map.zoomControl;
+map.removeControl(defaultZoomControl);
+
+// 自訂 Zoom 控制
+document.getElementById('zoomInBtn').addEventListener('click', () => {
+    map.zoomIn();
+});
+
+document.getElementById('zoomOutBtn').addEventListener('click', () => {
+    map.zoomOut();
+});
 
 let markerLayer = L.layerGroup().addTo(map);
 let origin = [25.012098, 121.465675];
@@ -1584,6 +1677,48 @@ function updateGeoJSONFieldSelector() {
     }
 }
 
+/* ★ v17.2修正：計算標籤到形心最近距離 */
+function findClosestLabelToPolygonCentroid(explodedData, polygonCentroid) {
+    if (!explodedData.features || explodedData.features.length === 0) return null;
+    if (!geoJsonFieldInfo.activeField) return null;
+
+    let closestFeature = null;
+    let minDistance = Infinity;
+
+    explodedData.features.forEach(feature => {
+        const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
+        if (!fieldValue) return;
+
+        let featureCentroid = null;
+        if (feature.geometry.type === 'Point') {
+            featureCentroid = feature.geometry.coordinates;
+        } else if (feature.geometry.type === 'Polygon' && feature.geometry.coordinates[0]) {
+            const ring = feature.geometry.coordinates[0].map(c => [c[1], c[0]]);
+            if (ring.length >= 3) {
+                const turfPoly = turf.polygon([ring.map(p => [p[1], p[0]])]);
+                const centroid = turf.centroid(turfPoly);
+                featureCentroid = [centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]];
+            }
+        }
+
+        if (featureCentroid) {
+            const distance = turf.distance(
+                turf.point([polygonCentroid[1], polygonCentroid[0]]),
+                turf.point([featureCentroid[1], featureCentroid[0]]),
+                { units: 'meters' }
+            );
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestFeature = feature;
+            }
+        }
+    });
+
+    return closestFeature;
+}
+
+/* ★ v17.2修正：僅顯示最近的標籤 */
 function renderGeoJSONLabels(explodedData, layerName, mapObj) {
     if (geoJsonLabelLayers[layerName]) {
         mapObj.removeLayer(geoJsonLabelLayers[layerName]);
@@ -1593,6 +1728,37 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
     if (!geoJsonFieldInfo.activeField) return;
 
     const labelGroup = L.featureGroup();
+
+    // 尋找選中多邊形的形心
+    let selectedPolygonCentroid = null;
+    const selectedLayer = Object.values(geoJsonSelection)[0];
+    if (selectedLayer && selectedLayer._layerName === layerName) {
+        const selectedFeature = explodedData.features.find(f => {
+            let ring = null;
+            if (f.geometry.type === 'Polygon' && f.geometry.coordinates[0]) {
+                ring = f.geometry.coordinates[0].map(c => [c[1], c[0]]);
+            }
+            if (ring && ring.length >= 3) {
+                if (ring[ring.length-1][0] !== ring[0][0] || ring[ring.length-1][1] !== ring[0][1]) {
+                    ring.push(ring[0]);
+                }
+                const turfPoly = turf.polygon([ring.map(p => [p[1], p[0]])]);
+                const centroid = turf.centroid(turfPoly);
+                selectedPolygonCentroid = [centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]];
+                return true;
+            }
+            return false;
+        });
+    }
+
+    // 如果沒有選中多邊形，使用地圖中心
+    if (!selectedPolygonCentroid) {
+        const center = map.getCenter();
+        selectedPolygonCentroid = [center.lat, center.lng];
+    }
+
+    // 找到距離最近的標籤
+    const closestFeature = findClosestLabelToPolygonCentroid(explodedData, selectedPolygonCentroid);
 
     const labelLayer = L.geoJSON(explodedData, {
         style: () => ({
@@ -1604,23 +1770,26 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
         }),
         interactive: false,
         onEachFeature: (feature, layer) => {
-            const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
-            if (fieldValue) {
-                const tooltipText = String(fieldValue);
-                layer.bindTooltip(
-                    L.tooltip({
-                        permanent: true,
-                        direction: 'center',
-                        className: 'geojson-field-label',
-                        offset: [0, 0]
-                    }).setContent(tooltipText)
-                );
-                
-                if (layer.getTooltip) {
-                    const tooltip = layer.getTooltip();
-                    if (tooltip && tooltip._container) {
-                        tooltip._container.style.pointerEvents = 'none';
-                        tooltip._container.style.cursor = 'auto';
+            // ★ v17.2修正：只顯示最近的標籤
+            if (closestFeature && feature === closestFeature) {
+                const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
+                if (fieldValue) {
+                    const tooltipText = String(fieldValue);
+                    layer.bindTooltip(
+                        L.tooltip({
+                            permanent: true,
+                            direction: 'center',
+                            className: 'geojson-field-label',
+                            offset: [0, 0]
+                        }).setContent(tooltipText)
+                    );
+                    
+                    if (layer.getTooltip) {
+                        const tooltip = layer.getTooltip();
+                        if (tooltip && tooltip._container) {
+                            tooltip._container.style.pointerEvents = 'none';
+                            tooltip._container.style.cursor = 'auto';
+                        }
                     }
                 }
             }
@@ -1647,7 +1816,7 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
         }
     });
 
-    console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}（完全禁用互動）`);
+    console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}（僅顯示最近標籤）`);
 }
 
 function updateGeoJSONFieldLabel() {
@@ -2138,7 +2307,6 @@ function applyGeoJSONFeatureStyle(layer) {
     }
 }
 
-/* ★ v17.1修正：GeoJSON標籤高亮 */
 function highlightGeoJSONLabel(feature) {
     if (!geoJsonFieldInfo.activeField || !feature.properties) return;
     
@@ -2779,7 +2947,6 @@ map.on('click', (e) => {
     origin = [lat, lon];
 });
 
-/* ★ v17.1修正：定位後顯示地標 */
 function getCurrentLocation() {
     if (!navigator.geolocation) {
         alert('瀏覽器不支援 GPS 定位');
@@ -2793,7 +2960,6 @@ function getCurrentLocation() {
             lonInput.value = lon.toFixed(6);
             origin = [lat, lon];
             
-            // ★ v17.1: 添加定位標記
             if (locationMarker) {
                 map.removeLayer(locationMarker);
             }
@@ -3640,7 +3806,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v17.1 - 定位標記及GeoJSON標籤高亮）');
+    console.log('✅ 系統初始化完成（v17.2 - GeoJSON標籤優化 + 地圖控制面板整合）');
 });
 
 </script>
