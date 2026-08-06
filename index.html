@@ -37,7 +37,6 @@ body.mobile-mode {
     --sidebar-position: bottom;
 }
 
-/* ★ v17: 設備切換按鈕位置調整 */
 #deviceToggle {
     position: fixed;
     top: 12px;
@@ -133,7 +132,6 @@ body.mobile-mode #sidebarToggle {
     height: 35px;
 }
 
-/* ★ v17: Sidebar最小化按鈕 */
 #sidebarMinimizeBtn {
     position: absolute;
     right: 12px;
@@ -536,7 +534,6 @@ body.mobile-mode #sidebarToggle {
     word-break: break-word;
 }
 
-/* ★ v17: 工具欄位置優化，Zoom控制移到左下 */
 #toolbar {
     position: absolute;
     top: 60px;
@@ -910,7 +907,6 @@ body.mobile-mode #drawToolbar {
     cursor: auto !important;
 }
 
-/* ★ v17.1修正：GeoJSON標籤高亮 */
 .geojson-field-label.highlighted {
     border: 2px solid #ff0000 !important;
     background-color: #ffe0e0 !important;
@@ -978,7 +974,6 @@ body.mobile-mode #drawToolbar {
     cursor: not-allowed;
 }
 
-/* ★ v17: Leaflet Zoom控制定位調整 */
 .leaflet-control-zoom {
     position: absolute !important;
     bottom: 80px !important;
@@ -1065,11 +1060,29 @@ body.mobile-mode #drawToolbar {
 .leaflet-popup-content-wrapper {
     display: none !important;
 }
+
+#geoLocationStatus {
+    position: fixed;
+    top: 60px;
+    right: 12px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: #666;
+    z-index: 899;
+    display: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+#geoLocationStatus.active {
+    display: block;
+}
 </style>
 </head>
 <body>
 
-<!-- ★ v17: 設備切換按鈕位置右移 -->
 <div id="deviceToggle" title="切換設備模式">💻</div>
 
 <div id="sidebar">
@@ -1080,7 +1093,6 @@ body.mobile-mode #drawToolbar {
             <h1>🗺️ 區段勘查小幫手</h1>
             <p>區段勘查小幫手</p>
         </div>
-        <!-- ★ v17: 最小化按鈕 -->
         <button id="sidebarMinimizeBtn" title="最小化/最大化" onclick="toggleSidebarMinimize()">−</button>
     </div>
     
@@ -1123,7 +1135,6 @@ body.mobile-mode #drawToolbar {
             <h3><span>🏢</span> 分析設施類型</h3>
             
             <div class="checkbox-grid">
-                <!-- 交通運輸組 -->
                 <div class="category-label">交通運輸</div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-station" value="station">
@@ -1138,7 +1149,6 @@ body.mobile-mode #drawToolbar {
                     <label for="chk-junction">交流道</label>
                 </div>
                 
-                <!-- 公共建設組 -->
                 <div class="category-label">公共建設</div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-school" value="school" checked>
@@ -1165,7 +1175,6 @@ body.mobile-mode #drawToolbar {
                     <label for="chk-bank">銀行/郵局</label>
                 </div>
                 
-                <!-- 特殊設施組 -->
                 <div class="category-label">特殊設施</div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-gas" value="gas">
@@ -1303,15 +1312,19 @@ body.mobile-mode #drawToolbar {
     </div>
 </div>
 
+<div id="geoLocationStatus">
+    🔄 自動定位中...
+</div>
+
 <div id="statusBar">
     圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 離線模式
 </div>
 
 <script>
 /* ================================================
-   ★ v17.1修正：
-   1. 執行定位後在地圖上顯示紅色地標圖示
-   2. 選中GeoJSON多邊形時，標籤以紅色外框高亮
+   ★ v18 修正：
+   1. GeoJSON標籤去重：同一欄位相同值僅顯示距離形心最近的
+   2. 定位自動刷新：每隔1分鐘自動重新定位1次
    ================================================ */
 
 let fitBoundsLock = false;
@@ -1320,9 +1333,12 @@ let isUpdatingView = false;
 let suppressMapPanning = false;
 let selectedGeoJSONPolygonInfo = null;
 let deviceMode = 'desktop';
-let locationMarker = null;  // ★ v17.1: 定位標記
+let locationMarker = null;
+let autoGeoLocationIntervalId = null;  // ★ v18: 自動定位計時器ID
 
-// ★ v17: Sidebar最小化函數
+// ★ v18: 追蹤標籤去重結果
+let geoJsonLabelDeduplicationInfo = {};
+
 function toggleSidebarMinimize() {
     const sidebar = document.getElementById('sidebar');
     const btn = document.getElementById('sidebarMinimizeBtn');
@@ -1477,7 +1493,6 @@ const overlayMaps = {
     "地籍圖": cadastralLayer
 };
 
-// ★ v17: Zoom和圖層控制位置調整
 const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'bottomright' }).addTo(map);
 L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
@@ -1536,6 +1551,7 @@ const resultPanel = document.getElementById('resultPanel');
 const routeCard = document.getElementById('routeCard');
 const routeInfo = document.getElementById('routeInfo');
 const useSelectedPolygonCheckbox = document.getElementById('useSelectedPolygonForQuery');
+const geoLocationStatus = document.getElementById('geoLocationStatus');
 
 function updateGeoJSONFieldSelector() {
     const selector = document.getElementById('geojsonFieldSelector');
@@ -1582,6 +1598,87 @@ function updateGeoJSONFieldSelector() {
     if (sortedFields.length > 0) {
         console.log(`✓ GeoJSON 欄位選擇器已更新，可用欄位：${sortedFields.join(', ')}`);
     }
+}
+
+/* ★ v18: 新增去重邏輯 */
+function deduplicateGeoJSONLabels(explodedData, layerName, centroidLat, centroidLon) {
+    if (!geoJsonFieldInfo.activeField) {
+        return { ...explodedData };
+    }
+
+    const labelValueMap = new Map();
+    const deduplicatedFeatures = [];
+
+    explodedData.features.forEach(feature => {
+        const fieldValue = feature.properties[geoJsonFieldInfo.activeField];
+        if (!fieldValue) {
+            deduplicatedFeatures.push(feature);
+            return;
+        }
+
+        const valueKey = String(fieldValue);
+
+        if (!labelValueMap.has(valueKey)) {
+            labelValueMap.set(valueKey, {
+                features: [],
+                distances: []
+            });
+        }
+
+        const entry = labelValueMap.get(valueKey);
+        let featureCentroidLat, featureCentroidLon;
+
+        if (feature.geometry.type === 'Polygon' && feature.geometry.coordinates[0]) {
+            const ring = feature.geometry.coordinates[0].map(c => [c[1], c[0]]);
+            if (ring.length >= 3) {
+                if (ring[ring.length-1][0] !== ring[0][0] || ring[ring.length-1][1] !== ring[0][1]) {
+                    ring.push(ring[0]);
+                }
+                try {
+                    const turfPoly = turf.polygon([ring.map(p => [p[1], p[0]])]);
+                    const centroid = turf.centroid(turfPoly);
+                    featureCentroidLat = centroid.geometry.coordinates[1];
+                    featureCentroidLon = centroid.geometry.coordinates[0];
+                } catch (e) {
+                    featureCentroidLat = ring[0][0];
+                    featureCentroidLon = ring[0][1];
+                }
+            }
+        } else if (feature.geometry.type === 'Point') {
+            featureCentroidLat = feature.geometry.coordinates[1];
+            featureCentroidLon = feature.geometry.coordinates[0];
+        }
+
+        if (featureCentroidLat !== undefined && featureCentroidLon !== undefined) {
+            const distance = haversine(centroidLat, centroidLon, featureCentroidLat, featureCentroidLon);
+            entry.features.push(feature);
+            entry.distances.push(distance);
+        } else {
+            deduplicatedFeatures.push(feature);
+        }
+    });
+
+    labelValueMap.forEach((entry, valueKey) => {
+        if (entry.features.length === 1) {
+            deduplicatedFeatures.push(entry.features[0]);
+            console.log(`✓ GeoJSON 標籤去重 - 欄位值 "${valueKey}" 只有1個特徵，保留`);
+        } else {
+            const minDistIdx = entry.distances.indexOf(Math.min(...entry.distances));
+            deduplicatedFeatures.push(entry.features[minDistIdx]);
+            console.log(`✓ GeoJSON 標籤去重 - 欄位值 "${valueKey}" 有${entry.features.length}個，保留距離最近的（距離: ${entry.distances[minDistIdx].toFixed(2)}m）`);
+        }
+    });
+
+    geoJsonLabelDeduplicationInfo[layerName] = {
+        originalCount: explodedData.features.length,
+        deduplicatedCount: deduplicatedFeatures.length,
+        removedCount: explodedData.features.length - deduplicatedFeatures.length
+    };
+
+    return {
+        type: 'FeatureCollection',
+        features: deduplicatedFeatures
+    };
 }
 
 function renderGeoJSONLabels(explodedData, layerName, mapObj) {
@@ -1661,7 +1758,9 @@ function updateGeoJSONFieldLabel() {
     Object.keys(geoJsonFeatures).forEach(layerName => {
         const data = geoJsonFeatures[layerName];
         if (data.features) {
-            renderGeoJSONLabels(data, layerName, map);
+            // ★ v18: 應用去重邏輯
+            const deduplicatedData = deduplicateGeoJSONLabels(data, layerName, origin[0], origin[1]);
+            renderGeoJSONLabels(deduplicatedData, layerName, map);
         }
     });
 
@@ -2138,7 +2237,6 @@ function applyGeoJSONFeatureStyle(layer) {
     }
 }
 
-/* ★ v17.1修正：GeoJSON標籤高亮 */
 function highlightGeoJSONLabel(feature) {
     if (!geoJsonFieldInfo.activeField || !feature.properties) return;
     
@@ -2310,7 +2408,9 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     
     setTimeout(() => {
         if (geoJsonFieldInfo.activeField) {
-            renderGeoJSONLabels(explodedData, layerName, mapObj);
+            // ★ v18: 應用去重邏輯
+            const deduplicatedData = deduplicateGeoJSONLabels(explodedData, layerName, origin[0], origin[1]);
+            renderGeoJSONLabels(deduplicatedData, layerName, mapObj);
         }
     }, 100);
     
@@ -2779,12 +2879,34 @@ map.on('click', (e) => {
     origin = [lat, lon];
 });
 
-/* ★ v17.1修正：定位後顯示地標 */
+/* ★ v18: 定位自動刷新 */
 function getCurrentLocation() {
     if (!navigator.geolocation) {
         alert('瀏覽器不支援 GPS 定位');
         return;
     }
+
+    // ★ v18: 取消前一個自動定位計時器
+    if (autoGeoLocationIntervalId) {
+        clearInterval(autoGeoLocationIntervalId);
+        autoGeoLocationIntervalId = null;
+    }
+
+    // 立即定位一次
+    performGeolocation();
+
+    // ★ v18: 設定每分鐘自動定位一次
+    autoGeoLocationIntervalId = setInterval(() => {
+        performGeolocation();
+    }, 60000);  // 60000 毫秒 = 1 分鐘
+
+    geoLocationStatus.classList.add('active');
+    console.log('🔄 自動定位已啟動，每60秒重新定位一次');
+}
+
+function performGeolocation() {
+    geoLocationStatus.classList.add('active');
+
     navigator.geolocation.getCurrentPosition(
         (pos) => {
             const lat = pos.coords.latitude;
@@ -2793,7 +2915,6 @@ function getCurrentLocation() {
             lonInput.value = lon.toFixed(6);
             origin = [lat, lon];
             
-            // ★ v17.1: 添加定位標記
             if (locationMarker) {
                 map.removeLayer(locationMarker);
             }
@@ -2813,9 +2934,19 @@ function getCurrentLocation() {
             isUpdatingView = true;
             map.flyTo([lat, lon], 17, { duration: 1.2 });
             setTimeout(() => { isUpdatingView = false; }, 1500);
-            showToast('✓ 已定位到您的位置');
+
+            const now = new Date().toLocaleTimeString('zh-TW');
+            geoLocationStatus.textContent = `✓ 最後定位：${now}`;
+            console.log(`✓ 已定位到您的位置 (${lat.toFixed(6)}, ${lon.toFixed(6)}) - ${now}`);
         },
-        (err) => alert('定位失敗'),
+        (err) => {
+            geoLocationStatus.textContent = '❌ 定位失敗';
+            geoLocationStatus.classList.add('active');
+            console.error('定位失敗:', err.message);
+            setTimeout(() => {
+                geoLocationStatus.classList.remove('active');
+            }, 3000);
+        },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 }
@@ -3640,9 +3771,8 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v17.1 - 定位標記及GeoJSON標籤高亮）');
+    console.log('✅ 系統初始化完成（v18 - GeoJSON標籤去重、定位自動刷新）');
 });
-
 </script>
 
 </body>
