@@ -974,7 +974,6 @@ body.mobile-mode #drawToolbar {
     cursor: not-allowed;
 }
 
-/* ★ v18-修正版：隱藏Leaflet縮放按鈕 */
 .leaflet-control-zoom {
     display: none !important;
 }
@@ -1020,6 +1019,21 @@ body.mobile-mode #drawToolbar {
     border: 2px solid #dc2626;
     border-radius: 50%;
     box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: grab;
+}
+
+.edit-handle:active {
+    cursor: grabbing;
+}
+
+.edge-marker {
+    width: 10px;
+    height: 10px;
+    background: #0ea5e9;
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
 }
 
 .map-tooltip {
@@ -1074,6 +1088,24 @@ body.mobile-mode #drawToolbar {
 
 #geoLocationStatus.active {
     display: block;
+}
+
+.polygon-stats {
+    background: #f0fdf4;
+    border-left: 3px solid #16a34a;
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #166534;
+}
+
+.polygon-stats div {
+    margin: 4px 0;
+}
+
+.polygon-stats strong {
+    color: #15803d;
 }
 </style>
 </head>
@@ -1197,7 +1229,11 @@ body.mobile-mode #drawToolbar {
             <div id="polygonList"></div>
             
             <div style="font-size: 11px; color: #666; padding: 8px 0; margin: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
-                ℹ️ 選中多邊形後，查詢將以其形心為中心點進行；雙擊名稱或點擊 ✎ 可編輯名稱；選中後可拖移紅色節點進行編修
+                ℹ️ <strong>編輯操作</strong><br/>
+                • 點擊多邊形選中後可拖移紅色節點修改位置<br/>
+                • 雙擊多邊形邊線插入新節點<br/>
+                • 右擊節點快速刪除（至少保留3個節點）<br/>
+                • 編輯完成後自動隱藏節點編輯標記
             </div>
             
             <div id="geojsonFieldContainer" style="display: none;">
@@ -1318,12 +1354,13 @@ body.mobile-mode #drawToolbar {
 
 <script>
 /* ================================================
-   ★ v18-修正版：
-   1. GeoJSON標籤去重：同一欄位相同值僅顯示距離形心最近的
-   2. 定位自動刷新：每隔1分鐘自動重新定位1次
-   3. ★修正項1：結果位於範圍內時，直線距離及路線距離改以「位於區段內」顯示
-   4. ★修正項2：隱藏ZOOM IN/OUT按鈕
-   5. ★修正項3：多邊形選中後自動顯示編輯節點，可拖移修改
+   ★ v19 修正版：
+   1. 結果位於範圍內時顯示「位於區段內」
+   2. ★新增：多邊形節點編輯功能
+      - 拖移節點修改位置
+      - 雙擊邊線插入新節點
+      - 右擊節點刪除
+      - 實時更新面積和中心點
 ================================================ */
 
 let fitBoundsLock = false;
@@ -1333,10 +1370,9 @@ let suppressMapPanning = false;
 let selectedGeoJSONPolygonInfo = null;
 let deviceMode = 'desktop';
 let locationMarker = null;
-let autoGeoLocationIntervalId = null;  // ★ v18: 自動定位計時器ID
-
-// ★ v18: 追蹤標籤去重結果
+let autoGeoLocationIntervalId = null;
 let geoJsonLabelDeduplicationInfo = {};
+let editingPolygonId = null;  // ★ v19: 記錄正在編輯的多邊形ID
 
 function toggleSidebarMinimize() {
     const sidebar = document.getElementById('sidebar');
@@ -1366,13 +1402,11 @@ function toggleDeviceMode() {
         document.body.classList.add('mobile-mode');
         document.getElementById('deviceToggle').textContent = '📱';
         showToast('✓ 已切換至行動模式');
-        console.log('✓ 已切換至行動模式');
     } else {
         deviceMode = 'desktop';
         document.body.classList.remove('mobile-mode');
         document.getElementById('deviceToggle').textContent = '💻';
         showToast('✓ 已切換至電腦模式');
-        console.log('✓ 已切換至電腦模式');
     }
     
     setTimeout(() => {
@@ -1493,8 +1527,6 @@ const overlayMaps = {
 };
 
 const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'bottomright' }).addTo(map);
-// ★ v18-修正版：移除Leaflet預設的縮放控制面板
-// L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
 let markerLayer = L.layerGroup().addTo(map);
 let origin = [25.012098, 121.465675];
@@ -1600,7 +1632,6 @@ function updateGeoJSONFieldSelector() {
     }
 }
 
-/* ★ v18: 新增去重邏輯 */
 function deduplicateGeoJSONLabels(explodedData, layerName, centroidLat, centroidLon) {
     if (!geoJsonFieldInfo.activeField) {
         return { ...explodedData };
@@ -1661,11 +1692,9 @@ function deduplicateGeoJSONLabels(explodedData, layerName, centroidLat, centroid
     labelValueMap.forEach((entry, valueKey) => {
         if (entry.features.length === 1) {
             deduplicatedFeatures.push(entry.features[0]);
-            console.log(`✓ GeoJSON 標籤去重 - 欄位值 "${valueKey}" 只有1個特徵，保留`);
         } else {
             const minDistIdx = entry.distances.indexOf(Math.min(...entry.distances));
             deduplicatedFeatures.push(entry.features[minDistIdx]);
-            console.log(`✓ GeoJSON 標籤去重 - 欄位值 "${valueKey}" 有${entry.features.length}個，保留距離最近的（距離: ${entry.distances[minDistIdx].toFixed(2)}m）`);
         }
     });
 
@@ -1744,7 +1773,7 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
         }
     });
 
-    console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}（完全禁用互動）`);
+    console.log(`✓ GeoJSON 標籤圖層已建立：${layerName}`);
 }
 
 function updateGeoJSONFieldLabel() {
@@ -1758,7 +1787,6 @@ function updateGeoJSONFieldLabel() {
     Object.keys(geoJsonFeatures).forEach(layerName => {
         const data = geoJsonFeatures[layerName];
         if (data.features) {
-            // ★ v18: 應用去重邏輯
             const deduplicatedData = deduplicateGeoJSONLabels(data, layerName, origin[0], origin[1]);
             renderGeoJSONLabels(deduplicatedData, layerName, map);
         }
@@ -1768,7 +1796,6 @@ function updateGeoJSONFieldLabel() {
         statusDiv.style.display = 'block';
         statusText.textContent = fieldValue;
         showToast(`✓ GeoJSON 標籤已更新為：${fieldValue}`);
-        console.log(`✓ GeoJSON 欄位標籤已設定為：${fieldValue}`);
     } else {
         statusDiv.style.display = 'none';
         
@@ -1780,7 +1807,6 @@ function updateGeoJSONFieldLabel() {
         });
 
         showToast('✓ GeoJSON 標籤已隱藏');
-        console.log('✓ GeoJSON 欄位標籤已隱藏');
     }
 }
 
@@ -1800,7 +1826,6 @@ function normalizeGeoJSON(data) {
         current.features.type === 'FeatureCollection' &&
         iterationCount < maxIterations
     ) {
-        console.log(`ℹ️ 展平嵌套層級 ${iterationCount + 1}`);
         current = current.features;
         iterationCount++;
     }
@@ -1816,34 +1841,25 @@ function normalizeGeoJSON(data) {
 
         current.features.forEach((feature, idx) => {
             if (feature.type !== 'Feature') {
-                throw new Error(`features[${idx}] 不是有效的 Feature（type="${feature.type}"）`);
+                throw new Error(`features[${idx}] 不是有效的 Feature`);
             }
             if (!feature.geometry) {
                 throw new Error(`features[${idx}] 缺少 geometry`);
             }
-            if (!feature.geometry.type) {
-                throw new Error(`features[${idx}].geometry 缺少 type`);
-            }
         });
 
-        console.log(`✅ FeatureCollection 驗證成功，包含 ${current.features.length} 個特徵`);
         return current;
 
     } else if (current.type === 'Feature') {
         if (!current.geometry) {
             throw new Error('Feature 缺少 geometry 欄位');
         }
-        if (!current.geometry.type) {
-            throw new Error('geometry 缺少 type 欄位');
-        }
-        console.log(`✅ 轉換單一 Feature 為 FeatureCollection`);
         return {
             type: 'FeatureCollection',
             features: [current]
         };
 
     } else if (['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection'].includes(current.type)) {
-        console.log(`✅ 轉換 ${current.type} 為 FeatureCollection`);
         return {
             type: 'FeatureCollection',
             features: [{
@@ -1949,22 +1965,17 @@ function convertGeoJSONToWGS84IfNeeded(geojson) {
     const sample = findFirstCoordinatePair(geojson);
 
     if (!sample) {
-        console.warn('⚠️ 無法從 GeoJSON 取得座標樣本，略過座標系統自動偵測');
         return { data: geojson, converted: false, sample: null };
     }
 
     const [x, y] = sample;
 
     if (!isTWD97Coordinate(x, y)) {
-        console.log(`ℹ️ 座標樣本 (${x}, ${y}) 判定為 WGS84 經緯度，不需轉換`);
         return { data: geojson, converted: false, sample };
     }
 
-    console.log(`🔄 偵測到 TWD97 座標（X=${x.toFixed(2)}, Y=${y.toFixed(2)}），開始自動轉換為 WGS84...`);
-
     const convertedData = deepTransformGeoJSON(geojson, (px, py) => twd97ToWGS84(px, py));
 
-    console.log('✅ TWD97 → WGS84 座標轉換完成');
     return { data: convertedData, converted: true, sample };
 }
 
@@ -2003,7 +2014,6 @@ function extractStyleFromProperties(properties) {
     const style = { ...defaultStyles };
     
     if (!properties || Object.keys(properties).length === 0) {
-        console.warn('⚠️ 未傳入任何屬性資料，使用預設顏色');
         return style;
     }
     
@@ -2015,12 +2025,11 @@ function extractStyleFromProperties(properties) {
                 if (normalized) {
                     style.color = normalized;
                     style.fillColor = normalized;
-                    console.log(`✓ 從 styleConfig.stroke_.color_ 提取顏色: ${normalized}`);
                     return style;
                 }
             }
         } catch (e) {
-            console.debug('ℹ️ styleConfig.strokeColor 存取異常（預期）');
+            console.debug('ℹ️ styleConfig 存取異常');
         }
         
         if (properties.styleConfig.styleCache && 
@@ -2036,7 +2045,6 @@ function extractStyleFromProperties(properties) {
                     if (normalized) {
                         style.color = normalized;
                         style.fillColor = normalized;
-                        console.log(`✓ 從 styleConfig.styleCache.outer[0].stroke_.color_ 提取顏色: ${normalized}`);
                         return style;
                     }
                 }
@@ -2048,7 +2056,6 @@ function extractStyleFromProperties(properties) {
                     const normalized = normalizeColor(color);
                     if (normalized) {
                         style.fillColor = normalized;
-                        console.log(`✓ 從 styleConfig.fill_.color_ 提取顏色: ${normalized}`);
                         return style;
                     }
                 }
@@ -2071,7 +2078,6 @@ function extractStyleFromProperties(properties) {
                 if (normalized) {
                     style.color = normalized;
                     style.fillColor = normalized;
-                    console.log(`✓ 從深層路徑 "${nestedPath}" 提取顏色: ${normalized}`);
                     return style;
                 }
             }
@@ -2086,62 +2092,10 @@ function extractStyleFromProperties(properties) {
                 if (normalized) {
                     style.color = normalized;
                     style.fillColor = normalized;
-                    console.log(`✓ 從標準欄位 "${field}" 提取顏色: ${normalized}`);
                     return style;
                 }
             }
         }
-    }
-    
-    for (let field of colorFieldsConfig.customFields) {
-        if (properties.hasOwnProperty(field) && properties[field]) {
-            const colorValue = String(properties[field]).trim();
-            if (isValidColor(colorValue)) {
-                const normalized = normalizeColor(colorValue);
-                if (normalized) {
-                    style.color = normalized;
-                    style.fillColor = normalized;
-                    console.log(`✓ 從自訂欄位 "${field}" 提取顏色: ${normalized}`);
-                    return style;
-                }
-            }
-        }
-    }
-    
-    const opacityFields = ['opacity', 'fill_opacity', 'fillOpacity', 'alpha', '不透明度'];
-    for (let field of opacityFields) {
-        if (properties.hasOwnProperty(field) && properties[field] !== undefined) {
-            const opacity = parseFloat(properties[field]);
-            if (!isNaN(opacity) && opacity >= 0 && opacity <= 1) {
-                style.fillOpacity = opacity;
-                console.log(`✓ 從欄位 "${field}" 提取不透明度: ${opacity}`);
-                break;
-            }
-        }
-    }
-    
-    const weightFields = ['weight', 'stroke_width', 'linewidth', 'line_width', 'width', '寬度'];
-    for (let field of weightFields) {
-        if (properties.hasOwnProperty(field) && properties[field] !== undefined) {
-            const weight = parseInt(properties[field]);
-            if (!isNaN(weight) && weight > 0) {
-                style.weight = weight;
-                console.log(`✓ 從欄位 "${field}" 提取寬度: ${weight}`);
-                break;
-            }
-        }
-    }
-    
-    const foundFields = Object.keys(properties).filter(k => {
-        const lowerKey = k.toLowerCase();
-        return lowerKey.includes('color') || lowerKey.includes('fill') || 
-               lowerKey.includes('stroke') || k.includes('顏色');
-    });
-    
-    if (foundFields.length > 0) {
-        console.warn(`⚠️ 未找到有效的顏色信息（找到的相關欄位：${foundFields.join(', ')}），使用默認顏色: ${style.color}`);
-    } else {
-        console.warn(`⚠️ 未找到任何顏色相關欄位，使用默認顏色: ${style.color}`);
     }
     
     return style;
@@ -2174,8 +2128,6 @@ function explodeMultiPolygons(geojson) {
     if (!geojson || !Array.isArray(geojson.features)) return geojson;
 
     const explodedFeatures = [];
-    let multiPolygonCount = 0;
-    let splitCount = 0;
 
     geojson.features.forEach((feature) => {
         const geom = feature.geometry;
@@ -2186,7 +2138,6 @@ function explodeMultiPolygons(geojson) {
         }
 
         if (geom.type === 'MultiPolygon') {
-            multiPolygonCount++;
             geom.coordinates.forEach((polygonRings, idx) => {
                 explodedFeatures.push({
                     type: 'Feature',
@@ -2199,16 +2150,11 @@ function explodeMultiPolygons(geojson) {
                         coordinates: polygonRings
                     }
                 });
-                splitCount++;
             });
         } else {
             explodedFeatures.push(feature);
         }
     });
-
-    if (multiPolygonCount > 0) {
-        console.log(`🔨 已拆解 ${multiPolygonCount} 個 MultiPolygon → 共產生 ${splitCount} 個獨立多邊形（皆可單獨選取）`);
-    }
 
     return {
         type: 'FeatureCollection',
@@ -2222,7 +2168,6 @@ function applyGeoJSONFeatureStyle(layer) {
     const sel = geoJsonSelection[layer._layerName];
     if (sel && sel === layer) {
         layer.setStyle(selectedGeoJSONStyle);
-        console.log(`✓ 應用已選取樣式於 ${layer._featureId}`);
     } else {
         const s = layer._extractedStyle || defaultStyles;
         layer.setStyle({
@@ -2233,7 +2178,6 @@ function applyGeoJSONFeatureStyle(layer) {
             fillOpacity: s.fillOpacity,
             dashArray: s.dashArray
         });
-        console.log(`✓ 恢復未選取樣式於 ${layer._featureId}`);
     }
 }
 
@@ -2247,7 +2191,6 @@ function highlightGeoJSONLabel(feature) {
     tooltips.forEach(tooltip => {
         if (tooltip.textContent === String(fieldValue)) {
             tooltip.classList.add('highlighted');
-            console.log(`✓ 高亮 GeoJSON 標籤：${fieldValue}`);
         }
     });
 }
@@ -2257,14 +2200,12 @@ function clearGeoJSONLabelHighlight() {
     tooltips.forEach(tooltip => {
         tooltip.classList.remove('highlighted');
     });
-    console.log(`✓ 移除 GeoJSON 標籤高亮`);
 }
 
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     const current = geoJsonSelection[layerName];
 
     if (current === layer) {
-        console.log(`🔄 取消選取 ${layer._featureId}`);
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(layer);
         selectedGeoJSONPolygonInfo = null;
@@ -2275,7 +2216,6 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
 
     if (current) {
         const prevLayer = current;
-        console.log(`🔄 清除前一個選取 ${prevLayer._featureId}`);
         delete geoJsonSelection[layerName];
         applyGeoJSONFeatureStyle(prevLayer);
         clearGeoJSONLabelHighlight();
@@ -2284,7 +2224,6 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
     geoJsonSelection[layerName] = layer;
     applyGeoJSONFeatureStyle(layer);
     highlightGeoJSONLabel(feature);
-    console.log(`✅ 已視覺上選取 ${layer._featureId}`);
 
     const coords = feature.geometry.coordinates;
     let centroidLat, centroidLon;
@@ -2309,15 +2248,13 @@ function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
             layerName: layerName,
             featureId: layer._featureId
         };
-        
-        console.log(`📍 已記錄 GeoJSON 多邊形中心: (${centroidLat.toFixed(6)}, ${centroidLon.toFixed(6)})`);
     }
 
     const props = feature.properties || {};
     const label = props.name || props.NAME || props.Name || props['名稱'] || layer._featureId || '未命名';
     
     if (useSelectedPolygonCheckbox.checked) {
-        showToast(`✓ 已選取多邊形：${label}（點擊查詢按鈕使用此中心進行查詢）`);
+        showToast(`✓ 已選取多邊形：${label}`);
     } else {
         showToast(`✓ 已選取多邊形：${label}`);
     }
@@ -2381,10 +2318,6 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 if (e && e.originalEvent) {
                     e.originalEvent.stopPropagation();
                 }
-                if (L.DomEvent) {
-                    L.DomEvent.stopPropagation(e);
-                }
-                console.log(`🖱️ 點擊多邊形: ${this._featureId}`);
                 suppressMapPanning = true;
                 toggleGeoJSONFeatureSelection(layerName, layer, feature);
                 suppressMapPanning = false;
@@ -2408,7 +2341,6 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     
     setTimeout(() => {
         if (geoJsonFieldInfo.activeField) {
-            // ★ v18: 應用去重邏輯
             const deduplicatedData = deduplicateGeoJSONLabels(explodedData, layerName, origin[0], origin[1]);
             renderGeoJSONLabels(deduplicatedData, layerName, mapObj);
         }
@@ -2417,7 +2349,7 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     geoJsonLayers[layerName] = featureGroup;
     addGeoJSONLayerControl(layerName, featureGroup, mapObj);
 
-    console.log(`✓ GeoJSON 圖層已新增：${layerName}（${explodedData.features.length} 個可選多邊形）`);
+    console.log(`✓ GeoJSON 圖層已新增：${layerName}`);
 }
 
 async function importGeoJSON(file, mapObj) {
@@ -2427,11 +2359,7 @@ async function importGeoJSON(file, mapObj) {
         reader.onload = (e) => {
             try {
                 const rawData = JSON.parse(e.target.result);
-                console.log('📥 原始 GeoJSON 結構:', rawData);
-
                 const normalizedData = normalizeGeoJSON(rawData);
-                console.log('✅ 規範化後的 GeoJSON:', normalizedData);
-
                 const conversionResult = convertGeoJSONToWGS84IfNeeded(normalizedData);
                 const finalData = conversionResult.data;
 
@@ -2441,7 +2369,6 @@ async function importGeoJSON(file, mapObj) {
                     .trim();
 
                 optimizeAddGeoJSONToMap(finalData, layerName, mapObj);
-                
                 updateGeoJSONFieldSelector();
 
                 let msg = `✓ 已匯入圖層：${layerName} (${finalData.features.length} 個特徵)`;
@@ -2453,7 +2380,6 @@ async function importGeoJSON(file, mapObj) {
 
             } catch (error) {
                 console.error('❌ GeoJSON 匯入失敗:', error);
-                console.error('錯誤堆疊:', error.stack);
                 showToast(`❌ GeoJSON 匯入失敗：${error.message}`);
                 reject(error);
             }
@@ -2525,7 +2451,6 @@ function removeGeoJSONLayer(layerName, mapObj) {
         delete geoJsonSelection[layerName];
     }
     showToast(`✓ 已移除圖層：${layerName}`);
-    console.log(`✓ 圖層已移除：${layerName}`);
 }
 
 function exportGeoJSON(layerName = null) {
@@ -2572,7 +2497,6 @@ function downloadGeoJSON(geoJsonData, filename) {
     
     URL.revokeObjectURL(url);
     showToast(`✓ 已下載：${link.download}`);
-    console.log(`✓ GeoJSON 已下載：${link.download}`);
 }
 
 function initGeoJSONEvents(mapObj) {
@@ -2672,33 +2596,11 @@ function updatePolygonCentroid(polygonObj) {
     polygonObj.centroid = [centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]];
 }
 
-function renderPolygonLayer(polygonObj) {
-    if (polygonObj.layer) map.removeLayer(polygonObj.layer);
-    const style = {
-        color: polygonObj.color,
-        weight: polygonObj.isSelected ? 4 : 3,
-        fillColor: polygonObj.color,
-        fillOpacity: 0.25,
-        dashArray: polygonObj.isSelected ? null : '5,5'
-    };
-    polygonObj.layer = L.polygon(polygonObj.points, style).addTo(map);
-
-    polygonObj.layer.on('click', (e) => {
-        L.DomEvent.stopPropagation(e);
-        if (isDrawingPolygon) return;
-        selectPolygon(polygonObj.id);
-    });
-    
-    // ★ v18-修正版：選中後自動顯示編輯節點
-    if (polygonObj.isSelected) {
-        renderEditHandles(polygonObj);
-    } else {
-        polygonObj.markers.clearLayers();
-    }
-}
-
+// ★ v19: 新增節點編輯功能
 function renderEditHandles(polygonObj) {
     polygonObj.markers.clearLayers();
+    
+    // 添加節點（可拖動）
     polygonObj.points.forEach((pt, index) => {
         let marker = L.marker(pt, {
             icon: L.divIcon({
@@ -2717,14 +2619,110 @@ function renderEditHandles(polygonObj) {
         });
         
         marker.on('dragend', () => {
-            updatePolygonCentroid(polygonObj);
-            updateLatLonInputs(polygonObj);
-            renderPolygonLayer(polygonObj);
+            updatePolygonAfterEdit(polygonObj);
+        });
+
+        // ★ v19: 右擊刪除節點
+        marker.on('contextmenu', (e) => {
+            L.DomEvent.preventDefault(e);
+            handleNodeRightClick(polygonObj, index);
         });
         
         marker.addTo(polygonObj.markers);
     });
+
+    // ★ v19: 添加邊線標記（用於插入新節點）
+    if (polygonObj.points.length > 0) {
+        for (let i = 0; i < polygonObj.points.length; i++) {
+            const pt1 = polygonObj.points[i];
+            const pt2 = polygonObj.points[(i + 1) % polygonObj.points.length];
+            const midpoint = [(pt1[0] + pt2[0]) / 2, (pt1[1] + pt2[1]) / 2];
+
+            let edgeMarker = L.marker(midpoint, {
+                icon: L.divIcon({
+                    className: '',
+                    html: '<div class="edge-marker"></div>',
+                    iconSize: [10, 10],
+                    iconAnchor: [5, 5]
+                }),
+                interactive: true
+            });
+
+            // ★ v19: 雙擊邊線插入新節點
+            edgeMarker.on('dblclick', (e) => {
+                L.DomEvent.stopPropagation(e);
+                handleEdgeDoubleClick(polygonObj, i, e.latlng);
+            });
+
+            edgeMarker.addTo(polygonObj.markers);
+        }
+    }
+
     polygonObj.markers.addTo(map);
+    console.log(`✓ 多邊形 ${polygonObj.name} 編輯節點已顯示`);
+}
+
+// ★ v19: 處理邊線雙擊 - 插入新節點
+function handleEdgeDoubleClick(polygonObj, edgeIndex, clickLatLng) {
+    if (!clickLatLng) return;
+    
+    const newPoint = [clickLatLng.lat, clickLatLng.lng];
+    const insertIndex = edgeIndex + 1;
+    
+    polygonObj.points.splice(insertIndex, 0, newPoint);
+    console.log(`✓ 在邊線 ${edgeIndex} 處插入新節點`);
+    
+    updatePolygonAfterEdit(polygonObj);
+    showToast(`✓ 已在邊線插入新節點`);
+}
+
+// ★ v19: 處理節點右擊 - 刪除節點
+function handleNodeRightClick(polygonObj, nodeIndex) {
+    if (polygonObj.points.length <= 3) {
+        showToast('❌ 多邊形至少需要 3 個節點');
+        return;
+    }
+
+    if (confirm('確定要刪除此節點嗎？')) {
+        polygonObj.points.splice(nodeIndex, 1);
+        console.log(`✓ 已刪除節點 ${nodeIndex}`);
+        updatePolygonAfterEdit(polygonObj);
+        showToast('✓ 節點已刪除');
+    }
+}
+
+// ★ v19: 編輯後更新多邊形
+function updatePolygonAfterEdit(polygonObj) {
+    updatePolygonCentroid(polygonObj);
+    updateLatLonInputs(polygonObj);
+    renderPolygonLayer(polygonObj);
+    renderEditHandles(polygonObj);
+    renderPolygonList();
+}
+
+function renderPolygonLayer(polygonObj) {
+    if (polygonObj.layer) map.removeLayer(polygonObj.layer);
+    const style = {
+        color: polygonObj.color,
+        weight: polygonObj.isSelected ? 4 : 3,
+        fillColor: polygonObj.color,
+        fillOpacity: 0.25,
+        dashArray: polygonObj.isSelected ? null : '5,5'
+    };
+    polygonObj.layer = L.polygon(polygonObj.points, style).addTo(map);
+
+    polygonObj.layer.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        if (isDrawingPolygon) return;
+        selectPolygon(polygonObj.id);
+    });
+    
+    // ★ v19: 選中後自動顯示編輯節點
+    if (polygonObj.isSelected) {
+        renderEditHandles(polygonObj);
+    } else {
+        polygonObj.markers.clearLayers();
+    }
 }
 
 function selectPolygon(id) {
@@ -2740,6 +2738,7 @@ function selectPolygon(id) {
     if (!polygon) return;
 
     currentPolygonId = id;
+    editingPolygonId = id;  // ★ v19: 記錄正在編輯的多邊形
     renderPolygonLayer(polygon);
     renderEditHandles(polygon);
     renderPolygonList();
@@ -2769,6 +2768,7 @@ function clearAllPolygons() {
     });
     polygons = [];
     currentPolygonId = null;
+    editingPolygonId = null;
     renderPolygonList();
     showToast('✕ 所有多邊形已清除');
 }
@@ -2835,24 +2835,52 @@ function renderPolygonList() {
         return;
     }
     
-    listDiv.innerHTML = polygons.map((poly) => `
-        <div class="polygon-item ${poly.isSelected ? 'selected' : ''}" onclick="selectPolygon('${poly.id}')">
-            <div class="polygon-item-info">
-                <div style="width:14px;height:14px;background:${poly.color};border-radius:3px;flex-shrink:0;"></div>
-                <div class="polygon-item-name" id="name-${poly.id}"
-                     ondblclick="event.stopPropagation(); startRenamePolygon('${poly.id}')"
-                     title="雙擊可編輯名稱">${escapeHtml(poly.name)}</div>
+    listDiv.innerHTML = polygons.map((poly) => {
+        // ★ v19: 計算多邊形面積
+        let coordinates = poly.points.map(p => [p[1], p[0]]);
+        if (coordinates.length > 0 && 
+            (coordinates[0][0] !== coordinates[coordinates.length-1][0] || 
+             coordinates[0][1] !== coordinates[coordinates.length-1][1])) {
+            coordinates.push([poly.points[0][1], poly.points[0][0]]);
+        }
+        let areaM2 = 0, areaHa = 0;
+        if (coordinates.length >= 4) {
+            try {
+                const turfPoly = turf.polygon([coordinates]);
+                areaM2 = turf.area(turfPoly);
+                areaHa = (areaM2 / 10000).toFixed(2);
+            } catch (e) {
+                console.debug('面積計算異常');
+            }
+        }
+
+        const statsHtml = areaM2 > 0 ? `
+            <div class="polygon-stats">
+                <div><strong>面積</strong>: ${areaM2.toLocaleString('zh-TW')} m² (${areaHa} ha)</div>
+                <div><strong>節點</strong>: ${poly.points.length}</div>
             </div>
-            <div class="polygon-item-actions">
-                <button class="polygon-item-btn polygon-rename-btn"
-                        onclick="event.stopPropagation(); startRenamePolygon('${poly.id}')"
-                        title="編輯名稱">✎</button>
-                <button class="polygon-item-btn polygon-delete-btn"
-                        onclick="event.stopPropagation(); deletePolygon('${poly.id}');"
-                        title="刪除">✕</button>
+        ` : '';
+
+        return `
+            <div class="polygon-item ${poly.isSelected ? 'selected' : ''}" onclick="selectPolygon('${poly.id}')">
+                <div class="polygon-item-info">
+                    <div style="width:14px;height:14px;background:${poly.color};border-radius:3px;flex-shrink:0;"></div>
+                    <div class="polygon-item-name" id="name-${poly.id}"
+                         ondblclick="event.stopPropagation(); startRenamePolygon('${poly.id}')"
+                         title="雙擊可編輯名稱">${escapeHtml(poly.name)}</div>
+                </div>
+                <div class="polygon-item-actions">
+                    <button class="polygon-item-btn polygon-rename-btn"
+                            onclick="event.stopPropagation(); startRenamePolygon('${poly.id}')"
+                            title="編輯名稱">✎</button>
+                    <button class="polygon-item-btn polygon-delete-btn"
+                            onclick="event.stopPropagation(); deletePolygon('${poly.id}');"
+                            title="刪除">✕</button>
+                </div>
+                ${poly.isSelected ? statsHtml : ''}
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 map.on('click', (e) => {
@@ -2880,29 +2908,24 @@ map.on('click', (e) => {
     origin = [lat, lon];
 });
 
-/* ★ v18: 定位自動刷新 */
 function getCurrentLocation() {
     if (!navigator.geolocation) {
         alert('瀏覽器不支援 GPS 定位');
         return;
     }
 
-    // ★ v18: 取消前一個自動定位計時器
     if (autoGeoLocationIntervalId) {
         clearInterval(autoGeoLocationIntervalId);
         autoGeoLocationIntervalId = null;
     }
 
-    // 立即定位一次
     performGeolocation();
 
-    // ★ v18: 設定每分鐘自動定位一次
     autoGeoLocationIntervalId = setInterval(() => {
         performGeolocation();
-    }, 60000);  // 60000 毫秒 = 1 分鐘
+    }, 60000);
 
     geoLocationStatus.classList.add('active');
-    console.log('🔄 自動定位已啟動，每60秒重新定位一次');
 }
 
 function performGeolocation() {
@@ -2938,12 +2961,10 @@ function performGeolocation() {
 
             const now = new Date().toLocaleTimeString('zh-TW');
             geoLocationStatus.textContent = `✓ 最後定位：${now}`;
-            console.log(`✓ 已定位到您的位置 (${lat.toFixed(6)}, ${lon.toFixed(6)}) - ${now}`);
         },
         (err) => {
             geoLocationStatus.textContent = '❌ 定位失敗';
             geoLocationStatus.classList.add('active');
-            console.error('定位失敗:', err.message);
             setTimeout(() => {
                 geoLocationStatus.classList.remove('active');
             }, 3000);
@@ -3139,13 +3160,12 @@ async function runQuery() {
     const radius = parseFloat(radiusInput.value);
 
     if (useSelectedPolygonCheckbox.checked && selectedGeoJSONPolygonInfo) {
-        console.log(`🎯 使用已選中的 GeoJSON 多邊形進行查詢`);
         lat = selectedGeoJSONPolygonInfo.lat;
         lon = selectedGeoJSONPolygonInfo.lon;
         origin = [lat, lon];
         latInput.value = lat.toFixed(6);
         lonInput.value = lon.toFixed(6);
-        showToast(`✓ 已切換查詢中心到多邊形中心 (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
+        showToast(`✓ 已切換查詢中心到多邊形中心`);
     }
 
     if (radius > 3000) {
@@ -3400,7 +3420,7 @@ function renderTable() {
         tr.dataset.id = item.id;
         tr.onclick = () => selectItemById(item.id);
         
-        // ★ v18-修正版：修正項1 - 位於範圍內時直線距離及路線距離改以「位於區段內」顯示
+        // ★ v19-修正版：修正項1 - 位於範圍內時直線距離及路線距離改以「位於區段內」顯示
         let distanceDisplay = item.在範圍內 ? '位於區段內' : item.直線距離顯示;
         let routeDisplay = item.在範圍內 ? '位於區段內' : (item.路線距離 || '');
         
@@ -3487,7 +3507,6 @@ function exportPolygonsToGeoJSON() {
 
         URL.revokeObjectURL(url);
         showToast(`✓ 已下載 GeoJSON：${link.download}`);
-        console.log('✓ GeoJSON 匯出成功，包含 ' + features.length + ' 個多邊形');
 
     } catch (err) {
         console.error('❌ GeoJSON 匯出失敗:', err);
@@ -3554,7 +3573,6 @@ function processImportedPolygons(geojson) {
     let guard = 0;
     while (data && data.features && !Array.isArray(data.features) &&
            data.features.type === "FeatureCollection" && guard < 5) {
-        console.log(`ℹ️ 展平嵌套層級 ${guard + 1}`);
         data = data.features;
         guard++;
     }
@@ -3572,7 +3590,6 @@ function processImportedPolygons(geojson) {
         }];
     } else {
         showToast("❌ 無效的 GeoJSON 格式");
-        console.error('無法識別的結構:', data);
         return;
     }
 
@@ -3582,7 +3599,6 @@ function processImportedPolygons(geojson) {
 
     features.forEach((feature, featureIdx) => {
         if (!feature.geometry) {
-            console.warn(`Feature[${featureIdx}] 缺少 geometry，已跳過`);
             skippedCount++;
             return;
         }
@@ -3609,7 +3625,6 @@ function processImportedPolygons(geojson) {
                 }
             });
         } else {
-            console.warn(`Feature[${featureIdx}] geometry type="${geomType}" 不支援，已跳過`);
             skippedCount++;
             return;
         }
@@ -3624,7 +3639,6 @@ function processImportedPolygons(geojson) {
             const totalPolygons = coordData.totalPolygons;
 
             if (!rings || rings.length < 3) {
-                console.warn(`Feature[${featureIdx}].polygon[${multiIndex}] 頂點少於 3 個，已跳過`);
                 skippedCount++;
                 return;
             }
@@ -3635,15 +3649,13 @@ function processImportedPolygons(geojson) {
             if (wasTWD97) {
                 convertedRings = convertRingIfNeeded(rings);
                 convertedCount++;
-                console.log(`✓ 自動轉換 Feature[${featureIdx}].polygon[${multiIndex}] 的座標系統 (TWD97 → WGS84)`);
             }
 
             const invalidCoord = convertedRings.some(coord =>
                 Math.abs(coord[1]) > 90 || Math.abs(coord[0]) > 180
             );
             if (invalidCoord) {
-                console.error(`Feature[${featureIdx}].polygon[${multiIndex}] 座標超出有效範圍，已跳過`);
-                showToast("⚠️ 部分座標超出有效範圍（lat: ±90°, lon: ±180°），已自動跳過");
+                showToast("⚠️ 部分座標超出有效範圍，已自動跳過");
                 skippedCount++;
                 return;
             }
@@ -3666,7 +3678,6 @@ function processImportedPolygons(geojson) {
             const polygonObj = createPolygonObject(points, finalName);
             if (polygonObj) {
                 polygonObj.originalProperties = { ...props };
-                console.log(`✓ 已保留 Feature[${featureIdx}].polygon[${multiIndex}] 的原始屬性:`, props);
             }
 
             importedCount++;
@@ -3677,7 +3688,6 @@ function processImportedPolygons(geojson) {
     if (convertedCount > 0) msg += `（已自動轉換 ${convertedCount} 個 TWD97 座標）`;
     if (skippedCount > 0) msg += `，跳過 ${skippedCount} 筆異常資料`;
     showToast(msg);
-    console.log(msg);
 }
 
 function importPolygonsFromSHP(event) {
@@ -3689,11 +3699,7 @@ function importPolygonsFromSHP(event) {
         reader.onload = (e) => {
             try {
                 const rawGeoJSON = JSON.parse(e.target.result);
-                console.log('📥 原始 GeoJSON 結構:', rawGeoJSON);
-                
                 const normalizedGeoJSON = normalizeGeoJSON(rawGeoJSON);
-                console.log('✅ 規範化後的 GeoJSON:', normalizedGeoJSON);
-                
                 processImportedPolygons(normalizedGeoJSON);
             } catch (err) {
                 console.error('❌ GeoJSON 解析失敗:', err);
@@ -3705,11 +3711,7 @@ function importPolygonsFromSHP(event) {
         reader.onload = (e) => {
             shp(e.target.result).then(geojson => {
                 try {
-                    console.log('📥 原始 SHP GeoJSON:', geojson);
-                    
                     const normalizedGeoJSON = normalizeGeoJSON(geojson);
-                    console.log('✅ 規範化後的 GeoJSON:', normalizedGeoJSON);
-                    
                     processImportedPolygons(normalizedGeoJSON);
                 } catch (err) {
                     console.error('❌ GeoJSON 規範化失敗:', err);
@@ -3773,7 +3775,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v18-修正版：位於範圍內改為「位於區段內」、隱藏ZOOM鈕、節點編修）');
+    console.log('✅ v19完整修正版初始化完成（支援節點新增/修改/刪除功能）');
 });
 </script>
 
