@@ -974,13 +974,9 @@ body.mobile-mode #drawToolbar {
     cursor: not-allowed;
 }
 
+/* ★ v18-修正版：隱藏Leaflet縮放按鈕 */
 .leaflet-control-zoom {
-    position: absolute !important;
-    bottom: 80px !important;
-    left: 12px !important;
-    top: auto !important;
-    right: auto !important;
-    border-radius: 8px !important;
+    display: none !important;
 }
 
 .leaflet-control-layers {
@@ -1201,7 +1197,7 @@ body.mobile-mode #drawToolbar {
             <div id="polygonList"></div>
             
             <div style="font-size: 11px; color: #666; padding: 8px 0; margin: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
-                ℹ️ 選中多邊形後，查詢將以其形心為中心點進行；雙擊名稱或點擊 ✎ 可編輯名稱
+                ℹ️ 選中多邊形後，查詢將以其形心為中心點進行；雙擊名稱或點擊 ✎ 可編輯名稱；選中後可拖移紅色節點進行編修
             </div>
             
             <div id="geojsonFieldContainer" style="display: none;">
@@ -1230,7 +1226,7 @@ body.mobile-mode #drawToolbar {
                     style="display: none;"
                 >
                 <button id="export-geojson-btn" class="btn-primary" style="width: 100%; padding: 10px; margin: 0; border: none; border-radius: 6px; cursor: pointer;">
-                    💾 導出 GeoJSON
+                    💾 匯出 GeoJSON
                 </button>
             </div>
         </div>
@@ -1322,10 +1318,13 @@ body.mobile-mode #drawToolbar {
 
 <script>
 /* ================================================
-   ★ v18 修正：
+   ★ v18-修正版：
    1. GeoJSON標籤去重：同一欄位相同值僅顯示距離形心最近的
    2. 定位自動刷新：每隔1分鐘自動重新定位1次
-   ================================================ */
+   3. ★修正項1：結果位於範圍內時，直線距離及路線距離改以「位於區段內」顯示
+   4. ★修正項2：隱藏ZOOM IN/OUT按鈕
+   5. ★修正項3：多邊形選中後自動顯示編輯節點，可拖移修改
+================================================ */
 
 let fitBoundsLock = false;
 let geoJsonLabelLayers = {};
@@ -1494,7 +1493,8 @@ const overlayMaps = {
 };
 
 const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'bottomright' }).addTo(map);
-L.control.zoom({ position: 'bottomleft' }).addTo(map);
+// ★ v18-修正版：移除Leaflet預設的縮放控制面板
+// L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
 let markerLayer = L.layerGroup().addTo(map);
 let origin = [25.012098, 121.465675];
@@ -2689,7 +2689,8 @@ function renderPolygonLayer(polygonObj) {
         selectPolygon(polygonObj.id);
     });
     
-    if (polygonObj.isEditing || polygonObj.isSelected) {
+    // ★ v18-修正版：選中後自動顯示編輯節點
+    if (polygonObj.isSelected) {
         renderEditHandles(polygonObj);
     } else {
         polygonObj.markers.clearLayers();
@@ -3399,6 +3400,7 @@ function renderTable() {
         tr.dataset.id = item.id;
         tr.onclick = () => selectItemById(item.id);
         
+        // ★ v18-修正版：修正項1 - 位於範圍內時直線距離及路線距離改以「位於區段內」顯示
         let distanceDisplay = item.在範圍內 ? '位於區段內' : item.直線距離顯示;
         let routeDisplay = item.在範圍內 ? '位於區段內' : (item.路線距離 || '');
         
@@ -3771,7 +3773,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ 系統初始化完成（v18 - GeoJSON標籤去重、定位自動刷新）');
+    console.log('✅ 系統初始化完成（v18-修正版：位於範圍內改為「位於區段內」、隱藏ZOOM鈕、節點編修）');
 });
 </script>
 
