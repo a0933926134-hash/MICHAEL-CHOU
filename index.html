@@ -9,7 +9,7 @@
 <meta name="application-name" content="區段勘查小幫手">
 <meta name="description" content="基於OpenStreetMap和台灣官方地圖的區段勘查分析工具">
 <meta name="author" content="Your Organization">
-<meta name="version" content="1.0.0">
+<meta name="version" content="1.1.0">
 <meta name="release-date" content="2024-12-19">
 <meta name="license" content="MIT + ODbL Attribution">
 
@@ -845,7 +845,7 @@ body.mobile-mode #drawToolbar {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px 12px;
+    padding: 10px 12px;
     background: #dbeafe;
     border: 1px solid #93c5fd;
     border-radius: 6px;
@@ -854,6 +854,7 @@ body.mobile-mode #drawToolbar {
     font-size: 12px;
     font-weight: 600;
     transition: all 0.2s;
+    text-align: center;
 }
 
 .file-upload-label:hover {
@@ -1266,6 +1267,28 @@ body.mobile-mode .about-link-btn {
 .polygon-stats strong {
     color: #15803d;
 }
+
+.import-status {
+    background: #f0f9ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 11px;
+    color: #0369a1;
+    margin-top: 8px;
+}
+
+.import-status.success {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #166534;
+}
+
+.import-status.error {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+}
 </style>
 </head>
 <body>
@@ -1283,7 +1306,7 @@ body.mobile-mode .about-link-btn {
             <h3>應用程式資訊</h3>
             <p>
                 <strong>區段勘查小幫手</strong><br/>
-                版本: v1.0.0<br/>
+                版本: v1.1.0<br/>
                 發行日期: 2024年12月19日<br/>
                 授權: MIT License + ODbL Attribution
             </p>
@@ -1307,6 +1330,11 @@ body.mobile-mode .about-link-btn {
                     <small>MIT License</small>
                 </div>
                 <div class="license-item">
+                    <strong>shpjs</strong>
+                    <p style="margin: 4px 0; font-size: 13px;">Shapefile 解析與轉換</p>
+                    <small>MIT License</small>
+                </div>
+                <div class="license-item">
                     <strong>Turf.js</strong>
                     <p style="margin: 4px 0; font-size: 13px;">地理計算庫</p>
                     <small>MIT License</small>
@@ -1319,11 +1347,6 @@ body.mobile-mode .about-link-btn {
                 <div class="license-item">
                     <strong>JSZip</strong>
                     <p style="margin: 4px 0; font-size: 13px;">ZIP 檔案處理</p>
-                    <small>MIT License</small>
-                </div>
-                <div class="license-item">
-                    <strong>shpjs</strong>
-                    <p style="margin: 4px 0; font-size: 13px;">Shapefile 解析</p>
                     <small>MIT License</small>
                 </div>
                 <div class="license-item">
@@ -1379,7 +1402,7 @@ body.mobile-mode .about-link-btn {
     <div id="sidebarHeader">
         <div id="sidebarTitle">
             <h1>🗺️ 區段勘查小幫手</h1>
-            <p>v1.0.0 (2024-12-19)</p>
+            <p>v1.1.0 (2024-12-19)</p>
         </div>
         <button id="sidebarMinimizeBtn" title="最小化/最大化" onclick="toggleSidebarMinimize()">−</button>
     </div>
@@ -1512,16 +1535,17 @@ body.mobile-mode .about-link-btn {
         <div class="sidebar-section">
             <h3><span>📁</span> 圖層匯入/匯出</h3>
             <div class="geojson-section">
-                <label for="geojson-file-input" class="btn-primary" style="text-align: center; cursor: pointer; display: block; padding: 10px; margin: 0; border-radius: 6px; text-decoration: none;">
-                    📁 匯入 GeoJSON
+                <label for="geojson-file-input" class="file-upload-label">
+                    📁 匯入圖層 (GeoJSON/SHP)
                 </label>
                 <input 
                     type="file" 
                     id="geojson-file-input" 
-                    accept=".geojson,.json" 
+                    accept=".geojson,.json,.zip,.shp" 
                     style="display: none;"
                 >
-                <button id="export-geojson-btn" class="btn-primary" style="width: 100%; padding: 10px; margin: 0; border: none; border-radius: 6px; cursor: pointer;">
+                <div id="importStatus" style="display: none;"></div>
+                <button id="export-geojson-btn" class="btn-primary" style="width: 100%; padding: 10px; margin: 8px 0 0 0; border: none; border-radius: 6px; cursor: pointer;">
                     💾 匯出 GeoJSON
                 </button>
             </div>
@@ -1566,9 +1590,9 @@ body.mobile-mode .about-link-btn {
         <h4>檔案操作</h4>
         <div class="draw-button-group">
             <button onclick="exportPolygonsToGeoJSON()" style="background: #10b981; color: white; border-color: #059669;">📥 匯出</button>
-            <label class="file-upload-label">
-                📤 匯入
-                <input type="file" id="shp-file-input" accept=".zip,.geojson,.json" onchange="importPolygonsFromSHP(event)">
+            <label class="file-upload-label" style="margin: 0;">
+                📤 匯入多邊形
+                <input type="file" id="shp-file-input" accept=".zip,.geojson,.json,.shp" onchange="importPolygonsFromSHP(event)">
             </label>
         </div>
     </div>
@@ -1609,21 +1633,20 @@ body.mobile-mode .about-link-btn {
 </div>
 
 <div id="statusBar">
-    數據來源: © OpenStreetMap contributors / © NLSC | 授權: ODbL + MIT | 🟢 離線模式
+    數據來源: © OpenStreetMap contributors / © NLSC | 授權: ODbL + MIT | 🟢 離線模式 | 支援: GeoJSON / SHP
 </div>
 
 <script>
 /* ================================================
-   ★ v1.0.0 (2024-12-19) - 正式版本
+   ★ v1.1.0 (2024-12-19) - 擴充版本
    
    功能更新：
-   1. 完整的著作權合規聲明
-   2. 版本管理和更新日期
-   3. 模態視窗 (About/License)
-   4. ODbL 合規聲明和隱私政策
-   5. 改進的屬性標記
-   6. 多邊形節點編輯功能
-   7. GeoJSON 標籤欄位選擇
+   1. 新增 Shapefile (SHP) 格式支援
+   2. 統一的檔案上傳介面
+   3. 自動格式偵測與解析
+   4. 改進的錯誤處理與使用者提示
+   5. 標籤欄位自動更新
+   6. MultiPolygon 自動分割與重命名
    
    授權: MIT License + ODbL Attribution
 ================================================ */
@@ -2656,22 +2679,40 @@ async function importGeoJSON(file, mapObj) {
                     msg += `｜已自動轉換 TWD97 → WGS84 座標`;
                 }
                 showToast(msg);
+                displayImportStatus(msg, 'success');
                 resolve(layerName);
 
             } catch (error) {
                 console.error('❌ GeoJSON 匯入失敗:', error);
-                showToast(`❌ GeoJSON 匯入失敗：${error.message}`);
+                const errorMsg = `❌ GeoJSON 匯入失敗：${error.message}`;
+                showToast(errorMsg);
+                displayImportStatus(errorMsg, 'error');
                 reject(error);
             }
         };
 
         reader.onerror = () => {
-            showToast('❌ 檔案讀取失敗');
+            const errorMsg = '❌ 檔案讀取失敗';
+            showToast(errorMsg);
+            displayImportStatus(errorMsg, 'error');
             reject(new Error('檔案讀取失敗'));
         };
 
         reader.readAsText(file);
     });
+}
+
+function displayImportStatus(message, type) {
+    const statusDiv = document.getElementById('importStatus');
+    if (!statusDiv) return;
+    
+    statusDiv.textContent = message;
+    statusDiv.className = `import-status ${type}`;
+    statusDiv.style.display = 'block';
+    
+    setTimeout(() => {
+        statusDiv.style.display = 'none';
+    }, 5000);
 }
 
 function addGeoJSONLayerControl(layerName, featureGroup, mapObj) {
@@ -2689,7 +2730,7 @@ function addGeoJSONLayerControl(layerName, featureGroup, mapObj) {
                 checked
                 class="geojson-checkbox"
             >
-            <label for="layer-geojson-${escapeHtml(layerName)}" style="flex: 1; cursor: pointer; margin: 0; font-size: 13px;">${escapeHtml(layerName)}</label>
+            <label for="layer-geojson-${escapeHtml(layerName)}" style="flex: 1; cursor: pointer; margin: 0; font-size: 13px;">🔷 ${escapeHtml(layerName)}</label>
             <button class="btn-remove" data-layer="${escapeHtml(layerName)}" title="移除圖層" style="padding: 4px 8px;">✕</button>
         </div>
     `;
@@ -2787,13 +2828,30 @@ function initGeoJSONEvents(mapObj) {
         const file = e.target.files[0];
         if (!file) return;
         
-        if (!file.name.endsWith('.geojson') && !file.name.endsWith('.json')) {
-            showToast('❌ 只支援 .geojson 或 .json 檔案');
+        const fileName = file.name.toLowerCase();
+        let isValid = false;
+        
+        if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+            isValid = true;
+        } else if (fileName.endsWith('.zip')) {
+            isValid = true;
+        } else if (fileName.endsWith('.shp')) {
+            isValid = true;
+        }
+        
+        if (!isValid) {
+            showToast('❌ 不支援的檔案格式。請上傳 .geojson、.json、.zip 或 .shp 檔案');
+            displayImportStatus('❌ 不支援的檔案格式', 'error');
+            fileInput.value = '';
             return;
         }
         
         try {
-            await importGeoJSON(file, mapObj);
+            if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+                await importGeoJSON(file, mapObj);
+            } else if (fileName.endsWith('.zip') || fileName.endsWith('.shp')) {
+                await importShapefileAsGeoJSON(file, mapObj);
+            }
         } catch (error) {
             console.error('匯入失敗:', error);
         }
@@ -2807,6 +2865,68 @@ function initGeoJSONEvents(mapObj) {
             exportGeoJSON();
         });
     }
+}
+
+async function importShapefileAsGeoJSON(file, mapObj) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+            try {
+                const arrayBuffer = e.target.result;
+                
+                if (file.name.toLowerCase().endsWith('.zip')) {
+                    try {
+                        const geojson = await shp(arrayBuffer);
+                        const normalizedData = normalizeGeoJSON(geojson);
+                        const conversionResult = convertGeoJSONToWGS84IfNeeded(normalizedData);
+                        const finalData = conversionResult.data;
+
+                        const layerName = file.name
+                            .replace('.zip', '')
+                            .replace('.ZIP', '')
+                            .trim();
+
+                        optimizeAddGeoJSONToMap(finalData, layerName, mapObj);
+                        updateGeoJSONFieldSelector();
+
+                        let msg = `✓ 已匯入 Shapefile：${layerName} (${finalData.features.length} 個特徵)`;
+                        if (conversionResult.converted) {
+                            msg += `｜已自動轉換 TWD97 → WGS84 座標`;
+                        }
+                        showToast(msg);
+                        displayImportStatus(msg, 'success');
+                        resolve(layerName);
+                    } catch (shpError) {
+                        throw new Error(`Shapefile 解析失敗：${shpError.message}`);
+                    }
+                } else if (file.name.toLowerCase().endsWith('.shp')) {
+                    showToast('⚠️ 單一 .shp 檔案需要 .shx 和 .dbf 檔案。建議使用 .zip 壓縮包');
+                    displayImportStatus('⚠️ 建議使用 .zip 壓縮包', 'error');
+                    reject(new Error('需要 .zip 壓縮包'));
+                }
+            } catch (error) {
+                console.error('❌ Shapefile 匯入失敗:', error);
+                const errorMsg = `❌ Shapefile 匯入失敗：${error.message}`;
+                showToast(errorMsg);
+                displayImportStatus(errorMsg, 'error');
+                reject(error);
+            }
+        };
+
+        reader.onerror = () => {
+            const errorMsg = '❌ 檔案讀取失敗';
+            showToast(errorMsg);
+            displayImportStatus(errorMsg, 'error');
+            reject(new Error('檔案讀取失敗'));
+        };
+
+        if (file.name.toLowerCase().endsWith('.zip') || file.name.toLowerCase().endsWith('.shp')) {
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.readAsText(file);
+        }
+    });
 }
 
 function startDrawing() {
@@ -3976,20 +4096,17 @@ function importPolygonsFromSHP(event) {
             }
         };
         reader.readAsText(file);
-    } else if (file.name.endsWith('.zip')) {
-        reader.onload = (e) => {
-            shp(e.target.result).then(geojson => {
-                try {
-                    const normalizedGeoJSON = normalizeGeoJSON(geojson);
-                    processImportedPolygons(normalizedGeoJSON);
-                } catch (err) {
-                    console.error('❌ GeoJSON 規範化失敗:', err);
-                    showToast(`❌ 規範化失敗：${err.message}`);
-                }
-            }).catch(err => {
+    } else if (file.name.endsWith('.zip') || file.name.endsWith('.shp')) {
+        reader.onload = async (e) => {
+            try {
+                const arrayBuffer = e.target.result;
+                const geojson = await shp(arrayBuffer);
+                const normalizedGeoJSON = normalizeGeoJSON(geojson);
+                processImportedPolygons(normalizedGeoJSON);
+            } catch (err) {
                 console.error('❌ SHP 解析失敗:', err);
-                showToast('❌ SHP 解析失敗');
-            });
+                showToast(`❌ SHP 解析失敗：${err.message}`);
+            }
         };
         reader.readAsArrayBuffer(file);
     } else {
@@ -4044,8 +4161,9 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ v1.0.0 (2024-12-19) 正式版本初始化完成');
+    console.log('✅ v1.1.0 (2024-12-19) 擴充版本初始化完成');
     console.log('✅ 著作權合規：MIT License + ODbL Attribution');
+    console.log('✅ 新增功能：Shapefile (SHP) 格式支援、統一匯入介面、自動格式偵測');
 });
 </script>
 
