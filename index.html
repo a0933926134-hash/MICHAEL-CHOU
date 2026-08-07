@@ -1349,15 +1349,18 @@ body.mobile-mode #drawToolbar {
 </div>
 
 <div id="statusBar">
-    圖資來源：© OpenStreetMap contributors ／ © NLSC ／ © Google Maps | 🟢 離線模式
+    圖資來源：© OpenStreetMap contributors ／ © NLSC | 🟢 離線模式
 </div>
 
 <script>
 /* ================================================
-   ★ v20 修正版：
+   ★ v19 修正版：
    1. 結果位於範圍內時顯示「位於區段內」
-   2. 多邊形節點編輯功能（拖移/新增/刪除）
-   3. ★新增：Google Maps 圖層選項
+   2. ★新增：多邊形節點編輯功能
+      - 拖移節點修改位置
+      - 雙擊邊線插入新節點
+      - 右擊節點刪除
+      - 實時更新面積和中心點
 ================================================ */
 
 let fitBoundsLock = false;
@@ -1369,7 +1372,7 @@ let deviceMode = 'desktop';
 let locationMarker = null;
 let autoGeoLocationIntervalId = null;
 let geoJsonLabelDeduplicationInfo = {};
-let editingPolygonId = null;
+let editingPolygonId = null;  // ★ v19: 記錄正在編輯的多邊形ID
 
 function toggleSidebarMinimize() {
     const sidebar = document.getElementById('sidebar');
@@ -1490,7 +1493,6 @@ let geoJsonSelection = {};
 
 let map = L.map('map').setView([25.012098, 121.465675], 15);
 
-// ★ v20: 新增 Google Maps 圖層
 const nlscEMAP = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
     { maxZoom:19, attribution:'© NLSC' }
@@ -1506,26 +1508,6 @@ const osmLayer = L.tileLayer(
     { maxZoom:19, attribution:'© OpenStreetMap' }
 );
 
-// ★ v20: Google Maps 圖層（使用免費的 Google Maps Tile 服務）
-const googleMapsLayer = L.tileLayer(
-    'https://{s}.google.com/maps/vt?lyrs=m&x={x}&y={y}&z={z}',
-    {
-        maxZoom: 20,
-        attribution: '© Google Maps',
-        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-    }
-);
-
-// ★ v20: Google Satellite 圖層
-const googleSatelliteLayer = L.tileLayer(
-    'https://{s}.google.com/maps/vt?lyrs=s&x={x}&y={y}&z={z}',
-    {
-        maxZoom: 20,
-        attribution: '© Google Satellite',
-        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-    }
-);
-
 nlscEMAP.addTo(map);
 
 const cadastralLayer = L.tileLayer(
@@ -1534,13 +1516,10 @@ const cadastralLayer = L.tileLayer(
 );
 cadastralLayer.addTo(map);
 
-// ★ v20: 修改底圖選項，加入 Google Maps
 const baseMaps = {
     "NLSC 電子地圖": nlscEMAP,
     "NLSC 正射影像": nlscPHOTO,
-    "OpenStreetMap": osmLayer,
-    "Google Maps": googleMapsLayer,
-    "Google Satellite": googleSatelliteLayer
+    "OpenStreetMap": osmLayer
 };
 
 const overlayMaps = {
@@ -2617,9 +2596,11 @@ function updatePolygonCentroid(polygonObj) {
     polygonObj.centroid = [centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]];
 }
 
+// ★ v19: 新增節點編輯功能
 function renderEditHandles(polygonObj) {
     polygonObj.markers.clearLayers();
     
+    // 添加節點（可拖動）
     polygonObj.points.forEach((pt, index) => {
         let marker = L.marker(pt, {
             icon: L.divIcon({
@@ -2641,6 +2622,7 @@ function renderEditHandles(polygonObj) {
             updatePolygonAfterEdit(polygonObj);
         });
 
+        // ★ v19: 右擊刪除節點
         marker.on('contextmenu', (e) => {
             L.DomEvent.preventDefault(e);
             handleNodeRightClick(polygonObj, index);
@@ -2649,6 +2631,7 @@ function renderEditHandles(polygonObj) {
         marker.addTo(polygonObj.markers);
     });
 
+    // ★ v19: 添加邊線標記（用於插入新節點）
     if (polygonObj.points.length > 0) {
         for (let i = 0; i < polygonObj.points.length; i++) {
             const pt1 = polygonObj.points[i];
@@ -2665,6 +2648,7 @@ function renderEditHandles(polygonObj) {
                 interactive: true
             });
 
+            // ★ v19: 雙擊邊線插入新節點
             edgeMarker.on('dblclick', (e) => {
                 L.DomEvent.stopPropagation(e);
                 handleEdgeDoubleClick(polygonObj, i, e.latlng);
@@ -2675,8 +2659,10 @@ function renderEditHandles(polygonObj) {
     }
 
     polygonObj.markers.addTo(map);
+    console.log(`✓ 多邊形 ${polygonObj.name} 編輯節點已顯示`);
 }
 
+// ★ v19: 處理邊線雙擊 - 插入新節點
 function handleEdgeDoubleClick(polygonObj, edgeIndex, clickLatLng) {
     if (!clickLatLng) return;
     
@@ -2684,11 +2670,13 @@ function handleEdgeDoubleClick(polygonObj, edgeIndex, clickLatLng) {
     const insertIndex = edgeIndex + 1;
     
     polygonObj.points.splice(insertIndex, 0, newPoint);
+    console.log(`✓ 在邊線 ${edgeIndex} 處插入新節點`);
     
     updatePolygonAfterEdit(polygonObj);
     showToast(`✓ 已在邊線插入新節點`);
 }
 
+// ★ v19: 處理節點右擊 - 刪除節點
 function handleNodeRightClick(polygonObj, nodeIndex) {
     if (polygonObj.points.length <= 3) {
         showToast('❌ 多邊形至少需要 3 個節點');
@@ -2697,11 +2685,13 @@ function handleNodeRightClick(polygonObj, nodeIndex) {
 
     if (confirm('確定要刪除此節點嗎？')) {
         polygonObj.points.splice(nodeIndex, 1);
+        console.log(`✓ 已刪除節點 ${nodeIndex}`);
         updatePolygonAfterEdit(polygonObj);
         showToast('✓ 節點已刪除');
     }
 }
 
+// ★ v19: 編輯後更新多邊形
 function updatePolygonAfterEdit(polygonObj) {
     updatePolygonCentroid(polygonObj);
     updateLatLonInputs(polygonObj);
@@ -2727,6 +2717,7 @@ function renderPolygonLayer(polygonObj) {
         selectPolygon(polygonObj.id);
     });
     
+    // ★ v19: 選中後自動顯示編輯節點
     if (polygonObj.isSelected) {
         renderEditHandles(polygonObj);
     } else {
@@ -2747,7 +2738,7 @@ function selectPolygon(id) {
     if (!polygon) return;
 
     currentPolygonId = id;
-    editingPolygonId = id;
+    editingPolygonId = id;  // ★ v19: 記錄正在編輯的多邊形
     renderPolygonLayer(polygon);
     renderEditHandles(polygon);
     renderPolygonList();
@@ -2845,6 +2836,7 @@ function renderPolygonList() {
     }
     
     listDiv.innerHTML = polygons.map((poly) => {
+        // ★ v19: 計算多邊形面積
         let coordinates = poly.points.map(p => [p[1], p[0]]);
         if (coordinates.length > 0 && 
             (coordinates[0][0] !== coordinates[coordinates.length-1][0] || 
@@ -3428,6 +3420,7 @@ function renderTable() {
         tr.dataset.id = item.id;
         tr.onclick = () => selectItemById(item.id);
         
+        // ★ v19-修正版：修正項1 - 位於範圍內時直線距離及路線距離改以「位於區段內」顯示
         let distanceDisplay = item.在範圍內 ? '位於區段內' : item.直線距離顯示;
         let routeDisplay = item.在範圍內 ? '位於區段內' : (item.路線距離 || '');
         
@@ -3782,7 +3775,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
-    console.log('✅ v20 完整修正版初始化完成（新增 Google Maps 圖層選項）');
+    console.log('✅ v19完整修正版初始化完成（支援節點新增/修改/刪除功能）');
 });
 </script>
 
