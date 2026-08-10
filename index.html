@@ -9,8 +9,8 @@
 <meta name="application-name" content="區段勘查小幫手">
 <meta name="description" content="基於OpenStreetMap和台灣官方地圖的區段勘查分析工具">
 <meta name="author" content="Your Organization">
-<meta name="version" content="1.1.1">
-<meta name="release-date" content="2026-08-10">
+<meta name="version" content="1.1.2">
+<meta name="release-date" content="2026-08-11">
 <meta name="license" content="MIT + ODbL Attribution">
 
 <!-- ================= 開源套件 CDN ================= -->
@@ -927,11 +927,17 @@ body.mobile-mode #drawToolbar {
     color: #0369a1;
 }
 
+/* ========== GeoJSON 圓形標籤樣式（核心修改） ========== */
 .geojson-field-label {
     background: rgba(255, 255, 255, 0.92) !important;
     border: 1px solid #e5e7eb !important;
-    border-radius: 4px !important;
-    padding: 4px 8px !important;
+    border-radius: 50% !important;
+    padding: 6px 8px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     font-size: 11px !important;
     font-weight: 500 !important;
     color: #1f2937 !important;
@@ -949,6 +955,8 @@ body.mobile-mode #drawToolbar {
     background-color: #ffe0e0 !important;
     font-weight: bold !important;
     box-shadow: 0 0 8px rgba(255, 0, 0, 0.4) !important;
+    min-width: 45px !important;
+    min-height: 45px !important;
 }
 
 .geojson-field-label * {
@@ -1592,7 +1600,7 @@ body.mobile-mode .about-link-btn {
             <h3>應用程式資訊</h3>
             <p>
                 <strong>區段勘查小幫手</strong><br/>
-                版本: v1.1.1<br/>
+                版本: v1.1.2<br/>
                 發行日期: 2026年08月11日<br/>
                 授權: MIT License + ODbL Attribution
             </p>
@@ -1642,12 +1650,11 @@ body.mobile-mode .about-link-btn {
                 </div>
             </div>
 
-            <h3>v1.1.1 新增功能</h3>
+            <h3>v1.1.2 更新內容</h3>
             <ul>
-                <li><strong>GeoJSON 標籤搜尋功能</strong> - 支援模糊搜尋標籤內容，即時高亮顯示</li>
-                <li><strong>改進的欄位選擇器</strong> - 自動檢測和分類 GeoJSON 欄位</li>
-                <li><strong>搜尋結果統計</strong> - 顯示匹配標籤數和覆蓋面積</li>
-                <li><strong>地圖聚焦功能</strong> - 自動聚焦到搜尋結果區域</li>
+                <li><strong>GeoJSON 標籤圓形外框</strong> - 將方形標籤改為圓形徽章設計</li>
+                <li><strong>改進的視覺效果</strong> - 圓形外框更現代化且易於識別</li>
+                <li><strong>保持功能完整</strong> - 所有搜尋、高亮、聚焦功能保持不變</li>
             </ul>
 
             <h3>ODbL 合規聲明</h3>
@@ -1696,7 +1703,7 @@ body.mobile-mode .about-link-btn {
     <div id="sidebarHeader">
         <div id="sidebarTitle">
             <h1>🗺️ 區段勘查小幫手</h1>
-            <p>v1.1.1 (2026-08-10)</p>
+            <p>v1.1.2 (2026-08-11)</p>
         </div>
         <button id="sidebarMinimizeBtn" title="最小化/最大化" onclick="toggleSidebarMinimize()">−</button>
     </div>
@@ -1989,15 +1996,13 @@ body.mobile-mode .about-link-btn {
 
 <script>
 /* ================================================
-   ★ v1.1.1 (2026-08-10) - GeoJSON 標籤搜尋增強版本
+   ★ v1.1.2 (2026-08-11) - GeoJSON 圓形標籤美化版本
    
    功能更新：
-   1. 新增 GeoJSON 標籤搜尋功能
-   2. 支援模糊搜尋與多條件搜尋
-   3. 即時高亮匹配的標籤
-   4. 搜尋結果統計與地圖聚焦
-   5. 改進的欄位自動檢測
-   6. 優化的搜尋性能
+   1. GeoJSON 標籤從方形改為圓形外框
+   2. 採用 flexbox 居中佈局
+   3. 保持所有搜尋、高亮、聚焦功能
+   4. 視覺效果更現代化
    
    授權: MIT License + ODbL Attribution
 ================================================ */
@@ -3521,7 +3526,7 @@ function downloadGeoJSON(geoJsonData, filename) {
     document.body.removeChild(link);
     
     URL.revokeObjectURL(url);
-    showToast(`✓ 已下載：${link.download}`);
+    showToast(`✓ 已下載 GeoJSON：${link.download}`);
 }
 
 function initGeoJSONEvents(mapObj) {
@@ -4846,8 +4851,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
     initLayerControls();
-    console.log('✅ v1.1.1 (2026-08-10) GeoJSON 標籤搜尋增強版本初始化完成');
-    console.log('✅ 新增功能：GeoJSON 標籤搜尋、模糊匹配、高亮顯示、地圖聚焦');
+    console.log('✅ v1.1.2 (2026-08-11) GeoJSON 圓形標籤美化版本初始化完成');
+    console.log('✅ 更新功能：GeoJSON 標籤從方形改為圓形外框');
     console.log('✅ 著作權合規：MIT License + ODbL Attribution');
 });
 </script>
