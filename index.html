@@ -1583,6 +1583,12 @@ body.mobile-mode .about-link-btn {
 .auto-geolocation-status.inactive {
     color: #dc2626;
 }
+
+/* ========== 結果表格區段內顯示樣式 ========== */
+.in-zone-cell {
+    color: #059669;
+    font-weight: 600;
+}
 </style>
 </head>
 <body>
@@ -1654,6 +1660,7 @@ body.mobile-mode .about-link-btn {
             <ul>
                 <li><strong>GeoJSON 標籤圓形外框</strong> - 將方形標籤改為圓形徽章設計</li>
                 <li><strong>改進的視覺效果</strong> - 圓形外框更現代化且易於識別</li>
+                <li><strong>區段內結果顯示優化</strong> - 位於區段內的設施統一顯示「位於區段內」文字</li>
                 <li><strong>保持功能完整</strong> - 所有搜尋、高亮、聚焦功能保持不變</li>
             </ul>
 
@@ -1996,13 +2003,12 @@ body.mobile-mode .about-link-btn {
 
 <script>
 /* ================================================
-   ★ v1.1.2 (2026-08-10) - GeoJSON 圓形標籤美化版本
+   ★ v1.1.2 (2026-08-10) - 區段內結果顯示優化版本
    
    功能更新：
-   1. GeoJSON 標籤從方形改為圓形外框
-   2. 採用 flexbox 居中佈局
-   3. 保持所有搜尋、高亮、聚焦功能
-   4. 視覺效果更現代化
+   1. 位於區段內的結果統一顯示「位於區段內」文字
+   2. 包含直線距離和路線距離都使用相同邏輯
+   3. 表格渲染已優化以提高可讀性
    
    授權: MIT License + ODbL Attribution
 ================================================ */
@@ -2155,7 +2161,6 @@ function searchGeoJSONLabels(searchText) {
     const highlightedPolygonIds = new Set();
 
     Object.entries(geoJsonLabelSearchIndex).forEach(([key, entry]) => {
-        // 多條件搜尋（AND 邏輯）
         const matches = searchTerms.every(term => key.includes(term));
         
         if (matches && currentSearchResults.length < MAX_HIGHLIGHTED_LABELS) {
@@ -2196,7 +2201,6 @@ function highlightGeoJSONLabelsBySearch(highlightedValues) {
 
     console.log(`✓ 已高亮 ${highlightCount} 個標籤`);
 
-    // 自動聚焦到搜尋結果
     fitSearchResults();
 }
 
@@ -2243,7 +2247,7 @@ function updateSearchResultsList(results) {
     }
 
     resultsList.innerHTML = results
-        .slice(0, 50) // 只顯示前50個結果
+        .slice(0, 50)
         .map(entry => `
             <div class="search-result-item" onclick="jumpToSearchResult('${escapeHtml(entry.value)}')">
                 <strong>${escapeHtml(entry.value)}</strong>
@@ -2372,7 +2376,6 @@ function toggleLayerControl() {
 }
 
 function initLayerControls() {
-    // 底圖選項
     const baseMapControls = document.getElementById('baseMapControls');
     const baseMaps = [
         { id: 'nlsc-emap', name: 'NLSC 電子地圖', layer: nlscEMAP, checked: true },
@@ -2380,29 +2383,26 @@ function initLayerControls() {
         { id: 'osm', name: 'OpenStreetMap', layer: osmLayer, checked: false }
     ];
     
-    baseMaps.forEach(map => {
+    baseMaps.forEach(mapItem => {
         const label = document.createElement('div');
         label.className = 'layer-control-item';
         label.innerHTML = `
-            <input type="radio" name="basemap" id="layer-${map.id}" value="${map.id}" ${map.checked ? 'checked' : ''}>
-            <label for="layer-${map.id}">${map.name}</label>
+            <input type="radio" name="basemap" id="layer-${mapItem.id}" value="${mapItem.id}" ${mapItem.checked ? 'checked' : ''}>
+            <label for="layer-${mapItem.id}">${mapItem.name}</label>
         `;
         baseMapControls.appendChild(label);
         
         const radio = label.querySelector('input');
         radio.addEventListener('change', () => {
-            // 移除所有底圖
             baseMaps.forEach(m => {
                 if (window.map.hasLayer(m.layer)) {
                     window.map.removeLayer(m.layer);
                 }
             });
-            // 添加選定的底圖
-            map.layer.addTo(window.map);
+            mapItem.layer.addTo(window.map);
         });
     });
     
-    // 覆蓋圖層選項
     const overlayControls = document.getElementById('overlayControls');
     const overlays = [
         { id: 'cadastral', name: '地籍圖', layer: cadastralLayer, checked: true }
@@ -2527,13 +2527,6 @@ const cadastralLayer = L.tileLayer(
     { maxZoom:20, opacity:0.75, attribution:'© NLSC' }
 );
 cadastralLayer.addTo(map);
-
-// 移除 Leaflet 原生的圖層控制（右下角）
-const leafletLayerControl = L.control.layers(
-    { "NLSC 電子地圖": nlscEMAP, "NLSC 正射影像": nlscPHOTO, "OpenStreetMap": osmLayer },
-    { "地籍圖": cadastralLayer },
-    { collapsed: true, position: 'bottomright' }
-);
 
 let markerLayer = L.layerGroup().addTo(map);
 let origin = [25.012098, 121.465675];
@@ -2727,7 +2720,7 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
 
     const labelGroup = L.featureGroup();
 
-    const labelLayer = L.geoJSON(explodedData, {
+    const geoJsonLayer = L.geoJSON(explodedData, {
         style: () => ({
             color: 'transparent',
             weight: 0,
@@ -2768,12 +2761,12 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
         }
     });
 
-    labelLayer.addTo(mapObj);
-    labelLayer.addTo(labelGroup);
+    geoJsonLayer.addTo(mapObj);
+    geoJsonLayer.addTo(labelGroup);
     
     geoJsonLabelLayers[layerName] = labelGroup;
     
-    labelLayer.eachLayer(layer => {
+    geoJsonLayer.eachLayer(layer => {
         layer.interactive = false;
         if (layer._path) {
             layer._path.style.pointerEvents = 'none';
@@ -2803,7 +2796,6 @@ function updateGeoJSONFieldLabel() {
         statusDiv.style.display = 'block';
         statusText.textContent = fieldValue;
         
-        // 建立搜尋索引
         buildGeoJsonLabelIndex();
         
         showToast(`✓ GeoJSON 標籤已更新為：${fieldValue}`);
@@ -3421,7 +3413,6 @@ function addGeoJSONLayerControl(layerName, featureGroup, mapObj) {
     const controlContainer = document.getElementById('importedLayerControls');
     if (!controlContainer) return;
     
-    // 清除「尚無匯入圖層」的提示
     if (controlContainer.querySelector('span')) {
         controlContainer.innerHTML = '';
     }
@@ -3456,7 +3447,6 @@ function addGeoJSONLayerControl(layerName, featureGroup, mapObj) {
         layerItem.remove();
         updateGeoJSONFieldSelector();
         
-        // 如果沒有圖層了，顯示提示
         if (controlContainer.children.length === 0) {
             controlContainer.innerHTML = '<span style="color: #666; font-size: 11px;">尚無匯入圖層</span>';
         }
@@ -4499,14 +4489,19 @@ function renderTable() {
         tr.dataset.id = item.id;
         tr.onclick = () => selectItemById(item.id);
         
+        // 統一修正：如果在範圍內，兩欄都顯示「位於區段內」
         let distanceDisplay = item.在範圍內 ? '位於區段內' : item.直線距離顯示;
         let routeDisplay = item.在範圍內 ? '位於區段內' : (item.路線距離 || '');
+        
+        // 添加樣式：區段內使用特殊顏色
+        const distanceCellClass = item.在範圍內 ? ' class="in-zone-cell"' : '';
+        const routeCellClass = item.在範圍內 ? ' class="in-zone-cell"' : '';
         
         tr.innerHTML = `
             <td>${escapeHtml(item.名稱)}</td>
             <td>${escapeHtml(item.類型)}</td>
-            <td>${distanceDisplay}</td>
-            <td id="route-${item.id}">${routeDisplay}</td>
+            <td${distanceCellClass}>${distanceDisplay}</td>
+            <td${routeCellClass} id="route-${item.id}">${routeDisplay}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -4851,8 +4846,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
     initLayerControls();
-    console.log('✅ v1.1.2 (2026-08-10) GeoJSON 圓形標籤美化版本初始化完成');
-    console.log('✅ 更新功能：GeoJSON 標籤從方形改為圓形外框');
+    console.log('✅ v1.1.2 (2026-08-10) 區段內結果顯示優化版本初始化完成');
+    console.log('✅ 更新功能：位於區段內統一顯示「位於區段內」文字');
     console.log('✅ 著作權合規：MIT License + ODbL Attribution');
 });
 </script>
