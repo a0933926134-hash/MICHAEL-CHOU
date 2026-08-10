@@ -49,7 +49,7 @@ body.mobile-mode {
 #deviceToggle {
     position: fixed;
     top: 12px;
-    left: 60px;
+    right: 12px;
     z-index: 10001;
     background: white;
     border: 1px solid #e5e7eb;
@@ -269,6 +269,33 @@ body.mobile-mode #sidebarToggle {
     border-color: #2563eb;
     background: white;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* ========== 位置輸入框並排樣式 ========== */
+#locationInputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+#locationInputs .input-group {
+    margin-bottom: 0;
+}
+
+#locationInputs .input-group label {
+    font-size: 11px;
+}
+
+#locationInputs .input-group input {
+    font-size: 12px;
+    padding: 8px 10px;
+}
+
+@media (max-width: 480px) {
+    #locationInputs {
+        grid-template-columns: 1fr;
+    }
 }
 
 .checkbox-grid {
@@ -988,12 +1015,73 @@ body.mobile-mode #drawToolbar {
     display: none !important;
 }
 
-.leaflet-control-layers {
-    position: absolute !important;
-    bottom: 80px !important;
-    right: 12px !important;
-    top: auto !important;
-    left: auto !important;
+/* ========== 圖層控制面板樣式 ========== */
+#layerControlPanel {
+    background: #f9fafb;
+    border-top: 2px solid #e5e7eb;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+#layerControlPanel.expanded {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#layerControlPanel::-webkit-scrollbar {
+    width: 6px;
+}
+
+#layerControlPanel::-webkit-scrollbar-track {
+    background: #f3f4f6;
+}
+
+#layerControlPanel::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+#layerControlPanel::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.layer-control-content {
+    padding: 12px;
+}
+
+.layer-control-section {
+    margin-bottom: 12px;
+}
+
+.layer-control-section h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.layer-control-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 12px;
+}
+
+.layer-control-item input[type="radio"],
+.layer-control-item input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: #2563eb;
+}
+
+.layer-control-item label {
+    cursor: pointer;
+    flex: 1;
+    margin: 0;
 }
 
 /* ========== 模態視窗樣式 ========== */
@@ -1289,6 +1377,79 @@ body.mobile-mode .about-link-btn {
     border-color: #fecaca;
     color: #dc2626;
 }
+
+/* ========== 自動定位開關樣式 ========== */
+.auto-geolocation-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f0f9ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 8px 0;
+}
+
+.auto-geolocation-control .toggle-switch {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    display: none;
+}
+
+.toggle-slider {
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    background-color: #cbd5e1;
+    border-radius: 12px;
+    position: relative;
+    transition: background-color 0.3s;
+    cursor: pointer;
+}
+
+.toggle-slider::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: white;
+    top: 2px;
+    left: 2px;
+    transition: left 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: #0ea5e9;
+}
+
+.toggle-switch input:checked + .toggle-slider::after {
+    left: 22px;
+}
+
+.auto-geolocation-control label {
+    font-size: 12px;
+    color: #1f2937;
+    font-weight: 500;
+    margin: 0;
+    cursor: pointer;
+    flex: 1;
+}
+
+.auto-geolocation-status {
+    font-size: 10px;
+    color: #059669;
+    margin-top: 6px;
+}
+
+.auto-geolocation-status.inactive {
+    color: #dc2626;
+}
 </style>
 </head>
 <body>
@@ -1411,24 +1572,40 @@ body.mobile-mode .about-link-btn {
         <div class="sidebar-section">
             <h3><span>📍</span> 查詢位置</h3>
             
-            <div class="input-group">
-                <label>緯度</label>
-                <input type="text" id="lat" value="25.012098">
+            <!-- 位置輸入框並排 -->
+            <div id="locationInputs">
+                <div class="input-group">
+                    <label>緯度</label>
+                    <input type="text" id="lat" value="25.012098">
+                </div>
+                
+                <div class="input-group">
+                    <label>經度</label>
+                    <input type="text" id="lon" value="121.465675">
+                </div>
+                
+                <div class="input-group">
+                    <label>查詢半徑 (m)</label>
+                    <input type="number" id="radius" value="1000" min="100" max="3000">
+                </div>
             </div>
             
-            <div class="input-group">
-                <label>經度</label>
-                <input type="text" id="lon" value="121.465675">
-            </div>
-            
-            <div class="input-group">
-                <label>查詢半徑 (公尺)</label>
-                <input type="number" id="radius" value="1000" min="100" max="3000">
-            </div>
-            
+            <!-- 定位按鈕 -->
             <div class="button-group">
-                <button class="btn-primary" onclick="getCurrentLocation()" style="background: #0ea5e9;">📡 定位</button>
+                <button class="btn-primary" id="geoLocationBtn" onclick="performGeolocation()" style="background: #0ea5e9;">📡 定位</button>
                 <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
+            </div>
+
+            <!-- 自動定位開關 -->
+            <div class="auto-geolocation-control">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="autoGeoLocationToggle" onchange="toggleAutoGeolocation()">
+                    <span class="toggle-slider"></span>
+                </label>
+                <label for="autoGeoLocationToggle" style="flex: 1;">自動更新位置（60秒）</label>
+            </div>
+            <div id="autoGeoLocationStatus" class="auto-geolocation-status inactive">
+                ⊘ 已停用自動定位
             </div>
 
             <div class="query-control-section">
@@ -1555,6 +1732,26 @@ body.mobile-mode .about-link-btn {
             <button class="btn-primary" id="query-btn" onclick="runQuery()" style="width: 100%; padding: 12px; font-size: 14px;">🔍 查詢分析</button>
         </div>
     </div>
+
+    <!-- 圖層控制面板 -->
+    <div id="layerControlPanel">
+        <div class="layer-control-content">
+            <div class="layer-control-section">
+                <h4>🗺️ 底圖圖層</h4>
+                <div id="baseMapControls"></div>
+            </div>
+            <div class="layer-control-section">
+                <h4>📍 覆蓋圖層</h4>
+                <div id="overlayControls"></div>
+            </div>
+            <div class="layer-control-section">
+                <h4>📦 導入圖層</h4>
+                <div id="importedLayerControls" style="color: #666; font-size: 11px;">
+                    <span>尚無匯入圖層</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="map"></div>
@@ -1564,7 +1761,7 @@ body.mobile-mode .about-link-btn {
         <button class="toolbar-btn" onclick="toggleDrawMode(this)">
             📐 開始繪製
         </button>
-        <button class="toolbar-btn" onclick="toggleLayerControl()">
+        <button class="toolbar-btn" id="layerControlBtn" onclick="toggleLayerControl()">
             🗺️ 圖層控制
         </button>
     </div>
@@ -1647,6 +1844,10 @@ body.mobile-mode .about-link-btn {
    4. 改進的錯誤處理與使用者提示
    5. 標籤欄位自動更新
    6. MultiPolygon 自動分割與重命名
+   7. 自動定位開啟/關閉功能
+   8. 位置輸入框左右排列
+   9. 設備模式切換移至右上角
+   10. 圖層控制改為下方展開式
    
    授權: MIT License + ODbL Attribution
 ================================================ */
@@ -1661,6 +1862,7 @@ let locationMarker = null;
 let autoGeoLocationIntervalId = null;
 let geoJsonLabelDeduplicationInfo = {};
 let editingPolygonId = null;
+let isAutoGeoLocationEnabled = false;
 
 function openAboutModal() {
     document.getElementById('aboutModal').classList.add('show');
@@ -1718,6 +1920,113 @@ function toggleDeviceMode() {
 }
 
 document.getElementById('deviceToggle').addEventListener('click', toggleDeviceMode);
+
+// ========== 自動定位功能 ==========
+function toggleAutoGeolocation() {
+    const toggle = document.getElementById('autoGeoLocationToggle');
+    const statusDiv = document.getElementById('autoGeoLocationStatus');
+    
+    if (toggle.checked) {
+        isAutoGeoLocationEnabled = true;
+        statusDiv.textContent = '✓ 自動定位已啟用';
+        statusDiv.classList.remove('inactive');
+        
+        if (autoGeoLocationIntervalId) {
+            clearInterval(autoGeoLocationIntervalId);
+        }
+        
+        performGeolocation();
+        autoGeoLocationIntervalId = setInterval(() => {
+            performGeolocation();
+        }, 60000);
+        
+        showToast('✓ 已啟用自動定位（每60秒更新一次）');
+    } else {
+        isAutoGeoLocationEnabled = false;
+        statusDiv.textContent = '⊘ 已停用自動定位';
+        statusDiv.classList.add('inactive');
+        
+        if (autoGeoLocationIntervalId) {
+            clearInterval(autoGeoLocationIntervalId);
+            autoGeoLocationIntervalId = null;
+        }
+        
+        geoLocationStatus.classList.remove('active');
+        showToast('✓ 已停用自動定位');
+    }
+}
+
+// ========== 圖層控制功能 ==========
+function toggleLayerControl() {
+    const panel = document.getElementById('layerControlPanel');
+    const btn = document.getElementById('layerControlBtn');
+    
+    panel.classList.toggle('expanded');
+    btn.classList.toggle('active');
+    
+    if (panel.classList.contains('expanded')) {
+        showToast('✓ 圖層控制已展開');
+    } else {
+        showToast('✓ 圖層控制已折疊');
+    }
+}
+
+function initLayerControls() {
+    // 底圖選項
+    const baseMapControls = document.getElementById('baseMapControls');
+    const baseMaps = [
+        { id: 'nlsc-emap', name: 'NLSC 電子地圖', layer: nlscEMAP, checked: true },
+        { id: 'nlsc-photo', name: 'NLSC 正射影像', layer: nlscPHOTO, checked: false },
+        { id: 'osm', name: 'OpenStreetMap', layer: osmLayer, checked: false }
+    ];
+    
+    baseMaps.forEach(map => {
+        const label = document.createElement('div');
+        label.className = 'layer-control-item';
+        label.innerHTML = `
+            <input type="radio" name="basemap" id="layer-${map.id}" value="${map.id}" ${map.checked ? 'checked' : ''}>
+            <label for="layer-${map.id}">${map.name}</label>
+        `;
+        baseMapControls.appendChild(label);
+        
+        const radio = label.querySelector('input');
+        radio.addEventListener('change', () => {
+            // 移除所有底圖
+            baseMaps.forEach(m => {
+                if (window.map.hasLayer(m.layer)) {
+                    window.map.removeLayer(m.layer);
+                }
+            });
+            // 添加選定的底圖
+            map.layer.addTo(window.map);
+        });
+    });
+    
+    // 覆蓋圖層選項
+    const overlayControls = document.getElementById('overlayControls');
+    const overlays = [
+        { id: 'cadastral', name: '地籍圖', layer: cadastralLayer, checked: true }
+    ];
+    
+    overlays.forEach(overlay => {
+        const label = document.createElement('div');
+        label.className = 'layer-control-item';
+        label.innerHTML = `
+            <input type="checkbox" id="layer-${overlay.id}" ${overlay.checked ? 'checked' : ''}>
+            <label for="layer-${overlay.id}">${overlay.name}</label>
+        `;
+        overlayControls.appendChild(label);
+        
+        const checkbox = label.querySelector('input');
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                overlay.layer.addTo(window.map);
+            } else {
+                window.map.removeLayer(overlay.layer);
+            }
+        });
+    });
+}
 
 const namedColorsMap = {
     'red': '#ff0000', 'blue': '#0000ff', 'green': '#008000',
@@ -1819,17 +2128,13 @@ const cadastralLayer = L.tileLayer(
 );
 cadastralLayer.addTo(map);
 
-const baseMaps = {
-    "NLSC 電子地圖": nlscEMAP,
-    "NLSC 正射影像": nlscPHOTO,
-    "OpenStreetMap": osmLayer
-};
-
-const overlayMaps = {
-    "地籍圖": cadastralLayer
-};
-
-const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed:true, position:'bottomright' }).addTo(map);
+// 移除 Leaflet 原生的圖層控制（右下角）
+const leafletLayerControl = L.control.layers(
+    { "NLSC 電子地圖": nlscEMAP, "NLSC 正射影像": nlscPHOTO, "OpenStreetMap": osmLayer },
+    { "地籍圖": cadastralLayer },
+    { collapsed: true, position: 'bottomright' }
+);
+// 不將其添加到地圖上
 
 let markerLayer = L.layerGroup().addTo(map);
 let origin = [25.012098, 121.465675];
@@ -2296,13 +2601,6 @@ function toggleResultPanel() {
     resultPanel.classList.toggle('hidden');
 }
 
-function toggleLayerControl() {
-    const control = document.querySelector('.leaflet-control-layers');
-    if (control) {
-        control.style.display = control.style.display === 'none' ? 'block' : 'none';
-    }
-}
-
 function escapeHtml(str) {
     if (str == null) return '';
     return String(str)
@@ -2716,23 +3014,25 @@ function displayImportStatus(message, type) {
 }
 
 function addGeoJSONLayerControl(layerName, featureGroup, mapObj) {
-    const controlContainer = document.getElementById('polygonManager');
+    const controlContainer = document.getElementById('importedLayerControls');
     if (!controlContainer) return;
     
+    // 清除「尚無匯入圖層」的提示
+    if (controlContainer.querySelector('span')) {
+        controlContainer.innerHTML = '';
+    }
+    
     const layerItem = document.createElement('div');
-    layerItem.className = 'geojson-layer-item';
-    layerItem.style.padding = '8px 0';
+    layerItem.className = 'layer-control-item';
     layerItem.innerHTML = `
-        <div style="display: flex; gap: 8px; flex: 1; align-items: center;">
-            <input 
-                type="checkbox" 
-                id="layer-geojson-${escapeHtml(layerName)}" 
-                checked
-                class="geojson-checkbox"
-            >
-            <label for="layer-geojson-${escapeHtml(layerName)}" style="flex: 1; cursor: pointer; margin: 0; font-size: 13px;">🔷 ${escapeHtml(layerName)}</label>
-            <button class="btn-remove" data-layer="${escapeHtml(layerName)}" title="移除圖層" style="padding: 4px 8px;">✕</button>
-        </div>
+        <input 
+            type="checkbox" 
+            id="layer-geojson-${escapeHtml(layerName)}" 
+            checked
+            class="geojson-checkbox"
+        >
+        <label for="layer-geojson-${escapeHtml(layerName)}" style="flex: 1;">🔷 ${escapeHtml(layerName)}</label>
+        <button class="btn-remove" data-layer="${escapeHtml(layerName)}" title="移除圖層" style="padding: 4px 8px; margin-left: 4px;">✕</button>
     `;
     
     controlContainer.appendChild(layerItem);
@@ -2751,6 +3051,11 @@ function addGeoJSONLayerControl(layerName, featureGroup, mapObj) {
         removeGeoJSONLayer(layerName, mapObj);
         layerItem.remove();
         updateGeoJSONFieldSelector();
+        
+        // 如果沒有圖層了，顯示提示
+        if (controlContainer.children.length === 0) {
+            controlContainer.innerHTML = '<span style="color: #666; font-size: 11px;">尚無匯入圖層</span>';
+        }
     });
 }
 
@@ -3297,26 +3602,6 @@ map.on('click', (e) => {
     lonInput.value = lon.toFixed(6);
     origin = [lat, lon];
 });
-
-function getCurrentLocation() {
-    if (!navigator.geolocation) {
-        alert('瀏覽器不支援 GPS 定位');
-        return;
-    }
-
-    if (autoGeoLocationIntervalId) {
-        clearInterval(autoGeoLocationIntervalId);
-        autoGeoLocationIntervalId = null;
-    }
-
-    performGeolocation();
-
-    autoGeoLocationIntervalId = setInterval(() => {
-        performGeolocation();
-    }, 60000);
-
-    geoLocationStatus.classList.add('active');
-}
 
 function performGeolocation() {
     geoLocationStatus.classList.add('active');
@@ -4161,9 +4446,10 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initGeoJSONEvents(map);
+    initLayerControls();
     console.log('✅ v1.1.0 (2024-12-19) 擴充版本初始化完成');
     console.log('✅ 著作權合規：MIT License + ODbL Attribution');
-    console.log('✅ 新增功能：Shapefile (SHP) 格式支援、統一匯入介面、自動格式偵測');
+    console.log('✅ 新增功能：Shapefile (SHP) 格式支援、自動定位開啟/關閉、位置輸入框並排、右上角設備切換、下方圖層控制展開');
 });
 </script>
 
