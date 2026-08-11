@@ -1150,16 +1150,22 @@ body.mobile-mode #drawToolbar {
 
 /* ========== 圖層控制面板樣式 ========== */
 #layerControlPanel {
-    background: #f9fafb;
-    border-top: 2px solid #e5e7eb;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
+    position: fixed;
+    top: 60px;
+    right: 12px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 900;
+    width: 280px;
+    max-height: 500px;
+    overflow-y: auto;
+    display: none;
+    flex-direction: column;
 }
 
-#layerControlPanel.expanded {
-    max-height: 300px;
-    overflow-y: auto;
+#layerControlPanel.show {
+    display: flex;
 }
 
 #layerControlPanel::-webkit-scrollbar {
@@ -1185,6 +1191,10 @@ body.mobile-mode #drawToolbar {
 
 .layer-control-section {
     margin-bottom: 12px;
+}
+
+.layer-control-section:last-child {
+    margin-bottom: 0;
 }
 
 .layer-control-section h4 {
@@ -1900,26 +1910,6 @@ body.mobile-mode .about-link-btn {
             <button class="btn-primary" id="query-btn" onclick="runQuery()" style="width: 100%; padding: 12px; font-size: 14px;">🔍 查詢分析</button>
         </div>
     </div>
-
-    <!-- 圖層控制面板 -->
-    <div id="layerControlPanel">
-        <div class="layer-control-content">
-            <div class="layer-control-section">
-                <h4>🗺️ 底圖圖層</h4>
-                <div id="baseMapControls"></div>
-            </div>
-            <div class="layer-control-section">
-                <h4>📍 覆蓋圖層</h4>
-                <div id="overlayControls"></div>
-            </div>
-            <div class="layer-control-section">
-                <h4>📦 導入圖層</h4>
-                <div id="importedLayerControls" style="color: #666; font-size: 11px;">
-                    <span>尚無匯入圖層</span>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <div id="map"></div>
@@ -1932,6 +1922,26 @@ body.mobile-mode .about-link-btn {
         <button class="toolbar-btn" id="layerControlBtn" onclick="toggleLayerControl()">
             🗺️ 圖層控制
         </button>
+    </div>
+</div>
+
+<!-- 獨立的圖層控制面板 -->
+<div id="layerControlPanel">
+    <div class="layer-control-content">
+        <div class="layer-control-section">
+            <h4>🗺️ 底圖圖層</h4>
+            <div id="baseMapControls"></div>
+        </div>
+        <div class="layer-control-section">
+            <h4>📍 覆蓋圖層</h4>
+            <div id="overlayControls"></div>
+        </div>
+        <div class="layer-control-section">
+            <h4>📦 導入圖層</h4>
+            <div id="importedLayerControls" style="color: #666; font-size: 11px;">
+                <span>尚無匯入圖層</span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -2003,12 +2013,12 @@ body.mobile-mode .about-link-btn {
 
 <script>
 /* ================================================
-   ★ v1.1.2 (2026-08-10) - 區段內結果顯示優化版本
+   ★ v1.1.2 修正版 (2026-08-10)
    
-   功能更新：
-   1. 位於區段內的結果統一顯示「位於區段內」文字
-   2. 包含直線距離和路線距離都使用相同邏輯
-   3. 表格渲染已優化以提高可讀性
+   主要修正：
+   1. 修正底圖圖層切換功能
+   2. 改進圖層控制面板UI
+   3. 獨立圖層控制面板設計
    
    授權: MIT License + ODbL Attribution
 ================================================ */
@@ -2031,6 +2041,10 @@ let autoGeoLocationIntervalId = null;
 let geoJsonLabelDeduplicationInfo = {};
 let editingPolygonId = null;
 let isAutoGeoLocationEnabled = false;
+
+// 新增全域變數：追蹤底圖層狀態
+let currentBaseMapLayer = null;
+let baseMapLayers = {};
 
 function openAboutModal() {
     document.getElementById('aboutModal').classList.add('show');
@@ -2365,24 +2379,60 @@ function toggleLayerControl() {
     const panel = document.getElementById('layerControlPanel');
     const btn = document.getElementById('layerControlBtn');
     
-    panel.classList.toggle('expanded');
+    panel.classList.toggle('show');
     btn.classList.toggle('active');
-    
-    if (panel.classList.contains('expanded')) {
-        showToast('✓ 圖層控制已展開');
-    } else {
-        showToast('✓ 圖層控制已折疊');
+}
+
+// 底圖切換函式 - 修正版本
+function switchBaseMap(mapId) {
+    const newLayer = baseMapLayers[mapId];
+    if (!newLayer) {
+        console.error('❌ 底圖不存在:', mapId);
+        return;
     }
+    
+    // 移除當前底圖
+    if (currentBaseMapLayer && map.hasLayer(currentBaseMapLayer)) {
+        map.removeLayer(currentBaseMapLayer);
+        console.log(`✓ 已移除前一個底圖`);
+    }
+    
+    // 添加新底圖
+    newLayer.addTo(map);
+    currentBaseMapLayer = newLayer;
+    
+    const mapNames = {
+        'nlsc-emap': 'NLSC 電子地圖',
+        'nlsc-photo': 'NLSC 正射影像',
+        'osm': 'OpenStreetMap'
+    };
+    
+    console.log(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
+    showToast(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
 }
 
 function initLayerControls() {
+    // 初始化底圖層物件參考
+    baseMapLayers = {
+        'nlsc-emap': nlscEMAP,
+        'nlsc-photo': nlscPHOTO,
+        'osm': osmLayer
+    };
+    
+    // 設定初始底圖
+    currentBaseMapLayer = nlscEMAP;
+    
     const baseMapControls = document.getElementById('baseMapControls');
+    const overlayControls = document.getElementById('overlayControls');
+    
     const baseMaps = [
-        { id: 'nlsc-emap', name: 'NLSC 電子地圖', layer: nlscEMAP, checked: true },
-        { id: 'nlsc-photo', name: 'NLSC 正射影像', layer: nlscPHOTO, checked: false },
-        { id: 'osm', name: 'OpenStreetMap', layer: osmLayer, checked: false }
+        { id: 'nlsc-emap', name: 'NLSC 電子地圖', checked: true },
+        { id: 'nlsc-photo', name: 'NLSC 正射影像', checked: false },
+        { id: 'osm', name: 'OpenStreetMap', checked: false }
     ];
     
+    // 渲染底圖單選按鈕
+    baseMapControls.innerHTML = '';
     baseMaps.forEach(mapItem => {
         const label = document.createElement('div');
         label.className = 'layer-control-item';
@@ -2393,17 +2443,15 @@ function initLayerControls() {
         baseMapControls.appendChild(label);
         
         const radio = label.querySelector('input');
-        radio.addEventListener('change', () => {
-            baseMaps.forEach(m => {
-                if (window.map.hasLayer(m.layer)) {
-                    window.map.removeLayer(m.layer);
-                }
-            });
-            mapItem.layer.addTo(window.map);
+        radio.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                switchBaseMap(e.target.value);
+            }
         });
     });
     
-    const overlayControls = document.getElementById('overlayControls');
+    // 渲染覆蓋圖層複選框
+    overlayControls.innerHTML = '';
     const overlays = [
         { id: 'cadastral', name: '地籍圖', layer: cadastralLayer, checked: true }
     ];
@@ -2418,14 +2466,16 @@ function initLayerControls() {
         overlayControls.appendChild(label);
         
         const checkbox = label.querySelector('input');
-        checkbox.addEventListener('change', () => {
-            if (checkbox.checked) {
-                overlay.layer.addTo(window.map);
+        checkbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                overlay.layer.addTo(map);
             } else {
-                window.map.removeLayer(overlay.layer);
+                map.removeLayer(overlay.layer);
             }
         });
     });
+    
+    console.log('✓ 圖層控制面板已初始化');
 }
 
 const namedColorsMap = {
@@ -2521,6 +2571,7 @@ const osmLayer = L.tileLayer(
 );
 
 nlscEMAP.addTo(map);
+currentBaseMapLayer = nlscEMAP;
 
 const cadastralLayer = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
@@ -4844,10 +4895,10 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
-    initGeoJSONEvents(map);
     initLayerControls();
-    console.log('✅ v1.1.2 (2026-08-10) 區段內結果顯示優化版本初始化完成');
-    console.log('✅ 更新功能：位於區段內統一顯示「位於區段內」文字');
+    initGeoJSONEvents(map);
+    console.log('✅ v1.1.2 修正版 (2026-08-10) 初始化完成');
+    console.log('✅ 主要修正：底圖切換功能、圖層控制面板UI改進');
     console.log('✅ 著作權合規：MIT License + ODbL Attribution');
 });
 </script>
