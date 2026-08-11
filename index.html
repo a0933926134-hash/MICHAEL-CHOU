@@ -927,7 +927,7 @@ body.mobile-mode #drawToolbar {
     color: #0369a1;
 }
 
-/* ========== GeoJSON 圓形標籤樣式（核心修改） ========== */
+/* ========== GeoJSON 圓形標籤樣式 ========== */
 .geojson-field-label {
     background: rgba(255, 255, 255, 0.92) !important;
     border: 1px solid #e5e7eb !important;
@@ -1166,6 +1166,18 @@ body.mobile-mode #drawToolbar {
 
 #layerControlPanel.show {
     display: flex;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 #layerControlPanel::-webkit-scrollbar {
@@ -1183,6 +1195,42 @@ body.mobile-mode #drawToolbar {
 
 #layerControlPanel::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+}
+
+#layerControlHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+#layerControlHeader h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+#layerControlHeader button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    color: #6b7280;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+#layerControlHeader button:hover {
+    background: #e5e7eb;
 }
 
 .layer-control-content {
@@ -1616,7 +1664,7 @@ body.mobile-mode .about-link-btn {
             <h3>應用程式資訊</h3>
             <p>
                 <strong>區段勘查小幫手</strong><br/>
-                版本: v1.1.2<br/>
+                版本: v1.1.2 (修正版)<br/>
                 發行日期: 2026年08月11日<br/>
                 授權: MIT License + ODbL Attribution
             </p>
@@ -1666,12 +1714,12 @@ body.mobile-mode .about-link-btn {
                 </div>
             </div>
 
-            <h3>v1.1.2 更新內容</h3>
+            <h3>v1.1.2 修正內容</h3>
             <ul>
-                <li><strong>GeoJSON 標籤圓形外框</strong> - 將方形標籤改為圓形徽章設計</li>
-                <li><strong>改進的視覺效果</strong> - 圓形外框更現代化且易於識別</li>
-                <li><strong>區段內結果顯示優化</strong> - 位於區段內的設施統一顯示「位於區段內」文字</li>
-                <li><strong>保持功能完整</strong> - 所有搜尋、高亮、聚焦功能保持不變</li>
+                <li><strong>圖層面板自動收起</strong> - 選擇底圖或切換覆蓋圖層後自動關閉面板</li>
+                <li><strong>圖層面板標題欄</strong> - 新增關閉按鈕，支援手動關閉</li>
+                <li><strong>平滑動畫效果</strong> - 面板開啟/關閉時有過渡動畫</li>
+                <li><strong>保持功能完整</strong> - 所有查詢、繪製、匯出功能保持不變</li>
             </ul>
 
             <h3>ODbL 合規聲明</h3>
@@ -1679,34 +1727,17 @@ body.mobile-mode .about-link-btn {
                 本應用中包含基於 OpenStreetMap 和 Overpass API 的地理數據，
                 根據 Open Data Commons Open Database License (ODbL) v1.0 授權。
             </p>
-            <p>
-                您可以自由使用、修改和分發本應用，但須遵守 ODbL 的要求：
-                <ul style="margin-top: 8px;">
-                    <li>標記資料來源為「© OpenStreetMap contributors」</li>
-                    <li>若修改數據，應聲明修改內容</li>
-                    <li>若衍生新數據庫，應以 ODbL 授權發行</li>
-                </ul>
-            </p>
 
             <h3>隱私政策</h3>
             <p>
                 <strong>位置數據：</strong> 本應用可能收集您的 GPS 位置資訊用於查詢分析。
                 所有位置數據僅在您的瀏覽器本地處理，不會上傳至伺服器。
             </p>
-            <p>
-                <strong>查詢數據：</strong> POI 查詢通過 OpenStreetMap 和 Overpass API 進行，
-                可能會傳送您的查詢座標至這些開源服務。
-            </p>
 
             <h3>使用條款</h3>
             <p>
                 本應用「按現有狀態」(AS IS) 提供，不承擔任何保證或責任。
                 使用本應用代表您同意本使用條款和隱私政策。
-            </p>
-
-            <h3>聯絡與反饋</h3>
-            <p>
-                如有問題或建議，歡迎聯絡開發者。
             </p>
         </div>
     </div>
@@ -1720,7 +1751,7 @@ body.mobile-mode .about-link-btn {
     <div id="sidebarHeader">
         <div id="sidebarTitle">
             <h1>🗺️ 區段勘查小幫手</h1>
-            <p>v1.1.2 (2026-08-10)</p>
+            <p>v1.1.2 (修正版)</p>
         </div>
         <button id="sidebarMinimizeBtn" title="最小化/最大化" onclick="toggleSidebarMinimize()">−</button>
     </div>
@@ -1925,8 +1956,12 @@ body.mobile-mode .about-link-btn {
     </div>
 </div>
 
-<!-- 獨立的圖層控制面板 -->
+<!-- ✨ 修正：獨立的圖層控制面板 ✨ -->
 <div id="layerControlPanel">
+    <div id="layerControlHeader">
+        <h3>🗺️ 圖層控制</h3>
+        <button onclick="toggleLayerControl()" title="關閉面板">✕</button>
+    </div>
     <div class="layer-control-content">
         <div class="layer-control-section">
             <h4>🗺️ 底圖圖層</h4>
@@ -2016,9 +2051,9 @@ body.mobile-mode .about-link-btn {
    ★ v1.1.2 修正版 (2026-08-10)
    
    主要修正：
-   1. 修正底圖圖層切換功能
-   2. 改進圖層控制面板UI
-   3. 獨立圖層控制面板設計
+   1. 圖層面板自動收起功能
+   2. 圖層面板標題欄設計
+   3. 平滑過渡動畫
    
    授權: MIT License + ODbL Attribution
 ================================================ */
@@ -2374,7 +2409,7 @@ function toggleAutoGeolocation() {
     }
 }
 
-// ========== 圖層控制功能 ==========
+// ========== 圖層控制功能 ========== 
 function toggleLayerControl() {
     const panel = document.getElementById('layerControlPanel');
     const btn = document.getElementById('layerControlBtn');
@@ -2383,7 +2418,7 @@ function toggleLayerControl() {
     btn.classList.toggle('active');
 }
 
-// 底圖切換函式 - 修正版本
+// ✨ 修正：底圖切換函式 - 自動收起面板
 function switchBaseMap(mapId) {
     const newLayer = baseMapLayers[mapId];
     if (!newLayer) {
@@ -2409,6 +2444,12 @@ function switchBaseMap(mapId) {
     
     console.log(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
     showToast(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
+    
+    // ✨ 新增：自動收起面板
+    setTimeout(() => {
+        document.getElementById('layerControlPanel').classList.remove('show');
+        document.getElementById('layerControlBtn').classList.remove('active');
+    }, 300);
 }
 
 function initLayerControls() {
@@ -2472,6 +2513,12 @@ function initLayerControls() {
             } else {
                 map.removeLayer(overlay.layer);
             }
+            
+            // ✨ 新增：切換覆蓋圖層後自動收起面板
+            setTimeout(() => {
+                document.getElementById('layerControlPanel').classList.remove('show');
+                document.getElementById('layerControlBtn').classList.remove('active');
+            }, 200);
         });
     });
     
@@ -4540,11 +4587,9 @@ function renderTable() {
         tr.dataset.id = item.id;
         tr.onclick = () => selectItemById(item.id);
         
-        // 統一修正：如果在範圍內，兩欄都顯示「位於區段內」
         let distanceDisplay = item.在範圍內 ? '位於區段內' : item.直線距離顯示;
         let routeDisplay = item.在範圍內 ? '位於區段內' : (item.路線距離 || '');
         
-        // 添加樣式：區段內使用特殊顏色
         const distanceCellClass = item.在範圍內 ? ' class="in-zone-cell"' : '';
         const routeCellClass = item.在範圍內 ? ' class="in-zone-cell"' : '';
         
@@ -4898,7 +4943,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initLayerControls();
     initGeoJSONEvents(map);
     console.log('✅ v1.1.2 修正版 (2026-08-10) 初始化完成');
-    console.log('✅ 主要修正：底圖切換功能、圖層控制面板UI改進');
+    console.log('✅ 主要修正：圖層面板自動收起功能、平滑過渡動畫');
     console.log('✅ 著作權合規：MIT License + ODbL Attribution');
 });
 </script>
