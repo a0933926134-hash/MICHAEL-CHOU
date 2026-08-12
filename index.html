@@ -1157,8 +1157,8 @@ body.mobile-mode #drawToolbar {
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     z-index: 900;
-    width: 280px;
-    max-height: 600px;
+    width: 320px;
+    max-height: 700px;
     overflow-y: auto;
     display: none;
     flex-direction: column;
@@ -1204,6 +1204,7 @@ body.mobile-mode #drawToolbar {
     padding: 12px;
     border-bottom: 1px solid #e5e7eb;
     background: #f9fafb;
+    flex-shrink: 0;
 }
 
 #layerControlHeader h3 {
@@ -1235,10 +1236,12 @@ body.mobile-mode #drawToolbar {
 
 .layer-control-content {
     padding: 12px;
+    overflow-y: auto;
+    flex: 1;
 }
 
 .layer-control-section {
-    margin-bottom: 12px;
+    margin-bottom: 16px;
 }
 
 .layer-control-section:last-child {
@@ -1246,20 +1249,22 @@ body.mobile-mode #drawToolbar {
 }
 
 .layer-control-section h4 {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: #1f2937;
-    margin: 0 0 8px 0;
+    margin: 0 0 10px 0;
     display: flex;
     align-items: center;
     gap: 6px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
 }
 
 .layer-control-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 0;
+    padding: 8px 0;
     font-size: 12px;
 }
 
@@ -1273,25 +1278,36 @@ body.mobile-mode #drawToolbar {
     cursor: pointer;
     flex: 1;
     margin: 0;
+    font-size: 12px;
+    color: #374151;
 }
 
-/* ========== 套疊圖層下拉選單樣式 ========== */
+/* ========== 套疊圖層控制樣式 ========== */
+.overlay-layer-wrapper {
+    background: #f0f9ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
 .overlay-layer-select {
     width: 100%;
-    padding: 8px;
-    border: 1px solid #e5e7eb;
+    padding: 8px 10px;
+    border: 1px solid #93c5fd;
     border-radius: 6px;
     font-size: 12px;
     background: white;
     color: #1f2937;
     cursor: pointer;
     transition: all 0.2s;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    font-weight: 500;
 }
 
 .overlay-layer-select:hover {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 .overlay-layer-select:focus {
@@ -1300,31 +1316,56 @@ body.mobile-mode #drawToolbar {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.overlay-layer-control {
+.overlay-layer-toggle {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 8px 0;
+    margin-bottom: 8px;
 }
 
-.overlay-layer-control input[type="checkbox"] {
+.overlay-layer-toggle input[type="checkbox"] {
     cursor: pointer;
     accent-color: #2563eb;
+    width: 18px;
+    height: 18px;
 }
 
-.overlay-layer-control label {
+.overlay-layer-toggle label {
     cursor: pointer;
     flex: 1;
     margin: 0;
     font-size: 12px;
     color: #1f2937;
+    font-weight: 500;
+}
+
+.overlay-opacity-control {
+    padding-top: 8px;
+    border-top: 1px solid #bfdbfe;
+}
+
+.overlay-opacity-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #0369a1;
+    margin-bottom: 6px;
+    font-weight: 500;
 }
 
 .overlay-opacity-slider {
     width: 100%;
-    height: 4px;
-    margin-top: 4px;
+    height: 5px;
     cursor: pointer;
+    accent-color: #0ea5e9;
+    border-radius: 4px;
+}
+
+.overlay-opacity-slider:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 /* ========== 模態視窗樣式 ========== */
@@ -2026,7 +2067,7 @@ body.mobile-mode .about-link-btn {
             <div id="overlayControls"></div>
         </div>
         <div class="layer-control-section">
-            <h4>🏗️ 套疊圖層</h4>
+            <h4>🏗️ 新北市都市計畫</h4>
             <div id="overlayLayerControls"></div>
         </div>
         <div class="layer-control-section">
@@ -2109,9 +2150,9 @@ body.mobile-mode .about-link-btn {
    ★ v1.1.3 優化版 (2026-08-11)
    
    主要優化：
-   1. 新增新北市都市計畫圖層
-   2. 套疊圖層下拉選單
-   3. 透明度控制
+   1. 新增新北市都市計畫圖層（完整WMS服務）
+   2. 套疊圖層下拉選單（基本圖/詳細圖/帶標示）
+   3. 透明度控制滑塊
    4. 圖層面板自動收起功能
    
    授權: MIT License + ODbL Attribution
@@ -2121,15 +2162,14 @@ body.mobile-mode .about-link-btn {
 const newTaipeiUrbanPlanLayers = {
     'tpc-basic': {
         name: '新北市都市計畫（基本圖）',
-        url: 'https://wms.tpc.gov.tw/tpc_wms/service',
+        url: 'https://wms.nlsc.gov.tw/wms',
         params: {
             service: 'WMS',
-            version: '1.1.1',
+            version: '1.3.0',
             request: 'GetMap',
-            layers: 'UrbanPlanMap_Basic',
+            layers: 'NLSC:TPC_BASIC',
             styles: '',
-            srs: 'EPSG:3857',
-            bbox: '{bbox}',
+            crs: 'EPSG:3857',
             width: 256,
             height: 256,
             format: 'image/png',
@@ -2138,15 +2178,14 @@ const newTaipeiUrbanPlanLayers = {
     },
     'tpc-detail': {
         name: '新北市都市計畫（詳細圖）',
-        url: 'https://wms.tpc.gov.tw/tpc_wms/service',
+        url: 'https://wms.nlsc.gov.tw/wms',
         params: {
             service: 'WMS',
-            version: '1.1.1',
+            version: '1.3.0',
             request: 'GetMap',
-            layers: 'UrbanPlanMap_Detail',
+            layers: 'NLSC:TPC_DETAIL',
             styles: '',
-            srs: 'EPSG:3857',
-            bbox: '{bbox}',
+            crs: 'EPSG:3857',
             width: 256,
             height: 256,
             format: 'image/png',
@@ -2155,15 +2194,14 @@ const newTaipeiUrbanPlanLayers = {
     },
     'tpc-label': {
         name: '新北市都市計畫（帶標示）',
-        url: 'https://wms.tpc.gov.tw/tpc_wms/service',
+        url: 'https://wms.nlsc.gov.tw/wms',
         params: {
             service: 'WMS',
-            version: '1.1.1',
+            version: '1.3.0',
             request: 'GetMap',
-            layers: 'UrbanPlanMap_Label',
+            layers: 'NLSC:TPC_LABEL',
             styles: '',
-            srs: 'EPSG:3857',
-            bbox: '{bbox}',
+            crs: 'EPSG:3857',
             width: 256,
             height: 256,
             format: 'image/png',
@@ -2196,6 +2234,7 @@ let currentBaseMapLayer = null;
 let baseMapLayers = {};
 let activeOverlayLayers = {};
 let overlayLayerOpacity = {};
+let currentTPCStyle = 'tpc-basic';
 
 function openAboutModal() {
     document.getElementById('aboutModal').classList.add('show');
@@ -2570,13 +2609,10 @@ function switchBaseMap(mapId) {
 
 // ========== 套疊圖層管理 ==========
 function toggleOverlayLayer(layerId) {
-    const select = document.getElementById('overlayLayerSelect');
-    const selectedStyle = select ? select.value : 'tpc-basic';
-    
     const checkbox = document.getElementById(`overlay-check-${layerId}`);
     
     if (checkbox.checked) {
-        addOverlayLayer(layerId, selectedStyle);
+        addOverlayLayer(layerId, currentTPCStyle);
     } else {
         removeOverlayLayer(layerId);
     }
@@ -2594,14 +2630,16 @@ function addOverlayLayer(layerId, style) {
         return;
     }
 
-    const wmsUrl = `${layerConfig.url}?`;
+    // 構建完整的 WMS URL
+    const wmsUrl = layerConfig.url;
     const wmsLayer = L.tileLayer.wms(wmsUrl, {
         layers: layerConfig.params.layers,
-        formats: 'image/png',
+        format: 'image/png',
         transparent: true,
         opacity: 0.7,
-        version: '1.1.1',
-        srs: 'EPSG:3857'
+        version: '1.3.0',
+        crs: L.CRS.EPSG3857,
+        attribution: '© NLSC / © 新北市政府'
     });
 
     wmsLayer.addTo(map);
@@ -2610,10 +2648,11 @@ function addOverlayLayer(layerId, style) {
 
     const opacitySlider = document.getElementById(`opacity-slider-${layerId}`);
     if (opacitySlider) {
+        opacitySlider.disabled = false;
         opacitySlider.value = 70;
     }
 
-    console.log(`✓ 已新增套疊圖層：${layerId}`);
+    console.log(`✓ 已新增套疊圖層：${layerId} (${style})`);
     showToast(`✓ 已新增：${layerConfig.name}`);
 
     // ✨ 新增：新增圖層後自動收起面板
@@ -2635,6 +2674,11 @@ function removeOverlayLayer(layerId) {
         checkbox.checked = false;
     }
 
+    const opacitySlider = document.getElementById(`opacity-slider-${layerId}`);
+    if (opacitySlider) {
+        opacitySlider.disabled = true;
+    }
+
     console.log(`✓ 已移除套疊圖層：${layerId}`);
     showToast('✓ 已移除套疊圖層');
 }
@@ -2651,6 +2695,8 @@ function updateOverlayOpacity(layerId, value) {
 }
 
 function updateOverlayStyle(newStyle) {
+    currentTPCStyle = newStyle;
+    
     // 移除所有現有的套疊圖層
     Object.keys(activeOverlayLayers).forEach(layerId => {
         removeOverlayLayer(layerId);
@@ -2665,7 +2711,13 @@ function updateOverlayStyle(newStyle) {
         }
     });
 
-    showToast(`✓ 已更新套疊圖層樣式`);
+    const styleNames = {
+        'tpc-basic': '基本圖',
+        'tpc-detail': '詳細圖',
+        'tpc-label': '帶標示'
+    };
+
+    showToast(`✓ 已更新為：${styleNames[newStyle] || newStyle}`);
 }
 
 function initLayerControls() {
@@ -2739,50 +2791,61 @@ function initLayerControls() {
         });
     });
 
-    // ========== 新增：套疊圖層控制 ==========
+    // ========== 新增：套疊圖層控制 - 完整修正版本 ==========
     overlayLayerControls.innerHTML = `
-        <div style="margin-bottom: 10px;">
-            <select id="overlayLayerSelect" class="overlay-layer-select" onchange="updateOverlayStyle(this.value)">
-                <option value="tpc-basic">基本圖</option>
-                <option value="tpc-detail">詳細圖</option>
-                <option value="tpc-label">帶標示</option>
-            </select>
-        </div>
-        <div class="overlay-layer-control">
-            <input type="checkbox" id="overlay-check-tpc" onchange="toggleOverlayLayer('tpc')">
-            <label for="overlay-check-tpc" style="flex: 1;">新北市都市計畫</label>
-        </div>
-        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
-            <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">
-                透明度調整：<span id="opacity-value-tpc">70</span>%
-            </label>
-            <input 
-                type="range" 
-                id="opacity-slider-tpc" 
-                class="overlay-opacity-slider" 
-                min="0" 
-                max="100" 
-                value="70"
-                disabled
-                onchange="updateOverlayOpacity('tpc', this.value)"
-                oninput="
-                    this.disabled || updateOverlayOpacity('tpc', this.value);
-                    document.getElementById('opacity-value-tpc').textContent = this.value;
-                "
-            >
+        <div class="overlay-layer-wrapper">
+            <div style="margin-bottom: 10px;">
+                <label style="display: block; font-size: 11px; color: #0369a1; font-weight: 600; margin-bottom: 6px;">
+                    📍 選擇圖層樣式
+                </label>
+                <select id="overlayLayerSelect" class="overlay-layer-select" onchange="updateOverlayStyle(this.value)">
+                    <option value="tpc-basic">🗺️ 基本圖</option>
+                    <option value="tpc-detail">📋 詳細圖</option>
+                    <option value="tpc-label">🏷️ 帶標示</option>
+                </select>
+            </div>
+            
+            <div class="overlay-layer-toggle">
+                <input type="checkbox" id="overlay-check-tpc" onchange="toggleOverlayLayer('tpc')">
+                <label for="overlay-check-tpc">啟用都市計畫圖層</label>
+            </div>
+            
+            <div class="overlay-opacity-control" id="opacityControl" style="display: none;">
+                <div class="overlay-opacity-label">
+                    <span>🎚️ 透明度</span>
+                    <span id="opacity-value-tpc">70</span>%
+                </div>
+                <input 
+                    type="range" 
+                    id="opacity-slider-tpc" 
+                    class="overlay-opacity-slider" 
+                    min="0" 
+                    max="100" 
+                    value="70"
+                    disabled
+                    onchange="updateOverlayOpacity('tpc', this.value)"
+                    oninput="
+                        updateOverlayOpacity('tpc', this.value);
+                        document.getElementById('opacity-value-tpc').textContent = this.value;
+                    "
+                >
+            </div>
         </div>
     `;
 
     // 更新透明度滑塊狀態
     const overlayCheckbox = document.getElementById('overlay-check-tpc');
+    const opacityControl = document.getElementById('opacityControl');
     const opacitySlider = document.getElementById('opacity-slider-tpc');
-    if (overlayCheckbox && opacitySlider) {
+    
+    if (overlayCheckbox && opacityControl && opacitySlider) {
         overlayCheckbox.addEventListener('change', (e) => {
+            opacityControl.style.display = e.target.checked ? 'block' : 'none';
             opacitySlider.disabled = !e.target.checked;
         });
     }
     
-    console.log('✓ 圖層控制面板已初始化');
+    console.log('✓ 圖層控制面板已初始化（含新北市都市計畫圖層）');
 }
 
 const namedColorsMap = {
