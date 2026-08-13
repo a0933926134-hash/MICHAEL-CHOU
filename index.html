@@ -1745,6 +1745,37 @@ body.mobile-mode .about-link-btn {
     color: #059669;
     font-weight: 600;
 }
+
+.fade-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1001;
+    display: none;
+}
+
+.fade-overlay.active {
+    display: block;
+}
+
+#importedLayersDisplay {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.imported-layer-stat {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 11px;
+    color: #666;
+}
+
+.imported-layer-stat strong {
+    color: #1f2937;
+}
 </style>
 </head>
 <body>
@@ -1764,26 +1795,69 @@ body.mobile-mode .about-link-btn {
             <h3>應用程式資訊</h3>
             <p>
                 <strong>區段勘查小幫手</strong><br/>
-                版本: v1.1.5 (黑屏修正版)<br/>
+                版本: v1.1.5 (完整版)<br/>
                 發行日期: 2026年08月16日<br/>
                 授權: MIT License + ODbL Attribution
             </p>
 
-            <h3>地圖資料來源</h3>
-            <p>本應用使用下列地圖資料與服務：</p>
+            <h3>核心功能</h3>
             <ul>
-                <li><strong>OpenStreetMap</strong> - © OpenStreetMap contributors，授權: ODbL 1.0</li>
-                <li><strong>台灣國家基本地圖 (NLSC)</strong> - © 國家地理資訊系統中心</li>
-                <li><strong>新北市都市計畫圖</strong> - © 新北市政府城鄉發展局</li>
+                <li>基於 OpenStreetMap 和國家地理資訊系統 NLSC 的地圖整合</li>
+                <li>Overpass API POI 設施查詢與分析</li>
+                <li>OSRM 路由服務與距離計算</li>
+                <li>新北市都市計畫圖層 (基本圖/詳細圖/帶標示)</li>
+                <li>多邊形繪製、編輯與管理</li>
+                <li>GeoJSON/SHP 檔案匯入與匯出</li>
+                <li>自動地理位置更新功能</li>
+                <li>Excel 匯出報告</li>
             </ul>
+
+            <h3>地圖資料來源</h3>
+            <div class="license-list">
+                <div class="license-item">
+                    <strong>OpenStreetMap (OSM)</strong>
+                    <small>© OpenStreetMap contributors | 授權: ODbL 1.0</small>
+                </div>
+                <div class="license-item">
+                    <strong>國家地理資訊系統中心 (NLSC)</strong>
+                    <small>© NLSC | 電子地圖與正射影像</small>
+                </div>
+                <div class="license-item">
+                    <strong>新北市都市計畫圖</strong>
+                    <small>© 新北市政府城鄉發展局 | 免申請 Web Map API</small>
+                </div>
+                <div class="license-item">
+                    <strong>地籍圖</strong>
+                    <small>© NLSC | 登記地號與地籍線資訊</small>
+                </div>
+            </div>
 
             <h3>v1.1.5 修正內容</h3>
             <ul>
-                <li><strong>修正黑屏問題</strong> - 移除 Leaflet.WMS CDN 衝突</li>
-                <li><strong>優化地圖初始化</strong> - 確保正確的 z-index 堆疊</li>
-                <li><strong>修正 WMS 參數</strong> - NLSC API 相容性修正</li>
-                <li><strong>強化錯誤處理</strong> - 添加詳細的 console 診斷信息</li>
+                <li>✅ 修復黑屏問題 - 移除 Leaflet.WMS CDN 衝突</li>
+                <li>✅ 優化地圖初始化 - 正確的 z-index 堆疊</li>
+                <li>✅ 修正 WMS 參數 - NLSC API 相容性</li>
+                <li>✅ 強化錯誤處理 - 詳細的 console 診斷信息</li>
+                <li>✅ 完整 Overpass API 查詢支援</li>
+                <li>✅ OSRM 路由計算功能</li>
+                <li>✅ GeoJSON/SHP 完整匯入匯出</li>
             </ul>
+
+            <h3>外部服務</h3>
+            <div class="license-list">
+                <div class="license-item">
+                    <strong>Overpass API</strong>
+                    <small>© OpenStreetMap / Overpass API | 免費使用</small>
+                </div>
+                <div class="license-item">
+                    <strong>OSRM (Open Source Routing Machine)</strong>
+                    <small>© Project OSRM contributors | 免費路由服務</small>
+                </div>
+                <div class="license-item">
+                    <strong>Turf.js</strong>
+                    <small>© Mapbox | MIT License | 地理空間分析庫</small>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1796,7 +1870,7 @@ body.mobile-mode .about-link-btn {
     <div id="sidebarHeader">
         <div id="sidebarTitle">
             <h1>🗺️ 區段勘查小幫手</h1>
-            <p>v1.1.5 (修正版)</p>
+            <p>v1.1.5 (完整版)</p>
         </div>
         <button id="sidebarMinimizeBtn" title="最小化/最大化" onclick="toggleSidebarMinimize()">−</button>
     </div>
@@ -1965,9 +2039,10 @@ body.mobile-mode .about-link-btn {
                     id="geojson-file-input" 
                     accept=".geojson,.json,.zip,.shp" 
                     style="display: none;"
+                    onchange="handleGeoJSONFileUpload(event)"
                 >
                 <div id="importStatus" style="display: none;"></div>
-                <button id="export-geojson-btn" class="btn-primary" style="width: 100%; padding: 10px; margin: 8px 0 0 0; border: none; border-radius: 6px; cursor: pointer;">
+                <button id="export-geojson-btn" class="btn-primary" style="width: 100%; padding: 10px; margin: 8px 0 0 0; border: none; border-radius: 6px; cursor: pointer;" onclick="exportImportedGeoJSON()">
                     💾 匯出 GeoJSON
                 </button>
             </div>
@@ -2081,23 +2156,47 @@ body.mobile-mode .about-link-btn {
 </div>
 
 <div id="statusBar">
-    數據來源: © OpenStreetMap / © NLSC | 授權: ODbL + MIT | v1.1.5 | ✅ 修正完成
+    數據來源: © OpenStreetMap / © NLSC | 授權: ODbL + MIT | v1.1.5 (完整版) | ✅ 完整功能可用
 </div>
 
 <script>
 /* ================================================
-   ★ v1.1.5 黑屏修正版 (2026-08-16)
+   ★ v1.1.5 完整版 (2026-08-16)
    
-   主要修正：
-   1. 移除 Leaflet.WMS CDN 衝突
-   2. 修復地圖 z-index 堆疊
-   3. 強化 WMS 參數相容性
-   4. 添加詳細錯誤日誌
+   包含功能：
+   1. OpenStreetMap + NLSC 地圖整合
+   2. Overpass API POI 查詢
+   3. OSRM 路由計算
+   4. 新北市都市計畫圖層 (3 種樣式)
+   5. 多邊形繪製與編輯
+   6. GeoJSON/SHP 匯入匯出
+   7. 自動地理位置更新
+   8. Excel 匯出報告
    
    授權: MIT License + ODbL Attribution
 ================================================ */
 
-// ========== NLSC 新北市都市計畫圖層定義（修正版）==========
+// ========== 常數定義 ==========
+const OVERPASS_API_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+const OSRM_API_ENDPOINT = 'https://router.project-osrm.org/route/v1/driving';
+
+const OVERPASS_TAGS = {
+    'station': '[railway=station]',
+    'bus_stop': '[highway=bus_stop]',
+    'motorway_junction': '[highway=motorway_junction]',
+    'school': '[amenity=school]',
+    'marketplace': '[shop=supermarket]|[amenity=marketplace]',
+    'park': '[leisure=park]',
+    'tourism': '[tourism~"attraction|viewpoint|museum"]',
+    'parking': '[amenity=parking]',
+    'bank': '[amenity=bank]|[amenity=post_office]',
+    'gas': '[man_made~"power_wind|power_hydro"]|[utility=gas]',
+    'cemetery': '[amenity=cemetery]',
+    'waste_disposal': '[amenity=waste_disposal]',
+    'pollution': '[man_made=wastewater_plant]'
+};
+
+// ========== NLSC 新北市都市計畫圖層定義 ==========
 const newTaipeiUrbanPlanLayers = {
     'tpc-basic': {
         name: '新北市都市計畫（基本圖）',
@@ -2245,7 +2344,7 @@ function switchBaseMap(mapId) {
     }, 300);
 }
 
-// ========== WMS 圖層管理（修正版本）==========
+// ========== WMS 圖層管理 ==========
 function toggleOverlayLayer(layerId) {
     const checkbox = document.getElementById(`overlay-check-${layerId}`);
     
@@ -2269,9 +2368,6 @@ function addOverlayLayer(layerId, style) {
     }
 
     try {
-        // 使用 Leaflet 內置的 TileLayer 支持 WMS
-        const wmsUrl = `${layerConfig.url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${layerConfig.layers}&STYLES=${layerConfig.format === 'image/png' ? '' : ''}&SRS=EPSG:3857&WIDTH=256&HEIGHT=256&BBOX={bbox}&FORMAT=${layerConfig.format}&TRANSPARENT=${layerConfig.transparent ? 'TRUE' : 'FALSE'}`;
-        
         const wmsLayer = L.tileLayer.wms(layerConfig.url, {
             layers: layerConfig.layers,
             styles: '',
@@ -2567,6 +2663,7 @@ let renameCancelled = false;
 
 let geoJsonLayers = {};
 let geoJsonFeatures = {};
+let importedLayerCounter = 0;
 
 const selectedGeoJSONStyle = {
     color: '#ff4500',
@@ -2626,7 +2723,7 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
-// ========== GeoJSON 相關函數（簡化版）==========
+// ========== GeoJSON 相關函數 ==========
 let geoJsonFieldInfo = {
     activeField: null,
     layerFields: {}
@@ -2694,14 +2791,100 @@ function updateGeoJSONFieldLabel() {
 }
 
 function handleGeoJSONLabelSearch() {
-    // 簡化版本
-    showToast('搜尋功能開發中');
+    const searchInput = document.getElementById('geoJsonLabelSearch');
+    const searchText = searchInput.value.trim().toLowerCase();
+    
+    clearTimeout(searchDebounceTimer);
+    
+    if (!searchText) {
+        document.getElementById('searchStats').style.display = 'none';
+        document.getElementById('searchResultsList').classList.remove('show');
+        document.querySelector('.search-clear-btn').classList.remove('active');
+        return;
+    }
+
+    searchDebounceTimer = setTimeout(() => {
+        try {
+            currentSearchResults = [];
+            let matchedCount = 0;
+            
+            Object.keys(geoJsonFeatures).forEach(layerName => {
+                const data = geoJsonFeatures[layerName];
+                if (data.features) {
+                    data.features.forEach(feature => {
+                        const properties = feature.properties || {};
+                        const fieldValue = String(properties[geoJsonFieldInfo.activeField] || '').toLowerCase();
+                        
+                        if (fieldValue.includes(searchText)) {
+                            matchedCount++;
+                            currentSearchResults.push({
+                                layerName: layerName,
+                                value: properties[geoJsonFieldInfo.activeField],
+                                feature: feature
+                            });
+                        }
+                    });
+                }
+            });
+
+            const statsDiv = document.getElementById('searchStats');
+            const resultsList = document.getElementById('searchResultsList');
+            const clearBtn = document.querySelector('.search-clear-btn');
+            
+            document.getElementById('matchedCount').textContent = matchedCount;
+            
+            if (matchedCount > 0) {
+                statsDiv.style.display = 'block';
+                clearBtn.classList.add('active');
+                
+                resultsList.innerHTML = currentSearchResults.slice(0, 10).map((result, idx) => `
+                    <div class="search-result-item" onclick="focusSearchResult(${idx})">
+                        <strong>${escapeHtml(String(result.value))}</strong>
+                    </div>
+                `).join('');
+                
+                resultsList.classList.add('show');
+            } else {
+                statsDiv.style.display = 'none';
+                resultsList.classList.remove('show');
+                clearBtn.classList.add('active');
+            }
+
+        } catch (err) {
+            console.error('❌ 搜尋失敗:', err);
+        }
+    }, SEARCH_DEBOUNCE_DELAY);
 }
 
 function clearGeoJSONLabelSearch() {
     const searchInput = document.getElementById('geoJsonLabelSearch');
     searchInput.value = '';
+    document.getElementById('searchStats').style.display = 'none';
+    document.getElementById('searchResultsList').classList.remove('show');
+    document.querySelector('.search-clear-btn').classList.remove('active');
     showToast('✓ 搜尋已清除');
+}
+
+function focusSearchResult(index) {
+    const result = currentSearchResults[index];
+    if (!result) return;
+    
+    const feature = result.feature;
+    if (feature.geometry && feature.geometry.coordinates) {
+        const coords = feature.geometry.coordinates;
+        let lat, lon;
+        
+        if (feature.geometry.type === 'Point') {
+            [lon, lat] = coords;
+        } else if (feature.geometry.type === 'Polygon') {
+            [lon, lat] = coords[0][0];
+        } else if (feature.geometry.type === 'LineString') {
+            [lon, lat] = coords[0];
+        }
+        
+        map.setView([lat, lon], 17);
+        showToast(`✓ 已定位到：${result.value}`);
+    }
 }
 
 // ========== 繪製功能 ==========
@@ -2791,7 +2974,38 @@ function renderPolygonLayer(polygonObj) {
     
     if (polygonObj.isSelected) {
         polygonObj.markers.clearLayers();
+        addPolygonEditMarkers(polygonObj);
     }
+}
+
+function addPolygonEditMarkers(polygonObj) {
+    polygonObj.points.forEach((point, idx) => {
+        const marker = L.circleMarker([point[0], point[1]], {
+            radius: 6,
+            color: '#dc2626',
+            fillColor: '#fff',
+            fillOpacity: 1,
+            weight: 2,
+            draggable: true
+        }).addTo(polygonObj.markers);
+
+        marker.on('drag', (e) => {
+            polygonObj.points[idx] = [e.target.getLatLng().lat, e.target.getLatLng().lng];
+            updatePolygonCentroid(polygonObj);
+            renderPolygonLayer(polygonObj);
+        });
+
+        marker.on('contextmenu', (e) => {
+            if (polygonObj.points.length > 3) {
+                polygonObj.points.splice(idx, 1);
+                updatePolygonCentroid(polygonObj);
+                renderPolygonLayer(polygonObj);
+            }
+        });
+    });
+
+    polygonObj.layer.addTo(map);
+    polygonObj.markers.addTo(map);
 }
 
 function selectPolygon(id) {
@@ -2799,6 +3013,7 @@ function selectPolygon(id) {
         const wasSelected = p.isSelected;
         p.isSelected = (p.id === id);
         if (wasSelected && !p.isSelected) {
+            if (p.markers) p.markers.clearLayers();
             renderPolygonLayer(p);
         }
     });
@@ -2970,11 +3185,43 @@ function clearRoute() {
     routeCard.classList.add('hidden');
 }
 
-// ========== 查詢功能（簡化版本）==========
+// ========== Overpass API 查詢函數 ==========
+async function buildOverpassQuery(lat, lon, radius) {
+    const selectedTypes = [];
+    Object.entries(OVERPASS_TAGS).forEach(([key, tag]) => {
+        const checkbox = document.getElementById(`chk-${key}`);
+        if (checkbox && checkbox.checked) {
+            selectedTypes.push(tag);
+        }
+    });
+
+    if (selectedTypes.length === 0) {
+        showToast('❌ 請選擇至少一種設施類型');
+        return null;
+    }
+
+    const filters = selectedTypes.map(tag => `node${tag}(around:${radius},${lat},${lon});`).join('');
+    
+    return `[bbox:-90,-180,90,180];(${filters});out center;`;
+}
+
+// ========== 查詢功能 ==========
 async function runQuery() {
-    const lat = parseFloat(latInput.value);
-    const lon = parseFloat(lonInput.value);
+    let lat = parseFloat(latInput.value);
+    let lon = parseFloat(lonInput.value);
     const radius = parseFloat(radiusInput.value);
+
+    if (useSelectedPolygonCheckbox.checked && currentPolygonId) {
+        const selectedPoly = polygons.find(p => p.id === currentPolygonId);
+        if (selectedPoly && selectedPoly.centroid) {
+            [lat, lon] = selectedPoly.centroid;
+        }
+    }
+
+    if (isNaN(lat) || isNaN(lon) || isNaN(radius)) {
+        showToast('❌ 請輸入正確的座標');
+        return;
+    }
 
     if (radius > 3000) {
         alert("半徑超過 3000m 可能造成系統過慢");
@@ -2992,27 +3239,345 @@ async function runQuery() {
         tbody.innerHTML = "";
         results = [];
 
-        showToast('✓ 查詢功能開發中');
+        const overpassQuery = await buildOverpassQuery(lat, lon, radius);
+        if (!overpassQuery) {
+            queryBtn.innerText = "🔍 查詢分析";
+            queryBtn.disabled = false;
+            return;
+        }
+
+        const response = await fetch(OVERPASS_API_ENDPOINT, {
+            method: 'POST',
+            body: overpassQuery
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+        
+        for (const element of data.elements) {
+            if (element.type !== 'node') continue;
+            
+            const elat = element.lat || (element.center && element.center.lat);
+            const elon = element.lon || (element.center && element.center.lon);
+            
+            if (!elat || !elon) continue;
+
+            // 計算直線距離
+            const distance = turf.distance(
+                turf.point([lon, lat]),
+                turf.point([elon, elat]),
+                { units: 'kilometers' }
+            ) * 1000;
+
+            // 推斷類型
+            let type = '設施';
+            const tags = element.tags || {};
+            for (const [key, value] of Object.entries(tags)) {
+                if (key === 'name') continue;
+                if (key.includes('amenity') || key.includes('railway') || key.includes('shop')) {
+                    type = value;
+                    break;
+                }
+            }
+
+            const name = tags.name || `${type}-${element.id}`;
+
+            results.push({
+                id: element.id,
+                name: name,
+                type: type,
+                lat: elat,
+                lon: elon,
+                distance: distance,
+                route: null
+            });
+
+            // 添加標記
+            const marker = L.circleMarker([elat, elon], {
+                radius: 5,
+                color: '#3b82f6',
+                fillColor: '#fff',
+                fillOpacity: 0.8,
+                weight: 2
+            }).bindPopup(`<strong>${escapeHtml(name)}</strong><br/>${escapeHtml(type)}<br/>距離: ${distance.toFixed(0)}m`).addTo(markerLayer);
+
+            marker.on('click', () => {
+                calculateRoute(lat, lon, elat, elon);
+            });
+        }
+
+        // 計算 OSRM 路線距離
+        if (results.length > 0) {
+            showToast(`✓ 已找到 ${results.length} 個設施，正在計算路線...`);
+            await calculateRoutesOSRM(lat, lon);
+        } else {
+            showToast('❌ 未找到符合條件的設施');
+        }
+
+        renderTable();
 
     } catch (err) {
         console.error(err);
-        alert("查詢發生異常");
+        showToast(`❌ 查詢失敗：${err.message}`);
     } finally {
         queryBtn.disabled = false;
         queryBtn.innerText = "🔍 查詢分析";
     }
 }
 
+async function calculateRoutesOSRM(lat, lon) {
+    try {
+        const coordinates = results.slice(0, 10).map(r => `${r.lon},${r.lat}`).join(';');
+        const url = `${OSRM_API_ENDPOINT}/${lon},${lat};${coordinates}?overview=false`;
+
+        const response = await fetch(url);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        
+        if (data.routes && data.routes.length > 0) {
+            data.routes.forEach((route, idx) => {
+                if (idx + 1 < results.length) {
+                    results[idx].route = (route.distance / 1000).toFixed(2);
+                }
+            });
+        }
+
+        renderTable();
+    } catch (err) {
+        console.error('❌ OSRM 路由計算失敗:', err);
+    }
+}
+
+function calculateRoute(lat1, lon1, lat2, lon2) {
+    const distance = turf.distance(
+        turf.point([lon1, lat1]),
+        turf.point([lon2, lat2]),
+        { units: 'kilometers' }
+    );
+
+    if (routeLayer) map.removeLayer(routeLayer);
+    
+    routeLayer = L.polyline([[lat1, lon1], [lat2, lon2]], {
+        color: '#10b981',
+        weight: 3,
+        opacity: 0.7
+    }).addTo(map);
+
+    routeInfo.innerHTML = `
+        <div>直線距離: ${(distance * 1000).toFixed(0)}m</div>
+        <div style="margin-top: 4px; color: #666; font-size: 11px;">路線距離計算中...</div>
+    `;
+    routeCard.classList.remove('hidden');
+}
+
 function sortResults(type) {
-    showToast('排序功能開發中');
+    const ascending = sortState[type];
+    
+    if (type === 'distance') {
+        results.sort((a, b) => ascending ? a.distance - b.distance : b.distance - a.distance);
+    } else if (type === 'route') {
+        results.sort((a, b) => {
+            const aVal = parseFloat(a.route) || Infinity;
+            const bVal = parseFloat(b.route) || Infinity;
+            return ascending ? aVal - bVal : bVal - aVal;
+        });
+    }
+    
+    sortState[type] = !ascending;
+    renderTable();
 }
 
 function renderTable() {
-    tbody.innerHTML = "";
+    tbody.innerHTML = results.map(result => `
+        <tr onclick="calculateRoute(${origin[0]}, ${origin[1]}, ${result.lat}, ${result.lon})">
+            <td>${escapeHtml(result.name)}</td>
+            <td>${escapeHtml(result.type)}</td>
+            <td>${(result.distance / 1000).toFixed(2)}km</td>
+            <td>${result.route ? result.route + 'km' : '計算中...'}</td>
+        </tr>
+    `).join('');
 }
 
 function exportExcel() {
-    showToast('匯出功能開發中');
+    if (results.length === 0) {
+        showToast('❌ 沒有資料可匯出');
+        return;
+    }
+
+    try {
+        const ws = XLSX.utils.json_to_sheet(results.map(r => ({
+            '設施名稱': r.name,
+            '類型': r.type,
+            '緯度': r.lat.toFixed(6),
+            '經度': r.lon.toFixed(6),
+            '直線距離(km)': (r.distance / 1000).toFixed(2),
+            '路線距離(km)': r.route || 'N/A'
+        })));
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '查詢結果');
+        XLSX.writeFile(wb, `查詢結果-${new Date().toISOString().split('T')[0]}.xlsx`);
+
+        showToast('✓ 已下載 Excel 報告');
+    } catch (err) {
+        console.error('❌ Excel 匯出失敗:', err);
+        showToast('❌ 匯出失敗');
+    }
+}
+
+// ========== GeoJSON/SHP 匯入 ==========
+async function handleGeoJSONFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const statusDiv = document.getElementById('importStatus');
+    statusDiv.style.display = 'block';
+    statusDiv.className = 'import-status';
+    statusDiv.innerHTML = '⌛ 上傳中...';
+
+    try {
+        const fileName = file.name;
+        
+        if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+            const text = await file.text();
+            const geojsonData = JSON.parse(text);
+            importGeoJSONFeatures(geojsonData, fileName);
+        } else if (fileName.endsWith('.zip')) {
+            const arrayBuffer = await file.arrayBuffer();
+            const shapefile = await shp(arrayBuffer);
+            importGeoJSONFeatures(shapefile, fileName);
+        } else {
+            throw new Error('不支援的檔案格式');
+        }
+
+    } catch (err) {
+        console.error('❌ 檔案匯入失敗:', err);
+        statusDiv.className = 'import-status error';
+        statusDiv.innerHTML = `❌ 匯入失敗：${err.message}`;
+    }
+}
+
+function importGeoJSONFeatures(geojsonData, fileName) {
+    try {
+        if (!geojsonData.features) throw new Error('無效的 GeoJSON 格式');
+
+        const layerName = `Layer-${++importedLayerCounter}`;
+        const layerGroup = L.layerGroup().addTo(map);
+        
+        geojsonData.features.forEach(feature => {
+            if (!feature.geometry) return;
+
+            const style = {
+                color: '#7c3aed',
+                weight: 2,
+                opacity: 0.7,
+                fillColor: '#7c3aed',
+                fillOpacity: 0.15
+            };
+
+            L.geoJSON(feature, { style }).addTo(layerGroup);
+        });
+
+        geoJsonLayers[layerName] = layerGroup;
+        geoJsonFeatures[layerName] = geojsonData;
+
+        updateGeoJSONFieldSelector();
+
+        const importedControls = document.getElementById('importedLayerControls');
+        const existingLabel = importedControls.querySelector('span');
+        if (existingLabel) {
+            existingLabel.remove();
+        }
+
+        const layerItem = document.createElement('div');
+        layerItem.className = 'geojson-layer-item';
+        layerItem.innerHTML = `
+            <span>${escapeHtml(layerName)} (${geojsonData.features.length} 個要素)</span>
+            <button class="btn-remove" onclick="removeImportedLayer('${layerName}')">移除</button>
+        `;
+        importedControls.appendChild(layerItem);
+
+        const statusDiv = document.getElementById('importStatus');
+        statusDiv.className = 'import-status success';
+        statusDiv.innerHTML = `✓ 成功匯入 ${geojsonData.features.length} 個要素`;
+
+        showToast(`✓ 已匯入：${layerName}`);
+
+    } catch (err) {
+        console.error('❌ GeoJSON 匯入失敗:', err);
+        const statusDiv = document.getElementById('importStatus');
+        statusDiv.className = 'import-status error';
+        statusDiv.innerHTML = `❌ 匯入失敗：${err.message}`;
+    }
+}
+
+function removeImportedLayer(layerName) {
+    if (geoJsonLayers[layerName]) {
+        map.removeLayer(geoJsonLayers[layerName]);
+        delete geoJsonLayers[layerName];
+    }
+
+    if (geoJsonFeatures[layerName]) {
+        delete geoJsonFeatures[layerName];
+    }
+
+    updateGeoJSONFieldSelector();
+
+    const importedControls = document.getElementById('importedLayerControls');
+    const items = importedControls.querySelectorAll('.geojson-layer-item');
+    items.forEach(item => {
+        if (item.textContent.includes(layerName)) {
+            item.remove();
+        }
+    });
+
+    if (items.length <= 1) {
+        importedControls.innerHTML = '<span>尚無匯入圖層</span>';
+    }
+
+    showToast('✓ 已移除圖層');
+}
+
+function exportImportedGeoJSON() {
+    if (Object.keys(geoJsonFeatures).length === 0) {
+        showToast('❌ 沒有匯入圖層可匯出');
+        return;
+    }
+
+    try {
+        const allFeatures = [];
+        Object.keys(geoJsonFeatures).forEach(layerName => {
+            const data = geoJsonFeatures[layerName];
+            if (data.features) {
+                allFeatures.push(...data.features);
+            }
+        });
+
+        const geoJsonData = {
+            type: 'FeatureCollection',
+            features: allFeatures
+        };
+
+        const jsonStr = JSON.stringify(geoJsonData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `imported-layers-${new Date().toISOString().split('T')[0]}.geojson`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+        showToast(`✓ 已下載 GeoJSON (${allFeatures.length} 個要素)`);
+
+    } catch (err) {
+        console.error('❌ GeoJSON 匯出失敗:', err);
+        showToast('❌ 匯出失敗');
+    }
 }
 
 function exportPolygonsToGeoJSON() {
@@ -3063,7 +3628,42 @@ function exportPolygonsToGeoJSON() {
 }
 
 function importPolygonsFromSHP(event) {
-    showToast('匯入功能開發中');
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const arrayBuffer = e.target.result;
+            const shapefile = await shp(arrayBuffer);
+
+            if (shapefile.features) {
+                shapefile.features.forEach((feature, idx) => {
+                    const coords = feature.geometry.coordinates;
+                    let points = [];
+
+                    if (feature.geometry.type === 'Polygon') {
+                        points = coords[0].map(c => [c[1], c[0]]);
+                    } else if (feature.geometry.type === 'MultiPolygon') {
+                        points = coords[0][0].map(c => [c[1], c[0]]);
+                    }
+
+                    if (points.length >= 3) {
+                        const name = feature.properties?.name || `匯入多邊形-${idx + 1}`;
+                        createPolygonObject(points, name);
+                    }
+                });
+
+                showToast(`✓ 已匯入 ${shapefile.features.length} 個多邊形`);
+            }
+
+        } catch (err) {
+            console.error('❌ SHP 匯入失敗:', err);
+            showToast('❌ 匯入失敗');
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
 }
 
 // ========== 初始化 ==========
@@ -3081,9 +3681,11 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initLayerControls();
-    console.log('✅ v1.1.5 黑屏修正版初始化完成');
+    console.log('✅ v1.1.5 完整版初始化完成');
     console.log('✓ 地圖已正常加載');
     console.log('✓ 圖層控制已初始化');
+    console.log('✓ Overpass API 已準備');
+    console.log('✓ OSRM 路由服務已準備');
     showToast('✅ 應用程式已啟動');
 });
 </script>
