@@ -9,8 +9,8 @@
 <meta name="application-name" content="區段勘查小幫手">
 <meta name="description" content="基於OpenStreetMap和台灣官方地圖的區段勘查分析工具">
 <meta name="author" content="Your Organization">
-<meta name="version" content="1.1.5">
-<meta name="release-date" content="2026-08-16">
+<meta name="version" content="1.1.6">
+<meta name="release-date" content="2026-08-17">
 <meta name="license" content="MIT + ODbL Attribution">
 
 <!-- ================= 開源套件 CDN ================= -->
@@ -1746,8 +1746,8 @@ body.mobile-mode .about-link-btn {
             <h3>應用程式資訊</h3>
             <p>
                 <strong>區段勘查小幫手</strong><br/>
-                版本: v1.1.5 (CORS 修復版)<br/>
-                發行日期: 2026年08月16日<br/>
+                版本: v1.1.6 (圖層堆疊修復版)<br/>
+                發行日期: 2026年08月17日<br/>
                 授權: MIT License + ODbL Attribution
             </p>
 
@@ -1797,14 +1797,14 @@ body.mobile-mode .about-link-btn {
                 </div>
             </div>
 
-            <h3>v1.1.5 修復內容</h3>
+            <h3>v1.1.6 修復內容</h3>
             <ul>
-                <li><strong>✅ CORS 代理整合</strong> - 解決新北市都市計畫 WMS CORS 阻止問題</li>
-                <li><strong>✅ AllOrigins 代理</strong> - 使用穩定的 CORS 代理服務</li>
-                <li><strong>✅ 完整 URL 包裝</strong> - 自動檢測並包裝 WMS 請求</li>
-                <li><strong>✅ 代理健康檢查</strong> - 啟動時驗證代理連接狀態</li>
-                <li><strong>✅ 動態代理更新</strong> - 圖層切換時自動更新代理設置</li>
-                <li><strong>✅ 錯誤恢復</strong> - 代理失敗時自動回退直連</li>
+                <li><strong>✅ 圖層堆疊修復</strong> - 套疊圖層開啟時自動位於最上方</li>
+                <li><strong>✅ bringToFront()</strong> - 使用 Leaflet 原生方法提升圖層</li>
+                <li><strong>✅ setZIndex()</strong> - 明確設定圖層 z-index</li>
+                <li><strong>✅ 動態堆疊管理</strong> - 圖層切換時自動重新調整堆疊順序</li>
+                <li><strong>✅ CORS 代理整合</strong> - AllOrigins 代理服務</li>
+                <li><strong>✅ 透明度保持</strong> - 調整透明度時保持堆疊位置</li>
             </ul>
 
             <h3>ODbL 合規聲明</h3>
@@ -1836,7 +1836,7 @@ body.mobile-mode .about-link-btn {
     <div id="sidebarHeader">
         <div id="sidebarTitle">
             <h1>🗺️ 區段勘查小幫手</h1>
-            <p>v1.1.5 (CORS 修復版)</p>
+            <p>v1.1.6 (圖層堆疊修復版)</p>
         </div>
         <button id="sidebarMinimizeBtn" title="最小化/最大化" onclick="toggleSidebarMinimize()">−</button>
     </div>
@@ -2137,14 +2137,14 @@ body.mobile-mode .about-link-btn {
 
 <script>
 /* ================================================
-   ★ v1.1.5 CORS 修復版 (2026-08-16)
+   ★ v1.1.6 圖層堆疊修復版 (2026-08-17)
    
    主要修復：
-   1. 集成 AllOrigins CORS 代理
-   2. 完整的代理 URL 包裝
-   3. 代理健康檢查
-   4. 動態代理更新
-   5. crossOrigin: 'anonymous' 配置
+   1. 套疊圖層開啟時自動位於最上方
+   2. bringToFront() + setZIndex() 雙層確保
+   3. 切換底圖後自動重新堆疊套疊圖層
+   4. 調整透明度時保持堆疊位置
+   5. CORS 代理 + 完整堆疊管理
    
    授權: MIT License + ODbL Attribution
 ================================================ */
@@ -2645,7 +2645,26 @@ function toggleLayerControl() {
     btn.classList.toggle('active');
 }
 
-// ✨ 修正：底圖切換函式 - 自動收起面板
+// ========== 新增：確保套疊圖層永遠位於最上方 ==========
+function ensureOverlayLayerOnTop() {
+    const allActiveLayers = Object.values(activeOverlayLayers);
+    const zIndexBase = 500;
+    
+    allActiveLayers.forEach((layer, index) => {
+        if (layer && typeof layer.setZIndex === 'function') {
+            layer.setZIndex(zIndexBase + index);
+            if (typeof layer.bringToFront === 'function') {
+                layer.bringToFront();
+            }
+        }
+    });
+    
+    if (allActiveLayers.length > 0) {
+        console.log(`✓ 已調整 ${allActiveLayers.length} 個套疊圖層堆疊順序`);
+    }
+}
+
+// ✨ 修正：底圖切換函式 - 自動收起面板 + 重新堆疊套疊圖層
 function switchBaseMap(mapId) {
     const newLayer = baseMapLayers[mapId];
     if (!newLayer) {
@@ -2661,7 +2680,13 @@ function switchBaseMap(mapId) {
     
     // 添加新底圖
     newLayer.addTo(map);
+    newLayer.setZIndex(100);
     currentBaseMapLayer = newLayer;
+    
+    // ✨ 新增：切換底圖後重新堆疊套疊圖層
+    setTimeout(() => {
+        ensureOverlayLayerOnTop();
+    }, 100);
     
     const mapNames = {
         'nlsc-emap': 'NLSC 電子地圖',
@@ -2672,14 +2697,14 @@ function switchBaseMap(mapId) {
     console.log(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
     showToast(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
     
-    // ✨ 新增：自動收起面板
+    // 自動收起面板
     setTimeout(() => {
         document.getElementById('layerControlPanel').classList.remove('show');
         document.getElementById('layerControlBtn').classList.remove('active');
     }, 300);
 }
 
-// ========== 套疊圖層管理（CORS 修復版本） ==========
+// ========== 套疊圖層管理（圖層堆疊修復版本） ==========
 function toggleOverlayLayer(layerId) {
     const select = document.getElementById('overlayLayerSelect');
     const selectedStyle = select ? select.value : 'tpc-basic';
@@ -2717,10 +2742,17 @@ function addOverlayLayer(layerId, style) {
         opacity: 0.7,
         version: '1.1.1',
         srs: 'EPSG:3857',
-        crossOrigin: 'anonymous'  // ✨ CORS 修復：添加 crossOrigin
+        crossOrigin: 'anonymous'
     });
 
     wmsLayer.addTo(map);
+    
+    // ✨ 修正：新增圖層時明確設定 z-index 並使用 bringToFront()
+    wmsLayer.setZIndex(600);
+    if (typeof wmsLayer.bringToFront === 'function') {
+        wmsLayer.bringToFront();
+    }
+    
     activeOverlayLayers[layerId] = wmsLayer;
     overlayLayerOpacity[layerId] = 0.7;
 
@@ -2729,10 +2761,15 @@ function addOverlayLayer(layerId, style) {
         opacitySlider.value = 70;
     }
 
-    console.log(`✓ 已新增套疊圖層：${layerId} (使用${isCorsPxyHealthy ? '代理' : '直連'}方式)`);
+    // ✨ 新增：新增後再次確保堆疊位置
+    setTimeout(() => {
+        ensureOverlayLayerOnTop();
+    }, 50);
+
+    console.log(`✓ 已新增套疊圖層：${layerId} (z-index: 600)`);
     showToast(`✓ 已新增：${layerConfig.name}`);
 
-    // ✨ 新增：新增圖層後自動收起面板
+    // 自動收起面板
     setTimeout(() => {
         document.getElementById('layerControlPanel').classList.remove('show');
         document.getElementById('layerControlBtn').classList.remove('active');
@@ -2762,6 +2799,10 @@ function updateOverlayOpacity(layerId, value) {
     if (layer && typeof layer.setOpacity === 'function') {
         layer.setOpacity(opacity);
         overlayLayerOpacity[layerId] = opacity;
+        
+        // ✨ 修正：調整透明度後保持堆疊位置
+        ensureOverlayLayerOnTop();
+        
         console.log(`✓ 已更新 ${layerId} 透明度：${opacity}`);
     }
 }
@@ -2847,7 +2888,7 @@ function initLayerControls() {
                 map.removeLayer(overlay.layer);
             }
             
-            // ✨ 新增：切換覆蓋圖層後自動收起面板
+            // 切換後自動收起面板
             setTimeout(() => {
                 document.getElementById('layerControlPanel').classList.remove('show');
                 document.getElementById('layerControlBtn').classList.remove('active');
@@ -2855,7 +2896,7 @@ function initLayerControls() {
         });
     });
 
-    // ========== 新增：套疊圖層控制（CORS 修復版本） ==========
+    // ========== 新增：套疊圖層控制（圖層堆疊修復版本） ==========
     overlayLayerControls.innerHTML = `
         <div style="margin-bottom: 10px;">
             <select id="overlayLayerSelect" class="overlay-layer-select" onchange="updateOverlayStyle(this.value)">
@@ -2997,6 +3038,7 @@ const osmLayer = L.tileLayer(
 );
 
 nlscEMAP.addTo(map);
+nlscEMAP.setZIndex(100);
 currentBaseMapLayer = nlscEMAP;
 
 const cadastralLayer = L.tileLayer(
@@ -3004,6 +3046,7 @@ const cadastralLayer = L.tileLayer(
     { maxZoom:20, opacity:0.75, attribution:'© NLSC' }
 );
 cadastralLayer.addTo(map);
+cadastralLayer.setZIndex(300);
 
 let markerLayer = L.layerGroup().addTo(map);
 let origin = [25.012098, 121.465675];
@@ -5144,7 +5187,6 @@ function processImportedPolygons(geojson) {
     let importedCount = 0;
     let skippedCount = 0;
     let convertedCount = 0;
-
     features.forEach((feature, featureIdx) => {
         if (!feature.geometry) {
             skippedCount++;
