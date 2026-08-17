@@ -2104,7 +2104,7 @@ body.mobile-mode .about-link-btn {
       - LU (土地利用現況圖)
       - ZONE (國土功能分區圖)
    2. 新增自訂 WMS/WMTS 網址與圖層名稱輸入功能
-   3. 完整保留原有多邊形編輯（節點拖移/雙擊插點/右鍵刪除）、GeoJSON 標籤搜尋、TWD97 座標轉碼與 OSRM 路線計算
+   3. 🌟【圖層邏輯修正】：建立高權重 zoningPane (z-index: 650)，確保都市計畫/分區/WMTS圖層開啟時，永遠置頂於底圖和其他圖層最上方！
    
    授權: MIT License + ODbL Attribution
 ================================================ */
@@ -2513,7 +2513,7 @@ function switchBaseMap(mapId) {
     }, 300);
 }
 
-// ========== NLSC WMTS / 自訂 WMS 套疊圖層管理 ==========
+// ========== NLSC WMTS / 自訂 WMS 套疊圖層管理 (已修正置頂邏輯) ==========
 function toggleOverlayWMTS(presetKey) {
     const checkbox = document.getElementById(`overlay-check-${presetKey}`);
     if (checkbox && checkbox.checked) {
@@ -2534,14 +2534,18 @@ function addWMTSOverlay(presetKey) {
         return;
     }
 
+    // 🌟【關鍵修復】：綁定至高權重 zoningPane (z-index 650)
     const wmtsLayer = L.tileLayer(config.url, {
+        pane: 'zoningPane',
         maxZoom: 20,
         opacity: 0.7,
         attribution: '© 內政部國土測繪中心 NLSC'
     });
 
     wmtsLayer.addTo(map);
-    wmtsLayer.setZIndex(650);
+    if (typeof wmtsLayer.bringToFront === 'function') {
+        wmtsLayer.bringToFront(); // 強制最前景顯示
+    }
 
     activeOverlayLayers[presetKey] = wmtsLayer;
     overlayLayerOpacity[presetKey] = 0.7;
@@ -2552,7 +2556,7 @@ function addWMTSOverlay(presetKey) {
         opacitySlider.disabled = false;
     }
 
-    showToast(`✓ 已載入：${config.name}`);
+    showToast(`✓ 已載入並置頂：${config.name}`);
 }
 
 function applyCustomWMS() {
@@ -2570,7 +2574,9 @@ function applyCustomWMS() {
     }
 
     try {
+        // 🌟【關鍵修復】：自訂圖層綁定至高權重 zoningPane
         const wmsLayer = L.tileLayer.wms(url, {
+            pane: 'zoningPane',
             layers: layerName,
             format: 'image/png',
             transparent: true,
@@ -2581,7 +2587,9 @@ function applyCustomWMS() {
         });
 
         wmsLayer.addTo(map);
-        wmsLayer.setZIndex(650);
+        if (typeof wmsLayer.bringToFront === 'function') {
+            wmsLayer.bringToFront(); // 強制置頂
+        }
 
         activeOverlayLayers['custom-wms'] = wmsLayer;
         overlayLayerOpacity['custom-wms'] = 0.7;
@@ -2592,7 +2600,7 @@ function applyCustomWMS() {
             slider.disabled = false;
         }
 
-        showToast(`✓ 已載入自訂 WMS 圖層: ${layerName}`);
+        showToast(`✓ 已載入並置頂自訂 WMS 圖層: ${layerName}`);
     } catch (err) {
         console.error('自訂 WMS 載入失敗', err);
         showToast(`❌ 載入失敗: ${err.message}`);
@@ -2688,6 +2696,9 @@ function initLayerControls() {
         checkbox.addEventListener('change', (e) => {
             if (e.target.checked) {
                 overlay.layer.addTo(map);
+                if (typeof overlay.layer.bringToFront === 'function') {
+                    overlay.layer.bringToFront();
+                }
             } else {
                 map.removeLayer(overlay.layer);
             }
@@ -2801,7 +2812,24 @@ let geoJsonFieldInfo = {
 
 let geoJsonSelection = {};
 
+// -------------------------------------------------------------
+// 1. 初始化地圖與高權重專屬圖層 Pane (Zoning Pane Fix)
+// -------------------------------------------------------------
 let map = L.map('map').setView([25.012098, 121.465675], 15);
+
+// 🌟【關鍵修復】：建立獨立高權重 zoningPane，確保分區與都市計畫圖永遠置頂於底圖 (200) 之上
+map.createPane('zoningPane');
+map.getPane('zoningPane').style.zIndex = '650'; 
+map.getPane('zoningPane').style.pointerEvents = 'none';
+
+// 當任何高權重圖層被加入地圖時，自動觸發置頂
+map.on('layeradd', (e) => {
+    if (e.layer && e.layer.options && e.layer.options.pane === 'zoningPane') {
+        if (typeof e.layer.bringToFront === 'function') {
+            e.layer.bringToFront();
+        }
+    }
+});
 
 const nlscEMAP = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
@@ -2821,9 +2849,10 @@ const osmLayer = L.tileLayer(
 nlscEMAP.addTo(map);
 currentBaseMapLayer = nlscEMAP;
 
+// 地籍圖層綁定至 zoningPane
 const cadastralLayer = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
-    { maxZoom:20, opacity:0.75, attribution:'© NLSC' }
+    { pane: 'zoningPane', maxZoom:20, opacity:0.75, attribution:'© NLSC' }
 );
 cadastralLayer.addTo(map);
 
@@ -5143,7 +5172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initLayerControls();
     initGeoJSONEvents(map);
     console.log('✅ v1.1.5 NLSCWMTS 版 (2026-08-11) 初始化完成');
-    console.log('✅ 新增：NLSC 土地利用與分區圖層、自訂 WMS/WMTS 介接功能');
+    console.log('✅ 新增：NLSC 土地利用與分區圖層、自訂 WMS/WMTS 介接功能 (已強化置頂 Pane)');
     console.log('✅ 著作權合規：MIT License + ODbL Attribution');
 });
 </script>
