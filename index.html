@@ -9,8 +9,8 @@
 <meta name="application-name" content="區段勘查小幫手">
 <meta name="description" content="基於OpenStreetMap和台灣官方地圖的區段勘查分析工具">
 <meta name="author" content="Your Organization">
-<meta name="version" content="1.1.8">
-<meta name="release-date" content="2026-08-20">
+<meta name="version" content="1.1.6">
+<meta name="release-date" content="2026-08-17">
 <meta name="license" content="MIT + ODbL Attribution">
 
 <!-- ================= 開源套件 CDN ================= -->
@@ -90,50 +90,6 @@ body.mobile-mode {
 #corsProxyStatus.unhealthy {
     border-left: 3px solid #ef4444;
     color: #dc2626;
-}
-
-#wmsStatusPanel {
-    position: fixed;
-    top: 110px;
-    right: 12px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 10px 12px;
-    font-size: 11px;
-    color: #666;
-    z-index: 899;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    max-width: 220px;
-}
-
-#wmsStatusPanel h4 {
-    margin: 0 0 6px 0;
-    font-size: 12px;
-    color: #1f2937;
-    font-weight: 600;
-}
-
-.wms-status-item {
-    padding: 4px 0;
-    border-bottom: 1px solid #f0f0f0;
-    font-size: 10px;
-}
-
-.wms-status-item:last-child {
-    border-bottom: none;
-}
-
-.wms-status-item.success {
-    color: #059669;
-}
-
-.wms-status-item.error {
-    color: #dc2626;
-}
-
-.wms-status-item.pending {
-    color: #f59e0b;
 }
 
 #sidebar {
@@ -340,6 +296,7 @@ body.mobile-mode #sidebarToggle {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
+/* ========== 位置輸入框並排樣式 ========== */
 #locationInputs {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -995,6 +952,7 @@ body.mobile-mode #drawToolbar {
     color: #0369a1;
 }
 
+/* ========== GeoJSON 圓形標籤樣式 ========== */
 .geojson-field-label {
     background: rgba(255, 255, 255, 0.92) !important;
     border: 1px solid #e5e7eb !important;
@@ -1090,6 +1048,7 @@ body.mobile-mode #drawToolbar {
     display: none !important;
 }
 
+/* ========== GeoJSON 標籤搜尋功能樣式 ========== */
 .geojson-search-container {
     padding: 12px;
     background: #fef3c7;
@@ -1214,6 +1173,7 @@ body.mobile-mode #drawToolbar {
     color: #92400e;
 }
 
+/* ========== 圖層控制面板樣式 ========== */
 #layerControlPanel {
     position: fixed;
     top: 60px;
@@ -1222,8 +1182,8 @@ body.mobile-mode #drawToolbar {
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     z-index: 900;
-    width: 300px;
-    max-height: 650px;
+    width: 280px;
+    max-height: 600px;
     overflow-y: auto;
     display: none;
     flex-direction: column;
@@ -1340,6 +1300,7 @@ body.mobile-mode #drawToolbar {
     margin: 0;
 }
 
+/* ========== 套疊圖層下拉選單樣式 ========== */
 .overlay-layer-select {
     width: 100%;
     padding: 8px;
@@ -1391,6 +1352,7 @@ body.mobile-mode #drawToolbar {
     cursor: pointer;
 }
 
+/* ========== 模態視窗樣式 ========== */
 .modal {
     display: none;
     position: fixed;
@@ -1684,6 +1646,7 @@ body.mobile-mode .about-link-btn {
     color: #dc2626;
 }
 
+/* ========== 自動定位開關樣式 ========== */
 .auto-geolocation-control {
     display: flex;
     align-items: center;
@@ -1756,6 +1719,7 @@ body.mobile-mode .about-link-btn {
     color: #dc2626;
 }
 
+/* ========== 結果表格區段內顯示樣式 ========== */
 .in-zone-cell {
     color: #059669;
     font-weight: 600;
@@ -1766,17 +1730,12 @@ body.mobile-mode .about-link-btn {
 
 <div id="deviceToggle" title="切換設備模式">💻</div>
 
+<!-- ========== CORS 代理狀態指示器 ========== -->
 <div id="corsProxyStatus">
     🔄 檢查 CORS 代理連接...
 </div>
 
-<div id="wmsStatusPanel">
-    <h4>🗺️ WMS 狀態</h4>
-    <div id="wmsStatusContent">
-        <div class="wms-status-item pending">⏳ 初始化中...</div>
-    </div>
-</div>
-
+<!-- ========== 關於/授權模態視窗 ========== -->
 <div id="aboutModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -1787,8 +1746,8 @@ body.mobile-mode .about-link-btn {
             <h3>應用程式資訊</h3>
             <p>
                 <strong>區段勘查小幫手</strong><br/>
-                版本: v1.1.8 (WMS 圖層完整修復版)<br/>
-                發行日期: 2026年08月20日<br/>
+                版本: v1.1.6 (圖層堆疊修復版)<br/>
+                發行日期: 2026年08月17日<br/>
                 授權: MIT License + ODbL Attribution
             </p>
 
@@ -1799,7 +1758,7 @@ body.mobile-mode .about-link-btn {
             <ul>
                 <li><strong>OpenStreetMap</strong> - © OpenStreetMap contributors，授權: <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL 1.0</a></li>
                 <li><strong>台灣國家基本地圖 (NLSC)</strong> - © 國家地理資訊系統中心，提供 EMAP/PHOTO/CADASTRAL 圖層</li>
-                <li><strong>新北市都市計畫圖</strong> - © 新北市政府城鄉發展局（支援 WMS/WMTS）</li>
+                <li><strong>新北市都市計畫圖</strong> - © 新北市政府城鄉發展局（CORS 代理服務中）</li>
                 <li><strong>Overpass API</strong> - POI 數據查詢服務，授權: ODbL</li>
                 <li><strong>OSRM</strong> - 開源路線規劃服務</li>
             </ul>
@@ -1838,20 +1797,32 @@ body.mobile-mode .about-link-btn {
                 </div>
             </div>
 
-            <h3>v1.1.8 修復內容</h3>
+            <h3>v1.1.6 修復內容</h3>
             <ul>
-                <li><strong>✅ WMS 完整修復</strong> - GetCapabilities 驗證 + GetMap 參數優化</li>
-                <li><strong>✅ CORS 容錯機制</strong> - AllOrigins + Cors-Anywhere + 直連備用</li>
-                <li><strong>✅ 圖層堆疊優化</strong> - SVG 層級管理 + Z-index 強制設置</li>
-                <li><strong>✅ WMTS 備用服務</strong> - 完整的圖層格式支援</li>
-                <li><strong>✅ 網路檢測與恢復</strong> - 自動重連機制</li>
-                <li><strong>✅ 詳細調試日誌</strong> - Console 完整診斷信息</li>
+                <li><strong>✅ 圖層堆疊修復</strong> - 套疊圖層開啟時自動位於最上方</li>
+                <li><strong>✅ bringToFront()</strong> - 使用 Leaflet 原生方法提升圖層</li>
+                <li><strong>✅ setZIndex()</strong> - 明確設定圖層 z-index</li>
+                <li><strong>✅ 動態堆疊管理</strong> - 圖層切換時自動重新調整堆疊順序</li>
+                <li><strong>✅ CORS 代理整合</strong> - AllOrigins 代理服務</li>
+                <li><strong>✅ 透明度保持</strong> - 調整透明度時保持堆疊位置</li>
             </ul>
 
             <h3>ODbL 合規聲明</h3>
             <p>
                 本應用中包含基於 OpenStreetMap 和 Overpass API 的地理數據，
                 根據 Open Data Commons Open Database License (ODbL) v1.0 授權。
+            </p>
+
+            <h3>隱私政策</h3>
+            <p>
+                <strong>位置數據：</strong> 本應用可能收集您的 GPS 位置資訊用於查詢分析。
+                所有位置數據僅在您的瀏覽器本地處理，不會上傳至伺服器。
+            </p>
+
+            <h3>使用條款</h3>
+            <p>
+                本應用「按現有狀態」(AS IS) 提供，不承擔任何保證或責任。
+                使用本應用代表您同意本使用條款和隱私政策。
             </p>
         </div>
     </div>
@@ -1865,7 +1836,7 @@ body.mobile-mode .about-link-btn {
     <div id="sidebarHeader">
         <div id="sidebarTitle">
             <h1>🗺️ 區段勘查小幫手</h1>
-            <p>v1.1.8 (WMS 圖層完整修復版)</p>
+            <p>v1.1.6 (圖層堆疊修復版)</p>
         </div>
         <button id="sidebarMinimizeBtn" title="最小化/最大化" onclick="toggleSidebarMinimize()">−</button>
     </div>
@@ -1874,6 +1845,7 @@ body.mobile-mode .about-link-btn {
         <div class="sidebar-section">
             <h3><span>📍</span> 查詢位置</h3>
             
+            <!-- 位置輸入框並排 -->
             <div id="locationInputs">
                 <div class="input-group">
                     <label>緯度</label>
@@ -1891,11 +1863,13 @@ body.mobile-mode .about-link-btn {
                 </div>
             </div>
             
+            <!-- 定位按鈕 -->
             <div class="button-group">
                 <button class="btn-primary" id="geoLocationBtn" onclick="performGeolocation()" style="background: #0ea5e9;">📡 定位</button>
                 <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
             </div>
 
+            <!-- 自動定位開關 -->
             <div class="auto-geolocation-control">
                 <label class="toggle-switch">
                     <input type="checkbox" id="autoGeoLocationToggle" onchange="toggleAutoGeolocation()">
@@ -1912,6 +1886,9 @@ body.mobile-mode .about-link-btn {
                     <input type="checkbox" id="useSelectedPolygonForQuery" checked>
                     <span>使用選中多邊形作為查詢中心</span>
                 </label>
+                <div style="font-size: 11px; color: #b45309; margin-top: 6px;">
+                    ℹ️ 勾選此項後，點擊 GeoJSON 多邊形時將自動作為查詢中心，但<strong>不會改變地圖視角</strong>
+                </div>
             </div>
         </div>
         
@@ -1991,6 +1968,39 @@ body.mobile-mode .about-link-btn {
                 • 右擊節點快速刪除（至少保留3個節點）<br/>
                 • 編輯完成後自動隱藏節點編輯標記
             </div>
+            
+            <div id="geojsonFieldContainer" style="display: none;">
+                <div class="geojson-field-selector">
+                    <h4>📋 GeoJSON 標籤欄位</h4>
+                    <select id="geojsonFieldSelector" onchange="updateGeoJSONFieldLabel()">
+                        <option value="">-- 未設定 --</option>
+                    </select>
+                    <div id="geojsonLabelStatus" class="geojson-label-display" style="display: none;">
+                        標籤欄位：<span id="geojsonLabelStatusText"></span>
+                    </div>
+                </div>
+
+                <!-- 新增 GeoJSON 標籤搜尋區域 -->
+                <div class="geojson-search-container">
+                    <h4>🔍 搜尋 GeoJSON 標籤</h4>
+                    <div class="search-input-wrapper">
+                        <span class="search-icon">🔎</span>
+                        <input 
+                            type="text" 
+                            id="geoJsonLabelSearch" 
+                            placeholder="輸入標籤內容搜尋..."
+                            onkeyup="handleGeoJSONLabelSearch()"
+                        >
+                        <button class="search-clear-btn" onclick="clearGeoJSONLabelSearch()" title="清除搜尋">✕</button>
+                    </div>
+                    <div id="searchStats" class="search-stats" style="display: none;">
+                        匹配標籤：<strong id="matchedCount">0</strong> | 覆蓋多邊形：<strong id="coveredPolygons">0</strong>
+                    </div>
+                    <div id="searchResultsList" class="search-results-list">
+                        <!-- 搜尋結果動態填充 -->
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="sidebar-section">
@@ -2031,6 +2041,7 @@ body.mobile-mode .about-link-btn {
     </div>
 </div>
 
+<!-- ✨ 修正：獨立的圖層控制面板 ✨ -->
 <div id="layerControlPanel">
     <div id="layerControlHeader">
         <h3>🗺️ 圖層控制</h3>
@@ -2046,7 +2057,7 @@ body.mobile-mode .about-link-btn {
             <div id="overlayControls"></div>
         </div>
         <div class="layer-control-section">
-            <h4>🏗️ 套疊圖層 (WMS)</h4>
+            <h4>🏗️ 套疊圖層</h4>
             <div id="overlayLayerControls"></div>
         </div>
         <div class="layer-control-section">
@@ -2121,192 +2132,158 @@ body.mobile-mode .about-link-btn {
 </div>
 
 <div id="statusBar">
-    數據來源: © OpenStreetMap / © NLSC / © 新北市政府 | 授權: ODbL + MIT | 🟢 離線模式 | 支援: GeoJSON / SHP / WMS
+    數據來源: © OpenStreetMap / © NLSC / © 新北市政府 | 授權: ODbL + MIT | 🟢 離線模式 | 支援: GeoJSON / SHP
 </div>
 
 <script>
 /* ================================================
-   ★ v1.1.8 WMS 圖層完整修復版 (2026-08-20)
+   ★ v1.1.6 圖層堆疊修復版 (2026-08-17)
    
    主要修復：
-   1. WMS GetCapabilities 驗證
-   2. 完善 CORS 代理容錯機制
-   3. 圖層堆疊管理優化（SVG 層級）
-   4. WMTS 備用服務支援
-   5. 網路檢測與自動恢復
-   6. 完整的 console 調試日誌
+   1. 套疊圖層開啟時自動位於最上方
+   2. bringToFront() + setZIndex() 雙層確保
+   3. 切換底圖後自動重新堆疊套疊圖層
+   4. 調整透明度時保持堆疊位置
+   5. CORS 代理 + 完整堆疊管理
    
    授權: MIT License + ODbL Attribution
 ================================================ */
 
-// ========== WMS 狀態管理 ==========
-const wmsStatusPanel = {
-    content: document.getElementById('wmsStatusContent'),
-    addStatus: function(message, type = 'pending') {
-        const item = document.createElement('div');
-        item.className = `wms-status-item ${type}`;
-        item.textContent = message;
-        this.content.appendChild(item);
-        if (this.content.children.length > 8) {
-            this.content.removeChild(this.content.children[0]);
-        }
-    },
-    clearStatus: function() {
-        this.content.innerHTML = '';
-    }
-};
-
-// ========== CORS 代理配置（增強版） ==========
+// ========== CORS 代理配置 ==========
 const CORS_PROXIES = [
-    { name: 'AllOrigins', url: 'https://allorigins.win/raw', format: 'direct' },
-    { name: 'Cors-Anywhere', url: 'https://cors-anywhere.herokuapp.com/', format: 'prefix' },
-    { name: 'Corsproxy.io', url: 'https://corsproxy.io/?', format: 'param' }
+    'https://allorigins.win/raw',
+    'https://cors-anywhere.herokuapp.com',
+    'https://corsproxy.io/?'
 ];
 
-let ACTIVE_CORS_PROXY = null;
+let ACTIVE_CORS_PROXY = CORS_PROXIES[0];
 let isCorsPxyHealthy = false;
-let wmsNetworkConfig = {
-    proxyEnabled: true,
-    timeoutMs: 8000,
-    maxRetries: 2
-};
 
 async function verifyCorsPoxy() {
-    console.log('🔄 [CORS] 檢查代理連接...');
-    wmsStatusPanel.addStatus('🔄 檢查 CORS 代理連接...', 'pending');
+    console.log('🔄 檢查 CORS 代理連接...');
     
     for (let proxy of CORS_PROXIES) {
         try {
-            const testUrl = buildProxyUrl('https://www.google.com', proxy);
-            const response = await Promise.race([
-                fetch(testUrl, { method: 'HEAD' }),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Timeout')), wmsNetworkConfig.timeoutMs)
-                )
-            ]);
+            const testUrl = proxy.includes('?') 
+                ? proxy + 'https://www.google.com' 
+                : proxy + '?url=https://www.google.com';
             
-            if (response.ok || response.status < 500) {
+            const response = await fetch(testUrl, { 
+                method: 'GET',
+                timeout: 5000
+            });
+            
+            if (response.ok) {
                 ACTIVE_CORS_PROXY = proxy;
                 isCorsPxyHealthy = true;
-                const statusMsg = `✅ CORS 代理就緒 (${proxy.name})`;
-                console.log(`✅ [CORS] ${statusMsg}`);
-                updateCorsPxyStatus(true, proxy.name);
-                wmsStatusPanel.addStatus(statusMsg, 'success');
+                console.log(`✅ CORS 代理健康：${proxy}`);
+                updateCorsPxyStatus(true);
                 return true;
             }
         } catch (err) {
-            console.debug(`⚠️ [CORS] ${proxy.name} 不可用: ${err.message}`);
+            console.debug(`⚠️ 代理 ${proxy} 不可用`);
             continue;
         }
     }
     
-    console.warn('⚠️ [CORS] 所有代理不可用，將嘗試直連');
-    ACTIVE_CORS_PROXY = null;
-    isCorsPxyHealthy = false;
+    console.warn('⚠️ 所有 CORS 代理不可用，使用直連');
     updateCorsPxyStatus(false);
-    wmsStatusPanel.addStatus('⚠️ 代理不可用，使用直連', 'error');
     return false;
 }
 
-function updateCorsPxyStatus(healthy, proxyName = '') {
+function updateCorsPxyStatus(healthy) {
     const statusEl = document.getElementById('corsProxyStatus');
     if (!statusEl) return;
     
     if (healthy) {
-        statusEl.textContent = `✅ CORS 已連接 (${proxyName})`;
+        statusEl.textContent = `✅ CORS 代理已連接`;
         statusEl.className = 'healthy';
     } else {
-        statusEl.textContent = `⚠️ 使用直連模式`;
+        statusEl.textContent = `⚠️ CORS 代理不可用（使用直連）`;
         statusEl.className = 'unhealthy';
     }
 }
 
-function buildProxyUrl(originalUrl, proxyOverride = null) {
+function buildProxyUrl(originalUrl) {
     if (!originalUrl) return '';
     
-    // 檢查是否已被代理
-    if (originalUrl.includes('allorigins') || 
+    // 檢查 URL 是否已被代理
+    if (originalUrl.includes(ACTIVE_CORS_PROXY) || 
+        originalUrl.includes('allorigins') ||
         originalUrl.includes('cors-anywhere') ||
         originalUrl.includes('corsproxy')) {
         return originalUrl;
     }
     
-    const proxy = proxyOverride || ACTIVE_CORS_PROXY;
-    if (!proxy || !wmsNetworkConfig.proxyEnabled) {
+    // 若代理不可用，直接返回原 URL
+    if (!isCorsPxyHealthy) {
         return originalUrl;
     }
     
-    switch (proxy.format) {
-        case 'direct':
-            return proxy.url + '?url=' + encodeURIComponent(originalUrl);
-        case 'prefix':
-            return proxy.url + originalUrl;
-        case 'param':
-            return proxy.url + encodeURIComponent(originalUrl);
-        default:
-            return originalUrl;
+    // 構建代理 URL
+    if (ACTIVE_CORS_PROXY.includes('?')) {
+        return ACTIVE_CORS_PROXY + encodeURIComponent(originalUrl);
+    } else {
+        return ACTIVE_CORS_PROXY + '?url=' + encodeURIComponent(originalUrl);
     }
 }
 
-// ========== 新北市都市計畫圖層定義（完整版） ==========
+// ========== 新北市都市計畫圖層定義 ==========
 const newTaipeiUrbanPlanLayers = {
     'tpc-basic': {
         name: '新北市都市計畫（基本圖）',
-        type: 'wms',
         url: 'https://wms.tpc.gov.tw/tpc_wms/service',
-        wmtsUrl: 'https://wmts.tpc.gov.tw/WMTS?request=GetCapabilities&service=WMTS',
         params: {
             service: 'WMS',
-            version: '1.3.0',
+            version: '1.1.1',
             request: 'GetMap',
             layers: 'UrbanPlanMap_Basic',
             styles: '',
-            crs: 'EPSG:3857',
+            srs: 'EPSG:3857',
+            bbox: '{bbox}',
             width: 256,
             height: 256,
             format: 'image/png',
-            transparent: 'true'
+            transparent: true
         }
     },
     'tpc-detail': {
         name: '新北市都市計畫（詳細圖）',
-        type: 'wms',
         url: 'https://wms.tpc.gov.tw/tpc_wms/service',
-        wmtsUrl: 'https://wmts.tpc.gov.tw/WMTS?request=GetCapabilities&service=WMTS',
         params: {
             service: 'WMS',
-            version: '1.3.0',
+            version: '1.1.1',
             request: 'GetMap',
             layers: 'UrbanPlanMap_Detail',
             styles: '',
-            crs: 'EPSG:3857',
+            srs: 'EPSG:3857',
+            bbox: '{bbox}',
             width: 256,
             height: 256,
             format: 'image/png',
-            transparent: 'true'
+            transparent: true
         }
     },
     'tpc-label': {
         name: '新北市都市計畫（帶標示）',
-        type: 'wms',
         url: 'https://wms.tpc.gov.tw/tpc_wms/service',
-        wmtsUrl: 'https://wmts.tpc.gov.tw/WMTS?request=GetCapabilities&service=WMTS',
         params: {
             service: 'WMS',
-            version: '1.3.0',
+            version: '1.1.1',
             request: 'GetMap',
             layers: 'UrbanPlanMap_Label',
             styles: '',
-            crs: 'EPSG:3857',
+            srs: 'EPSG:3857',
+            bbox: '{bbox}',
             width: 256,
             height: 256,
             format: 'image/png',
-            transparent: 'true'
+            transparent: true
         }
     }
 };
 
-// ========== GeoJSON 標籤搜尋相關變數 ==========
+// GeoJSON 標籤搜尋相關變數
 let geoJsonLabelSearchIndex = {};
 let currentSearchResults = [];
 let searchDebounceTimer = null;
@@ -2325,12 +2302,11 @@ let geoJsonLabelDeduplicationInfo = {};
 let editingPolygonId = null;
 let isAutoGeoLocationEnabled = false;
 
-// 全域變數：底圖層和套疊圖層狀態
+// 新增全域變數：追蹤底圖層、套疊圖層狀態
 let currentBaseMapLayer = null;
 let baseMapLayers = {};
 let activeOverlayLayers = {};
 let overlayLayerOpacity = {};
-let overlayLayerAbsoluteZIndex = 600;
 
 function openAboutModal() {
     document.getElementById('aboutModal').classList.add('show');
@@ -2352,6 +2328,7 @@ function toggleSidebarMinimize() {
     const btn = document.getElementById('sidebarMinimizeBtn');
     sidebar.classList.toggle('minimized');
     btn.textContent = sidebar.classList.contains('minimized') ? '□' : '−';
+    btn.title = sidebar.classList.contains('minimized') ? '最大化' : '最小化';
 }
 
 function initDeviceMode() {
@@ -2668,35 +2645,26 @@ function toggleLayerControl() {
     btn.classList.toggle('active');
 }
 
-// ✅ 修正：確保套疊圖層永遠位於最上方（增強版）
+// ========== 新增：確保套疊圖層永遠位於最上方 ==========
 function ensureOverlayLayerOnTop() {
     const allActiveLayers = Object.values(activeOverlayLayers);
+    const zIndexBase = 500;
     
-    if (allActiveLayers.length === 0) return;
-
     allActiveLayers.forEach((layer, index) => {
-        if (!layer) return;
-        
-        // SVG 層級管理（Leaflet 原生支援）
-        if (layer._renderer && layer._renderer._container) {
-            layer._renderer._container.style.zIndex = overlayLayerAbsoluteZIndex + index;
-        }
-        
-        // 使用 setZIndex（Leaflet 2.0+）
-        if (typeof layer.setZIndex === 'function') {
-            layer.setZIndex(overlayLayerAbsoluteZIndex + index);
-        }
-        
-        // 使用 bringToFront（Leaflet 標準方法）
-        if (typeof layer.bringToFront === 'function') {
-            layer.bringToFront();
+        if (layer && typeof layer.setZIndex === 'function') {
+            layer.setZIndex(zIndexBase + index);
+            if (typeof layer.bringToFront === 'function') {
+                layer.bringToFront();
+            }
         }
     });
     
-    console.log(`✓ [圖層堆疊] 已調整 ${allActiveLayers.length} 個套疊圖層（z-index: ${overlayLayerAbsoluteZIndex}+）`);
+    if (allActiveLayers.length > 0) {
+        console.log(`✓ 已調整 ${allActiveLayers.length} 個套疊圖層堆疊順序`);
+    }
 }
 
-// ✅ 修正：底圖切換函式
+// ✨ 修正：底圖切換函式 - 自動收起面板 + 重新堆疊套疊圖層
 function switchBaseMap(mapId) {
     const newLayer = baseMapLayers[mapId];
     if (!newLayer) {
@@ -2707,7 +2675,7 @@ function switchBaseMap(mapId) {
     // 移除當前底圖
     if (currentBaseMapLayer && map.hasLayer(currentBaseMapLayer)) {
         map.removeLayer(currentBaseMapLayer);
-        console.log(`✓ [底圖] 已移除前一個底圖`);
+        console.log(`✓ 已移除前一個底圖`);
     }
     
     // 添加新底圖
@@ -2715,10 +2683,10 @@ function switchBaseMap(mapId) {
     newLayer.setZIndex(100);
     currentBaseMapLayer = newLayer;
     
-    // 重新堆疊套疊圖層
+    // ✨ 新增：切換底圖後重新堆疊套疊圖層
     setTimeout(() => {
         ensureOverlayLayerOnTop();
-    }, 150);
+    }, 100);
     
     const mapNames = {
         'nlsc-emap': 'NLSC 電子地圖',
@@ -2726,7 +2694,7 @@ function switchBaseMap(mapId) {
         'osm': 'OpenStreetMap'
     };
     
-    console.log(`✓ [底圖] 已切換底圖：${mapNames[mapId] || mapId}`);
+    console.log(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
     showToast(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
     
     // 自動收起面板
@@ -2736,38 +2704,7 @@ function switchBaseMap(mapId) {
     }, 300);
 }
 
-// ========== 套疊圖層管理（完整修復版） ==========
-async function verifyWMSService(wmsConfig) {
-    console.log(`🔍 [WMS] 驗證服務: ${wmsConfig.url}`);
-    
-    try {
-        const capabilitiesUrl = wmsConfig.url + '?request=GetCapabilities&service=WMS';
-        const proxyUrl = buildProxyUrl(capabilitiesUrl);
-        
-        const response = await Promise.race([
-            fetch(proxyUrl, { method: 'GET' }),
-            new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Request timeout')), wmsNetworkConfig.timeoutMs)
-            )
-        ]);
-
-        if (response.ok) {
-            console.log(`✅ [WMS] GetCapabilities 驗證成功`);
-            wmsStatusPanel.addStatus(`✅ WMS 服務驗證成功`, 'success');
-            return true;
-        }
-        
-        console.warn(`⚠️ [WMS] GetCapabilities 返回狀態 ${response.status}`);
-        wmsStatusPanel.addStatus(`⚠️ WMS 服務返回 ${response.status}`, 'error');
-        return false;
-
-    } catch (err) {
-        console.error(`❌ [WMS] 驗證失敗: ${err.message}`);
-        wmsStatusPanel.addStatus(`❌ WMS 驗證失敗: ${err.message}`, 'error');
-        return false;
-    }
-}
-
+// ========== 套疊圖層管理（圖層堆疊修復版本） ==========
 function toggleOverlayLayer(layerId) {
     const select = document.getElementById('overlayLayerSelect');
     const selectedStyle = select ? select.value : 'tpc-basic';
@@ -2783,110 +2720,54 @@ function toggleOverlayLayer(layerId) {
 
 function addOverlayLayer(layerId, style) {
     if (activeOverlayLayers[layerId]) {
-        console.log(`⚠️ [圖層] ${layerId} 已存在，跳過添加`);
+        console.log(`✓ 圖層 ${layerId} 已存在`);
         return;
     }
 
     const layerConfig = newTaipeiUrbanPlanLayers[style];
     if (!layerConfig) {
         showToast(`❌ 圖層樣式不存在`);
-        console.error(`❌ [WMS] 圖層配置不存在: ${style}`);
         return;
     }
 
-    console.log(`📍 [WMS] 開始添加圖層: ${layerConfig.name}`);
-    wmsStatusPanel.addStatus(`📍 添加圖層: ${layerConfig.name}`, 'pending');
-
-    // 構建 WMS 圖層 URL（使用 CORS 代理）
-    const baseWmsUrl = isCorsPxyHealthy && wmsNetworkConfig.proxyEnabled
+    // ✨ CORS 修復：使用代理 URL
+    const wmsUrl = isCorsPxyHealthy 
         ? buildProxyUrl(layerConfig.url)
         : layerConfig.url;
 
-    // 構建完整的 WMS URL 模板
-    const wmsUrlTemplate = `${baseWmsUrl}?
-        SERVICE=${layerConfig.params.service}
-        &VERSION=${layerConfig.params.version}
-        &REQUEST=${layerConfig.params.request}
-        &LAYERS=${layerConfig.params.layers}
-        &STYLES=${layerConfig.params.styles}
-        &CRS=${layerConfig.params.crs}
-        &BBOX={bbox}
-        &WIDTH=${layerConfig.params.width}
-        &HEIGHT=${layerConfig.params.height}
-        &FORMAT=${layerConfig.params.format}
-        &TRANSPARENT=${layerConfig.params.transparent}
-    `.replace(/\s+/g, '');
+    const wmsLayer = L.tileLayer.wms(wmsUrl, {
+        layers: layerConfig.params.layers,
+        formats: 'image/png',
+        transparent: true,
+        opacity: 0.7,
+        version: '1.1.1',
+        srs: 'EPSG:3857',
+        crossOrigin: 'anonymous'
+    });
 
-    console.log(`🔗 [WMS] 完整 URL: ${wmsUrlTemplate.substring(0, 100)}...`);
-
-    try {
-        // 創建 WMS TileLayer
-        const wmsLayer = L.tileLayer.wms(baseWmsUrl, {
-            layers: layerConfig.params.layers,
-            styles: layerConfig.params.styles,
-            format: layerConfig.params.format,
-            transparent: true,
-            opacity: 0.7,
-            version: layerConfig.params.version,
-            crs: L.CRS.EPSG3857,
-            crossOrigin: 'anonymous',
-            tiled: true,
-            attribution: '© 新北市政府'
-        });
-
-        // 添加到地圖
-        wmsLayer.addTo(map);
-        
-        // 強制設置 z-index
-        if (wmsLayer._renderer && wmsLayer._renderer._container) {
-            wmsLayer._renderer._container.style.zIndex = overlayLayerAbsoluteZIndex;
-        }
-        if (typeof wmsLayer.setZIndex === 'function') {
-            wmsLayer.setZIndex(overlayLayerAbsoluteZIndex);
-        }
-        if (typeof wmsLayer.bringToFront === 'function') {
-            wmsLayer.bringToFront();
-        }
-        
-        // 添加圖層事件監聽
-        wmsLayer.on('loading', () => {
-            console.log(`⏳ [WMS] 正在載入 Tile...`);
-        });
-
-        wmsLayer.on('load', () => {
-            console.log(`✅ [WMS] Tile 載入完成`);
-            wmsStatusPanel.addStatus(`✅ 圖層載入成功`, 'success');
-        });
-
-        wmsLayer.on('tileerror', (err) => {
-            console.error(`❌ [WMS] Tile 載入失敗:`, err);
-            wmsStatusPanel.addStatus(`❌ Tile 載入失敗`, 'error');
-        });
-
-        activeOverlayLayers[layerId] = wmsLayer;
-        overlayLayerOpacity[layerId] = 0.7;
-
-        // 更新透明度滑塊
-        const opacitySlider = document.getElementById(`opacity-slider-${layerId}`);
-        if (opacitySlider) {
-            opacitySlider.value = 70;
-            opacitySlider.disabled = false;
-        }
-
-        // 再次確保堆疊位置
-        setTimeout(() => {
-            ensureOverlayLayerOnTop();
-        }, 100);
-
-        console.log(`✅ [WMS] 圖層已添加: ${layerId}`);
-        wmsStatusPanel.addStatus(`✅ 圖層已添加: ${layerConfig.name}`, 'success');
-        showToast(`✓ 已新增：${layerConfig.name}`);
-
-    } catch (err) {
-        console.error(`❌ [WMS] 圖層添加失敗: ${err.message}`, err);
-        wmsStatusPanel.addStatus(`❌ 圖層添加失敗: ${err.message}`, 'error');
-        showToast(`❌ 圖層添加失敗：${err.message}`);
+    wmsLayer.addTo(map);
+    
+    // ✨ 修正：新增圖層時明確設定 z-index 並使用 bringToFront()
+    wmsLayer.setZIndex(600);
+    if (typeof wmsLayer.bringToFront === 'function') {
+        wmsLayer.bringToFront();
     }
+    
+    activeOverlayLayers[layerId] = wmsLayer;
+    overlayLayerOpacity[layerId] = 0.7;
+
+    const opacitySlider = document.getElementById(`opacity-slider-${layerId}`);
+    if (opacitySlider) {
+        opacitySlider.value = 70;
+    }
+
+    // ✨ 新增：新增後再次確保堆疊位置
+    setTimeout(() => {
+        ensureOverlayLayerOnTop();
+    }, 50);
+
+    console.log(`✓ 已新增套疊圖層：${layerId} (z-index: 600)`);
+    showToast(`✓ 已新增：${layerConfig.name}`);
 
     // 自動收起面板
     setTimeout(() => {
@@ -2907,12 +2788,7 @@ function removeOverlayLayer(layerId) {
         checkbox.checked = false;
     }
 
-    const opacitySlider = document.getElementById(`opacity-slider-${layerId}`);
-    if (opacitySlider) {
-        opacitySlider.disabled = true;
-    }
-
-    console.log(`✓ [WMS] 已移除圖層：${layerId}`);
+    console.log(`✓ 已移除套疊圖層：${layerId}`);
     showToast('✓ 已移除套疊圖層');
 }
 
@@ -2924,21 +2800,16 @@ function updateOverlayOpacity(layerId, value) {
         layer.setOpacity(opacity);
         overlayLayerOpacity[layerId] = opacity;
         
-        // 保持堆疊位置
+        // ✨ 修正：調整透明度後保持堆疊位置
         ensureOverlayLayerOnTop();
         
-        console.log(`✓ [WMS] 已更新 ${layerId} 透明度：${(opacity*100).toFixed(0)}%`);
+        console.log(`✓ 已更新 ${layerId} 透明度：${opacity}`);
     }
 }
 
 function updateOverlayStyle(newStyle) {
-    console.log(`🔄 [WMS] 開始更新圖層樣式: ${newStyle}`);
-    
-    // 獲取當前活躍的圖層 ID
-    const activeLayerIds = Object.keys(activeOverlayLayers);
-    
     // 移除所有現有的套疊圖層
-    activeLayerIds.forEach(layerId => {
+    Object.keys(activeOverlayLayers).forEach(layerId => {
         removeOverlayLayer(layerId);
     });
 
@@ -2951,7 +2822,6 @@ function updateOverlayStyle(newStyle) {
         }
     });
 
-    console.log(`✅ [WMS] 圖層樣式已更新`);
     showToast(`✓ 已更新套疊圖層樣式`);
 }
 
@@ -3017,19 +2887,25 @@ function initLayerControls() {
             } else {
                 map.removeLayer(overlay.layer);
             }
+            
+            // 切換後自動收起面板
+            setTimeout(() => {
+                document.getElementById('layerControlPanel').classList.remove('show');
+                document.getElementById('layerControlBtn').classList.remove('active');
+            }, 200);
         });
     });
 
-    // ========== 套疊圖層控制（完整版） ==========
+    // ========== 新增：套疊圖層控制（圖層堆疊修復版本） ==========
     overlayLayerControls.innerHTML = `
         <div style="margin-bottom: 10px;">
             <select id="overlayLayerSelect" class="overlay-layer-select" onchange="updateOverlayStyle(this.value)">
-                <option value="tpc-basic">📋 基本圖</option>
-                <option value="tpc-detail">📊 詳細圖</option>
-                <option value="tpc-label">🏷️ 帶標示</option>
+                <option value="tpc-basic">基本圖</option>
+                <option value="tpc-detail">詳細圖</option>
+                <option value="tpc-label">帶標示</option>
             </select>
             <div style="font-size: 10px; color: #666; margin-top: 4px; padding: 4px; background: #f0f9ff; border-radius: 3px;">
-                ℹ️ ${isCorsPxyHealthy ? '✅ CORS 代理已連接' : '🔗 使用直連模式'}
+                ℹ️ ${isCorsPxyHealthy ? '✅ CORS 代理已連接' : '⚠️ 使用直連模式'}
             </div>
         </div>
         <div class="overlay-layer-control">
@@ -3057,10 +2933,18 @@ function initLayerControls() {
         </div>
     `;
 
-    console.log('✓ [初始化] 圖層控制面板已初始化');
+    // 更新透明度滑塊狀態
+    const overlayCheckbox = document.getElementById('overlay-check-tpc');
+    const opacitySlider = document.getElementById('opacity-slider-tpc');
+    if (overlayCheckbox && opacitySlider) {
+        overlayCheckbox.addEventListener('change', (e) => {
+            opacitySlider.disabled = !e.target.checked;
+        });
+    }
+    
+    console.log('✓ 圖層控制面板已初始化');
 }
 
-// ========== 其他需要的函數（與原版本相同） ==========
 const namedColorsMap = {
     'red': '#ff0000', 'blue': '#0000ff', 'green': '#008000',
     'white': '#ffffff', 'black': '#000000', 'gray': '#808080',
@@ -3414,8 +3298,6 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
 
 function updateGeoJSONFieldLabel() {
     const selector = document.getElementById('geojsonFieldSelector');
-    if (!selector) return;
-    
     const fieldValue = selector.value;
     const statusDiv = document.getElementById('geojsonLabelStatus');
     const statusText = document.getElementById('geojsonLabelStatusText');
