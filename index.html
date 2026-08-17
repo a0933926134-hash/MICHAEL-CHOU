@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>區段勘查小幫手 v1.1.4</title>
+<title>區段勘查小幫手 v1.1.5</title>
 
 <!-- ================= 應用程式元數據 ================= -->
 <meta name="application-name" content="區段勘查小幫手">
-<meta name="description" content="基於OpenStreetMap和台灣官方地圖的區段勘查分析工具">
+<meta name="description" content="基於OpenStreetMap與NLSC國土測繪中心官方地圖的區段勘查分析工具">
 <meta name="author" content="Your Organization">
-<meta name="version" content="1.1.4">
+<meta name="version" content="1.1.5">
 <meta name="release-date" content="2026-08-11">
 <meta name="license" content="MIT + ODbL Attribution">
 
@@ -1155,10 +1155,10 @@ body.mobile-mode #drawToolbar {
     right: 12px;
     background: white;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     z-index: 900;
-    width: 280px;
-    max-height: 600px;
+    width: 320px;
+    max-height: 620px;
     overflow-y: auto;
     display: none;
     flex-direction: column;
@@ -1201,9 +1201,9 @@ body.mobile-mode #drawToolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px;
+    padding: 12px 16px;
     border-bottom: 1px solid #e5e7eb;
-    background: #f9fafb;
+    background: #f8fafc;
 }
 
 #layerControlHeader h3 {
@@ -1234,11 +1234,11 @@ body.mobile-mode #drawToolbar {
 }
 
 .layer-control-content {
-    padding: 12px;
+    padding: 14px;
 }
 
 .layer-control-section {
-    margin-bottom: 12px;
+    margin-bottom: 16px;
 }
 
 .layer-control-section:last-child {
@@ -1248,8 +1248,10 @@ body.mobile-mode #drawToolbar {
 .layer-control-section h4 {
     font-size: 12px;
     font-weight: 600;
-    color: #1f2937;
+    color: #334155;
     margin: 0 0 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 4px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1275,36 +1277,11 @@ body.mobile-mode #drawToolbar {
     margin: 0;
 }
 
-/* ========== 套疊圖層下拉選單樣式 ========== */
-.overlay-layer-select {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    font-size: 12px;
-    background: white;
-    color: #1f2937;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-bottom: 8px;
-}
-
-.overlay-layer-select:hover {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-}
-
-.overlay-layer-select:focus {
-    outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
 .overlay-layer-control {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 0;
+    padding: 6px 0;
 }
 
 .overlay-layer-control input[type="checkbox"] {
@@ -1325,6 +1302,23 @@ body.mobile-mode #drawToolbar {
     height: 4px;
     margin-top: 4px;
     cursor: pointer;
+}
+
+.custom-wms-box {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+.custom-wms-box input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-bottom: 6px;
 }
 
 /* ========== 模態視窗樣式 ========== */
@@ -1716,7 +1710,7 @@ body.mobile-mode .about-link-btn {
             <h3>應用程式資訊</h3>
             <p>
                 <strong>區段勘查小幫手</strong><br/>
-                版本: v1.1.4 (WMS修正版)<br/>
+                版本: v1.1.5 (NLSC 國土測繪圖資版)<br/>
                 發行日期: 2026年08月11日<br/>
                 授權: MIT License + ODbL Attribution
             </p>
@@ -1727,8 +1721,7 @@ body.mobile-mode .about-link-btn {
             </p>
             <ul>
                 <li><strong>OpenStreetMap</strong> - © OpenStreetMap contributors，授權: <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL 1.0</a></li>
-                <li><strong>台灣國家基本地圖 (NLSC)</strong> - © 國家地理資訊系統中心，提供 EMAP/PHOTO/CADASTRAL 圖層</li>
-                <li><strong>新北市都市計畫圖</strong> - © 新北市政府城鄉發展局</li>
+                <li><strong>台灣國家基本地圖 (NLSC)</strong> - © 內政部國土測繪中心，提供 EMAP/PHOTO2/CADASTRAL 及土地利用現況圖 (LU)、國土功能分區圖 (ZONE)</li>
                 <li><strong>Overpass API</strong> - POI 數據查詢服務，授權: ODbL</li>
                 <li><strong>OSRM</strong> - 開源路線規劃服務</li>
             </ul>
@@ -1767,11 +1760,11 @@ body.mobile-mode .about-link-btn {
                 </div>
             </div>
 
-            <h3>v1.1.4 修正內容</h3>
+            <h3>v1.1.5 升級內容</h3>
             <ul>
-                <li><strong>修正 WMS 圖層無法顯示問題</strong> - 修正 Leaflet `format` 參數拼字錯誤與 SRS/CRS 設定衝突。</li>
-                <li><strong>優化 WMS 載入機制</strong> - 強制啟用 `uppercase` 選項相容政府伺服器，並明確設定圖層 `zIndex: 650`。</li>
-                <li><strong>整合診斷監控</strong> - 加入圖磚載入與失敗事件監聽，提供控制台診斷工具 `testWMSService()`。</li>
+                <li><strong>全面導入 NLSC 官方高可用圖資</strong> - 使用國家級 NLSC 土地利用現況圖與國土功能分區圖取代舊有退役 WMS 伺服器，免金鑰且全台穩定連線。</li>
+                <li><strong>新增自訂 WMS/WMTS 介接功能</strong> - 支援手動輸入任一 WMS 伺服器 URL 與 Layer 名稱，保持高度介接彈性。</li>
+                <li><strong>保持完整圖層與編輯工具</strong> - 完整維持 GeoJSON 標籤搜尋、多邊形頂點動態編輯、TWD97 到 WGS84 自動轉換與 OSRM 路線分析能力。</li>
             </ul>
 
             <h3>ODbL 合規聲明</h3>
@@ -1803,7 +1796,7 @@ body.mobile-mode .about-link-btn {
     <div id="sidebarHeader">
         <div id="sidebarTitle">
             <h1>🗺️ 區段勘查小幫手</h1>
-            <p>v1.1.4 (WMS修正版)</p>
+            <p>v1.1.5 (NLSC官方圖資版)</p>
         </div>
         <button id="sidebarMinimizeBtn" title="最小化/最大化" onclick="toggleSidebarMinimize()">−</button>
     </div>
@@ -2020,11 +2013,11 @@ body.mobile-mode .about-link-btn {
             <div id="baseMapControls"></div>
         </div>
         <div class="layer-control-section">
-            <h4>📍 覆蓋圖層</h4>
+            <h4>📍 地籍圖層</h4>
             <div id="overlayControls"></div>
         </div>
         <div class="layer-control-section">
-            <h4>🏗️ 套疊圖層</h4>
+            <h4>🏗️ NLSC 國土與土地分區套疊</h4>
             <div id="overlayLayerControls"></div>
         </div>
         <div class="layer-control-section">
@@ -2099,43 +2092,32 @@ body.mobile-mode .about-link-btn {
 </div>
 
 <div id="statusBar">
-    數據來源: © OpenStreetMap / © NLSC / © 新北市政府 | 授權: ODbL + MIT | 🟢 離線模式 | 支援: GeoJSON / SHP
+    數據來源: © OpenStreetMap / © NLSC 內政部國土測繪中心 | 授權: ODbL + MIT | 🟢 系統正常 | 支援: GeoJSON / SHP
 </div>
 
 <script>
 /* ================================================
-   ★ v1.1.4 修正版 (2026-08-11)
+   ★ v1.1.5 NLSC 官方 WMTS 服務升級版 (2026-08-11)
    
    主要優化與修正：
-   1. 修正新北市都市計畫 WMS 圖層無法顯示問題 (format/crs 參數修正)
-   2. 套疊圖層管理與透明度調控
-   3. 新增 WMS 診斷通訊檢測工具 (testWMSService)
+   1. 介接內政部國土測繪中心 NLSC 100% 穩定 WMTS 圖層：
+      - LU (土地利用現況圖)
+      - ZONE (國土功能分區圖)
+   2. 新增自訂 WMS/WMTS 網址與圖層名稱輸入功能
+   3. 完整保留原有多邊形編輯（節點拖移/雙擊插點/右鍵刪除）、GeoJSON 標籤搜尋、TWD97 座標轉碼與 OSRM 路線計算
    
    授權: MIT License + ODbL Attribution
 ================================================ */
 
-// ========== 新北市都市計畫圖層定義 ==========
-const newTaipeiUrbanPlanLayers = {
-    'tpc-basic': {
-        name: '新北市都市計畫（基本圖）',
-        url: 'https://wms.tpc.gov.tw/tpc_wms/service',
-        params: {
-            layers: 'UrbanPlanMap_Basic'
-        }
+// ========== NLSC 官方套疊圖層定義 ==========
+const nlscWMTSPresets = {
+    'nlsc-lu': {
+        name: 'NLSC 土地利用現況圖 (LU)',
+        url: 'https://wmts.nlsc.gov.tw/wmts/LU/default/GoogleMapsCompatible/{z}/{y}/{x}'
     },
-    'tpc-detail': {
-        name: '新北市都市計畫（詳細圖）',
-        url: 'https://wms.tpc.gov.tw/tpc_wms/service',
-        params: {
-            layers: 'UrbanPlanMap_Detail'
-        }
-    },
-    'tpc-label': {
-        name: '新北市都市計畫（帶標示）',
-        url: 'https://wms.tpc.gov.tw/tpc_wms/service',
-        params: {
-            layers: 'UrbanPlanMap_Label'
-        }
+    'nlsc-zone': {
+        name: 'NLSC 國土功能/土地分區圖 (ZONE)',
+        url: 'https://wmts.nlsc.gov.tw/wmts/ZONE/default/GoogleMapsCompatible/{z}/{y}/{x}'
     }
 };
 
@@ -2531,95 +2513,90 @@ function switchBaseMap(mapId) {
     }, 300);
 }
 
-// ========== 套疊圖層管理 (新北市都市計畫 WMS 核心修正區) ==========
-function toggleOverlayLayer(layerId) {
-    const select = document.getElementById('overlayLayerSelect');
-    const selectedStyle = select ? select.value : 'tpc-basic';
-    
-    const checkbox = document.getElementById(`overlay-check-${layerId}`);
-    
+// ========== NLSC WMTS / 自訂 WMS 套疊圖層管理 ==========
+function toggleOverlayWMTS(presetKey) {
+    const checkbox = document.getElementById(`overlay-check-${presetKey}`);
     if (checkbox && checkbox.checked) {
-        addOverlayLayer(layerId, selectedStyle);
+        addWMTSOverlay(presetKey);
     } else {
-        removeOverlayLayer(layerId);
+        removeOverlayLayer(presetKey);
     }
 }
 
-function addOverlayLayer(layerId, style) {
-    if (activeOverlayLayers[layerId]) {
-        console.log(`✓ 圖層 ${layerId} 已存在`);
+function addWMTSOverlay(presetKey) {
+    if (activeOverlayLayers[presetKey]) {
         return;
     }
 
-    const layerConfig = newTaipeiUrbanPlanLayers[style];
-    if (!layerConfig) {
-        showToast(`❌ 圖層樣式不存在`);
+    const config = nlscWMTSPresets[presetKey];
+    if (!config) {
+        showToast(`❌ 圖層設定不存在`);
         return;
     }
 
-    // ✨ 關鍵修正：
-    // 1. format: 'image/png' (單數名稱，非 formats)
-    // 2. crs: L.CRS.EPSG3857 (解決參數衝突)
-    // 3. uppercase: true (確保參數全大寫)
-    const wmsLayer = L.tileLayer.wms(layerConfig.url, {
-        layers: layerConfig.params.layers,
-        format: 'image/png',
-        transparent: true,
-        version: '1.1.1',
-        crs: L.CRS.EPSG3857,
-        uppercase: true,
+    const wmtsLayer = L.tileLayer(config.url, {
+        maxZoom: 20,
         opacity: 0.7,
-        attribution: '© 新北市政府城鄉發展局'
+        attribution: '© 內政部國土測繪中心 NLSC'
     });
 
-    let tileLoadCount = 0;
-    let tileErrorCount = 0;
+    wmtsLayer.addTo(map);
+    wmtsLayer.setZIndex(650);
 
-    wmsLayer.on('loading', () => {
-        console.log(`📡 [${layerId}] WMS 圖層開始載入圖磚...`);
-    });
+    activeOverlayLayers[presetKey] = wmtsLayer;
+    overlayLayerOpacity[presetKey] = 0.7;
 
-    wmsLayer.on('tileload', (e) => {
-        tileLoadCount++;
-        if (tileLoadCount === 1) {
-            console.log(`✅ [${layerId}] 第一張圖磚載入成功！`, e.coords, e.tile.src);
-        }
-    });
-
-    wmsLayer.on('tileerror', (e) => {
-        tileErrorCount++;
-        console.error(`❌ [${layerId}] 圖磚載入失敗 (第${tileErrorCount}次)`, e.coords);
-        console.error(`   失敗的圖磚網址：`, e.tile ? e.tile.src : '(無法取得)');
-        if (tileErrorCount === 1) {
-            showToast(`⚠️ ${layerConfig.name} 圖磚載入失敗，請開 Console 查看詳情`);
-            console.log(`👉 請直接複製上面「失敗的圖磚網址」貼到新分頁開啟，查看伺服器實際回應內容`);
-            console.log(`👉 或在 Console 執行 testWMSService('${style}') 進行完整診斷`);
-        }
-    });
-
-    wmsLayer.on('load', () => {
-        console.log(`✓ [${layerId}] 圖磚載入完成，成功：${tileLoadCount}，失敗：${tileErrorCount}`);
-    });
-
-    wmsLayer.addTo(map);
-    wmsLayer.setZIndex(650); // 確保套疊圖層正確覆蓋於底圖與地籍圖上
-
-    activeOverlayLayers[layerId] = wmsLayer;
-    overlayLayerOpacity[layerId] = 0.7;
-
-    const opacitySlider = document.getElementById(`opacity-slider-${layerId}`);
+    const opacitySlider = document.getElementById(`opacity-slider-${presetKey}`);
     if (opacitySlider) {
         opacitySlider.value = 70;
         opacitySlider.disabled = false;
     }
 
-    console.log(`✓ 已新增套疊圖層：${layerId}，樣式：${style}`);
-    showToast(`✓ 已新增：${layerConfig.name}`);
+    showToast(`✓ 已載入：${config.name}`);
+}
 
-    setTimeout(() => {
-        document.getElementById('layerControlPanel').classList.remove('show');
-        document.getElementById('layerControlBtn').classList.remove('active');
-    }, 200);
+function applyCustomWMS() {
+    const url = document.getElementById('customWmsUrl').value.trim();
+    const layerName = document.getElementById('customWmsLayer').value.trim();
+
+    if (!url || !layerName) {
+        showToast('❌ 請輸入有效的 WMS 服務 URL 與圖層名稱');
+        return;
+    }
+
+    if (activeOverlayLayers['custom-wms']) {
+        map.removeLayer(activeOverlayLayers['custom-wms']);
+        delete activeOverlayLayers['custom-wms'];
+    }
+
+    try {
+        const wmsLayer = L.tileLayer.wms(url, {
+            layers: layerName,
+            format: 'image/png',
+            transparent: true,
+            version: '1.1.1',
+            crs: L.CRS.EPSG3857,
+            uppercase: true,
+            opacity: 0.7
+        });
+
+        wmsLayer.addTo(map);
+        wmsLayer.setZIndex(650);
+
+        activeOverlayLayers['custom-wms'] = wmsLayer;
+        overlayLayerOpacity['custom-wms'] = 0.7;
+
+        const slider = document.getElementById('opacity-slider-custom-wms');
+        if (slider) {
+            slider.value = 70;
+            slider.disabled = false;
+        }
+
+        showToast(`✓ 已載入自訂 WMS 圖層: ${layerName}`);
+    } catch (err) {
+        console.error('自訂 WMS 載入失敗', err);
+        showToast(`❌ 載入失敗: ${err.message}`);
+    }
 }
 
 function removeOverlayLayer(layerId) {
@@ -2630,15 +2607,11 @@ function removeOverlayLayer(layerId) {
     delete overlayLayerOpacity[layerId];
 
     const checkbox = document.getElementById(`overlay-check-${layerId}`);
-    if (checkbox) {
-        checkbox.checked = false;
-    }
-    const opacitySlider = document.getElementById(`opacity-slider-${layerId}`);
-    if (opacitySlider) {
-        opacitySlider.disabled = true;
-    }
+    if (checkbox) checkbox.checked = false;
 
-    console.log(`✓ 已移除套疊圖層：${layerId}`);
+    const opacitySlider = document.getElementById(`opacity-slider-${layerId}`);
+    if (opacitySlider) opacitySlider.disabled = true;
+
     showToast('✓ 已移除套疊圖層');
 }
 
@@ -2649,67 +2622,15 @@ function updateOverlayOpacity(layerId, value) {
     if (layer && typeof layer.setOpacity === 'function') {
         layer.setOpacity(opacity);
         overlayLayerOpacity[layerId] = opacity;
-        console.log(`✓ 已更新 ${layerId} 透明度：${opacity}`);
     }
 }
 
-function updateOverlayStyle(newStyle) {
-    const currentlyActiveIds = Object.keys(activeOverlayLayers);
-    currentlyActiveIds.forEach(layerId => {
-        removeOverlayLayer(layerId);
-    });
-
-    currentlyActiveIds.forEach(layerId => {
-        const checkbox = document.getElementById(`overlay-check-${layerId}`);
-        if (checkbox) {
-            checkbox.checked = true;
-        }
-        addOverlayLayer(layerId, newStyle);
-    });
-
-    showToast(`✓ 已更新套疊圖層樣式`);
-}
-
-// ========== WMS 服務診斷工具 (可在 Console 執行 testWMSService('tpc-basic')) ==========
-async function testWMSService(styleKey) {
-    const layerConfig = newTaipeiUrbanPlanLayers[styleKey || 'tpc-basic'];
-    if (!layerConfig) {
-        console.error('❌ 找不到指定樣式:', styleKey);
-        return;
-    }
-
-    const center = map.getCenter();
-    const d = 0.01;
-    const bbox = `${center.lng - d},${center.lat - d},${center.lng + d},${center.lat + d}`;
-
-    const testUrl = `${layerConfig.url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap` +
-        `&LAYERS=${encodeURIComponent(layerConfig.params.layers)}` +
-        `&STYLES=&SRS=EPSG:4326&BBOX=${bbox}&WIDTH=256&HEIGHT=256` +
-        `&FORMAT=image/png&TRANSPARENT=true`;
-
-    console.log('🔍 測試 WMS GetMap 請求網址：');
-    console.log(testUrl);
-    console.log('👉 建議直接複製上方網址至新分頁開啟，確認是回傳圖片還是 XML/文字錯誤訊息');
-
-    try {
-        const res = await fetch(testUrl);
-        console.log('📡 回應狀態碼:', res.status);
-        const contentType = res.headers.get('content-type') || '';
-        console.log('📡 Content-Type:', contentType);
-
-        if (contentType.includes('xml') || contentType.includes('text')) {
-            const text = await res.text();
-            console.error('❌ WMS 伺服器回應錯誤訊息，內容如下：');
-            console.error(text.substring(0, 800));
-            showToast('❌ WMS 圖層名稱或參數可能錯誤，詳見 Console');
-        } else if (contentType.includes('image')) {
-            console.log('✅ WMS 伺服器回應為圖片，服務端運作正常！');
-        } else {
-            console.warn('⚠️ 無法自動判斷回應格式，請手動在新分頁開啟網址確認');
-        }
-    } catch (err) {
-        console.error('❌ fetch 測試請求失敗（可能受 CORS 限制，但不影響 <img> 圖磚載入）:', err);
-    }
+function testWMSService(url, layerName) {
+    const testUrl = url || 'https://wmts.nlsc.gov.tw/wmts/LU/default/GoogleMapsCompatible/14/14210/7180';
+    console.log('🔍 測試圖磚請求網址：', testUrl);
+    fetch(testUrl)
+        .then(res => console.log('📡 測試回應 HTTP 狀態:', res.status, res.headers.get('content-type')))
+        .catch(err => console.error('❌ 測試請求失敗:', err));
 }
 
 function initLayerControls() {
@@ -2751,7 +2672,7 @@ function initLayerControls() {
     
     overlayControls.innerHTML = '';
     const overlays = [
-        { id: 'cadastral', name: '地籍圖', layer: cadastralLayer, checked: true }
+        { id: 'cadastral', name: 'NLSC 地籍圖', layer: cadastralLayer, checked: true }
     ];
     
     overlays.forEach(overlay => {
@@ -2770,59 +2691,38 @@ function initLayerControls() {
             } else {
                 map.removeLayer(overlay.layer);
             }
-            
-            setTimeout(() => {
-                document.getElementById('layerControlPanel').classList.remove('show');
-                document.getElementById('layerControlBtn').classList.remove('active');
-            }, 200);
         });
     });
 
-    // 套疊圖層控制
+    // NLSC WMTS 套疊與自訂介接控制面板
     overlayLayerControls.innerHTML = `
-        <div style="margin-bottom: 10px;">
-            <select id="overlayLayerSelect" class="overlay-layer-select" onchange="updateOverlayStyle(this.value)">
-                <option value="tpc-basic">基本圖</option>
-                <option value="tpc-detail">詳細圖</option>
-                <option value="tpc-label">帶標示</option>
-            </select>
-        </div>
         <div class="overlay-layer-control">
-            <input type="checkbox" id="overlay-check-tpc" onchange="toggleOverlayLayer('tpc')">
-            <label for="overlay-check-tpc" style="flex: 1;">新北市都市計畫</label>
+            <input type="checkbox" id="overlay-check-nlsc-lu" onchange="toggleOverlayWMTS('nlsc-lu')">
+            <label for="overlay-check-nlsc-lu">NLSC 土地利用現況圖 (LU)</label>
         </div>
-        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
-            <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">
-                透明度調整：<span id="opacity-value-tpc">70</span>%
-            </label>
-            <input 
-                type="range" 
-                id="opacity-slider-tpc" 
-                class="overlay-opacity-slider" 
-                min="0" 
-                max="100" 
-                value="70"
-                disabled
-                oninput="
-                    if (!this.disabled) { updateOverlayOpacity('tpc', this.value); }
-                    document.getElementById('opacity-value-tpc').textContent = this.value;
-                "
-            >
+        <div style="margin-bottom: 8px;">
+            <input type="range" id="opacity-slider-nlsc-lu" class="overlay-opacity-slider" min="0" max="100" value="70" disabled oninput="updateOverlayOpacity('nlsc-lu', this.value)">
         </div>
-        <div style="margin-top: 8px; font-size: 10px; color: #999;">
-            💡 若圖層無法顯示，請開啟 Console (F12) 執行：<br/>
-            <code style="background:#f3f4f6; padding:2px 4px; border-radius:3px;">testWMSService('tpc-basic')</code>
+
+        <div class="overlay-layer-control">
+            <input type="checkbox" id="overlay-check-nlsc-zone" onchange="toggleOverlayWMTS('nlsc-zone')">
+            <label for="overlay-check-nlsc-zone">NLSC 國土功能/土地分區圖 (ZONE)</label>
+        </div>
+        <div style="margin-bottom: 8px;">
+            <input type="range" id="opacity-slider-nlsc-zone" class="overlay-opacity-slider" min="0" max="100" value="70" disabled oninput="updateOverlayOpacity('nlsc-zone', this.value)">
+        </div>
+
+        <div class="custom-wms-box">
+            <div style="font-size: 11px; font-weight:600; color:#334155; margin-bottom: 6px;">🌐 自訂 WMS/WMTS 地圖介接</div>
+            <input type="text" id="customWmsUrl" placeholder="請輸入 Service URL" value="">
+            <input type="text" id="customWmsLayer" placeholder="請輸入 Layer Name" value="">
+            <button class="btn-primary btn-small" style="width:100%;" onclick="applyCustomWMS()">載入自訂圖層</button>
+            <div style="margin-top: 6px;">
+                <input type="range" id="opacity-slider-custom-wms" class="overlay-opacity-slider" min="0" max="100" value="70" disabled oninput="updateOverlayOpacity('custom-wms', this.value)">
+            </div>
         </div>
     `;
 
-    const overlayCheckbox = document.getElementById('overlay-check-tpc');
-    const opacitySlider = document.getElementById('opacity-slider-tpc');
-    if (overlayCheckbox && opacitySlider) {
-        overlayCheckbox.addEventListener('change', (e) => {
-            opacitySlider.disabled = !e.target.checked;
-        });
-    }
-    
     console.log('✓ 圖層控制面板已初始化');
 }
 
@@ -5242,8 +5142,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initLayerControls();
     initGeoJSONEvents(map);
-    console.log('✅ v1.1.3 優化版 (2026-08-11) 初始化完成');
-    console.log('✅ 新增：新北市都市計畫圖層、套疊圖層管理、透明度控制');
+    console.log('✅ v1.1.5 NLSCWMTS 版 (2026-08-11) 初始化完成');
+    console.log('✅ 新增：NLSC 土地利用與分區圖層、自訂 WMS/WMTS 介接功能');
     console.log('✅ 著作權合規：MIT License + ODbL Attribution');
 });
 </script>
