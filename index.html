@@ -4860,14 +4860,23 @@ async function runQuery() {
     // 火葬場 / Crematorium
     // =====================================================
 
-    parts.push(
-        `nwr["amenity"="crematorium"](
-            around:${radius},
-            ${lat},
-            ${lon}
-        );`
-    );
+    // 火葬場
+parts.push(
+    `nwr["amenity"="crematorium"](
+        around:${radius},
+        ${lat},
+        ${lon}
+    );`
+);
 
+// 名稱補強：避免 OSM 沒有正確標 amenity
+parts.push(
+    `nwr["name"~"火葬場|火化場",i](
+        around:${radius},
+        ${lat},
+        ${lon}
+    );`
+);
 }
             }
             else if (t === "school") {
