@@ -4818,66 +4818,52 @@ async function runQuery() {
             }
             else if (t === "cemetery") {
 
-    const lat = centroidForQuery[0];
-    const lon = centroidForQuery[1];
-
-    // =====================================================
-    // 墓地／墓園
-    // =====================================================
-
+    // 墓地
     parts.push(
         `nwr["landuse"="cemetery"](
             around:${radius},
-            ${lat},
-            ${lon}
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
         );`
     );
 
-    // OSM 另一種墓地標記方式
+    // 墓園 / 小型墓地
     parts.push(
         `nwr["amenity"="grave_yard"](
             around:${radius},
-            ${lat},
-            ${lon}
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
         );`
     );
 
-
-    // =====================================================
-    // 殯儀館 / Funeral Hall
-    // =====================================================
-
+    // 殯儀館
     parts.push(
         `nwr["amenity"="funeral_hall"](
             around:${radius},
-            ${lat},
-            ${lon}
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
         );`
     );
 
-
-    // =====================================================
-    // 火葬場 / Crematorium
-    // =====================================================
-
     // 火葬場
-parts.push(
-    `nwr["amenity"="crematorium"](
-        around:${radius},
-        ${lat},
-        ${lon}
-    );`
-);
+    parts.push(
+        `nwr["amenity"="crematorium"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );`
+    );
 
-// 名稱補強：避免 OSM 沒有正確標 amenity
-parts.push(
-    `nwr["name"~"火葬場|火化場",i](
-        around:${radius},
-        ${lat},
-        ${lon}
-    );`
-);
-            }
+    // 火葬場名稱補強
+    parts.push(
+        `nwr["name"~"火葬場|火化場",i](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );`
+    );
+
+}
             else if (t === "school") {
                 parts.push(`nwr["amenity"="school"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});
                 nwr["amenity"="university"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
