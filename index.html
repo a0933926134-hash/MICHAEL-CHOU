@@ -5792,26 +5792,49 @@ XLSX.writeFile(wb, "GIS查詢結果.xlsx");
 
 /* 表格視窗拖曳 */
 let isRoadWidthDragging = false;
-let offsetX = 0;
-let offsetY = 0;
-const panel = document.getElementById("resultPanel");
-const header = document.getElementById("resultHeader");
-header.addEventListener("mousedown", function(e){
-if(e.target.tagName === "BUTTON") return; 
-isRoadWidthDragging = true;
-const rect = panel.getBoundingClientRect();
-offsetX = e.clientX - rect.left;
-offsetY = e.clientY - rect.top;
-panel.style.position = "absolute";
-panel.style.zIndex = 9999;
-});
-document.addEventListener("mousemove", function(e){
-if(!isRoadWidthDragging) return;
-panel.style.left = (e.clientX - offsetX) + "px";
-panel.style.top = (e.clientY - offsetY) + "px";
-panel.style.right = "auto";
-});
-document.addEventListener("mouseup", function(){ isRoadWidthDragging = false; });
+let roadWidthOffsetX = 0;
+let roadWidthOffsetY = 0;
+
+const roadWidthPanel = document.getElementById("roadWidthPanel");
+const roadWidthHeader = document.getElementById("roadWidthHeader");
+
+if (roadWidthPanel && roadWidthHeader) {
+
+    roadWidthHeader.addEventListener("mousedown", function(e) {
+
+        // 點擊「執行」按鈕時，不啟動拖曳
+        if (e.target.tagName === "BUTTON") return;
+
+        isRoadWidthDragging = true;
+
+        const rect = roadWidthPanel.getBoundingClientRect();
+
+        roadWidthOffsetX = e.clientX - rect.left;
+        roadWidthOffsetY = e.clientY - rect.top;
+
+        roadWidthPanel.style.position = "absolute";
+        roadWidthPanel.style.zIndex = "9999";
+    });
+
+    document.addEventListener("mousemove", function(e) {
+
+        if (!isRoadWidthDragging) return;
+
+        roadWidthPanel.style.left =
+            (e.clientX - roadWidthOffsetX) + "px";
+
+        roadWidthPanel.style.top =
+            (e.clientY - roadWidthOffsetY) + "px";
+
+        roadWidthPanel.style.right = "auto";
+    });
+
+    document.addEventListener("mouseup", function() {
+
+        isRoadWidthDragging = false;
+
+    });
+}
 /* ==========================
    坡度面板拖曳
    ========================== */
