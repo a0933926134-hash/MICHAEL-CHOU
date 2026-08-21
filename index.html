@@ -4869,8 +4869,40 @@ async function runQuery() {
                 nwr["amenity"="university"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
             else if (t === "gas") {
-                parts.push(`nwr["power"="substation"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
-            }
+
+    // =====================================================
+    // 高壓電塔 / Power Tower
+    // =====================================================
+    parts.push(
+        `nwr["power"="tower"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );`
+    );
+
+    // =====================================================
+    // 變電所 / Substation
+    // =====================================================
+    parts.push(
+        `nwr["power"="substation"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );`
+    );
+
+    // =====================================================
+    // 名稱補強
+    // =====================================================
+    parts.push(
+        `nwr["name"~"高壓電塔|高壓電線塔|電塔|變電所|變電站|電所",i](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );`
+    );
+}
             else if (t === "pollution") {
                 parts.push(`nwr["man_made"="wastewater_treatment_plant"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
