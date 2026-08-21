@@ -1147,6 +1147,75 @@ body.mobile-mode #drawToolbar {
 .search-result-item strong {
     color: #92400e;
 }
+/* =========================================================
+   道路平均寬度分析面板
+   ========================================================= */
+#roadWidthPanel{
+    position:absolute;
+    top:12px;
+    left:290px;
+    width:300px;
+    background:#ffffff;
+    border-radius:12px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.25);
+    z-index:1200;
+    overflow:hidden;
+    font-size:12px;
+}
+#roadWidthHeader{
+    background:#0f766e;
+    color:white;
+    padding:8px;
+    font-weight:bold;
+    cursor:grab;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    user-select:none;
+}
+#roadWidthHeader button{
+    background:#10b981;
+    border:none;
+    color:white;
+    padding:4px 8px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:11px;
+    font-weight:bold;
+}
+#roadWidthContent{
+    padding:9px;
+    background:#ecfdf5;
+    color:#134e4a;
+    line-height:1.55;
+    max-height:430px;
+    overflow:auto;
+}
+#roadWidthContent .rw-row{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    padding:3px 0;
+    border-bottom:1px dashed #a7f3d0;
+}
+#roadWidthContent .rw-value{
+    font-weight:bold;
+    color:#115e59;
+}
+#roadWidthContent table{width:100%;border-collapse:collapse;}
+#roadWidthContent td,#roadWidthContent th{border:1px solid #d1d5db;padding:4px;text-align:center;}
+#roadWidthDetail{
+    margin-top:8px;
+    max-height:190px;
+    overflow:auto;
+    background:#fff;
+    border-radius:7px;
+    padding:5px;
+}
+#roadWidthDetail table{font-size:11px;table-layout:auto;}
+#roadWidthDetail th{background:#d1fae5;position:sticky;top:0;}
+.rw-note{font-size:11px;color:#475569;margin-top:7px;}
+.rw-error{color:#b91c1c;font-weight:bold;}
 
 /* ========== 圖層控制面板樣式 ========== */
 #layerControlPanel {
@@ -5431,6 +5500,380 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('✅ 新增：新北市都市計畫圖層、套疊圖層管理、透明度控制');
     console.log('✅ 著作權合規：MIT License + ODbL Attribution');
 });
+    /* =========================================================
+   道路實際幾何寬度 V2 Engine
+   ---------------------------------------------------------
+   目的：計算使用者 Polygon 範圍內道路的「幾何平均寬度」。
+
+   核心原則：
+   1. 先取得 OSM 道路中心線（LineString）。
+   2. 再取得 OSM 道路面 Polygon（area:highway 或 highway+area=yes）。
+   3. 將道路面 Polygon 與使用者 Polygon 做空間裁切。
+   4. 將道路中心線與使用者 Polygon 做空間裁切。
+   5. 道路幾何平均寬度 = Polygon 內道路面積 / Polygon 內道路中心線長度。
+   6. 同一道路若沒有道路面 Polygon，才退回 OSM width / width:carriageway / est_width。
+   7. 完全沒有幾何或 width 資料者「不納入平均」，絕不再用 lanes × 3.25m 假裝實際寬度。
+   8. 最終平均仍採道路長度加權：
+      Σ(寬度 × Polygon內道路長度) / Σ(Polygon內道路長度)
+
+   注意：OSM 道路面不是政府道路界線圖，因此 V2 的「幾何寬度」代表
+   OSM 已繪製道路面之幾何平均寬度，不等同地籍道路用地界線寬度。
+   ========================================================= */
+let roadWidthResults = [];
+let roadWidthLayer = null;
+
+const ROAD_WIDTH_ALLOWED = new Set([
+    "motorway","motorway_link","trunk","trunk_link",
+    "primary","primary_link","secondary","secondary_link",
+    "tertiary","tertiary_link","unclassified","residential",
+    "living_street","service","road"
+]);
+
+function getRoadPolygon(){
+    if(!drawPoints || drawPoints.length < 3) return null;
+    let ring = drawPoints.map(p=>[Number(p[1]),Number(p[0])]);
+    if(ring.length < 3) return null;
+    if(ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) ring.push(ring[0]);
+    try { return turf.polygon([ring]); }
+    catch(err){ console.error("道路分析 Polygon 建立失敗",err); return null; }
+}
+
+function normalizeRoadWidth(v){
+    if(v === null || v === undefined) return null;
+    let text = String(v).trim().toLowerCase().replace(/,/g,'.');
+    if(!text) return null;
+    const m = text.match(/\d+(?:\.\d+)?/);
+    if(!m) return null;
+    const n = Number(m[0]);
+    return Number.isFinite(n) && n > 0 && n <= 100 ? n : null;
+}
+
+function explicitOSMRoadWidth(tags){
+    const t=tags||{};
+    for(const key of ["width","width:carriageway","est_width"]){
+        const w=normalizeRoadWidth(t[key]);
+        if(w!==null) return {width:w,source:key,estimated:key==="est_width"};
+    }
+    if(t["width:lanes"]){
+        const vals=String(t["width:lanes"]).split(/[;|]/).map(normalizeRoadWidth).filter(v=>v!==null);
+        if(vals.length) return {width:vals.reduce((a,b)=>a+b,0),source:"width:lanes",estimated:false};
+    }
+    return null;
+}
+
+function roadLineFeature(e){
+    if(!e || !e.geometry || e.geometry.length<2) return null;
+    return turf.lineString(e.geometry.map(p=>[Number(p.lon),Number(p.lat)]), e.tags||{});
+}
+
+function roadAreaFeature(e){
+    if(!e || !e.geometry || e.geometry.length<3) return null;
+    const coords=e.geometry.map(p=>[Number(p.lon),Number(p.lat)]);
+    if(coords[0][0]!==coords[coords.length-1][0] || coords[0][1]!==coords[coords.length-1][1]) coords.push(coords[0]);
+    try{return turf.polygon([coords],e.tags||{});}catch(err){return null;}
+}
+
+function bboxStringForPolygon(poly){
+    const [minLon,minLat,maxLon,maxLat]=turf.bbox(poly);
+    return `${minLat},${minLon},${maxLat},${maxLon}`;
+}
+
+async function fetchRoadDataV2(polygon){
+    const bbox=bboxStringForPolygon(polygon);
+    const q=`[out:json][timeout:120];\n(\n  way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service|road)$"](${bbox});\n  way["area:highway"](${bbox});\n  way["highway"]["area"="yes"](${bbox});\n);\nout tags geom;`;
+    const res=await fetch("https://overpass-api.de/api/interpreter",{
+        method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+        body:"data="+encodeURIComponent(q)
+    });
+    if(!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
+    const data=await res.json();
+    return data.elements||[];
+}
+
+function clipLineLength(line,polygon){
+    if(!line||!polygon) return 0;
+    try{
+        const coords=line.geometry.coordinates;
+        if(coords.length<2) return 0;
+        const boundary=turf.polygonToLine(polygon);
+        const points=[coords[0],coords[coords.length-1]];
+        turf.lineIntersect(line,boundary).features.forEach(f=>points.push(f.geometry.coordinates));
+        const unique=new Map();
+        points.forEach(c=>unique.set(`${Number(c[0]).toFixed(10)},${Number(c[1]).toFixed(10)}`,c));
+        const pts=[...unique.values()].sort((a,b)=>turf.distance(coords[0],a,{units:"meters"})-turf.distance(coords[0],b,{units:"meters"}));
+        let total=0;
+        for(let i=0;i<pts.length-1;i++){
+            const seg=turf.lineString([pts[i],pts[i+1]]);
+            const len=turf.length(seg,{units:"meters"});
+            if(len<=0) continue;
+            const mid=turf.along(seg,len/2,{units:"meters"});
+            if(turf.booleanPointInPolygon(mid,polygon)) total+=len;
+        }
+        return total;
+    }catch(err){return 0;}
+}
+
+function clipArea(area,polygon){
+    try{
+        if(!area||!polygon) return null;
+        return turf.intersect(area,polygon);
+    }catch(err){return null;}
+}
+
+function roadTagName(tags){
+    const names={motorway:"高速公路",motorway_link:"高速公路匝道",trunk:"快速道路",trunk_link:"快速道路匝道",primary:"主要道路",primary_link:"主要道路匝道",secondary:"次要道路",secondary_link:"次要道路匝道",tertiary:"第三級道路",tertiary_link:"第三級道路匝道",unclassified:"未分類道路",residential:"住宅道路",living_street:"生活道路",service:"服務道路",road:"一般道路"};
+    return names[tags?.highway]||tags?.["area:highway"]||"道路";
+}
+
+function distancePointToLineMeters(pt,line){
+    try{return turf.pointToLineDistance(pt,line,{units:"meters"});}catch(e){return Infinity;}
+}
+
+/*
+ * 將道路面 Polygon 與道路中心線配對。
+ * V2 不假設所有道路都有道路面；只有空間上合理接近的道路面才採用。
+ */
+function matchRoadAreasToLines(lines,areas){
+    const matches=new Map();
+    const MAX_MATCH_DISTANCE=35;
+    lines.forEach(item=>{
+        let best=null,bestDist=Infinity;
+        const mid=turf.along(item.line,turf.length(item.line,{units:"kilometers"})/2,{units:"kilometers"});
+        areas.forEach(area=>{
+            if(area.tags?.highway && item.tags?.highway && area.tags.highway!==item.tags.highway) return;
+            const d=distancePointToLineMeters(turf.centroid(area.feature),item.line);
+            if(d<bestDist && d<=MAX_MATCH_DISTANCE){best=area;bestDist=d;}
+        });
+        if(best) matches.set(item.id,{area:best,matchDistance:bestDist});
+    });
+    return matches;
+}
+
+function renderRoadWidthResultV2(){
+    const info=document.getElementById("roadWidthInfo"),detail=document.getElementById("roadWidthDetail");
+    const valid=roadWidthResults.filter(r=>r.lengthInPolygon>0 && r.width>0);
+    if(!valid.length){
+        info.innerHTML=`<span class="rw-error">⚠ Polygon 內找到道路，但沒有可用的道路幾何寬度或 OSM width 資料。</span><div class="rw-note">V2 不使用車道數推估，因此缺少道路面及 width 標註的道路不會被假設成某個寬度。</div>`;
+        detail.innerHTML="";return;
+    }
+    const totalLength=valid.reduce((s,r)=>s+r.lengthInPolygon,0);
+    const weighted=valid.reduce((s,r)=>s+r.width*r.lengthInPolygon,0);
+    const avgWidth=weighted/totalLength;
+    const geomLength=valid.filter(r=>r.sourceType==="geometry").reduce((s,r)=>s+r.lengthInPolygon,0);
+    const explicitLength=valid.filter(r=>r.sourceType==="osm_width").reduce((s,r)=>s+r.lengthInPolygon,0);
+    const noDataLength=Math.max(0,roadWidthResults.filter(r=>r.lengthInPolygon>0 && !r.width).reduce((s,r)=>s+r.lengthInPolygon,0));
+    const geomPct=totalLength?geomLength/totalLength*100:0;
+    const widthPct=totalLength?explicitLength/totalLength*100:0;
+    const area=turf.area(getRoadPolygon());
+    const density=area?totalLength/(area/10000):0;
+
+    info.innerHTML=`
+      <div class="rw-row"><span>可計算道路段數</span><span class="rw-value">${valid.length}</span></div>
+      <div class="rw-row"><span>Polygon內有效道路長度</span><span class="rw-value">${totalLength.toFixed(1)} m</span></div>
+      <div class="rw-row"><span>★ 長度加權平均寬度</span><span class="rw-value">${avgWidth.toFixed(2)} m</span></div>
+      <div class="rw-row"><span>道路面幾何資料占比</span><span class="rw-value">${geomPct.toFixed(1)}%</span></div>
+      <div class="rw-row"><span>OSM width 標註占比</span><span class="rw-value">${widthPct.toFixed(1)}%</span></div>
+      <div class="rw-row"><span>道路長度密度</span><span class="rw-value">${density.toFixed(1)} m/公頃</span></div>
+      ${noDataLength>0?`<div class="rw-row"><span>無寬度資料未納入</span><span class="rw-value">${noDataLength.toFixed(1)} m</span></div>`:""}
+      <div class="rw-note"><b>V2：</b>道路面幾何寬度 = Polygon內道路面積 ÷ Polygon內道路中心線長度；只有沒有道路面資料時才採 OSM width。<br>未使用 lanes × 3.25m。</div>`;
+
+    const rows=valid.slice().sort((a,b)=>b.lengthInPolygon-a.lengthInPolygon).slice(0,200).map(r=>`<tr>
+      <td>${r.name}</td><td>${r.highwayName}</td><td>${r.lengthInPolygon.toFixed(1)}</td><td>${r.roadAreaM2!==null?r.roadAreaM2.toFixed(1):"—"}</td><td>${r.width.toFixed(2)}</td><td>${r.source}</td>
+    </tr>`).join("");
+    detail.innerHTML=`<div style="font-weight:bold;margin-bottom:4px;">道路明細（前200段）</div><table><thead><tr><th>道路</th><th>等級</th><th>範圍內長度(m)</th><th>道路面積(m²)</th><th>寬度(m)</th><th>來源</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function analyzeRoadWidth(){
+    const info=document.getElementById("roadWidthInfo"),detail=document.getElementById("roadWidthDetail");
+    const polygon=getRoadPolygon();
+    if(!polygon){info.innerHTML=`<span class="rw-error">⚠ 請先繪製或匯入 Polygon 範圍。</span>`;detail.innerHTML="";return;}
+    info.innerHTML="🛣️ V2 正在取得道路中心線與道路面 Polygon...";detail.innerHTML="";roadWidthResults=[];
+    try{
+        const elements=await fetchRoadDataV2(polygon);
+        const lines=[],areas=[];
+        const seenLine=new Set(),seenArea=new Set();
+        elements.forEach(e=>{
+            if(e.type!=="way"||!e.geometry) return;
+            const isArea=!!e.tags?.["area:highway"] || e.tags?.area==="yes";
+            if(isArea){
+                const f=roadAreaFeature(e); if(f&&!seenArea.has(e.id)){seenArea.add(e.id);areas.push({id:e.id,feature:f,tags:e.tags||{}});}
+            }else if(ROAD_WIDTH_ALLOWED.has(e.tags?.highway)){
+                const f=roadLineFeature(e); if(f&&!seenLine.has(e.id)){seenLine.add(e.id);lines.push({id:e.id,line:f,tags:e.tags||{}});}
+            }
+        });
+
+        info.innerHTML=`🛣️ 已取得 ${lines.length} 條道路中心線、${areas.length} 個道路面，正在進行幾何裁切與配對...`;
+        const matches=matchRoadAreasToLines(lines,areas);
+        const areaUsed=new Set();
+
+        for(const item of lines){
+            const lengthInPolygon=clipLineLength(item.line,polygon);
+            if(lengthInPolygon<0.5) continue;
+            let width=null,source="",sourceType="none",roadAreaM2=null,matchedAreaId=null;
+            const m=matches.get(item.id);
+            if(m){
+                const clipped=clipArea(m.area.feature,polygon);
+                if(clipped){
+                    roadAreaM2=turf.area(clipped);
+                    if(roadAreaM2>0.1){
+                        width=roadAreaM2/lengthInPolygon;
+                        source="道路面幾何（面積/中心線）";
+                        sourceType="geometry";
+                        matchedAreaId=m.area.id;
+                        areaUsed.add(m.area.id);
+                    }
+                }
+            }
+            if(width===null){
+                const ew=explicitOSMRoadWidth(item.tags);
+                if(ew){width=ew.width;source=`OSM ${ew.source}`;sourceType="osm_width";}
+            }
+            const name=item.tags.name||item.tags.ref||`${roadTagName(item.tags)} #${item.id}`;
+            roadWidthResults.push({osmId:item.id,name,highway:item.tags.highway||"",highwayName:roadTagName(item.tags),lengthInPolygon,width,source,sourceType,roadAreaM2,matchedAreaId,tags:item.tags});
+        }
+
+        // 將「只有道路面、沒有對應中心線」的資料保留為診斷資訊，不直接灌入平均值。
+        // 因為沒有中心線就無法做「道路寬度 × 道路長度」加權，避免產生虛假的統計。
+
+        if(roadWidthLayer){map.removeLayer(roadWidthLayer);roadWidthLayer=null;}
+        roadWidthLayer=L.layerGroup().addTo(map);
+        roadWidthResults.filter(r=>r.width>0).forEach(r=>{
+            const e=lines.find(x=>x.id===r.osmId);if(!e) return;
+            L.polyline(e.line.geometry.coordinates.map(c=>[c[1],c[0]]),{
+                color:r.sourceType==="geometry"?"#0f766e":"#2563eb",
+                weight:Math.max(2,Math.min(10,r.width)),opacity:0.7
+            }).bindTooltip(`${r.name}<br>幾何寬度：${r.width.toFixed(2)} m<br>Polygon內長度：${r.lengthInPolygon.toFixed(1)} m<br>來源：${r.source}`).addTo(roadWidthLayer);
+        });
+        renderRoadWidthResultV2();
+    }catch(err){
+        console.error("道路實際幾何寬度 V2 失敗",err);
+        info.innerHTML=`<span class="rw-error">❌ V2 分析失敗：${err.message||err}</span><div class="rw-note">Overpass 道路資料服務可能暫時忙碌，或 Polygon 範圍過大。</div>`;
+    }
+}
+
+function clearRoadWidthAnalysis(){
+    roadWidthResults=[];
+    if(roadWidthLayer){map.removeLayer(roadWidthLayer);roadWidthLayer=null;}
+    const info=document.getElementById("roadWidthInfo"),detail=document.getElementById("roadWidthDetail");
+    if(info)info.innerHTML="尚未分析道路寬度";
+    if(detail)detail.innerHTML="";
+}
+
+/* 匯出 Excel */
+function exportExcel(){
+if(!results.length){ alert("無資料"); return; }
+const ws = XLSX.utils.json_to_sheet(results.map(r=>({
+名稱:r.名稱, 類型:r.類型, 直線距離:r.直線距離顯示, 路線距離:r.路線距離 || "", 緯度:r.座標[0], 經度:r.座標[1]
+})));
+const wb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb, ws, "GIS");
+
+if(roadWidthResults && roadWidthResults.length){
+    const valid=roadWidthResults.filter(r=>r.width>0);
+    const totalLength=valid.reduce((s,r)=>s+r.lengthInPolygon,0);
+    const weighted=valid.reduce((s,r)=>s+r.width*r.lengthInPolygon,0);
+    const avgWidth=totalLength>0?weighted/totalLength:0;
+    const roadRows=roadWidthResults.map(r=>({
+        OSM_ID:r.osmId,道路名稱:r.name,道路等級:r.highwayName,OSM_highway:r.highway,
+        Polygon內長度_m:Number((r.lengthInPolygon||0).toFixed(2)),
+        道路面積_m2:r.roadAreaM2==null?"":Number(r.roadAreaM2.toFixed(2)),
+        道路寬度_m:r.width==null?"":Number(r.width.toFixed(2)),
+        寬度來源:r.source||"無可用資料",來源類型:r.sourceType||"none"
+    }));
+    roadRows.push({});
+    roadRows.push({道路名稱:"V2 長度加權平均道路寬度",道路寬度_m:Number(avgWidth.toFixed(2))});
+    roadRows.push({道路名稱:"V2 有效道路總長度",Polygon內長度_m:Number(totalLength.toFixed(2))});
+    roadRows.push({道路名稱:"計算公式",寬度來源:"Σ(道路寬度 × Polygon內道路長度) / Σ(Polygon內道路長度)"});
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(roadRows),"道路寬度V2");
+}
+
+XLSX.writeFile(wb, "GIS查詢結果.xlsx");
+}
+
+/* 表格視窗拖曳 */
+let isDragging = false;
+let offsetX = 0;
+let offsetY = 0;
+const panel = document.getElementById("resultPanel");
+const header = document.getElementById("resultHeader");
+header.addEventListener("mousedown", function(e){
+if(e.target.tagName === "BUTTON") return; 
+isDragging = true;
+const rect = panel.getBoundingClientRect();
+offsetX = e.clientX - rect.left;
+offsetY = e.clientY - rect.top;
+panel.style.position = "absolute";
+panel.style.zIndex = 9999;
+});
+document.addEventListener("mousemove", function(e){
+if(!isDragging) return;
+panel.style.left = (e.clientX - offsetX) + "px";
+panel.style.top = (e.clientY - offsetY) + "px";
+panel.style.right = "auto";
+});
+document.addEventListener("mouseup", function(){ isDragging = false; });
+/* ==========================
+   坡度面板拖曳
+   ========================== */
+
+let slopeDragging = false;
+let slopeOffsetX = 0;
+let slopeOffsetY = 0;
+
+const slopePanel = document.getElementById("slopePanel");
+const slopeHeader = document.getElementById("slopeHeader");
+slopeHeader.addEventListener("mousedown", function(e){
+
+    if(e.target.tagName === "BUTTON") return;
+
+    slopeDragging = true;
+
+    const rect = slopePanel.getBoundingClientRect();
+
+    slopeOffsetX = e.clientX - rect.left;
+    slopeOffsetY = e.clientY - rect.top;
+
+    slopePanel.style.position = "absolute";
+    slopePanel.style.zIndex = 99999;
+});
+document.addEventListener("mousemove", function(e){
+
+    if(!slopeDragging) return;
+
+    slopePanel.style.left =
+        (e.clientX - slopeOffsetX) + "px";
+
+    slopePanel.style.top =
+        (e.clientY - slopeOffsetY) + "px";
+});
+document.addEventListener("mouseup", function(){
+
+    slopeDragging = false;
+
+});    
+/* ==========================
+   道路寬度面板拖曳
+   ========================== */
+let roadWidthDragging=false;
+let roadWidthOffsetX=0;
+let roadWidthOffsetY=0;
+const roadWidthPanel=document.getElementById("roadWidthPanel");
+const roadWidthHeader=document.getElementById("roadWidthHeader");
+roadWidthHeader.addEventListener("mousedown",function(e){
+    if(e.target.tagName === "BUTTON") return;
+    roadWidthDragging=true;
+    const rect=roadWidthPanel.getBoundingClientRect();
+    roadWidthOffsetX=e.clientX-rect.left;
+    roadWidthOffsetY=e.clientY-rect.top;
+    roadWidthPanel.style.position="absolute";
+    roadWidthPanel.style.zIndex=99999;
+});
+document.addEventListener("mousemove",function(e){
+    if(!roadWidthDragging) return;
+    roadWidthPanel.style.left=(e.clientX-roadWidthOffsetX)+"px";
+    roadWidthPanel.style.top=(e.clientY-roadWidthOffsetY)+"px";
+});
+document.addEventListener("mouseup",function(){roadWidthDragging=false;});
 </script>
 
 </body>
