@@ -5790,51 +5790,88 @@ if(roadWidthResults && roadWidthResults.length){
 XLSX.writeFile(wb, "GIS查詢結果.xlsx");
 }
 
-/* 表格視窗拖曳 */
-let isRoadWidthDragging = false;
-let roadWidthOffsetX = 0;
-let roadWidthOffsetY = 0;
+/* =========================================================
+   道路寬度 V2 面板拖曳
+   - 使用專用變數，避免與其他面板 isDragging 衝突
+   - 不使用 resultPanel / resultHeader
+   - DOM 尚未建立時不執行
+   ========================================================= */
+(function initRoadWidthPanelDrag(){
 
-const roadWidthPanel = document.getElementById("roadWidthPanel");
-const roadWidthHeader = document.getElementById("roadWidthHeader");
+    let roadWidthPanelDragging = false;
+    let roadWidthPanelOffsetX = 0;
+    let roadWidthPanelOffsetY = 0;
 
-if (roadWidthPanel && roadWidthHeader) {
+    const roadWidthPanelEl = document.getElementById("roadWidthPanel");
+    const roadWidthHeaderEl = document.getElementById("roadWidthHeader");
 
-    roadWidthHeader.addEventListener("mousedown", function(e) {
+    if (!roadWidthPanelEl || !roadWidthHeaderEl) {
+        console.warn("道路寬度 V2：找不到 roadWidthPanel 或 roadWidthHeader，略過拖曳初始化。");
+        return;
+    }
 
-        // 點擊「執行」按鈕時，不啟動拖曳
-        if (e.target.tagName === "BUTTON") return;
+    roadWidthHeaderEl.addEventListener("mousedown", function(e){
 
-        isRoadWidthDragging = true;
+        // 點擊按鈕、輸入元件或其他互動元件時，不啟動面板拖曳
+        if (
+            e.target.closest("button") ||
+            e.target.closest("input") ||
+            e.target.closest("select") ||
+            e.target.closest("textarea") ||
+            e.target.closest("a")
+        ) {
+            return;
+        }
 
-        const rect = roadWidthPanel.getBoundingClientRect();
+        roadWidthPanelDragging = true;
 
-        roadWidthOffsetX = e.clientX - rect.left;
-        roadWidthOffsetY = e.clientY - rect.top;
+        const rect = roadWidthPanelEl.getBoundingClientRect();
 
-        roadWidthPanel.style.position = "absolute";
-        roadWidthPanel.style.zIndex = "9999";
+        roadWidthPanelOffsetX = e.clientX - rect.left;
+        roadWidthPanelOffsetY = e.clientY - rect.top;
+
+        // 第一次拖曳時才轉成 absolute，避免影響原本版面
+        roadWidthPanelEl.style.position = "absolute";
+        roadWidthPanelEl.style.zIndex = "9999";
+
+        // 防止拖曳時選取文字
+        document.body.style.userSelect = "none";
     });
 
-    document.addEventListener("mousemove", function(e) {
+    document.addEventListener("mousemove", function(e){
 
-        if (!isRoadWidthDragging) return;
+        if (!roadWidthPanelDragging) return;
 
-        roadWidthPanel.style.left =
-            (e.clientX - roadWidthOffsetX) + "px";
+        roadWidthPanelEl.style.left =
+            (e.clientX - roadWidthPanelOffsetX) + "px";
 
-        roadWidthPanel.style.top =
-            (e.clientY - roadWidthOffsetY) + "px";
+        roadWidthPanelEl.style.top =
+            (e.clientY - roadWidthPanelOffsetY) + "px";
 
-        roadWidthPanel.style.right = "auto";
+        roadWidthPanelEl.style.right = "auto";
+        roadWidthPanelEl.style.bottom = "auto";
     });
 
-    document.addEventListener("mouseup", function() {
+    document.addEventListener("mouseup", function(){
 
-        isRoadWidthDragging = false;
+        if (!roadWidthPanelDragging) return;
+
+        roadWidthPanelDragging = false;
+        document.body.style.userSelect = "";
 
     });
-}
+
+    // 防止滑鼠離開視窗後卡在拖曳狀態
+    document.addEventListener("mouseleave", function(){
+
+        if (!roadWidthPanelDragging) return;
+
+        roadWidthPanelDragging = false;
+        document.body.style.userSelect = "";
+
+    });
+
+})();
 /* ==========================
    坡度面板拖曳
    ========================== */
