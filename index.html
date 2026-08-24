@@ -4960,21 +4960,24 @@ async function runQuery() {
             const [finalLat, finalLon] = extractLocationFromProperties(e.tags, lat2, lon2);
 
             if (rawType === "school" || rawType === "university") {
+
     rawSchools.push({
         id: e.id,
         name: name,
 
-        // OSM 原始座標：專門用於 Polygon 空間判斷
+        // ★ OSM 原始座標
         osmLat: lat2,
         osmLon: lon2,
 
-        // 顯示 / Marker / 距離使用的座標
+        // ★ 顯示 / 距離使用座標
         lat: finalLat,
         lon: finalLon,
 
         rawType: rawType
     });
-} else {
+
+}
+            else {
                 let typeName = rawType;
                 if (rawType === "motorway_junction") typeName = "交流道";
                 
@@ -5016,23 +5019,38 @@ async function runQuery() {
         });
 
         // ✨ 修正：學校訊息也使用門牌位置
-        rawSchools.forEach(sch => {
+        // =====================================================
+// 學校 / 大專院校處理
+// =====================================================
+//
+// 重要：
+// 1. osmLat / osmLon = OSM 原始座標
+//    → 用於 Polygon 內外判斷
+//
+// 2. lat / lon = 顯示座標
+//    → Marker、距離、Excel 使用
+//
+// 3. 不再對學校座標執行第二次
+//    extractLocationFromProperties()
+// =====================================================
 
-    // =====================================================
-    // 學校座標分離
-    // osmLat / osmLon：
-    //     用於判斷是否位於分析 Polygon 內
-    //
-    // lat / lon：
-    //     用於 Marker、距離及 Excel 顯示
-    // =====================================================
+rawSchools.forEach(sch => {
 
-    const osmLat = sch.osmLat;
-    const osmLon = sch.osmLon;
+    // -------------------------------------------------
+    // OSM 原始座標
+    // -------------------------------------------------
+    const osmLat = Number(sch.osmLat);
+    const osmLon = Number(sch.osmLon);
 
-    const finalLat = sch.lat;
-    const finalLon = sch.lon;
+    // -------------------------------------------------
+    // 顯示座標
+    // -------------------------------------------------
+    const finalLat = Number(sch.lat);
+    const finalLon = Number(sch.lon);
 
+    // -------------------------------------------------
+    // Polygon 內外判斷
+    // -------------------------------------------------
     let inside = false;
 
     if (
@@ -5040,6 +5058,7 @@ async function runQuery() {
         Number.isFinite(osmLat) &&
         Number.isFinite(osmLon)
     ) {
+
         const pt = turf.point([
             osmLon,
             osmLat
@@ -5047,11 +5066,40 @@ async function runQuery() {
 
         inside = turf.booleanPointInPolygon(
             pt,
-            turfZonePolygon
+            turfZonePolygon,
+            {
+                ignoreBoundary: false
+            }
         );
+
     }
 
+    // -------------------------------------------------
+    // DEBUG
+    // -------------------------------------------------
+    console.log("🏫 SCHOOL POLYGON CHECK", {
+        name: sch.name,
+
+        osmPosition: [
+            osmLat,
+            osmLon
+        ],
+
+        displayPosition: [
+            finalLat,
+            finalLon
+        ],
+
+        inside: inside,
+
+        polygon: turfZonePolygon
+    });
+
+    // -------------------------------------------------
+    // 建立結果
+    // -------------------------------------------------
     results.push({
+
         id: results.length,
 
         名稱: sch.name || "未命名學校",
@@ -5066,15 +5114,18 @@ async function runQuery() {
             finalLon
         ],
 
-        // 保留 OSM 原始座標
+        // 保存 OSM 原始座標
         OSM座標: [
             osmLat,
             osmLon
         ],
 
-        // ★★★ 真正的 Polygon 判斷結果
+        // ★★★ Polygon 判斷結果
         在範圍內: inside,
 
+        // -------------------------------------------------
+        // 直線距離
+        // -------------------------------------------------
         距離: inside
             ? 0
             : Math.round(
@@ -5097,6 +5148,9 @@ async function runQuery() {
                 )
             ),
 
+        // -------------------------------------------------
+        // 路線距離
+        // -------------------------------------------------
         路線距離: inside
             ? "位於區段範圍內"
             : "計算中...",
@@ -5104,7 +5158,9 @@ async function runQuery() {
         路線距離數值: inside
             ? 0
             : null
+
     });
+
 });
 
         for (let item of results) {
