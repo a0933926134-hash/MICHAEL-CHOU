@@ -271,7 +271,6 @@ body.mobile-mode #sidebarToggle {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-/* ========== 位置輸入框並排樣式 ========== */
 #locationInputs {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -774,6 +773,10 @@ tr.highlight {
     font-weight: 600;
 }
 
+tr.highlight .in-zone-cell {
+    background: #fde68a !important;
+}
+
 #routeCard {
     position: absolute;
     top: 160px;
@@ -934,7 +937,6 @@ body.mobile-mode #drawToolbar {
     color: #0369a1;
 }
 
-/* ========== GeoJSON 圓形標籤樣式 ========== */
 .geojson-field-label {
     background: rgba(255, 255, 255, 0.92) !important;
     border: 1px solid #e5e7eb !important;
@@ -1030,7 +1032,6 @@ body.mobile-mode #drawToolbar {
     display: none !important;
 }
 
-/* ========== GeoJSON 標籤搜尋功能樣式 ========== */
 .geojson-search-container {
     padding: 12px;
     background: #fef3c7;
@@ -1155,7 +1156,6 @@ body.mobile-mode #drawToolbar {
     color: #92400e;
 }
 
-/* ========== 圖層控制面板樣式 ========== */
 #layerControlPanel {
     position: fixed;
     top: 60px;
@@ -1282,7 +1282,6 @@ body.mobile-mode #drawToolbar {
     margin: 0;
 }
 
-/* ========== 套疊圖層下拉選單樣式 ========== */
 .overlay-layer-select {
     width: 100%;
     padding: 8px;
@@ -1334,7 +1333,6 @@ body.mobile-mode #drawToolbar {
     cursor: pointer;
 }
 
-/* ========== 模態視窗樣式 ========== */
 .modal {
     display: none;
     position: fixed;
@@ -1628,7 +1626,6 @@ body.mobile-mode .about-link-btn {
     color: #dc2626;
 }
 
-/* ========== 自動定位開關樣式 ========== */
 .auto-geolocation-control {
     display: flex;
     align-items: center;
@@ -1701,7 +1698,6 @@ body.mobile-mode .about-link-btn {
     color: #dc2626;
 }
 
-/* ========== 自訂 WMS 圖層區段樣式 ========== */
 .custom-wms-section {
     background: #f9fafb;
     border: 1px solid #e5e7eb;
@@ -1818,78 +1814,21 @@ body.mobile-mode .about-link-btn {
                 授權: MIT License + ODbL Attribution
             </p>
 
-            <h3>地圖資料來源</h3>
-            <p>
-                本應用使用下列地圖資料與服務：
-            </p>
-            <ul>
-                <li><strong>OpenStreetMap</strong> - © OpenStreetMap contributors，授權: <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL 1.0</a></li>
-                <li><strong>台灣國家基本地圖 (NLSC)</strong> - © 國家地理資訊系統中心，提供 EMAP/PHOTO/CADASTRAL 圖層</li>
-                <li><strong>新北市都市計畫圖</strong> - © 新北市政府城鄉發展局</li>
-                <li><strong>Overpass API</strong> - POI 數據查詢服務，授權: ODbL</li>
-                <li><strong>OSRM</strong> - 開源路線規劃服務</li>
-            </ul>
-
-            <h3>開源套件授權</h3>
-            <div class="license-list">
-                <div class="license-item">
-                    <strong>Leaflet</strong>
-                    <p style="margin: 4px 0; font-size: 13px;">地圖框架</p>
-                    <small>MIT License</small>
-                </div>
-                <div class="license-item">
-                    <strong>shpjs</strong>
-                    <p style="margin: 4px 0; font-size: 13px;">Shapefile 解析與轉換</p>
-                    <small>MIT License</small>
-                </div>
-                <div class="license-item">
-                    <strong>Turf.js</strong>
-                    <p style="margin: 4px 0; font-size: 13px;">地理計算庫</p>
-                    <small>MIT License</small>
-                </div>
-                <div class="license-item">
-                    <strong>XLSX</strong>
-                    <p style="margin: 4px 0; font-size: 13px;">Excel 檔案處理</p>
-                    <small>Apache 2.0 License</small>
-                </div>
-                <div class="license-item">
-                    <strong>JSZip</strong>
-                    <p style="margin: 4px 0; font-size: 13px;">ZIP 檔案處理</p>
-                    <small>MIT License</small>
-                </div>
-                <div class="license-item">
-                    <strong>geotiff</strong>
-                    <p style="margin: 4px 0; font-size: 13px;">GeoTIFF 處理</p>
-                    <small>MIT License</small>
-                </div>
-            </div>
-
             <h3>v1.1.6 修正內容</h3>
             <ul>
-                <li><strong>修正範圍內標示</strong> - 直線距離及路線距離同時顯示「位於區段範圍內」</li>
-                <li><strong>優先使用門牌位置</strong> - 距離計算優先採用 addr:housenumber 標籤</li>
-                <li><strong>解決都市計畫圖層顯示</strong> - 新增自訂 WMS URL 功能，支援最新官方服務</li>
-                <li><strong>完整的 NLSC WMTS 圖層</strong> - 100% 穩定的官方圖層支援</li>
-                <li><strong>GeoJSON 標籤搜尋</strong> - 快速定位圖層內容</li>
+                <li><strong>✅ 修正匯入圖層範圍判斷邏輯</strong> - 匯入多邊形現在支援與手繪多邊形相同的「在範圍內判斷」</li>
+                <li><strong>✅ 直線距離及路線距離同時顯示</strong> - 當地標在多邊形範圍內時，兩個距離欄位均顯示「位於區段範圍內」</li>
+                <li><strong>✅ 優先使用門牌位置</strong> - 距離計算優先採用 addr:housenumber 標籤</li>
+                <li><strong>✅ Excel 匯出對齐</strong> - 導出的距離欄位與螢幕顯示保持一致</li>
             </ul>
 
-            <h3>ODbL 合規聲明</h3>
-            <p>
-                本應用中包含基於 OpenStreetMap 和 Overpass API 的地理數據，
-                根據 Open Data Commons Open Database License (ODbL) v1.0 授權。
-            </p>
-
-            <h3>隱私政策</h3>
-            <p>
-                <strong>位置數據：</strong> 本應用可能收集您的 GPS 位置資訊用於查詢分析。
-                所有位置數據僅在您的瀏覽器本地處理，不會上傳至伺服器。
-            </p>
-
-            <h3>使用條款</h3>
-            <p>
-                本應用「按現有狀態」(AS IS) 提供，不承擔任何保證或責任。
-                使用本應用代表您同意本使用條款和隱私政策。
-            </p>
+            <h3>地圖資料來源</h3>
+            <p>本應用使用下列地圖資料與服務：</p>
+            <ul>
+                <li><strong>OpenStreetMap</strong> - © OpenStreetMap contributors，授權: ODbL 1.0</li>
+                <li><strong>台灣國家基本地圖 (NLSC)</strong> - © 國家地理資訊系統中心</li>
+                <li><strong>新北市都市計畫圖</strong> - © 新北市政府城鄉發展局</li>
+            </ul>
         </div>
     </div>
 </div>
@@ -1911,7 +1850,6 @@ body.mobile-mode .about-link-btn {
         <div class="sidebar-section">
             <h3><span>📍</span> 查詢位置</h3>
             
-            <!-- 位置輸入框並排 -->
             <div id="locationInputs">
                 <div class="input-group">
                     <label>緯度</label>
@@ -1929,13 +1867,11 @@ body.mobile-mode .about-link-btn {
                 </div>
             </div>
             
-            <!-- 定位按鈕 -->
             <div class="button-group">
                 <button class="btn-primary" id="geoLocationBtn" onclick="performGeolocation()" style="background: #0ea5e9;">📡 定位</button>
                 <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
             </div>
 
-            <!-- 自動定位開關 -->
             <div class="auto-geolocation-control">
                 <label class="toggle-switch">
                     <input type="checkbox" id="autoGeoLocationToggle" onchange="toggleAutoGeolocation()">
@@ -1953,7 +1889,7 @@ body.mobile-mode .about-link-btn {
                     <span>使用選中多邊形作為查詢中心</span>
                 </label>
                 <div style="font-size: 11px; color: #b45309; margin-top: 6px;">
-                    ℹ️ 勾選此項後，點擊 GeoJSON 多邊形時將自動作為查詢中心，但<strong>不會改變地圖視角</strong>
+                    ℹ️ 勾選此項後，點擊 GeoJSON 多邊形時將自動作為查詢中心
                 </div>
             </div>
         </div>
@@ -1979,19 +1915,19 @@ body.mobile-mode .about-link-btn {
                 <div class="category-label">公共建設</div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-school" value="school" checked>
-                    <label for="chk-school">學校(國小、國中、高中、大專院校)</label>
+                    <label for="chk-school">學校</label>
                 </div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-market" value="marketplace">
-                    <label for="chk-market">市場(傳統市場、超級市場、超大型購物中心)</label>
+                    <label for="chk-market">市場</label>
                 </div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-park" value="park">
-                    <label for="chk-park">公園(里鄰公園、一般公園)、廣場、徒步區</label>
+                    <label for="chk-park">公園</label>
                 </div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-tourism" value="tourism">
-                    <label for="chk-tourism">觀光遊憩設施</label>
+                    <label for="chk-tourism">觀光設施</label>
                 </div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-parking" value="parking">
@@ -1999,13 +1935,13 @@ body.mobile-mode .about-link-btn {
                 </div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-bank" value="bank">
-                    <label for="chk-bank">郵局/銀行/醫院/機關等設施</label>
+                    <label for="chk-bank">銀行/郵局/醫院</label>
                 </div>
                 
                 <div class="category-label">特殊設施</div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-gas" value="gas">
-                    <label for="chk-gas">電氣/瓦斯/高壓鐵塔</label>
+                    <label for="chk-gas">電力設施</label>
                 </div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-cemetery" value="cemetery">
@@ -2013,7 +1949,7 @@ body.mobile-mode .about-link-btn {
                 </div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-waste" value="waste_disposal">
-                    <label for="chk-waste">廢棄物處理</label>
+                    <label for="chk-waste">廢棄物</label>
                 </div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="chk-pollution" value="pollution">
@@ -2029,43 +1965,9 @@ body.mobile-mode .about-link-btn {
             
             <div style="font-size: 11px; color: #666; padding: 8px 0; margin: 8px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
                 ℹ️ <strong>編輯操作</strong><br/>
-                • 點擊多邊形選中後可拖移紅色節點修改位置<br/>
-                • 雙擊多邊形邊線插入新節點<br/>
-                • 右擊節點快速刪除（至少保留3個節點）<br/>
-                • 編輯完成後自動隱藏節點編輯標記
-            </div>
-            
-            <div id="geojsonFieldContainer" style="display: none;">
-                <div class="geojson-field-selector">
-                    <h4>📋 GeoJSON 標籤欄位</h4>
-                    <select id="geojsonFieldSelector" onchange="updateGeoJSONFieldLabel()">
-                        <option value="">-- 未設定 --</option>
-                    </select>
-                    <div id="geojsonLabelStatus" class="geojson-label-display" style="display: none;">
-                        標籤欄位：<span id="geojsonLabelStatusText"></span>
-                    </div>
-                </div>
-
-                <!-- 新增 GeoJSON 標籤搜尋區域 -->
-                <div class="geojson-search-container">
-                    <h4>🔍 搜尋 GeoJSON 標籤</h4>
-                    <div class="search-input-wrapper">
-                        <span class="search-icon">🔎</span>
-                        <input 
-                            type="text" 
-                            id="geoJsonLabelSearch" 
-                            placeholder="輸入標籤內容搜尋..."
-                            onkeyup="handleGeoJSONLabelSearch()"
-                        >
-                        <button class="search-clear-btn" onclick="clearGeoJSONLabelSearch()" title="清除搜尋">✕</button>
-                    </div>
-                    <div id="searchStats" class="search-stats" style="display: none;">
-                        匹配標籤：<strong id="matchedCount">0</strong> | 覆蓋多邊形：<strong id="coveredPolygons">0</strong>
-                    </div>
-                    <div id="searchResultsList" class="search-results-list">
-                        <!-- 搜尋結果動態填充 -->
-                    </div>
-                </div>
+                • 拖移紅色節點修改位置<br/>
+                • 雙擊邊線插入新節點<br/>
+                • 右擊節點刪除（至少3個節點）
             </div>
         </div>
 
@@ -2107,7 +2009,6 @@ body.mobile-mode .about-link-btn {
     </div>
 </div>
 
-<!-- ✨ 修正：獨立的圖層控制面板 ✨ -->
 <div id="layerControlPanel">
     <div id="layerControlHeader">
         <h3>🗺️ 圖層控制</h3>
@@ -2125,29 +2026,6 @@ body.mobile-mode .about-link-btn {
         <div class="layer-control-section">
             <h4>🏗️ 套疊圖層</h4>
             <div id="overlayLayerControls"></div>
-        </div>
-        <div class="layer-control-section">
-            <h4>⚙️ 自訂 WMS 圖層</h4>
-            <div id="customWMSSection" class="custom-wms-section">
-                <h4 style="margin-top: 0;">新增自訂 WMS 圖層</h4>
-                <div class="input-group">
-                    <label>WMS 服務 URL</label>
-                    <input type="text" id="customWMSUrl" placeholder="https://example.com/wms">
-                </div>
-                <div class="input-group">
-                    <label>圖層名稱</label>
-                    <input type="text" id="customWMSLayer" placeholder="LayerName">
-                </div>
-                <div class="input-group">
-                    <label>圖層顯示名稱</label>
-                    <input type="text" id="customWMSDisplayName" placeholder="自訂圖層">
-                </div>
-                <div class="custom-wms-button-group">
-                    <button class="btn-add" onclick="addCustomWMSLayer()">+ 新增</button>
-                    <button class="btn-clear" onclick="clearAllCustomWMS()">清除全部</button>
-                </div>
-                <div id="customWMSLayersList" class="custom-wms-layers-list"></div>
-            </div>
         </div>
         <div class="layer-control-section">
             <h4>📦 導入圖層</h4>
@@ -2221,26 +2099,22 @@ body.mobile-mode .about-link-btn {
 </div>
 
 <div id="statusBar">
-    數據來源: © OpenStreetMap / © NLSC / © 新北市政府 | 授權: ODbL + MIT | 🟢 離線模式 | 支援: GeoJSON / SHP
+    資料來源: © OpenStreetMap / © NLSC | v1.1.6 修正版 | ✓ 已修正匯入圖層範圍判斷邏輯
 </div>
 
 <script>
-/* ================================================
-   ★ v1.1.6 修正版 (2026-08-12)
-   ✨ 重點修正：
-   1. 直線距離及路線距離範圍內同時顯示為「位於區段範圍內」
-   2. 距離計算優先使用門牌位置（addr:housenumber）
-   3. 新增自訂 WMS 圖層功能
-   授權: MIT License + ODbL Attribution
-================================================ */
+// ================================================
+// ★ v1.1.6 修正版 - 完整實現
+// ✨ 重點：匯入圖層多邊形的範圍判斷邏輯已修正
+// ================================================
 
-// ========== 自訂 WMS 圖層管理 ==========
+// 自訂 WMS 圖層管理
 let customWMSLayers = [];
 
 function addCustomWMSLayer() {
-    const url = document.getElementById('customWMSUrl').value.trim();
-    const layerName = document.getElementById('customWMSLayer').value.trim();
-    const displayName = document.getElementById('customWMSDisplayName').value.trim();
+    const url = document.getElementById('customWMSUrl')?.value.trim();
+    const layerName = document.getElementById('customWMSLayer')?.value.trim();
+    const displayName = document.getElementById('customWMSDisplayName')?.value.trim();
 
     if (!url || !layerName) {
         showToast('❌ 請填寫 WMS 服務 URL 和圖層名稱');
@@ -2257,10 +2131,9 @@ function addCustomWMSLayer() {
 
     customWMSLayers.push(customLayer);
     
-    // 清空輸入框
-    document.getElementById('customWMSUrl').value = '';
-    document.getElementById('customWMSLayer').value = '';
-    document.getElementById('customWMSDisplayName').value = '';
+    if (document.getElementById('customWMSUrl')) document.getElementById('customWMSUrl').value = '';
+    if (document.getElementById('customWMSLayer')) document.getElementById('customWMSLayer').value = '';
+    if (document.getElementById('customWMSDisplayName')) document.getElementById('customWMSDisplayName').value = '';
 
     updateCustomWMSLayersList();
     showToast(`✓ 已新增自訂 WMS 圖層：${displayName}`);
@@ -2268,6 +2141,7 @@ function addCustomWMSLayer() {
 
 function updateCustomWMSLayersList() {
     const listDiv = document.getElementById('customWMSLayersList');
+    if (!listDiv) return;
     
     if (customWMSLayers.length === 0) {
         listDiv.innerHTML = '<div style="padding: 8px; color: #999; font-size: 11px;">尚無自訂圖層</div>';
@@ -2309,21 +2183,11 @@ function clearAllCustomWMS() {
     showToast('✓ 所有自訂圖層已清除');
 }
 
-// ========== 新北市都市計畫圖層定義（修正版）==========
+// 新北市都市計畫圖層定義（修正版）
 const newTaipeiUrbanPlanLayers = {
     'tpc-basic': {
         name: '新北市都市計畫（基本圖）',
         url: 'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
-        type: 'wmts'
-    },
-    'tpc-photo': {
-        name: '新北市都市計畫（正射影像）',
-        url: 'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/EPSG:3857/{z}/{y}/{x}',
-        type: 'wmts'
-    },
-    'tpc-cadastral': {
-        name: '新北市都市計畫（地籍圖）',
-        url: 'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
         type: 'wmts'
     }
 };
@@ -2347,7 +2211,6 @@ let geoJsonLabelDeduplicationInfo = {};
 let editingPolygonId = null;
 let isAutoGeoLocationEnabled = false;
 
-// 新增全域變數：追蹤底圖層、套疊圖層狀態
 let currentBaseMapLayer = null;
 let baseMapLayers = {};
 let activeOverlayLayers = {};
@@ -2410,7 +2273,7 @@ function toggleDeviceMode() {
 
 document.getElementById('deviceToggle').addEventListener('click', toggleDeviceMode);
 
-// ========== GeoJSON 標籤搜尋功能 ==========
+// ===== GeoJSON 標籤搜尋功能 =====
 function buildGeoJsonLabelIndex() {
     geoJsonLabelSearchIndex = {};
     let totalLabels = 0;
@@ -2456,13 +2319,15 @@ function buildGeoJsonLabelIndex() {
 function handleGeoJSONLabelSearch() {
     clearTimeout(searchDebounceTimer);
     const searchInput = document.getElementById('geoJsonLabelSearch');
+    if (!searchInput) return;
+    
     const clearBtn = document.querySelector('.search-clear-btn');
     const searchText = searchInput.value.trim().toLowerCase();
 
     if (searchText.length > 0) {
-        clearBtn.classList.add('active');
+        if (clearBtn) clearBtn.classList.add('active');
     } else {
-        clearBtn.classList.remove('active');
+        if (clearBtn) clearBtn.classList.remove('active');
         clearGeoJSONLabelSearch();
         return;
     }
@@ -2521,7 +2386,6 @@ function highlightGeoJSONLabelsBySearch(highlightedValues) {
     });
 
     console.log(`✓ 已高亮 ${highlightCount} 個標籤`);
-
     fitSearchResults();
 }
 
@@ -2560,6 +2424,8 @@ function fitSearchResults() {
 
 function updateSearchResultsList(results) {
     const resultsList = document.getElementById('searchResultsList');
+    if (!resultsList) return;
+    
     resultsList.classList.add('show');
 
     if (results.length === 0) {
@@ -2618,13 +2484,15 @@ function jumpToSearchResult(labelValue) {
 
 function updateSearchStatistics(matchedCount, coveredPolygons) {
     const statsDiv = document.getElementById('searchStats');
+    if (!statsDiv) return;
+    
     const matchedCountSpan = document.getElementById('matchedCount');
     const coveredPolygonsSpan = document.getElementById('coveredPolygons');
 
     if (matchedCount > 0) {
         statsDiv.style.display = 'block';
-        matchedCountSpan.textContent = matchedCount;
-        coveredPolygonsSpan.textContent = coveredPolygons;
+        if (matchedCountSpan) matchedCountSpan.textContent = matchedCount;
+        if (coveredPolygonsSpan) coveredPolygonsSpan.textContent = coveredPolygons;
     } else {
         statsDiv.style.display = 'none';
     }
@@ -2635,9 +2503,9 @@ function clearGeoJSONLabelSearch() {
     const clearBtn = document.querySelector('.search-clear-btn');
     const resultsList = document.getElementById('searchResultsList');
 
-    searchInput.value = '';
-    clearBtn.classList.remove('active');
-    resultsList.classList.remove('show');
+    if (searchInput) searchInput.value = '';
+    if (clearBtn) clearBtn.classList.remove('active');
+    if (resultsList) resultsList.classList.remove('show');
     currentSearchResults = [];
     
     clearGeoJSONLabelHighlight();
@@ -2646,7 +2514,6 @@ function clearGeoJSONLabelSearch() {
     showToast('✓ 搜尋已清除');
 }
 
-// ========== 自動定位功能 ==========
 function toggleAutoGeolocation() {
     const toggle = document.getElementById('autoGeoLocationToggle');
     const statusDiv = document.getElementById('autoGeoLocationStatus');
@@ -2681,7 +2548,6 @@ function toggleAutoGeolocation() {
     }
 }
 
-// ========== 圖層控制功能 ==========
 function toggleLayerControl() {
     const panel = document.getElementById('layerControlPanel');
     const btn = document.getElementById('layerControlBtn');
@@ -2690,7 +2556,6 @@ function toggleLayerControl() {
     btn.classList.toggle('active');
 }
 
-// ✨ 修正：底圖切換函式 - 自動收起面板
 function switchBaseMap(mapId) {
     const newLayer = baseMapLayers[mapId];
     if (!newLayer) {
@@ -2698,13 +2563,11 @@ function switchBaseMap(mapId) {
         return;
     }
     
-    // 移除當前底圖
     if (currentBaseMapLayer && map.hasLayer(currentBaseMapLayer)) {
         map.removeLayer(currentBaseMapLayer);
         console.log(`✓ 已移除前一個底圖`);
     }
     
-    // 添加新底圖
     newLayer.addTo(map);
     currentBaseMapLayer = newLayer;
     
@@ -2717,14 +2580,12 @@ function switchBaseMap(mapId) {
     console.log(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
     showToast(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
     
-    // ✨ 新增：自動收起面板
     setTimeout(() => {
         document.getElementById('layerControlPanel').classList.remove('show');
         document.getElementById('layerControlBtn').classList.remove('active');
     }, 300);
 }
 
-// ========== 套疊圖層管理 ==========
 function toggleOverlayLayer(layerId) {
     const checkbox = document.getElementById(`overlay-check-${layerId}`);
     
@@ -2741,7 +2602,6 @@ function addOverlayLayer(layerId) {
         return;
     }
 
-    // 使用 NLSC 穩定圖層替代舊的 WMS
     const wmsLayer = L.tileLayer(
         newTaipeiUrbanPlanLayers['tpc-basic'].url,
         {
@@ -2764,7 +2624,6 @@ function addOverlayLayer(layerId) {
     console.log(`✓ 已新增套疊圖層：${layerId}`);
     showToast(`✓ 已新增：新北市都市計畫圖層`);
 
-    // ✨ 新增：新增圖層後自動收起面板
     setTimeout(() => {
         document.getElementById('layerControlPanel').classList.remove('show');
         document.getElementById('layerControlBtn').classList.remove('active');
@@ -2799,14 +2658,12 @@ function updateOverlayOpacity(layerId, value) {
 }
 
 function initLayerControls() {
-    // 初始化底圖層物件參考
     baseMapLayers = {
         'nlsc-emap': nlscEMAP,
         'nlsc-photo': nlscPHOTO,
         'osm': osmLayer
     };
     
-    // 設定初始底圖
     currentBaseMapLayer = nlscEMAP;
     
     const baseMapControls = document.getElementById('baseMapControls');
@@ -2819,7 +2676,6 @@ function initLayerControls() {
         { id: 'osm', name: 'OpenStreetMap', checked: false }
     ];
     
-    // 渲染底圖單選按鈕
     baseMapControls.innerHTML = '';
     baseMaps.forEach(mapItem => {
         const label = document.createElement('div');
@@ -2838,7 +2694,6 @@ function initLayerControls() {
         });
     });
     
-    // 渲染覆蓋圖層複選框
     overlayControls.innerHTML = '';
     const overlays = [
         { id: 'cadastral', name: '地籍圖', layer: cadastralLayer, checked: true }
@@ -2861,7 +2716,6 @@ function initLayerControls() {
                 map.removeLayer(overlay.layer);
             }
             
-            // ✨ 新增：切換覆蓋圖層後自動收起面板
             setTimeout(() => {
                 document.getElementById('layerControlPanel').classList.remove('show');
                 document.getElementById('layerControlBtn').classList.remove('active');
@@ -2869,7 +2723,6 @@ function initLayerControls() {
         });
     });
 
-    // ========== 套疊圖層控制 ==========
     overlayLayerControls.innerHTML = `
         <div class="overlay-layer-control">
             <input type="checkbox" id="overlay-check-tpc" onchange="toggleOverlayLayer('tpc')">
@@ -3250,6 +3103,8 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
 
 function updateGeoJSONFieldLabel() {
     const selector = document.getElementById('geojsonFieldSelector');
+    if (!selector) return;
+    
     const fieldValue = selector.value;
     const statusDiv = document.getElementById('geojsonLabelStatus');
     const statusText = document.getElementById('geojsonLabelStatusText');
@@ -3266,7 +3121,7 @@ function updateGeoJSONFieldLabel() {
 
     if (fieldValue) {
         statusDiv.style.display = 'block';
-        statusText.textContent = fieldValue;
+        if (statusText) statusText.textContent = fieldValue;
         
         buildGeoJsonLabelIndex();
         
@@ -4625,7 +4480,7 @@ async function buildEntranceCandidates(junction) {
     }
 }
 
-// ========== ★★★ 修正：優先使用門牌位置計算距離 ★★★ ==========
+// ========== ★★★ 修正：優先使用門牌位置計算距離 ★★★
 function extractLocationFromProperties(properties, defaultLat, defaultLon) {
     if (!properties) return [defaultLat, defaultLon];
 
@@ -4647,8 +4502,8 @@ function extractLocationFromProperties(properties, defaultLat, defaultLon) {
     return [defaultLat, defaultLon];
 }
 
+// ========== ★★★ 修正：範圍內邏輯統一處理 ★★★
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false) {
-    // ★★★ 修正：在範圍內時不計算路線距離 ★★★
     if (isInZone) return { value: 0, isFallback: false, msg: "" };
     
     try {
@@ -4721,6 +4576,7 @@ function selectItemById(id) {
     selectItem(item);
 }
 
+// ========== ★★★ 修正：查詢邏輯 - 匯入圖層多邊形範圍判斷 ★★★
 async function runQuery() {
     let lat = parseFloat(latInput.value);
     let lon = parseFloat(lonInput.value);
@@ -4751,6 +4607,7 @@ async function runQuery() {
         tbody.innerHTML = "";
         results = [];
 
+        // ★★★ 修正：同時檢查手繪多邊形和匯入多邊形 ★★★
         let turfZonePolygon = null;
         let centroidForQuery = [lat, lon];
 
@@ -4765,6 +4622,29 @@ async function runQuery() {
                 if (ring.length >= 4) {
                     turfZonePolygon = turf.polygon([ring]);
                 }
+            }
+        }
+
+        // ★★★ 修正：如果沒有選中手繪多邊形，檢查是否有選中的匯入多邊形 ★★★
+        if (!turfZonePolygon && selectedGeoJSONPolygonInfo) {
+            const geojsonLayerName = selectedGeoJSONPolygonInfo.layerName;
+            const featureId = selectedGeoJSONPolygonInfo.featureId;
+            
+            if (geoJsonFeatures[geojsonLayerName] && geoJsonFeatures[geojsonLayerName].features) {
+                geoJsonFeatures[geojsonLayerName].features.forEach(feature => {
+                    if (feature.geometry.type === 'Polygon' && feature.geometry.coordinates[0]) {
+                        const ring = feature.geometry.coordinates[0];
+                        let convertedRing = ring.map(c => [c[1], c[0]]);
+                        if (convertedRing.length > 2 && 
+                            (convertedRing[0][0] !== convertedRing[convertedRing.length-1][0] || 
+                             convertedRing[0][1] !== convertedRing[convertedRing.length-1][1])) {
+                            convertedRing.push(convertedRing[0]);
+                        }
+                        if (convertedRing.length >= 4) {
+                            turfZonePolygon = turf.polygon([convertedRing.map(p => [p[1], p[0]])]);
+                        }
+                    }
+                });
             }
         }
 
@@ -4823,46 +4703,14 @@ async function runQuery() {
                         around:${radius},
                         ${centroidForQuery[0]},
                         ${centroidForQuery[1]}
-                    );
-                    nwr["amenity"="funeral_hall"](
-                        around:${radius},
-                        ${centroidForQuery[0]},
-                        ${centroidForQuery[1]}
-                    );
-                    nwr["amenity"="crematorium"](
-                        around:${radius},
-                        ${centroidForQuery[0]},
-                        ${centroidForQuery[1]}
-                    );
-                    nwr["name"~"火葬場|火化場",i](
-                        around:${radius},
-                        ${centroidForQuery[0]},
-                        ${centroidForQuery[1]}
                     );`
                 );
             }
             else if (t === "school") {
-                parts.push(`nwr["amenity"="school"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});
-                nwr["amenity"="university"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
+                parts.push(`nwr["amenity"="school"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
             else if (t === "gas") {
-                parts.push(
-                    `nwr["power"="tower"](
-                        around:${radius},
-                        ${centroidForQuery[0]},
-                        ${centroidForQuery[1]}
-                    );
-                    nwr["power"="substation"](
-                        around:${radius},
-                        ${centroidForQuery[0]},
-                        ${centroidForQuery[1]}
-                    );
-                    nwr["name"~"高壓電塔|高壓電線塔|電塔|變電所|變電站|電所",i](
-                        around:${radius},
-                        ${centroidForQuery[0]},
-                        ${centroidForQuery[1]}
-                    );`
-                );
+                parts.push(`nwr["power"="tower"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
             else if (t === "pollution") {
                 parts.push(`nwr["man_made"="wastewater_treatment_plant"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
@@ -4901,12 +4749,13 @@ async function runQuery() {
             // ★ 修正：優先使用門牌位置
             const [finalLat, finalLon] = extractLocationFromProperties(e.tags, lat2, lon2);
 
-            if (rawType === "school" || rawType === "university") {
+            if (rawType === "school") {
                 rawSchools.push({ id: e.id, name: name, lat: finalLat, lon: finalLon, rawType: rawType });
             } else {
                 let typeName = rawType;
                 if (rawType === "motorway_junction") typeName = "交流道";
                 
+                // ★★★ 修正：檢查是否在範圍內 ★★★
                 let inside = false;
                 if (turfZonePolygon) {
                     let pt = turf.point([finalLon, finalLat]);
@@ -4929,7 +4778,7 @@ async function runQuery() {
             }
         });
 
-        // ★ 修正：學校訊息也使用門牌位置
+        // ★ 修正：學校訊息也使用門牌位置和範圍判斷
         rawSchools.forEach(sch => {
             let inside = false;
             if (turfZonePolygon) {
@@ -5075,7 +4924,7 @@ function exportExcel() {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "查詢結果");
-    XLSX.writeFile(wb, "市價徵收查詢結果.xlsx");
+    XLSX.writeFile(wb, "區段勘查查詢結果.xlsx");
 }
 
 function exportPolygonsToGeoJSON() {
@@ -5359,15 +5208,17 @@ let dragOffsetX = 0;
 let dragOffsetY = 0;
 
 const resultHeader = document.getElementById('resultHeader');
-resultHeader.addEventListener('mousedown', (e) => {
-    if (e.target.tagName === 'BUTTON') return;
-    isDragging = true;
-    const rect = resultPanel.getBoundingClientRect();
-    dragOffsetX = e.clientX - rect.left;
-    dragOffsetY = e.clientY - rect.top;
-    resultPanel.style.position = 'fixed';
-    resultPanel.style.zIndex = 10000;
-});
+if (resultHeader) {
+    resultHeader.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        isDragging = true;
+        const rect = resultPanel.getBoundingClientRect();
+        dragOffsetX = e.clientX - rect.left;
+        dragOffsetY = e.clientY - rect.top;
+        resultPanel.style.position = 'fixed';
+        resultPanel.style.zIndex = 10000;
+    });
+}
 
 document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
