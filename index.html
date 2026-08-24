@@ -4673,12 +4673,31 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
 }
 
 async function drawRoute(to, item) {
+
+    console.log("========== DRAW ROUTE DEBUG ==========");
+    console.log("名稱：", item?.名稱);
+    console.log("類型：", item?.類型);
+    console.log("座標：", item?.座標);
+    console.log("在範圍內：", item?.在範圍內);
+    console.log("在範圍內 typeof：", typeof item?.在範圍內);
+    console.log("距離：", item?.距離);
+    console.log("直線距離顯示：", item?.直線距離顯示);
+    console.log("路線距離：", item?.路線距離);
+    console.log("======================================");
+
     try {
+
         if (!origin) return;
+
         if (item.在範圍內) {
+
             routeInfo.innerText = "位於區段範圍內";
+
             routeCard.classList.remove('hidden');
-            if (routeLayer) map.removeLayer(routeLayer);
+
+            if (routeLayer)
+                map.removeLayer(routeLayer);
+
             return;
         }
 
