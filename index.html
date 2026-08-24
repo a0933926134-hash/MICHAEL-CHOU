@@ -4981,42 +4981,22 @@ async function runQuery() {
                 let typeName = rawType;
                 if (rawType === "motorway_junction") typeName = "交流道";
                 
-                let inside = false;
-                if (turfZonePolygon) {
-                    let pt = turf.point([finalLon, finalLat]);
-                    inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
-                }
+                // ★ 判斷地標是否在多邊形範圍內
+let inside = false;
+if (turfZonePolygon) {
+    let pt = turf.point([finalLon, finalLat]);
+    inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
+}
 
-                results.push({
-                    id: results.length,
-                    名稱: name || typeName,
-                    類型: typeName,
-                    原始類型: rawType,
-                    座標: [finalLat, finalLon],
-                    在範圍內: inside,
-                    距離: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                    直線距離顯示: inside
-    ? "位於區段範圍內"
-    : Math.round(
-        haversine(
-            centroidForQuery[0],
-            centroidForQuery[1],
-            finalLat,
-            finalLon
-        )
-    ),
+// ★ 若在範圍內，直線距離和路線距離均設為 0 或「位於區段範圍內」
+results.push({
+    在範圍內: inside,
+    距離: inside ? 0 : Math.round(...),
+    直線距離顯示: inside ? "位於區段範圍內" : Math.round(...),
+    路線距離: inside ? "位於區段範圍內" : "計算中...",
+    路線距離數值: inside ? 0 : null
+});
 
-路線距離: inside
-    ? "位於區段範圍內"
-    : "計算中...",
-
-路線距離數值: inside
-    ? 0
-    : null,
-                    路線距離數值: inside ? 0 : null
-                });
-            }
-        });
 
         // ✨ 修正：學校訊息也使用門牌位置
         // =====================================================
