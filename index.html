@@ -4941,8 +4941,21 @@ async function runQuery() {
             const [finalLat, finalLon] = extractLocationFromProperties(e.tags, lat2, lon2);
 
             if (rawType === "school" || rawType === "university") {
-                rawSchools.push({ id: e.id, name: name, lat: finalLat, lon: finalLon, rawType: rawType });
-            } else {
+    rawSchools.push({
+        id: e.id,
+        name: name,
+
+        // OSM 原始座標：專門用於 Polygon 空間判斷
+        osmLat: lat2,
+        osmLon: lon2,
+
+        // 顯示 / Marker / 距離使用的座標
+        lat: finalLat,
+        lon: finalLon,
+
+        rawType: rawType
+    });
+} else {
                 let typeName = rawType;
                 if (rawType === "motorway_junction") typeName = "交流道";
                 
@@ -4960,36 +4973,120 @@ async function runQuery() {
                     座標: [finalLat, finalLon],
                     在範圍內: inside,
                     距離: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                    直線距離顯示: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                    路線距離: inside ? 0 : "計算中...",
+                    直線距離顯示: inside
+    ? "位於區段範圍內"
+    : Math.round(
+        haversine(
+            centroidForQuery[0],
+            centroidForQuery[1],
+            finalLat,
+            finalLon
+        )
+    ),
+
+路線距離: inside
+    ? "位於區段範圍內"
+    : "計算中...",
+
+路線距離數值: inside
+    ? 0
+    : null,
                     路線距離數值: inside ? 0 : null
                 });
             }
         });
 
-        // ✨ 修正：学校信息也使用門牌位置
+        // ✨ 修正：學校訊息也使用門牌位置
         rawSchools.forEach(sch => {
-            const [finalLat, finalLon] = extractLocationFromProperties(sch, sch.lat, sch.lon);
 
-            let inside = false;
-            if (turfZonePolygon) {
-                let pt = turf.point([finalLon, finalLat]);
-                inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
-            }
+    // =====================================================
+    // 學校座標分離
+    // osmLat / osmLon：
+    //     用於判斷是否位於分析 Polygon 內
+    //
+    // lat / lon：
+    //     用於 Marker、距離及 Excel 顯示
+    // =====================================================
 
-            results.push({
-                id: results.length,
-                名稱: sch.name || "未命名學校",
-                類型: "學校",
-                原始類型: sch.rawType,
-                座標: [finalLat, finalLon],
-                在範圍內: inside,
-                距離: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                直線距離顯示: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                路線距離: inside ? 0 : "計算中...",
-                路線距離數值: inside ? 0 : null
-            });
-        });
+    const osmLat = sch.osmLat;
+    const osmLon = sch.osmLon;
+
+    const finalLat = sch.lat;
+    const finalLon = sch.lon;
+
+    let inside = false;
+
+    if (
+        turfZonePolygon &&
+        Number.isFinite(osmLat) &&
+        Number.isFinite(osmLon)
+    ) {
+        const pt = turf.point([
+            osmLon,
+            osmLat
+        ]);
+
+        inside = turf.booleanPointInPolygon(
+            pt,
+            turfZonePolygon
+        );
+    }
+
+    results.push({
+        id: results.length,
+
+        名稱: sch.name || "未命名學校",
+
+        類型: "學校",
+
+        原始類型: sch.rawType,
+
+        // 顯示座標
+        座標: [
+            finalLat,
+            finalLon
+        ],
+
+        // 保留 OSM 原始座標
+        OSM座標: [
+            osmLat,
+            osmLon
+        ],
+
+        // ★★★ 真正的 Polygon 判斷結果
+        在範圍內: inside,
+
+        距離: inside
+            ? 0
+            : Math.round(
+                haversine(
+                    centroidForQuery[0],
+                    centroidForQuery[1],
+                    finalLat,
+                    finalLon
+                )
+            ),
+
+        直線距離顯示: inside
+            ? "位於區段範圍內"
+            : Math.round(
+                haversine(
+                    centroidForQuery[0],
+                    centroidForQuery[1],
+                    finalLat,
+                    finalLon
+                )
+            ),
+
+        路線距離: inside
+            ? "位於區段範圍內"
+            : "計算中...",
+
+        路線距離數值: inside
+            ? 0
+            : null
+    });
+});
 
         for (let item of results) {
             if (item.原始類型 === "motorway_junction") {
@@ -5067,44 +5164,95 @@ function sortResults(type) {
 // ✨ 修正：直線距離及路線距離欄位同時顯示「位於區段範圍內」
 function renderTable() {
     tbody.innerHTML = "";
+
     results.forEach(item => {
+
         const tr = document.createElement("tr");
+
         tr.dataset.id = item.id;
+
         tr.onclick = () => selectItemById(item.id);
-        
-        // ✨ 修正：範圍內同時處理直線距離和路線距離
-        let distanceDisplay = item.在範圍內 ? '位於區段範圍內' : item.直線距離顯示;
-        let routeDisplay = item.在範圍內 ? '位於區段範圍內' : (item.路線距離 || '');
-        
-        const distanceCellClass = item.在範圍內 ? ' class="in-zone-cell"' : '';
-        const routeCellClass = item.在範圍內 ? ' class="in-zone-cell"' : '';
-        
+
+        const isInside = item.在範圍內 === true;
+
+        const distanceDisplay = isInside
+            ? "位於區段範圍內"
+            : (item.直線距離顯示 ?? "");
+
+        const routeDisplay = isInside
+            ? "位於區段範圍內"
+            : (item.路線距離 ?? "");
+
+        const distanceCellClass =
+            isInside ? ' class="in-zone-cell"' : '';
+
+        const routeCellClass =
+            isInside ? ' class="in-zone-cell"' : '';
+
         tr.innerHTML = `
             <td>${escapeHtml(item.名稱)}</td>
             <td>${escapeHtml(item.類型)}</td>
-            <td${distanceCellClass}>${distanceDisplay}</td>
-            <td${routeCellClass} id="route-${item.id}">${routeDisplay}</td>
+
+            <td${distanceCellClass}>
+                ${distanceDisplay}
+            </td>
+
+            <td${routeCellClass} id="route-${item.id}">
+                ${routeDisplay}
+            </td>
         `;
+
         tbody.appendChild(tr);
     });
 }
 
 function exportExcel() {
-    if (!results.length) { alert("無資料"); return; }
-    
-    const exportData = results.map(r => ({
-        名稱: r.名稱,
-        類型: r.類型,
-        直線距離: r.在範圍內 ? "位於區段範圍內" : r.直線距離顯示,
-        路線距離: r.在範圍內 ? "位於區段範圍內" : (r.路線距離 || ""), 緯度:r.座標[0], 經度:r.座標[1]
-    }));
-    
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "查詢結果");
-    XLSX.writeFile(wb, "市價徵收查詢結果.xlsx");
-}
 
+    if (!results.length) {
+        alert("無資料");
+        return;
+    }
+
+    const exportData = results.map(r => {
+
+        const isInside = r.在範圍內 === true;
+
+        return {
+            名稱: r.名稱,
+
+            類型: r.類型,
+
+            直線距離: isInside
+                ? "位於區段範圍內"
+                : (r.直線距離顯示 ?? ""),
+
+            路線距離: isInside
+                ? "位於區段範圍內"
+                : (r.路線距離 ?? ""),
+
+            緯度: r.座標?.[0] ?? "",
+
+            經度: r.座標?.[1] ?? ""
+        };
+    });
+
+    const ws =
+        XLSX.utils.json_to_sheet(exportData);
+
+    const wb =
+        XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        ws,
+        "查詢結果"
+    );
+
+    XLSX.writeFile(
+        wb,
+        "市價徵收查詢結果.xlsx"
+    );
+}
 function exportPolygonsToGeoJSON() {
     if (polygons.length === 0) {
         showToast('❌ 沒有多邊形可匯出');
