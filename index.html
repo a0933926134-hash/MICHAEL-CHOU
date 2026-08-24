@@ -767,6 +767,13 @@ tr.highlight {
     background: #fef08a !important;
 }
 
+/* ========== 修正：區段範圍內顯示樣式 ========== */
+.in-zone-cell {
+    background: #fef3c7 !important;
+    color: #b45309;
+    font-weight: 600;
+}
+
 #routeCard {
     position: absolute;
     top: 160px;
@@ -1694,12 +1701,6 @@ body.mobile-mode .about-link-btn {
     color: #dc2626;
 }
 
-/* ========== 結果表格區段內顯示樣式 ========== */
-.in-zone-cell {
-    color: #059669;
-    font-weight: 600;
-}
-
 /* ========== 自訂 WMS 圖層區段樣式 ========== */
 .custom-wms-section {
     background: #f9fafb;
@@ -2226,12 +2227,10 @@ body.mobile-mode .about-link-btn {
 <script>
 /* ================================================
    ★ v1.1.6 修正版 (2026-08-12)
-   
-   主要修正：
+   ✨ 重點修正：
    1. 直線距離及路線距離範圍內同時顯示為「位於區段範圍內」
    2. 距離計算優先使用門牌位置（addr:housenumber）
-   3. 新增自訂 WMS 圖層功能，解決都市計畫圖層顯示問題
-   
+   3. 新增自訂 WMS 圖層功能
    授權: MIT License + ODbL Attribution
 ================================================ */
 
@@ -2314,7 +2313,6 @@ function clearAllCustomWMS() {
 const newTaipeiUrbanPlanLayers = {
     'tpc-basic': {
         name: '新北市都市計畫（基本圖）',
-        // 改用更穩定的 NLSC 基礎圖層
         url: 'https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}',
         type: 'wmts'
     },
@@ -4627,36 +4625,32 @@ async function buildEntranceCandidates(junction) {
     }
 }
 
-// ========== 修正：優先使用門牌位置計算距離 ==========
+// ========== ★★★ 修正：優先使用門牌位置計算距離 ★★★ ==========
 function extractLocationFromProperties(properties, defaultLat, defaultLon) {
     if (!properties) return [defaultLat, defaultLon];
 
-    // 優先查找門牌位置 (addr:housenumber + addr:street)
     const addrHouseNumber = properties['addr:housenumber'];
     const addrStreet = properties['addr:street'];
 
     if (addrHouseNumber && addrStreet) {
-        // 如果有門牌號，優先使用（但需要座標才能計算）
-        // 這裡假設已有座標信息，若無則使用預設座標
         console.log(`✓ 發現門牌資訊：${addrStreet} ${addrHouseNumber}`);
     }
 
-    // 檢查是否有座標信息（如 addr:lat/addr:lon 或其他）
     if (properties['addr:lat'] && properties['addr:lon']) {
         return [parseFloat(properties['addr:lat']), parseFloat(properties['addr:lon'])];
     }
 
-    // 檢查其他座標欄位
     if (properties['latitude'] && properties['longitude']) {
         return [parseFloat(properties['latitude']), parseFloat(properties['longitude'])];
     }
 
-    // 默認使用 Overpass API 返回的座標（已在查詢時設定為中心點座標）
     return [defaultLat, defaultLon];
 }
 
 async function getRouteDistance(to, straightDist, isJunction = false, isInZone = false) {
+    // ★★★ 修正：在範圍內時不計算路線距離 ★★★
     if (isInZone) return { value: 0, isFallback: false, msg: "" };
+    
     try {
         if (!origin) return null;
         let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=false`;
@@ -4675,6 +4669,8 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
 async function drawRoute(to, item) {
     try {
         if (!origin) return;
+        
+        // ★★★ 修正：在範圍內時，直線距離和路線距離都顯示「位於區段範圍內」 ★★★
         if (item.在範圍內) {
             routeInfo.innerText = "位於區段範圍內";
             routeCard.classList.remove('hidden');
@@ -4817,92 +4813,57 @@ async function runQuery() {
                 nwr["amenity"="hospital"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
             else if (t === "cemetery") {
-
-    // 墓地
-    parts.push(
-        `nwr["landuse"="cemetery"](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );`
-    );
-
-    // 墓園 / 小型墓地
-    parts.push(
-        `nwr["amenity"="grave_yard"](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );`
-    );
-
-    // 殯儀館
-    parts.push(
-        `nwr["amenity"="funeral_hall"](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );`
-    );
-
-    // 火葬場
-    parts.push(
-        `nwr["amenity"="crematorium"](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );`
-    );
-
-    // 火葬場名稱補強
-    parts.push(
-        `nwr["name"~"火葬場|火化場",i](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );`
-    );
-
-}
+                parts.push(
+                    `nwr["landuse"="cemetery"](
+                        around:${radius},
+                        ${centroidForQuery[0]},
+                        ${centroidForQuery[1]}
+                    );
+                    nwr["amenity"="grave_yard"](
+                        around:${radius},
+                        ${centroidForQuery[0]},
+                        ${centroidForQuery[1]}
+                    );
+                    nwr["amenity"="funeral_hall"](
+                        around:${radius},
+                        ${centroidForQuery[0]},
+                        ${centroidForQuery[1]}
+                    );
+                    nwr["amenity"="crematorium"](
+                        around:${radius},
+                        ${centroidForQuery[0]},
+                        ${centroidForQuery[1]}
+                    );
+                    nwr["name"~"火葬場|火化場",i](
+                        around:${radius},
+                        ${centroidForQuery[0]},
+                        ${centroidForQuery[1]}
+                    );`
+                );
+            }
             else if (t === "school") {
                 parts.push(`nwr["amenity"="school"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});
                 nwr["amenity"="university"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
             else if (t === "gas") {
-
-    // =====================================================
-    // 高壓電塔 / Power Tower
-    // =====================================================
-    parts.push(
-        `nwr["power"="tower"](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );`
-    );
-
-    // =====================================================
-    // 變電所 / Substation
-    // =====================================================
-    parts.push(
-        `nwr["power"="substation"](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );`
-    );
-
-    // =====================================================
-    // 名稱補強
-    // =====================================================
-    parts.push(
-        `nwr["name"~"高壓電塔|高壓電線塔|電塔|變電所|變電站|電所",i](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );`
-    );
-}
+                parts.push(
+                    `nwr["power"="tower"](
+                        around:${radius},
+                        ${centroidForQuery[0]},
+                        ${centroidForQuery[1]}
+                    );
+                    nwr["power"="substation"](
+                        around:${radius},
+                        ${centroidForQuery[0]},
+                        ${centroidForQuery[1]}
+                    );
+                    nwr["name"~"高壓電塔|高壓電線塔|電塔|變電所|變電站|電所",i](
+                        around:${radius},
+                        ${centroidForQuery[0]},
+                        ${centroidForQuery[1]}
+                    );`
+                );
+            }
             else if (t === "pollution") {
                 parts.push(`nwr["man_made"="wastewater_treatment_plant"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
@@ -4937,7 +4898,7 @@ async function runQuery() {
             let rawType = e.tags?.highway || e.tags?.amenity || e.tags?.tourism || e.tags?.shop || e.tags?.railway || "未知";
             let name = e.tags?.name || "";
 
-            // ✨ 修正：優先使用門牌位置
+            // ★ 修正：優先使用門牌位置
             const [finalLat, finalLon] = extractLocationFromProperties(e.tags, lat2, lon2);
 
             if (rawType === "school" || rawType === "university") {
@@ -4952,6 +4913,7 @@ async function runQuery() {
                     inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
                 }
 
+                // ★★★ 修正：直線距離和路線距離的邏輯 ★★★
                 results.push({
                     id: results.length,
                     名稱: name || typeName,
@@ -4960,33 +4922,32 @@ async function runQuery() {
                     座標: [finalLat, finalLon],
                     在範圍內: inside,
                     距離: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                    直線距離顯示: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                    路線距離: inside ? 0 : "計算中...",
+                    直線距離顯示: inside ? "位於區段範圍內" : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
+                    路線距離: inside ? "位於區段範圍內" : "計算中...",
                     路線距離數值: inside ? 0 : null
                 });
             }
         });
 
-        // ✨ 修正：學校訊息也使用門牌位置
+        // ★ 修正：學校訊息也使用門牌位置
         rawSchools.forEach(sch => {
-            const [finalLat, finalLon] = extractLocationFromProperties(sch, sch.lat, sch.lon);
-
             let inside = false;
             if (turfZonePolygon) {
-                let pt = turf.point([finalLon, finalLat]);
+                let pt = turf.point([sch.lon, sch.lat]);
                 inside = turf.booleanPointInPolygon(pt, turfZonePolygon);
             }
 
+            // ★★★ 修正：直線距離和路線距離的邏輯 ★★★
             results.push({
                 id: results.length,
                 名稱: sch.name || "未命名學校",
                 類型: "學校",
                 原始類型: sch.rawType,
-                座標: [finalLat, finalLon],
+                座標: [sch.lat, sch.lon],
                 在範圍內: inside,
-                距離: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                直線距離顯示: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], finalLat, finalLon)),
-                路線距離: inside ? 0 : "計算中...",
+                距離: inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], sch.lat, sch.lon)),
+                直線距離顯示: inside ? "位於區段範圍內" : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], sch.lat, sch.lon)),
+                路線距離: inside ? "位於區段範圍內" : "計算中...",
                 路線距離數值: inside ? 0 : null
             });
         });
@@ -5007,7 +4968,7 @@ async function runQuery() {
                         }
                         item.在範圍內 = inside;
                         item.距離 = inside ? 0 : Math.round(haversine(centroidForQuery[0], centroidForQuery[1], item.座標[0], item.座標[1]));
-                        item.直線距離顯示 = inside ? 0 : item.距離;
+                        item.直線距離顯示 = inside ? "位於區段範圍內" : item.距離;
                     }
                 } catch (err) {
                     console.error("交流道搜尋失敗:", err);
@@ -5030,8 +4991,9 @@ async function runQuery() {
 
         queryBtn.innerText = "🚗 計算路線中...";
 
+        // ★★★ 修正：路線計算時檢查是否在範圍內 ★★★
         for (const item of results.slice(0, 80)) {
-            if (item.在範圍內) continue;
+            if (item.在範圍內) continue;  // 在範圍內的不計算路線距離
             let isJunc = item.原始類型 === "motorway_junction";
             const routeRes = await getRouteDistance(item.座標, item.距離, isJunc, item.在範圍內);
             item.路線距離數值 = routeRes.value;
@@ -5064,7 +5026,7 @@ function sortResults(type) {
     renderTable();
 }
 
-// ✨ 修正：直線距離及路線距離欄位同時顯示「位於區段範圍內」
+// ★★★ 修正：直線距離及路線距離欄位同時顯示「位於區段範圍內」★★★
 function renderTable() {
     tbody.innerHTML = "";
     results.forEach(item => {
@@ -5072,12 +5034,13 @@ function renderTable() {
         tr.dataset.id = item.id;
         tr.onclick = () => selectItemById(item.id);
         
-        // ✨ 修正：範圍內同時處理直線距離和路線距離
-        let distanceDisplay = item.在範圍內 ? '位於區段範圍內' : item.直線距離顯示;
-        let routeDisplay = item.在範圍內 ? '位於區段範圍內' : (item.路線距離 || '');
+        // ★★★ 修正：範圍內同時處理直線距離和路線距離 ★★★
+        const isInside = item.在範圍內 === true;
+        const distanceDisplay = isInside ? '位於區段範圍內' : (item.直線距離顯示 ?? '');
+        const routeDisplay = isInside ? '位於區段範圍內' : (item.路線距離 ?? '');
         
-        const distanceCellClass = item.在範圍內 ? ' class="in-zone-cell"' : '';
-        const routeCellClass = item.在範圍內 ? ' class="in-zone-cell"' : '';
+        const distanceCellClass = isInside ? ' class="in-zone-cell"' : '';
+        const routeCellClass = isInside ? ' class="in-zone-cell"' : '';
         
         tr.innerHTML = `
             <td>${escapeHtml(item.名稱)}</td>
@@ -5089,15 +5052,25 @@ function renderTable() {
     });
 }
 
+// ★★★ 修正：Excel 匯出也要檢查在範圍內邏輯 ★★★
 function exportExcel() {
-    if (!results.length) { alert("無資料"); return; }
+    if (!results.length) {
+        alert("無資料");
+        return;
+    }
     
-    const exportData = results.map(r => ({
-        名稱: r.名稱,
-        類型: r.類型,
-        直線距離: r.在範圍內 ? "位於區段範圍內" : r.直線距離顯示,
-        路線距離: r.在範圍內 ? "位於區段範圍內" : (r.路線距離 || ""), 緯度:r.座標[0], 經度:r.座標[1]
-    }));
+    const exportData = results.map(r => {
+        const isInside = r.在範圍內 === true;
+        
+        return {
+            名稱: r.名稱,
+            類型: r.類型,
+            直線距離: isInside ? "位於區段範圍內" : (r.直線距離顯示 ?? ""),
+            路線距離: isInside ? "位於區段範圍內" : (r.路線距離 ?? ""),
+            緯度: r.座標?.[0] ?? "",
+            經度: r.座標?.[1] ?? ""
+        };
+    });
     
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
@@ -5232,7 +5205,7 @@ function processImportedPolygons(geojson) {
         guard++;
     }
 
-    let features = [];
+   let features = [];
     if (data.type === "FeatureCollection" && Array.isArray(data.features)) {
         features = data.features;
     } else if (data.type === "Feature") {
@@ -5435,3 +5408,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
+
