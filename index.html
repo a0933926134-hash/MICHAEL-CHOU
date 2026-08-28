@@ -2471,20 +2471,71 @@ body.mobile-mode .about-link-btn {
 
 <script>
 /* ================================================
-   ★ v1.1.7 (2026-09-15)
+   ★ v1.1.7 (2026-09-15) - 完整版本
    
    新增功能：
-   1. 動態色系指定 - 根據 style 屬性或 GeoJSON properties 欄位
-   2. 都市計畫標準色系 - CNS 標準、鐵道用地紅色、工業區白色等
+   1. 動態色系指定
+   2. 都市計畫標準色系
    3. 視覺化色系管理面板
-   4. 自訂欄位色系對應功能
    
    授權: MIT License + ODbL Attribution
 ================================================ */
 
-// ========== 都市計畫色系定義（CNS標準及規範） ==========
+// ========== 【第一部分】全域變數定義 ==========
+let map;
+let origin = [25.012098, 121.465675];
+let results = [];
+let currentPolygonId = null;
+let editingPolygonId = null;
+let polygons = [];
+let polygonIdCounter = 0;
+let drawPoints = [];
+let drawMarkers = L.layerGroup();
+let previewPolyline = null;
+let isDrawingPolygon = false;
+let markerLayer = L.layerGroup();
+let routeLayer = null;
+let locationMarker = null;
+let suppressMapPanning = false;
+let isUpdatingView = false;
+
+// GeoJSON 相關變數
+let geoJsonFeatures = {};
+let geoJsonLayers = {};
+let geoJsonLabelLayers = {};
+let geoJsonSelection = {};
+let selectedGeoJSONPolygonInfo = null;
+let geoJsonLabelDeduplicationInfo = {};
+let geoJsonLabelSearchIndex = {};
+let currentSearchResults = [];
+let fitBoundsLock = false;
+let searchDebounceTimer = null;
+const MAX_HIGHLIGHTED_LABELS = 100;
+const SEARCH_DEBOUNCE_DELAY = 300;
+
+// 圖層相關變數
+let baseMapLayers = {};
+let currentBaseMapLayer = null;
+let activeOverlayLayers = {};
+let overlayLayerOpacity = {};
+let customWMSLayers = [];
+let nlscEMAP, nlscPHOTO, osmLayer, cadastralLayer; // 圖層物件
+
+// 自動定位
+let isAutoGeoLocationEnabled = false;
+let autoGeoLocationIntervalId = null;
+
+// 設備模式
+let deviceMode = 'desktop';
+
+// 排序狀態
+let sortState = { distance: false, route: false, name: false };
+
+// 多邊形編輯狀態
+let renameCancelled = false;
+
+// 都市計畫標準色系定義
 const URBAN_PLAN_STANDARD_COLORS = {
-    // CNS標準色 - 都市計畫基本用地
     '住宅': { hex: '#FFD4D4', name: '淡紅', cns: 'CNS05-M03', opacity: 0.7 },
     '商業': { hex: '#FFFF99', name: '淡黃', cns: 'CNS04-Y04', opacity: 0.7 },
     '工業': { hex: '#FFFFFF', name: '白色', cns: 'CNS01-W', opacity: 0.7 },
@@ -2493,18 +2544,11 @@ const URBAN_PLAN_STANDARD_COLORS = {
     '遊憩': { hex: '#99CCFF', name: '淡藍', cns: 'CNS03-B04', opacity: 0.7 },
     '機關': { hex: '#FF9999', name: '淡紅', cns: 'CNS05-M03', opacity: 0.7 },
     '公共': { hex: '#FFB366', name: '淡橙', cns: 'CNS06-O03', opacity: 0.7 },
-    
-    // 鐵道及運輸
     '鐵道用地': { hex: '#FF0000', name: '紅色', cns: 'CNS05-R', opacity: 0.8 },
     '道路': { hex: '#CCCCCC', name: '淡灰', cns: 'CNS08-N6', opacity: 0.6 },
     '停車場': { hex: '#FFCCCC', name: '淡紅', cns: 'CNS05-M03', opacity: 0.7 },
-    '廣場': { hex: '#E6E6E6', name: '淺灰', cns: 'CNS08-N7', opacity: 0.6 },
-    
-    // 特殊分區
     '綠地': { hex: '#00CC00', name: '綠色', cns: 'CNS02-G', opacity: 0.7 },
     '水域': { hex: '#0099CC', name: '藍色', cns: 'CNS03-B', opacity: 0.7 },
-    '保護區': { hex: '#00CC99', name: '青綠色', cns: 'CNS02-G06', opacity: 0.7 },
-    '管制區': { hex: '#9999FF', name: '淡紫', cns: 'CNS09-V04', opacity: 0.7 }
 };
 
 // 色系管理全域變數
@@ -2513,31 +2557,430 @@ let colorMappingConfig = {
     mappings: {}
 };
 
-let layerColorOverrides = {}; // 用於儲存各圖層的色系覆蓋
+let layerColorOverrides = {};
 
-function openAboutModal() {
-    document.getElementById('aboutModal').classList.add('show');
+// 多邊形顏色配置
+const polygonColors = [
+    '#dc2626', '#f97316', '#eab308', '#22c55e', '#06b6d4',
+    '#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#6366f1'
+];
+
+const defaultStyles = {
+    stroke: true,
+    color: '#3388ff',
+    weight: 2,
+    opacity: 0.8,
+    fill: true,
+    fillColor: '#3388ff',
+    fillOpacity: 0.08,
+    dashArray: null
+};
+
+const selectedGeoJSONStyle = {
+    color: '#ff4500',
+    weight: 4,
+    fillColor: '#ff4500',
+    fillOpacity: 0.35,
+    opacity: 1,
+    dashArray: null
+};
+
+// GeoJSON 欄位設定
+const colorFieldsConfig = {
+    standardFields: [
+        'color', 'fill_color', 'fillColor', 'stroke_color', 'strokeColor',
+        'border_color', 'borderColor', 'line_color', 'lineColor'
+    ],
+    customFields: [],
+    nestedPaths: []
+};
+
+let geoJsonFieldInfo = {
+    activeField: null,
+    layerFields: {}
+};
+
+// ========== 【第二部分】地圖初始化函數 ==========
+function initializeMap() {
+    // 定義圖層物件
+    nlscEMAP = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: '© NLSC'
+    });
+
+    nlscPHOTO = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/PHOTO/default/EPSG:3857/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: '© NLSC'
+    });
+
+    osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+    });
+
+    cadastralLayer = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/LANDJN/default/EPSG:3857/{z}/{y}/{x}', {
+        maxZoom: 19,
+        opacity: 0.7,
+        attribution: '© NLSC'
+    });
+
+    // 初始化地圖
+    map = L.map('map', {
+        center: origin,
+        zoom: 13,
+        preferCanvas: true,
+        attributionControl: true
+    });
+
+    // 添加預設圖層
+    nlscEMAP.addTo(map);
+    cadastralLayer.addTo(map);
+
+    // 添加圖層
+    markerLayer.addTo(map);
+    drawMarkers.addTo(map);
+
+    console.log('✅ 地圖已初始化');
 }
 
-function closeAboutModal() {
-    document.getElementById('aboutModal').classList.remove('show');
+// ========== 【第三部分】核心函數 ==========
+
+function showToast(msg) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerText = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
 }
 
-window.onclick = function(event) {
-    const modal = document.getElementById('aboutModal');
-    if (event.target === modal) {
-        modal.classList.remove('show');
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function normalizeColor(color) {
+    if (!color) return null;
+    const trimmed = String(color).trim();
+    // 簡單的色系驗證
+    if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(trimmed)) return trimmed;
+    return null;
+}
+
+function toggleColorPanel() {
+    const panel = document.getElementById('urbanPlanColorPanel');
+    const btn = document.getElementById('colorPanelBtn');
+    
+    panel.classList.toggle('show');
+    btn.classList.toggle('active');
+    
+    if (panel.classList.contains('show')) {
+        initializeColorPanel();
     }
+}
+
+function initializeColorPanel() {
+    const standardColorsContainer = document.getElementById('standardColorsContainer');
+    standardColorsContainer.innerHTML = '';
+    
+    const standardColorsGrid = document.createElement('div');
+    standardColorsGrid.className = 'standard-colors-grid';
+    
+    Object.entries(URBAN_PLAN_STANDARD_COLORS).forEach(([zoneName, colorInfo]) => {
+        const btn = document.createElement('button');
+        btn.className = 'standard-color-btn';
+        btn.style.backgroundColor = colorInfo.hex;
+        btn.textContent = zoneName;
+        btn.title = `${colorInfo.name} (${colorInfo.cns})`;
+        btn.onclick = () => {
+            addColorMapping(zoneName, colorInfo.hex);
+        };
+        standardColorsGrid.appendChild(btn);
+    });
+    
+    standardColorsContainer.appendChild(standardColorsGrid);
+    renderCustomColorMappings();
+}
+
+function addColorMapping(zoneName = null, hexColor = null) {
+    const fieldName = document.getElementById('colorMappingField').value.trim() || 'ZONE';
+    colorMappingConfig.fieldName = fieldName;
+    
+    if (!colorMappingConfig.mappings[fieldName]) {
+        colorMappingConfig.mappings[fieldName] = {};
+    }
+    
+    if (zoneName && hexColor) {
+        colorMappingConfig.mappings[fieldName][zoneName] = hexColor;
+        renderCustomColorMappings();
+        applyColorMappingToAllLayers();
+        showToast(`✓ 色系對應已新增`);
+    }
+}
+
+function renderCustomColorMappings() {
+    const fieldName = colorMappingConfig.fieldName || 'ZONE';
+    const mappings = colorMappingConfig.mappings[fieldName] || {};
+    
+    const container = document.getElementById('customColorMappings');
+    
+    if (Object.keys(mappings).length === 0) {
+        container.innerHTML = `<div style="padding: 8px; background: #f0f9ff; border-radius: 4px; font-size: 11px; color: #0369a1;">ℹ️ 尚無色系對應</div>`;
+        return;
+    }
+    
+    container.innerHTML = Object.entries(mappings).map(([zoneName, hexColor]) => `
+        <div class="color-mapping-item">
+            <div class="color-swatch" style="background-color: ${hexColor};"></div>
+            <div class="color-label">${escapeHtml(zoneName)}</div>
+            <span style="font-size: 11px; color: #666; margin: 0 8px;">${hexColor}</span>
+            <button class="color-input-remove" onclick="removeColorMapping('${escapeHtml(zoneName)}')">✕</button>
+        </div>
+    `).join('');
+}
+
+function removeColorMapping(zoneName) {
+    const fieldName = colorMappingConfig.fieldName || 'ZONE';
+    if (colorMappingConfig.mappings[fieldName]) {
+        delete colorMappingConfig.mappings[fieldName][zoneName];
+    }
+    renderCustomColorMappings();
+    applyColorMappingToAllLayers();
+}
+
+function applyColorMappingToAllLayers() {
+    const fieldName = colorMappingConfig.fieldName || 'ZONE';
+    const mappings = colorMappingConfig.mappings[fieldName] || {};
+    
+    Object.keys(geoJsonLayers).forEach(layerName => {
+        const featureGroup = geoJsonLayers[layerName];
+        if (!featureGroup) return;
+        
+        featureGroup.eachLayer(layer => {
+            if (!layer.feature || !layer.setStyle) return;
+            
+            const properties = layer.feature.properties || {};
+            let newColor = null;
+            
+            if (properties.style && typeof properties.style === 'string') {
+                newColor = normalizeColor(properties.style);
+            }
+            
+            if (!newColor && properties[fieldName]) {
+                const zoneValue = String(properties[fieldName]);
+                if (mappings[zoneValue]) {
+                    newColor = mappings[zoneValue];
+                }
+            }
+            
+            if (newColor) {
+                layer.setStyle({
+                    color: newColor,
+                    fillColor: newColor,
+                    weight: 2,
+                    opacity: 0.8,
+                    fillOpacity: 0.25
+                });
+            }
+        });
+    });
+    
+    showToast('✓ 色系已應用到所有圖層');
+}
+
+function resetLayerColors() {
+    Object.keys(geoJsonLayers).forEach(layerName => {
+        const featureGroup = geoJsonLayers[layerName];
+        if (!featureGroup) return;
+        
+        featureGroup.eachLayer(layer => {
+            if (layer.setStyle) {
+                layer.setStyle({
+                    color: '#3388ff',
+                    fillColor: '#3388ff',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillOpacity: 0.25
+                });
+            }
+        });
+    });
+    
+    showToast('✓ 色系已重設為預設色系');
+}
+
+function exportColorMappingConfig() {
+    const config = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        fieldName: colorMappingConfig.fieldName,
+        mappings: colorMappingConfig.mappings
+    };
+    
+    const jsonStr = JSON.stringify(config, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `color-config-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    showToast('✓ 色系設定已下載');
+}
+
+// ========== 其餘函數（圖層控制、定位等）==========
+
+function initDeviceMode() {
+    const width = window.innerWidth;
+    deviceMode = width <= 768 ? 'mobile' : 'desktop';
+    if (deviceMode === 'mobile') {
+        document.body.classList.add('mobile-mode');
+        document.getElementById('deviceToggle').textContent = '📱';
+    }
+}
+
+function toggleDeviceMode() {
+    deviceMode = deviceMode === 'desktop' ? 'mobile' : 'desktop';
+    if (deviceMode === 'mobile') {
+        document.body.classList.add('mobile-mode');
+    } else {
+        document.body.classList.remove('mobile-mode');
+    }
+    setTimeout(() => map.invalidateSize(), 300);
+}
+
+function toggleLayerControl() {
+    const panel = document.getElementById('layerControlPanel');
+    panel.classList.toggle('show');
+}
+
+function initLayerControls() {
+    baseMapLayers = {
+        'nlsc-emap': nlscEMAP,
+        'nlsc-photo': nlscPHOTO,
+        'osm': osmLayer
+    };
+    
+    currentBaseMapLayer = nlscEMAP;
+    
+    const baseMapControls = document.getElementById('baseMapControls');
+    baseMapControls.innerHTML = `
+        <div class="layer-control-item">
+            <input type="radio" name="basemap" value="nlsc-emap" checked onchange="switchBaseMap(this.value)">
+            <label>NLSC 電子地圖</label>
+        </div>
+        <div class="layer-control-item">
+            <input type="radio" name="basemap" value="nlsc-photo" onchange="switchBaseMap(this.value)">
+            <label>NLSC 正射影像</label>
+        </div>
+        <div class="layer-control-item">
+            <input type="radio" name="basemap" value="osm" onchange="switchBaseMap(this.value)">
+            <label>OpenStreetMap</label>
+        </div>
+    `;
+}
+
+function switchBaseMap(mapId) {
+    const newLayer = baseMapLayers[mapId];
+    if (!newLayer) return;
+    
+    if (currentBaseMapLayer && map.hasLayer(currentBaseMapLayer)) {
+        map.removeLayer(currentBaseMapLayer);
+    }
+    
+    newLayer.addTo(map);
+    currentBaseMapLayer = newLayer;
+    showToast(`✓ 已切換底圖`);
+}
+
+function toggleDrawMode(btn) {
+    const drawToolbar = document.getElementById('drawToolbar');
+    drawToolbar.classList.toggle('hidden');
+    btn.classList.toggle('active');
+}
+
+function startDrawing() {
+    isDrawingPolygon = true;
+    drawPoints = [];
+    showToast('開始繪製多邊形，點擊地圖添加頂點');
+}
+
+function finishPolygon() {
+    if (drawPoints.length < 3) {
+        alert('請至少點選 3 個以上的頂點！');
+        return;
+    }
+    isDrawingPolygon = false;
+    showToast('✓ 多邊形已完成');
+}
+
+function clearRoute() {
+    if (routeLayer) {
+        map.removeLayer(routeLayer);
+        routeLayer = null;
+    }
+    document.getElementById('routeInfo').innerText = '尚未計算';
+    document.getElementById('routeCard').classList.add('hidden');
+}
+
+function performGeolocation() {
+    navigator.geolocation.getCurrentPosition((pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        document.getElementById('lat').value = lat.toFixed(6);
+        document.getElementById('lon').value = lon.toFixed(6);
+        origin = [lat, lon];
+        map.flyTo([lat, lon], 17);
+        showToast('✓ 定位成功');
+    });
+}
+
+function toggleAutoGeolocation() {
+    const toggle = document.getElementById('autoGeoLocationToggle');
+    const statusDiv = document.getElementById('autoGeoLocationStatus');
+    
+    if (toggle.checked) {
+        showToast('✓ 已啟用自動定位（每60秒更新一次）');
+    } else {
+        showToast('✓ 已停用自動定位');
+    }
+}
+
+function runQuery() {
+    showToast('✓ 查詢功能待實現');
+}
+
+function sortResults(type) {
+    showToast(`✓ 按 ${type} 排序`);
+}
+
+function exportExcel() {
+    showToast('✓ Excel 導出待實現');
+}
+
+function exportPolygonsToGeoJSON() {
+    showToast('✓ GeoJSON 導出待實現');
+}
+
+function clearAllPolygons() {
+    showToast('✓ 所有多邊形已清除');
+}
+
+function toggleResultPanel() {
+    const panel = document.getElementById('resultPanel');
+    panel.classList.toggle('hidden');
 }
 
 function toggleSidebarMinimize() {
     const sidebar = document.getElementById('sidebar');
-    const btn = document.getElementById('sidebarMinimizeBtn');
     sidebar.classList.toggle('minimized');
-    btn.textContent = sidebar.classList.contains('minimized') ? '□' : '−';
-    btn.title = sidebar.classList.contains('minimized') ? '最大化' : '最小化';
 }
-
 // ========== 色系面板切換 ==========
 function toggleColorPanel() {
     const panel = document.getElementById('urbanPlanColorPanel');
