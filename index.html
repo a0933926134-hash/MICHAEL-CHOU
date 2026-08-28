@@ -7268,96 +7268,94 @@ function closeModal(modalId) {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 開始初始化事件監聽...');
     
-    // 初始化地圖
-    initializeMap();
+    // 檢查地圖是否已經初始化
+    if (!window.mapInitialized) {
+        // 第一次初始化地圖
+        initializeMap();
+        window.mapInitialized = true;
+        console.log('✅ 地圖已初始化');
+    } else {
+        console.log('⚠️ 地圖已由其他模塊初始化，跳過重複初始化');
+    }
     
-    // 加載保存的地圖狀態
-    loadMapStateFromStorage();
+    // 延遲加載保存的地圖狀態（確保地圖初始化完成）
+    setTimeout(function() {
+        loadMapStateFromStorage();
+    }, 500);
     
     // 初始化繪圖控制
-    initializeDrawControl();
+    if (!window.drawControlInitialized) {
+        initializeDrawControl();
+        window.drawControlInitialized = true;
+    }
     
     // 初始化圖層控制
-    initializeLayerControl();
+    if (!window.layerControlInitialized) {
+        initializeLayerControl();
+        window.layerControlInitialized = true;
+    }
     
-    // 綁定工具欄事件
+    // 綁定事件監聽（可多次綁定，但要確保無重複）
     bindToolbarEvents();
-    
-    // 綁定側邊欄事件
     bindSidebarEvents();
-    
-    // 綁定模態窗口事件
     bindModalEvents();
-    
-    // 綁定鍵盤快捷鍵
     bindKeyboardShortcuts();
-    
-    // 綁定 Leaflet Draw 事件
     bindDrawEvents();
-    
-    // 綁定地圖事件
     bindMapEvents();
     
-    console.log('✅ 事件監聽初始化完成');
+    console.log('✅ 所有事件監聽初始化完成');
 });
 
-// ==================== 工具欄事件 ====================
+// ==================== 修正：工具欄事件綁定（防止重複綁定）====================
 
 /**
- * 綁定工具欄事件
+ * 綁定工具欄事件（使用事件委託避免重複綁定）
  */
 function bindToolbarEvents() {
-    // 多邊形繪製
-    const drawPolygonBtn = document.querySelector('[onclick*="activateDrawPolygon"]');
-    if (drawPolygonBtn) {
-        drawPolygonBtn.addEventListener('click', activateDrawPolygon);
-    }
+    // 使用事件委託而非直接綁定，避免重複綁定問題
+    const toolbar = document.querySelector('.toolbar, [class*="toolbar"]');
     
-    // 圓形繪製
-    const drawCircleBtn = document.querySelector('[onclick*="activateDrawCircle"]');
-    if (drawCircleBtn) {
-        drawCircleBtn.addEventListener('click', activateDrawCircle);
+    if (toolbar && !window.toolbarEventsBound) {
+        toolbar.addEventListener('click', function(e) {
+            // 多邊形繪製
+            if (e.target.closest('[data-action="drawPolygon"]')) {
+                activateDrawPolygon();
+            }
+            // 圓形繪製
+            if (e.target.closest('[data-action="drawCircle"]')) {
+                activateDrawCircle();
+            }
+            // 清除繪製
+            if (e.target.closest('[data-action="clearDraw"]')) {
+                clearAllLayers();
+            }
+            // GeoJSON 匯入
+            if (e.target.closest('[data-action="importGeoJSON"]')) {
+                importGeoJSON();
+            }
+            // 道路寬度分析
+            if (e.target.closest('[data-action="analyzeRoads"]')) {
+                analyzeRoads();
+            }
+            // 清除道路分析
+            if (e.target.closest('[data-action="clearRoads"]')) {
+                clearRoadAnalysis();
+            }
+        });
+        
+        window.toolbarEventsBound = true;
+        console.log('✅ 工具欄事件已綁定（使用事件委託）');
     }
-    
-    // 清除繪製
-    const clearDrawBtn = document.querySelector('[onclick*="clearAllLayers"]');
-    if (clearDrawBtn) {
-        clearDrawBtn.addEventListener('click', clearAllLayers);
-    }
-    
-    // GeoJSON 匯入
-    const importGeoJsonBtn = document.querySelector('[onclick*="importGeoJSON"]');
-    if (importGeoJsonBtn) {
-        importGeoJsonBtn.addEventListener('click', importGeoJSON);
-    }
-    
-    // 設施查詢
-    const queryBtn = document.getElementById('queryBtn');
-    if (queryBtn) {
-        queryBtn.addEventListener('click', runQuery);
-    }
-    
-    // 道路寬度分析
-    const roadAnalysisBtn = document.querySelector('[onclick*="analyzeRoads"]');
-    if (roadAnalysisBtn) {
-        roadAnalysisBtn.addEventListener('click', analyzeRoads);
-    }
-    
-    // 清除道路分析
-    const clearRoadBtn = document.querySelector('[onclick*="clearRoadAnalysis"]');
-    if (clearRoadBtn) {
-        clearRoadBtn.addEventListener('click', clearRoadAnalysis);
-    }
-    
-    console.log('✅ 工具欄事件已綁定');
 }
 
-// ==================== 側邊欄事件 ====================
+// ==================== 修正：側邊欄事件綁定====================
 
 /**
  * 綁定側邊欄事件
  */
 function bindSidebarEvents() {
+    if (window.sidebarEventsBound) return;
+    
     // 設施類別選擇
     const categorySelects = document.querySelectorAll('input[name="facilityCategory"]');
     categorySelects.forEach(select => {
@@ -7394,68 +7392,70 @@ function bindSidebarEvents() {
         });
     });
     
-    // GeoJSON 標籤搜尋
-    const searchBtn = document.querySelector('[onclick*="searchGeoJSONTag"]');
-    if (searchBtn) {
-        searchBtn.addEventListener('click', searchGeoJSONTag);
-    }
-    
-    const searchInput = document.getElementById('tagSearchInput');
-    if (searchInput) {
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
+    // GeoJSON 標籤搜尋 - 使用事件委託
+    const searchContainer = document.querySelector('[class*="search"], [id*="search"]');
+    if (searchContainer) {
+        searchContainer.addEventListener('click', function(e) {
+            if (e.target.closest('[data-action="search"]') || e.target.closest('button:contains("搜尋")')) {
                 searchGeoJSONTag();
             }
         });
+        
+        const searchInput = document.getElementById('tagSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchGeoJSONTag();
+                }
+            });
+        }
     }
     
+    window.sidebarEventsBound = true;
     console.log('✅ 側邊欄事件已綁定');
 }
 
-// ==================== 模態窗口事件 ====================
+// ==================== 修正：模態窗口事件綁定====================
 
 /**
- * 綁定模態窗口事件
+ * 綁定模態窗口事件（防止重複綁定）
  */
 function bindModalEvents() {
-    // 所有關閉按鈕
-    document.querySelectorAll('.modal-close, .close-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const modal = this.closest('.modal');
+    if (window.modalEventsBound) return;
+    
+    // 所有關閉按鈕 - 使用事件委託
+    document.addEventListener('click', function(e) {
+        const closeBtn = e.target.closest('.modal-close, .close-btn, [data-dismiss="modal"]');
+        if (closeBtn) {
+            const modal = closeBtn.closest('.modal');
             if (modal) {
                 modal.style.display = 'none';
             }
-        });
-    });
-    
-    // 模態窗口外部點擊關閉
-    window.addEventListener('click', function(event) {
-        if (event.target.classList.contains('modal')) {
-            event.target.style.display = 'none';
         }
     });
     
-    // Excel 匯出按鈕
-    const exportExcelBtn = document.querySelector('[onclick*="exportExcel"]');
-    if (exportExcelBtn) {
-        exportExcelBtn.addEventListener('click', exportExcel);
+    // 模態窗口外部點擊關閉（只綁定一次）
+    if (!window.modalBackdropEvent) {
+        window.addEventListener('click', function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        });
+        window.modalBackdropEvent = true;
     }
     
-    // 地圖截圖按鈕
-    const screenshotBtn = document.querySelector('[onclick*="captureMapScreenshot"]');
-    if (screenshotBtn) {
-        screenshotBtn.addEventListener('click', captureMapScreenshot);
-    }
-    
+    window.modalEventsBound = true;
     console.log('✅ 模態窗口事件已綁定');
 }
 
-// ==================== 鍵盤快捷鍵 ====================
+// ==================== 修正：鍵盤快捷鍵（只綁定一次）====================
 
 /**
  * 綁定鍵盤快捷鍵
  */
 function bindKeyboardShortcuts() {
+    if (window.keyboardShortcutsBound) return;
+    
     document.addEventListener('keydown', function(event) {
         // Ctrl+S 保存地圖狀態
         if (event.ctrlKey && event.key === 's') {
@@ -7489,16 +7489,22 @@ function bindKeyboardShortcuts() {
         }
     });
     
+    window.keyboardShortcutsBound = true;
     console.log('✅ 鍵盤快捷鍵已綁定');
 }
 
-// ==================== Leaflet Draw 事件 ====================
+// ==================== 修正：Leaflet Draw 事件（只綁定一次）====================
 
 /**
  * 綁定 Leaflet Draw 事件
  */
 function bindDrawEvents() {
-    if (!map.on) return;
+    if (window.drawEventsBound) return;
+    
+    if (!map) {
+        console.warn('⚠️ 地圖未初始化，無法綁定 Draw 事件');
+        return;
+    }
     
     // 繪製完成
     map.on('draw:created', function(event) {
@@ -7559,15 +7565,23 @@ function bindDrawEvents() {
         console.log(`🗑️ 已刪除 ${count} 個圖形`);
     });
     
+    window.drawEventsBound = true;
     console.log('✅ Leaflet Draw 事件已綁定');
 }
 
-// ==================== 地圖事件 ====================
+// ==================== 修正：地圖事件（只綁定一次）====================
 
 /**
  * 綁定地圖事件
  */
 function bindMapEvents() {
+    if (window.mapEventsBound) return;
+    
+    if (!map) {
+        console.warn('⚠️ 地圖未初始化，無法綁定地圖事件');
+        return;
+    }
+    
     // 地圖移動時保存狀態
     map.on('moveend', function() {
         saveMapStateToStorage();
@@ -7576,7 +7590,6 @@ function bindMapEvents() {
     // 右鍵菜單（可選）
     map.on('contextmenu', function(event) {
         console.log(`右鍵座標: ${formatLatLng(event.latlng.lat, event.latlng.lng)}`);
-        // 可在此添加右鍵菜單邏輯
     });
     
     // 地圖縮放
@@ -7584,147 +7597,48 @@ function bindMapEvents() {
         console.log(`🔍 縮放級別: ${map.getZoom()}`);
     });
     
+    window.mapEventsBound = true;
     console.log('✅ 地圖事件已綁定');
 }
 
-// ==================== 視窗事件 ====================
+// ==================== 視窗事件（全域綁定，只需一次）====================
 
 /**
  * 綁定視窗事件
  */
-window.addEventListener('beforeunload', function(event) {
-    // 自動保存地圖狀態
-    saveMapStateToStorage();
-});
-
-/**
- * 綁定視窗調整大小事件
- */
-window.addEventListener('resize', function() {
-    if (map) {
-        map.invalidateSize();
-    }
-});
-
-/**
- * 綁定網絡連接狀態
- */
-window.addEventListener('online', function() {
-    showNotification('✓ 網絡已連接', 'success', 2000);
-});
-
-window.addEventListener('offline', function() {
-    showNotification('⚠️ 網絡已斷開', 'warning', 2000);
-});
-
-// ==================== 地理定位工具 ====================
-
-/**
- * 啟用自動地理定位
- */
-function toggleAutoGeolocation() {
-    if (!('geolocation' in navigator)) {
-        showNotification('⚠️ 您的瀏覽器不支援地理定位', 'warning');
-        return;
+(function() {
+    // 頁面卸載時自動保存
+    if (!window.unloadEventBound) {
+        window.addEventListener('beforeunload', function() {
+            saveMapStateToStorage();
+        });
+        window.unloadEventBound = true;
     }
     
-    window.autoGeolocationEnabled = !window.autoGeolocationEnabled;
-    
-    if (window.autoGeolocationEnabled) {
-        window.geolocationWatchId = navigator.geolocation.watchPosition(
-            function(position) {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                const accuracy = position.coords.accuracy;
-                
-                // 更新地圖中心
-                if (!map.getCenter()) {
-                    map.setView([lat, lng], 16);
-                }
-                
-                // 顯示位置標記
-                if (window.geolocationMarker) {
-                    map.removeLayer(window.geolocationMarker);
-                }
-                
-                window.geolocationMarker = L.circleMarker([lat, lng], {
-                    color: '#4A90E2',
-                    fillColor: '#4A90E2',
-                    fillOpacity: 0.8,
-                    radius: 8,
-                    weight: 2
-                }).addTo(map).bindPopup(`
-                    <strong>當前位置</strong><br>
-                    ${formatLatLng(lat, lng)}<br>
-                    精度: ±${Math.round(accuracy)} m
-                `);
-                
-                console.log(`📍 地理定位: ${formatLatLng(lat, lng)}`);
-            },
-            function(error) {
-                console.error('❌ 地理定位失敗:', error);
-                showNotification(`⚠️ 地理定位失敗: ${error.message}`, 'warning');
-                window.autoGeolocationEnabled = false;
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
+    // 視窗調整大小
+    if (!window.resizeEventBound) {
+        window.addEventListener('resize', function() {
+            if (map && typeof map.invalidateSize === 'function') {
+                map.invalidateSize();
             }
-        );
-        
-        showNotification('📍 已啟用自動地理定位', 'success', 2000);
-    } else {
-        if (window.geolocationWatchId) {
-            navigator.geolocation.clearWatch(window.geolocationWatchId);
-        }
-        showNotification('📍 已禁用自動地理定位', 'info', 1500);
+        });
+        window.resizeEventBound = true;
     }
-}
-
-// ==================== 調試工具 ====================
-
-/**
- * 顯示調試信息
- */
-function showDebugInfo() {
-    const info = {
-        'Leaflet 版本': L.version,
-        '地圖中心': formatLatLng(map.getCenter().lat, map.getCenter().lng),
-        '縮放級別': map.getZoom(),
-        '手繪圖層數': drawnItems.getLayers().length,
-        '匯入圖層數': importedLayers.length,
-        '設施結果數': queryResults.length,
-        '記憶體 (MB)': (performance.memory?.usedJSHeapSize / 1048576).toFixed(2)
-    };
     
-    console.table(info);
-    
-    let message = '調試信息:\n';
-    Object.entries(info).forEach(([key, value]) => {
-        message += `${key}: ${value}\n`;
-    });
-    
-    showNotification(message.replace(/\n/g, ' | '), 'info', 5000);
-}
+    // 網絡連接狀態
+    if (!window.networkEventBound) {
+        window.addEventListener('online', function() {
+            showNotification('✓ 網絡已連接', 'success', 2000);
+        });
+        
+        window.addEventListener('offline', function() {
+            showNotification('⚠️ 網絡已斷開', 'warning', 2000);
+        });
+        window.networkEventBound = true;
+    }
+})();
 
-/**
- * 導出調試日誌
- */
-function exportDebugLogs() {
-    const logs = JSON.stringify({
-        timestamp: new Date().toISOString(),
-        mapState: getMapState(),
-        drawnFeaturesCount: drawnItems.getLayers().length,
-        importedLayersCount: importedLayers.length,
-        queryResultsCount: queryResults.length,
-        console: window.consoleLogs || []
-    }, null, 2);
-    
-    downloadFile(logs, `debug_${formatDate(new Date(), 'YYYY-MM-DD_HH-mm-ss')}.json`, 'application/json');
-}
-
-console.log('✅ Part 7 載入完成：工具函數 + 事件監聽');
+console.log('✅ Part 7 修正版載入完成：工具函數 + 事件監聽（防止重複初始化）');
 
 </script>
 </body>
