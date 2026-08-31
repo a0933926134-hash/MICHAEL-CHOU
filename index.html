@@ -13,17 +13,21 @@ content="width=device-width, initial-scale=1.0"
 >
 
 <title>
-    NLSC 新北市都市計畫圖 Leaflet GIS
+    新北市都市計畫圖 - NLSC Leaflet
 </title>
 
 <!-- =====================================================
-     Leaflet
+     Leaflet CSS
      ===================================================== -->
 
 <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 />
+
+<!-- =====================================================
+     Leaflet JS
+     ===================================================== -->
 
 <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
@@ -32,19 +36,19 @@ content="width=device-width, initial-scale=1.0"
 <style>
 
 /* =====================================================
-   基本頁面
+   基本
    ===================================================== */
 
 html,
 body {
 
-    width: 100%;
-
-    height: 100%;
-
     margin: 0;
 
     padding: 0;
+
+    width: 100%;
+
+    height: 100%;
 
     overflow: hidden;
 
@@ -67,7 +71,7 @@ body {
 
     width: 100%;
 
-    height: 100%;
+    height: 100vh;
 
 }
 
@@ -76,19 +80,20 @@ body {
    控制面板
    ===================================================== */
 
-#controlPanel {
+#panel {
 
     position: absolute;
 
-    left: 15px;
+    z-index: 9999;
 
     top: 15px;
 
-    z-index: 10000;
+    left: 15px;
 
-    width: 390px;
+    width: 380px;
 
-    max-height: calc(100vh - 30px);
+    max-height:
+        calc(100vh - 30px);
 
     overflow-y: auto;
 
@@ -112,7 +117,7 @@ body {
 }
 
 
-#controlPanel h2 {
+#panel h2 {
 
     margin:
         0 0 5px 0;
@@ -123,10 +128,10 @@ body {
 }
 
 
-#controlPanel h3 {
+#panel h3 {
 
     margin:
-        15px 0 7px 0;
+        16px 0 8px 0;
 
     font-size:
         15px;
@@ -134,7 +139,7 @@ body {
 }
 
 
-#controlPanel hr {
+#panel hr {
 
     border:
         0;
@@ -149,7 +154,7 @@ body {
 
 
 /* =====================================================
-   按鈕
+   Button
    ===================================================== */
 
 button {
@@ -161,13 +166,13 @@ button {
         3px 3px 3px 0;
 
     border:
-        1px solid #aaa;
+        1px solid #9ca3af;
 
     border-radius:
         5px;
 
     background:
-        white;
+        #fff;
 
     cursor:
         pointer;
@@ -191,11 +196,11 @@ button.primary {
     background:
         #2563eb;
 
-    color:
-        white;
-
     border-color:
         #1d4ed8;
+
+    color:
+        white;
 
 }
 
@@ -280,23 +285,53 @@ button.primary:hover {
     padding:
         9px;
 
-    background:
-        #eff6ff;
-
     border-radius:
         6px;
 
+    background:
+        #eff6ff;
+
     line-height:
-        1.6;
+        1.7;
 
 }
 
 
 /* =====================================================
-   官方圖台區
+   點選結果
    ===================================================== */
 
-#officialPanel {
+#queryResult {
+
+    margin-top:
+        8px;
+
+    padding:
+        10px;
+
+    border-radius:
+        6px;
+
+    background:
+        #f8fafc;
+
+    border:
+        1px solid #e2e8f0;
+
+    line-height:
+        1.7;
+
+    word-break:
+        break-word;
+
+}
+
+
+/* =====================================================
+   官方服務
+   ===================================================== */
+
+#officialBox {
 
     margin-top:
         10px;
@@ -304,22 +339,25 @@ button.primary:hover {
     padding:
         10px;
 
-    background:
-        #f8fafc;
-
     border:
-        1px solid #cbd5e1;
+        1px solid #bfdbfe;
 
     border-radius:
         6px;
 
+    background:
+        #eff6ff;
+
+    line-height:
+        1.7;
+
 }
 
 
-#officialPanel a {
+#officialBox a {
 
     color:
-        #2563eb;
+        #1d4ed8;
 
     text-decoration:
         none;
@@ -327,7 +365,7 @@ button.primary:hover {
 }
 
 
-#officialPanel a:hover {
+#officialBox a:hover {
 
     text-decoration:
         underline;
@@ -347,14 +385,14 @@ button.primary:hover {
     padding:
         10px;
 
-    background:
-        #fff7ed;
-
     border:
         1px solid #fed7aa;
 
     border-radius:
         6px;
+
+    background:
+        #fff7ed;
 
     color:
         #9a3412;
@@ -368,11 +406,26 @@ button.primary:hover {
 }
 
 
+code {
+
+    font-family:
+        Consolas,
+        monospace;
+
+    font-size:
+        11px;
+
+    word-break:
+        break-all;
+
+}
+
+
 /* =====================================================
-   Leaflet Popup
+   Popup
    ===================================================== */
 
-.popup-title {
+.popupTitle {
 
     font-size:
         16px;
@@ -386,146 +439,46 @@ button.primary:hover {
 }
 
 
-.popup-row {
+.popupButton {
 
-    margin:
-        3px 0;
-
-}
-
-
-/* =====================================================
-   官方圖台視窗
-   ===================================================== */
-
-#officialMapWindow {
-
-    position:
-        fixed;
-
-    z-index:
-        20000;
-
-    right:
-        20px;
-
-    bottom:
-        20px;
-
-    width:
-        720px;
-
-    height:
-        520px;
-
-    background:
-        white;
-
-    border:
-        1px solid #777;
-
-    border-radius:
+    margin-top:
         8px;
-
-    box-shadow:
-        0 5px 25px
-        rgba(0,0,0,0.35);
-
-    display:
-        none;
-
-    overflow:
-        hidden;
-
-}
-
-
-#officialMapHeader {
-
-    height:
-        42px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        space-between;
-
-    padding:
-        0 10px;
-
-    box-sizing:
-        border-box;
-
-    background:
-        #1e3a8a;
-
-    color:
-        white;
-
-    font-weight:
-        bold;
-
-    cursor:
-        move;
-
-}
-
-
-#officialMapFrame {
 
     width:
         100%;
 
-    height:
-        calc(100% - 42px);
+    background:
+        #2563eb;
 
-    border:
-        0;
+    color:
+        white;
+
+    border-color:
+        #1d4ed8;
 
 }
 
 
 /* =====================================================
-   手機版
+   Mobile
    ===================================================== */
 
 @media
-(max-width: 800px) {
+(max-width: 700px) {
 
-    #controlPanel {
+    #panel {
 
         left:
-            10px;
+            8px;
 
         right:
-            10px;
+            8px;
 
         width:
             auto;
 
-    }
-
-
-    #officialMapWindow {
-
-        left:
-            10px;
-
-        right:
-            10px;
-
-        bottom:
-            10px;
-
-        width:
-            auto;
-
-        height:
-            65vh;
+        max-height:
+            55vh;
 
     }
 
@@ -538,7 +491,7 @@ button.primary:hover {
 <body>
 
 <!-- =====================================================
-     Leaflet 地圖
+     Leaflet Map
      ===================================================== -->
 
 <div id="map"></div>
@@ -547,7 +500,7 @@ button.primary:hover {
      控制面板
      ===================================================== -->
 
-<div id="controlPanel">
+<div id="panel">
 
 ```
 <h2>
@@ -556,18 +509,14 @@ button.primary:hover {
 
 
 <div>
-
-    <b>資料來源：</b>
+    <b>底圖：</b>
     內政部國土測繪中心 NLSC
-
 </div>
 
 
 <div>
-
-    <b>都市計畫圖：</b>
+    <b>都市計畫資料：</b>
     都市計畫使用分區圖(115年4月)
-
 </div>
 
 
@@ -575,7 +524,7 @@ button.primary:hover {
 
 
 <!-- =================================================
-     定位
+     新北市定位
      ================================================= -->
 
 <h3>
@@ -587,101 +536,129 @@ button.primary:hover {
     class="primary"
     onclick="goNewTaipei()"
 >
-
     新北市全區
-
 </button>
 
 
 <button
     onclick="goBanqiao()"
 >
-
     板橋
-
-</button>
-
-
-<button
-    onclick="goLinkou()"
->
-
-    林口
-
 </button>
 
 
 <button
     onclick="goXinzhuang()"
 >
-
     新莊
+</button>
 
+
+<button
+    onclick="goLinkou()"
+>
+    林口
 </button>
 
 
 <button
     onclick="goTamsui()"
 >
-
     淡水
-
 </button>
 
 
 <!-- =================================================
-     官方都市計畫圖
+     點選查詢
      ================================================= -->
 
 <h3>
-    ② NLSC 官方都市計畫圖
-</h3>
-
-
-<button
-    class="primary"
-    onclick="openOfficialMap()"
->
-
-    開啟官方都市計畫圖
-
-</button>
-
-
-<button
-    onclick="openOfficialMapAtCenter()"
->
-
-    以目前位置開啟
-
-</button>
-
-
-<button
-    onclick="closeOfficialMap()"
->
-
-    關閉官方圖台
-
-</button>
-
-
-<!-- =================================================
-     座標
-     ================================================= -->
-
-<h3>
-    ③ 地圖座標
+    ② Leaflet 點選位置
 </h3>
 
 
 <div id="coordinate">
 
-    緯度：
+    尚未點選地圖
+
+</div>
+
+
+<div id="queryResult">
+
+    請直接點擊地圖上的位置。
+
+    <br><br>
+
+    點擊後可取得經緯度，
+    並以該位置開啟 NLSC 官方都市計畫圖台。
+
+</div>
+
+
+<!-- =================================================
+     官方圖台
+     ================================================= -->
+
+<h3>
+    ③ NLSC 官方都市計畫圖
+</h3>
+
+
+<button
+    class="primary"
+    onclick="openOfficialAtCurrent()"
+>
+
+    以目前地圖中心開啟
+
+</button>
+
+
+<button
+    onclick="openOfficial()"
+>
+
+    開啟 NLSC 官方圖台
+
+</button>
+
+
+<div id="officialBox">
+
+    <b>
+        官方都市計畫圖
+    </b>
 
     <br>
 
-    經度：
+    NLSC 官方圖台目前提供：
+
+    <br>
+
+    ・都市計畫使用分區圖
+
+    <br>
+
+    ・圖層設定
+
+    <br>
+
+    ・點選查詢
+
+    <br>
+
+    ・查詢結果著色
+
+    <br><br>
+
+    <a
+        href="https://maps.nlsc.gov.tw/T09/mapshow.action"
+        target="_blank"
+        rel="noopener noreferrer"
+    >
+        ↗ 開啟 NLSC 官方都市計畫圖台
+    </a>
 
 </div>
 
@@ -692,45 +669,7 @@ button.primary:hover {
 
 <div id="status">
 
-    Leaflet 初始化中...
-
-</div>
-
-
-<!-- =================================================
-     官方資訊
-     ================================================= -->
-
-<div id="officialPanel">
-
-    <b>
-        NLSC 官方都市計畫服務
-    </b>
-
-    <br><br>
-
-    都市計畫使用分區圖目前可在
-    NLSC 官方圖台中開啟與查詢。
-
-    <br><br>
-
-    <a
-        href="https://maps.nlsc.gov.tw/T09/mapshow.action"
-        target="_blank"
-        rel="noopener noreferrer"
-    >
-        ↗ 開啟 NLSC 官方圖台
-    </a>
-
-    <br><br>
-
-    <a
-        href="https://maps.nlsc.gov.tw/pro/get_map_message.jsp"
-        target="_blank"
-        rel="noopener noreferrer"
-    >
-        ↗ 查看都市計畫圖資說明
-    </a>
+    正在載入 NLSC 臺灣通用電子地圖...
 
 </div>
 
@@ -741,73 +680,38 @@ button.primary:hover {
 
 <div class="note">
 
-    <b>重要：</b>
+    <b>服務說明</b>
 
-    <br>
+    <br><br>
 
-    本頁不再使用：
+    本 HTML 不再直接使用：
 
     <br>
 
     <code>
-        /URBAN/default/GoogleMapsCompatible/{z}/{y}/{x}
+    /URBAN/default/GoogleMapsCompatible/{z}/{y}/{x}
     </code>
 
     <br><br>
 
-    因為 NLSC 官方目前的公開 WMTS 規格
-    並未將「都市計畫使用分區圖」
-    列為一般免申請 WMTS Layer。
+    因為 NLSC 公開 WMTS 清單目前沒有將
+    「都市計畫使用分區圖」
+    列為一般公開 WMTS Layer。
 
     <br><br>
 
-    本頁以 NLSC 官方圖台作為
-    都市計畫圖的官方瀏覽與查詢介面。
+    NLSC 官方資料頁確認：
+    「都市計畫使用分區圖(115年4月)」
+    為國土管理署城鄉發展分署授權圖磚，
+    由 NLSC 提供套疊。
+
+    <br><br>
+
+    本頁使用 NLSC 公開 EMAP 作為 Leaflet
+    底圖，都市計畫圖則透過 NLSC
+    官方圖台瀏覽及查詢。
 
 </div>
-```
-
-</div>
-
-<!-- =====================================================
-     官方圖台浮動視窗
-     ===================================================== -->
-
-<div id="officialMapWindow">
-
-```
-<div id="officialMapHeader">
-
-    <span>
-        NLSC 官方都市計畫圖
-    </span>
-
-    <span>
-
-        <button
-            onclick="closeOfficialMap()"
-            style="
-                margin:0;
-                padding:4px 9px;
-                color:#111;
-            "
-        >
-
-            ✕
-
-        </button>
-
-    </span>
-
-</div>
-
-
-<iframe
-    id="officialMapFrame"
-    title="NLSC 官方都市計畫圖"
-    src="about:blank"
->
-</iframe>
 ```
 
 </div>
@@ -815,7 +719,41 @@ button.primary:hover {
 <script>
 
 /* =========================================================
-   1. Leaflet Map
+   NLSC 設定
+   ========================================================= */
+
+const NLSC_WMTS =
+
+    "https://wmts.nlsc.gov.tw/wmts";
+
+
+const NLSC_OFFICIAL_MAP =
+
+    "https://maps.nlsc.gov.tw/T09/mapshow.action";
+
+
+/* =========================================================
+   新北市
+   ========================================================= */
+
+const NEW_TAIPEI_CENTER =
+
+    [25.012098,121.465675];
+
+
+const NEW_TAIPEI_BOUNDS =
+
+    L.latLngBounds(
+
+        [24.75,121.25],
+
+        [25.30,122.05]
+
+    );
+
+
+/* =========================================================
+   建立 Leaflet
    ========================================================= */
 
 const map =
@@ -827,23 +765,18 @@ const map =
         {
 
             center:
-
-                [25.012098,121.465675],
+                NEW_TAIPEI_CENTER,
 
             zoom:
-
                 13,
 
             minZoom:
-
                 8,
 
             maxZoom:
-
                 19,
 
             zoomControl:
-
                 true
 
         }
@@ -852,19 +785,10 @@ const map =
 
 
 /* =========================================================
-   2. NLSC WMTS
+   NLSC EMAP
    ========================================================= */
 
-const NLSC_WMTS =
-
-    "https://wmts.nlsc.gov.tw/wmts";
-
-
-/* =========================================================
-   3. NLSC EMAP
-   ========================================================= */
-
-const emap =
+const nlscEMAP =
 
     L.tileLayer(
 
@@ -877,6 +801,9 @@ const emap =
         "{z}/{y}/{x}",
 
         {
+
+            tileSize:
+                256,
 
             maxZoom:
                 19,
@@ -893,7 +820,7 @@ const emap =
 
 
 /* =========================================================
-   4. OpenStreetMap
+   OpenStreetMap
    ========================================================= */
 
 const osm =
@@ -918,14 +845,14 @@ const osm =
 
 
 /* =========================================================
-   5. 預設底圖
+   預設 NLSC
    ========================================================= */
 
-emap.addTo(map);
+nlscEMAP.addTo(map);
 
 
 /* =========================================================
-   6. 圖層控制
+   圖層控制
    ========================================================= */
 
 L.control.layers(
@@ -933,7 +860,7 @@ L.control.layers(
     {
 
         "NLSC 臺灣通用電子地圖":
-            emap,
+            nlscEMAP,
 
         "OpenStreetMap":
             osm
@@ -956,7 +883,7 @@ L.control.layers(
 
 
 /* =========================================================
-   7. 比例尺
+   比例尺
    ========================================================= */
 
 L.control.scale(
@@ -978,52 +905,37 @@ L.control.scale(
 
 
 /* =========================================================
-   8. DOM
+   DOM
    ========================================================= */
 
 const statusEl =
 
     document.getElementById(
-
         "status"
-
     );
 
 
 const coordinateEl =
 
     document.getElementById(
-
         "coordinate"
-
     );
 
 
-const officialWindow =
+const queryResultEl =
 
     document.getElementById(
-
-        "officialMapWindow"
-
-    );
-
-
-const officialFrame =
-
-    document.getElementById(
-
-        "officialMapFrame"
-
+        "queryResult"
     );
 
 
 /* =========================================================
-   9. 狀態
+   狀態
    ========================================================= */
 
 function setStatus(
 
-    text,
+    html,
 
     type = ""
 
@@ -1038,164 +950,241 @@ function setStatus(
         "";
 
     statusEl.innerHTML =
-
-        text;
+        html;
 
 }
 
 
 /* =========================================================
-   10. 新北市範圍
+   HTML Escape
    ========================================================= */
 
-const newTaipeiBounds =
+function escapeHTML(value) {
 
-    L.latLngBounds(
+    return String(value)
 
-        [24.75,121.25],
+        .replace(
+            /&/g,
+            "&amp;"
+        )
 
-        [25.30,122.05]
+        .replace(
+            /</g,
+            "&lt;"
+        )
 
-    );
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
 
 
 /* =========================================================
-   11. 新北市
+   Leaflet 點擊
    ========================================================= */
 
-function goNewTaipei() {
+let selectedMarker = null;
 
-    map.fitBounds(
 
-        newTaipeiBounds,
+let selectedLat = null;
 
-        {
 
-            padding:
-                [30,30]
+let selectedLon = null;
+
+
+map.on(
+
+    "click",
+
+    function(e) {
+
+        selectedLat =
+            e.latlng.lat;
+
+        selectedLon =
+            e.latlng.lng;
+
+
+        const latText =
+            selectedLat.toFixed(8);
+
+        const lonText =
+            selectedLon.toFixed(8);
+
+
+        /* -----------------------------------------------
+           座標
+           ----------------------------------------------- */
+
+        coordinateEl.innerHTML =
+
+            "<b>目前點選位置</b>" +
+
+            "<br>" +
+
+            "緯度：" +
+
+            latText +
+
+            "<br>" +
+
+            "經度：" +
+
+            lonText;
+
+
+        /* -----------------------------------------------
+           Marker
+           ----------------------------------------------- */
+
+        if (selectedMarker) {
+
+            map.removeLayer(
+                selectedMarker
+            );
 
         }
 
-    );
+
+        selectedMarker =
+
+            L.marker(
+
+                e.latlng
+
+            ).addTo(map);
 
 
-    setStatus(
+        /* -----------------------------------------------
+           Popup
+           ----------------------------------------------- */
 
-        "已定位新北市全區",
+        selectedMarker.bindPopup(
 
-        "ok"
+            "<div>" +
 
-    );
+            "<div class='popupTitle'>" +
 
-}
+            "📍 選取位置" +
+
+            "</div>" +
+
+            "緯度：" +
+
+            latText +
+
+            "<br>" +
+
+            "經度：" +
+
+            lonText +
+
+            "<br><br>" +
+
+            "<button " +
+
+            "class='popupButton' " +
+
+            "onclick='" +
+
+            "openOfficialAt(" +
+
+            selectedLat +
+
+            "," +
+
+            selectedLon +
+
+            ")'" +
+
+            ">" +
+
+            "在 NLSC 官方圖台查看都市計畫"
+
+            +
+
+            "</button>" +
+
+            "</div>"
+
+        );
+
+
+        selectedMarker.openPopup();
+
+
+        /* -----------------------------------------------
+           結果
+           ----------------------------------------------- */
+
+        queryResultEl.innerHTML =
+
+            "<b>選取座標</b>" +
+
+            "<br>" +
+
+            "Latitude：" +
+
+            latText +
+
+            "<br>" +
+
+            "Longitude：" +
+
+            lonText +
+
+            "<br><br>" +
+
+            "<button " +
+
+            "class='primary' " +
+
+            "onclick='openOfficialAt(" +
+
+            selectedLat +
+
+            "," +
+
+            selectedLon +
+
+            ")'" +
+
+            ">" +
+
+            "開啟此位置的 NLSC 都市計畫圖"
+
+            +
+
+            "</button>";
+
+
+        setStatus(
+
+            "✅ 已取得地圖點選座標。",
+
+            "ok"
+
+        );
+
+    }
+
+);
 
 
 /* =========================================================
-   12. 板橋
-   ========================================================= */
-
-function goBanqiao() {
-
-    map.setView(
-
-        [25.0119,121.4618],
-
-        15
-
-    );
-
-
-    setStatus(
-
-        "已定位板橋區",
-
-        "ok"
-
-    );
-
-}
-
-
-/* =========================================================
-   13. 林口
-   ========================================================= */
-
-function goLinkou() {
-
-    map.setView(
-
-        [25.0776,121.3925],
-
-        14
-
-    );
-
-
-    setStatus(
-
-        "已定位林口區",
-
-        "ok"
-
-    );
-
-}
-
-
-/* =========================================================
-   14. 新莊
-   ========================================================= */
-
-function goXinzhuang() {
-
-    map.setView(
-
-        [25.0330,121.4500],
-
-        14
-
-    );
-
-
-    setStatus(
-
-        "已定位新莊區",
-
-        "ok"
-
-    );
-
-}
-
-
-/* =========================================================
-   15. 淡水
-   ========================================================= */
-
-function goTamsui() {
-
-    map.setView(
-
-        [25.1676,121.4450],
-
-        14
-
-    );
-
-
-    setStatus(
-
-        "已定位淡水區",
-
-        "ok"
-
-    );
-
-}
-
-
-/* =========================================================
-   16. Leaflet 滑鼠座標
+   滑鼠座標
    ========================================================= */
 
 map.on(
@@ -1206,7 +1195,7 @@ map.on(
 
         coordinateEl.innerHTML =
 
-            "<b>滑鼠座標：</b>" +
+            "<b>滑鼠位置</b>" +
 
             "<br>" +
 
@@ -1226,128 +1215,165 @@ map.on(
 
 
 /* =========================================================
-   17. Leaflet 點擊
+   新北市
    ========================================================= */
 
-map.on(
+function goNewTaipei() {
 
-    "click",
+    map.fitBounds(
 
-    function(e) {
+        NEW_TAIPEI_BOUNDS,
 
-        const lat =
+        {
 
-            e.latlng.lat;
+            padding:
+                [20,20]
 
-        const lng =
+        }
 
-            e.latlng.lng;
+    );
 
 
-        L.popup()
+    setStatus(
 
-            .setLatLng(
+        "已定位新北市全區。",
 
-                e.latlng
+        "ok"
 
-            )
+    );
 
-            .setContent(
-
-                "<div>" +
-
-                "<div class='popup-title'>" +
-
-                "地圖位置" +
-
-                "</div>" +
-
-                "<div class='popup-row'>" +
-
-                "緯度：" +
-
-                lat.toFixed(8) +
-
-                "</div>" +
-
-                "<div class='popup-row'>" +
-
-                "經度：" +
-
-                lng.toFixed(8) +
-
-                "</div>" +
-
-                "<br>" +
-
-                "<button onclick=\"" +
-
-                "openOfficialMapAt(" +
-
-                lat +
-
-                "," +
-
-                lng +
-
-                ")" +
-
-                "\">" +
-
-                "在 NLSC 官方圖台查看" +
-
-                "</button>" +
-
-                "</div>"
-
-            )
-
-            .openOn(
-
-                map
-
-            );
-
-    }
-
-);
+}
 
 
 /* =========================================================
-   18. 建立官方圖台 URL
+   板橋
    ========================================================= */
 
-function buildOfficialMapURL(
+function goBanqiao() {
+
+    map.setView(
+
+        [25.0119,121.4618],
+
+        15
+
+    );
+
+
+    setStatus(
+
+        "已定位板橋區。",
+
+        "ok"
+
+    );
+
+}
+
+
+/* =========================================================
+   新莊
+   ========================================================= */
+
+function goXinzhuang() {
+
+    map.setView(
+
+        [25.0330,121.4500],
+
+        14
+
+    );
+
+
+    setStatus(
+
+        "已定位新莊區。",
+
+        "ok"
+
+    );
+
+}
+
+
+/* =========================================================
+   林口
+   ========================================================= */
+
+function goLinkou() {
+
+    map.setView(
+
+        [25.0776,121.3925],
+
+        14
+
+    );
+
+
+    setStatus(
+
+        "已定位林口區。",
+
+        "ok"
+
+    );
+
+}
+
+
+/* =========================================================
+   淡水
+   ========================================================= */
+
+function goTamsui() {
+
+    map.setView(
+
+        [25.1676,121.4450],
+
+        14
+
+    );
+
+
+    setStatus(
+
+        "已定位淡水區。",
+
+        "ok"
+
+    );
+
+}
+
+
+/* =========================================================
+   建立 NLSC 官方圖台 URL
+   ========================================================= */
+
+function buildOfficialURL(
 
     lat,
 
-    lon
+    lon,
+
+    zoom = 15
 
 ) {
 
-    /*
-
-       NLSC 官方圖台支援 mapshow.action。
-
-       lat / lon 用來指定目前位置。
-
-       官方圖台開啟後，
-       使用者可以在圖層設定中開啟：
-
-       「都市計畫使用分區圖」
-
-    */
-
-
     return (
 
-        "https://maps.nlsc.gov.tw/T09/mapshow.action" +
+        NLSC_OFFICIAL_MAP +
 
-        "?lat=" +
+        "?language=CH" +
+
+        "&lat=" +
 
         encodeURIComponent(
 
-            lat
+            lat.toFixed(8)
 
         ) +
 
@@ -1355,7 +1381,15 @@ function buildOfficialMapURL(
 
         encodeURIComponent(
 
-            lon
+            lon.toFixed(8)
+
+        ) +
+
+        "&zoom=" +
+
+        encodeURIComponent(
+
+            zoom
 
         )
 
@@ -1365,37 +1399,47 @@ function buildOfficialMapURL(
 
 
 /* =========================================================
-   19. 開啟官方圖台
+   開啟官方圖台
    ========================================================= */
 
-function openOfficialMap() {
+function openOfficial() {
 
     const center =
-
         map.getCenter();
 
+    const zoom =
+        Math.round(
+            map.getZoom()
+        );
 
-    officialFrame.src =
 
-        buildOfficialMapURL(
+    const url =
+
+        buildOfficialURL(
 
             center.lat,
 
-            center.lng
+            center.lng,
+
+            zoom
 
         );
 
 
-    officialWindow.style.display =
+    window.open(
 
-        "block";
+        url,
+
+        "_blank",
+
+        "noopener"
+
+    );
 
 
     setStatus(
 
-        "已開啟 NLSC 官方都市計畫圖台。<br>" +
-
-        "請在官方圖台左側圖層設定開啟「都市計畫使用分區圖」。",
+        "已在新分頁開啟 NLSC 官方圖台。",
 
         "ok"
 
@@ -1405,21 +1449,28 @@ function openOfficialMap() {
 
 
 /* =========================================================
-   20. 以目前位置開啟
+   以目前中心開啟
    ========================================================= */
 
-function openOfficialMapAtCenter() {
+function openOfficialAtCurrent() {
 
     const center =
-
         map.getCenter();
 
 
-    openOfficialMapAt(
+    const zoom =
+        Math.round(
+            map.getZoom()
+        );
+
+
+    openOfficialAt(
 
         center.lat,
 
-        center.lng
+        center.lng,
+
+        zoom
 
     );
 
@@ -1427,36 +1478,61 @@ function openOfficialMapAtCenter() {
 
 
 /* =========================================================
-   21. 指定座標開啟
+   指定座標開啟官方圖台
    ========================================================= */
 
-function openOfficialMapAt(
+function openOfficialAt(
 
     lat,
 
-    lon
+    lon,
+
+    zoom = 17
 
 ) {
 
-    officialFrame.src =
+    const url =
 
-        buildOfficialMapURL(
+        buildOfficialURL(
 
-            lat,
+            Number(lat),
 
-            lon
+            Number(lon),
+
+            Number(zoom)
 
         );
 
 
-    officialWindow.style.display =
+    console.log(
 
-        "block";
+        "NLSC 官方都市計畫圖台：",
+
+        url
+
+    );
+
+
+    window.open(
+
+        url,
+
+        "_blank",
+
+        "noopener"
+
+    );
 
 
     setStatus(
 
-        "已將目前座標送往 NLSC 官方圖台。",
+        "已開啟 NLSC 官方圖台。" +
+
+        "<br>" +
+
+        "請在官方圖台開啟「都市計畫使用分區圖」，" +
+
+        "再使用「點選查詢」。",
 
         "ok"
 
@@ -1466,212 +1542,31 @@ function openOfficialMapAt(
 
 
 /* =========================================================
-   22. 關閉官方圖台
+   NLSC EMAP Tile 成功
    ========================================================= */
 
-function closeOfficialMap() {
+let firstTileLoaded = false;
 
-    officialWindow.style.display =
 
-        "none";
-
-}
-
-
-/* =========================================================
-   23. 官方圖台視窗拖曳
-   ========================================================= */
-
-let dragging = false;
-
-let dragOffsetX = 0;
-
-let dragOffsetY = 0;
-
-
-const officialHeader =
-
-    document.getElementById(
-
-        "officialMapHeader"
-
-    );
-
-
-officialHeader.addEventListener(
-
-    "mousedown",
-
-    function(e) {
-
-        if (
-
-            e.target.tagName ===
-
-            "BUTTON"
-
-        ) {
-
-            return;
-
-        }
-
-
-        dragging = true;
-
-
-        const rect =
-
-            officialWindow.getBoundingClientRect();
-
-
-        dragOffsetX =
-
-            e.clientX -
-
-            rect.left;
-
-
-        dragOffsetY =
-
-            e.clientY -
-
-            rect.top;
-
-
-        e.preventDefault();
-
-    }
-
-);
-
-
-document.addEventListener(
-
-    "mousemove",
-
-    function(e) {
-
-        if (!dragging) {
-
-            return;
-
-        }
-
-
-        officialWindow.style.left =
-
-            (
-
-                e.clientX -
-
-                dragOffsetX
-
-            ) +
-
-            "px";
-
-
-        officialWindow.style.top =
-
-            (
-
-                e.clientY -
-
-                dragOffsetY
-
-            ) +
-
-            "px";
-
-
-        officialWindow.style.right =
-
-            "auto";
-
-
-        officialWindow.style.bottom =
-
-            "auto";
-
-    }
-
-);
-
-
-document.addEventListener(
-
-    "mouseup",
-
-    function() {
-
-        dragging = false;
-
-    }
-
-);
-
-
-/* =========================================================
-   24. EMAP Tile 錯誤監控
-   ========================================================= */
-
-emap.on(
-
-    "tileerror",
-
-    function(e) {
-
-        console.error(
-
-            "NLSC EMAP Tile Error:",
-
-            e.tile &&
-
-            e.tile.src
-
-        );
-
-
-        setStatus(
-
-            "⚠ NLSC EMAP Tile 載入異常，請查看 F12 Console。",
-
-            "warn"
-
-        );
-
-    }
-
-);
-
-
-/* =========================================================
-   25. EMAP Tile 成功
-   ========================================================= */
-
-let emapLoaded = false;
-
-
-emap.on(
+nlscEMAP.on(
 
     "tileload",
 
     function() {
 
-        if (emapLoaded) {
+        if (firstTileLoaded) {
 
             return;
 
         }
 
 
-        emapLoaded = true;
+        firstTileLoaded = true;
 
 
         setStatus(
 
-            "✅ NLSC 臺灣通用電子地圖載入完成。",
+            "✅ NLSC 臺灣通用電子地圖載入成功。",
 
             "ok"
 
@@ -1683,18 +1578,42 @@ emap.on(
 
 
 /* =========================================================
-   26. 初始化
+   NLSC EMAP Tile 失敗
    ========================================================= */
 
-setStatus(
+nlscEMAP.on(
 
-    "正在載入 NLSC 臺灣通用電子地圖..."
+    "tileerror",
+
+    function(e) {
+
+        console.error(
+
+            "NLSC EMAP Tile Error",
+
+            e.tile &&
+            e.tile.src
+
+        );
+
+
+        setStatus(
+
+            "⚠ NLSC EMAP Tile 載入失敗，" +
+
+            "請檢查網路或 NLSC 服務狀態。",
+
+            "warn"
+
+        );
+
+    }
 
 );
 
 
 /* =========================================================
-   27. Console 資訊
+   初始化
    ========================================================= */
 
 console.log(
@@ -1740,9 +1659,9 @@ console.log(
 
 console.log(
 
-    "都市計畫官方圖台：",
+    "NLSC 官方都市計畫圖台：",
 
-    "https://maps.nlsc.gov.tw/T09/mapshow.action"
+    NLSC_OFFICIAL_MAP
 
 );
 
@@ -1750,6 +1669,13 @@ console.log(
 console.log(
 
     "======================================"
+
+);
+
+
+setStatus(
+
+    "正在初始化 NLSC 地圖..."
 
 );
 
