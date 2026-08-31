@@ -13,21 +13,17 @@ content="width=device-width, initial-scale=1.0"
 >
 
 <title>
-    NLSC 新北市都市計畫圖 Leaflet GIS
+    NLSC 新北市都市計畫使用分區圖
 </title>
 
 <!-- =====================================================
-     Leaflet CSS
+     Leaflet
      ===================================================== -->
 
 <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 />
-
-<!-- =====================================================
-     Leaflet JS
-     ===================================================== -->
 
 <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
@@ -36,19 +32,19 @@ content="width=device-width, initial-scale=1.0"
 <style>
 
 /* =====================================================
-   PAGE
+   基本
    ===================================================== */
 
 html,
 body {
 
-    margin: 0;
-
-    padding: 0;
-
     width: 100%;
 
     height: 100%;
+
+    margin: 0;
+
+    padding: 0;
 
     overflow: hidden;
 
@@ -71,26 +67,26 @@ body {
 
     width: 100%;
 
-    height: 100%;
+    height: 100vh;
 
 }
 
 
 /* =====================================================
-   CONTROL PANEL
+   控制面板
    ===================================================== */
 
 #panel {
 
     position: absolute;
 
-    z-index: 9999;
+    z-index: 10000;
 
     left: 15px;
 
     top: 15px;
 
-    width: 390px;
+    width: 410px;
 
     max-height:
         calc(100vh - 30px);
@@ -105,13 +101,13 @@ body {
         rgba(255,255,255,0.97);
 
     border:
-        1px solid #d1d5db;
+        1px solid #cbd5e1;
 
     border-radius:
         10px;
 
     box-shadow:
-        0 4px 18px
+        0 5px 20px
         rgba(0,0,0,0.25);
 
 }
@@ -141,29 +137,29 @@ body {
 
 #panel hr {
 
+    margin:
+        12px 0;
+
     border:
         0;
 
     border-top:
         1px solid #ddd;
 
-    margin:
-        12px 0;
-
 }
 
 
 /* =====================================================
-   BUTTON
+   Button
    ===================================================== */
 
 button {
 
-    padding:
-        7px 11px;
-
     margin:
         3px 3px 3px 0;
+
+    padding:
+        7px 11px;
 
     border:
         1px solid #9ca3af;
@@ -172,7 +168,7 @@ button {
         5px;
 
     background:
-        white;
+        #fff;
 
     cursor:
         pointer;
@@ -193,11 +189,11 @@ button:hover {
 
 button.primary {
 
+    color:
+        #fff;
+
     background:
         #2563eb;
-
-    color:
-        white;
 
     border-color:
         #1d4ed8;
@@ -214,22 +210,22 @@ button.primary:hover {
 
 
 /* =====================================================
-   STATUS
+   Status
    ===================================================== */
 
 #status {
 
     margin-top:
-        10px;
+        8px;
 
     padding:
         10px;
 
-    background:
-        #f3f4f6;
-
     border-radius:
         6px;
+
+    background:
+        #f3f4f6;
 
     line-height:
         1.6;
@@ -274,7 +270,7 @@ button.primary:hover {
 
 
 /* =====================================================
-   RESULT
+   Result
    ===================================================== */
 
 #result {
@@ -303,8 +299,41 @@ button.primary:hover {
 }
 
 
+#tileUrl {
+
+    margin-top:
+        8px;
+
+    padding:
+        8px;
+
+    background:
+        #111827;
+
+    color:
+        #d1fae5;
+
+    border-radius:
+        5px;
+
+    font-family:
+        Consolas,
+        monospace;
+
+    font-size:
+        11px;
+
+    line-height:
+        1.5;
+
+    word-break:
+        break-all;
+
+}
+
+
 /* =====================================================
-   NOTE
+   Note
    ===================================================== */
 
 .note {
@@ -336,67 +365,42 @@ button.primary:hover {
 }
 
 
-code {
+.successNote {
 
-    font-family:
-        Consolas,
-        monospace;
+    background:
+        #ecfdf5;
 
-    font-size:
-        11px;
+    border-color:
+        #a7f3d0;
 
-    word-break:
-        break-all;
+    color:
+        #065f46;
 
 }
 
 
 /* =====================================================
-   LEGEND
+   Mobile
    ===================================================== */
 
-#legend {
+@media
+(max-width: 700px) {
 
-    margin-top:
-        10px;
+    #panel {
 
-    padding:
-        10px;
+        left:
+            8px;
 
-    background:
-        rgba(255,255,255,0.95);
+        right:
+            8px;
 
-    border:
-        1px solid #ddd;
+        width:
+            auto;
 
-    border-radius:
-        6px;
+        max-height:
+            55vh;
 
-    font-size:
-        12px;
-
-}
-
-
-.legendColor {
-
-    display:
-        inline-block;
-
-    width:
-        18px;
-
-    height:
-        12px;
-
-    margin-right:
-        5px;
-
-    border:
-        1px solid #555;
-
-    vertical-align:
-        middle;
+    }
 
 }
 
@@ -413,32 +417,26 @@ code {
 <div id="map"></div>
 
 <!-- =====================================================
-     CONTROL PANEL
+     PANEL
      ===================================================== -->
 
 <div id="panel">
 
 ```
 <h2>
-    🗺️ 新北市都市計畫圖
+    🗺️ NLSC 都市計畫使用分區圖
 </h2>
 
-
 <div>
-
-    <b>資料來源：</b>
-
-    內政部國土測繪中心 NLSC
-
+    <b>區域：</b>新北市
 </div>
 
+<div>
+    <b>資料：</b>都市計畫使用分區圖(115年4月)
+</div>
 
 <div>
-
-    <b>都市計畫：</b>
-
-    都市計畫使用分區圖(115年4月)
-
+    <b>服務：</b>NLSC URBAN WMTS
 </div>
 
 
@@ -446,7 +444,7 @@ code {
 
 
 <!-- =================================================
-     POSITION
+     定位
      ================================================= -->
 
 <h3>
@@ -458,7 +456,7 @@ code {
     class="primary"
     onclick="goNewTaipei()"
 >
-    新北市全區
+    新北市
 </button>
 
 
@@ -491,7 +489,7 @@ code {
 
 
 <!-- =================================================
-     URBAN CONTROL
+     URBAN
      ================================================= -->
 
 <h3>
@@ -503,14 +501,14 @@ code {
     class="primary"
     onclick="showUrban()"
 >
-    顯示都市計畫
+    顯示
 </button>
 
 
 <button
     onclick="hideUrban()"
 >
-    隱藏都市計畫
+    隱藏
 </button>
 
 
@@ -534,19 +532,19 @@ code {
         min="0"
         max="1"
         step="0.05"
-        value="0.75"
-        oninput="changeUrbanOpacity(this.value)"
+        value="0.8"
+        oninput="changeOpacity(this.value)"
     >
 
     <span id="opacityValue">
-        0.75
+        0.80
     </span>
 
 </label>
 
 
 <!-- =================================================
-     STATUS
+     Status
      ================================================= -->
 
 <h3>
@@ -556,103 +554,49 @@ code {
 
 <div id="status">
 
-    正在初始化...
+    初始化 NLSC 地圖...
 
 </div>
 
 
 <!-- =================================================
-     RESULT
+     Tile URL
+     ================================================= -->
+
+<div id="tileUrl">
+
+    尚未收到 URBAN Tile
+
+</div>
+
+
+<!-- =================================================
+     Map click
      ================================================= -->
 
 <h3>
-    ④ 地圖點選
+    ④ 地圖座標
 </h3>
 
 
 <div id="result">
 
-    點擊地圖可取得經緯度。
+    點擊地圖取得座標。
 
 </div>
 
 
 <!-- =================================================
-     LEGEND
-     ================================================= -->
-
-<div id="legend">
-
-    <b>
-        都市計畫圖
-    </b>
-
-    <br><br>
-
-    <span
-        class="legendColor"
-        style="
-            background:#f4cccc;
-        "
-    ></span>
-
-    住宅相關使用分區
-
-    <br>
-
-    <span
-        class="legendColor"
-        style="
-            background:#fce5cd;
-        "
-    ></span>
-
-    商業相關使用分區
-
-    <br>
-
-    <span
-        class="legendColor"
-        style="
-            background:#d9ead3;
-        "
-    ></span>
-
-    公共設施／綠地
-
-    <br>
-
-    <span
-        class="legendColor"
-        style="
-            background:#cfe2f3;
-        "
-    ></span>
-
-    其他都市計畫分區
-
-    <br><br>
-
-    <small>
-        實際顏色以 NLSC 官方圖磚為準。
-    </small>
-
-</div>
-
-
-<!-- =================================================
-     NOTE
+     Important
      ================================================= -->
 
 <div class="note">
 
-    <b>
-        NLSC URBAN 服務
-    </b>
+    <b>重要：</b>
 
     <br><br>
 
-    本頁直接將：
+    這裡使用的是 NLSC 官方文件所列的：
 
     <br>
 
@@ -660,29 +604,47 @@ code {
     URBAN
     </code>
 
-    疊加到 Leaflet。
+    WMTS Layer。
 
     <br><br>
 
-    WMTS Tile 格式：
+    服務根目錄：
 
     <br>
 
     <code>
-    /URBAN/default/GoogleMapsCompatible/{z}/{y}/{x}
+    https://wmts.nlsc.gov.tw/wmts/URBAN/default/EPSG:3857/
     </code>
 
     <br><br>
 
-    注意：
+    目前 NLSC 公開免申請 WMTS 清單已不列
+    URBAN。
 
-    <br>
+    都市計畫圖目前屬於授權圖資，
+    115 年起國土管理署城鄉發展分署另提供
+    全國土地使用分區圖資網路服務申請。
 
-    NLSC 目前公開 WMTS 清單與都市計畫授權圖層
-    的發布條件可能不同。
+    <br><br>
 
-    若伺服器回傳 400 / 403，
-    本頁會直接在 Tile 狀態中顯示。
+    如果你的服務帳號具有 URBAN 使用權限，
+    本頁會直接將都市計畫圖磚疊在 Leaflet 上。
+
+</div>
+
+
+<div
+    id="diagnostic"
+    class="note"
+>
+
+    <b>
+        Tile 診斷
+    </b>
+
+    <br><br>
+
+    尚未開始。
 
 </div>
 ```
@@ -692,7 +654,7 @@ code {
 <script>
 
 /* =========================================================
-   1. NLSC
+   NLSC
    ========================================================= */
 
 const NLSC_WMTS =
@@ -701,7 +663,37 @@ const NLSC_WMTS =
 
 
 /* =========================================================
-   2. Leaflet
+   NLSC EMAP
+   ========================================================= */
+
+const EMAP_URL =
+
+    NLSC_WMTS +
+
+    "/EMAP/default/" +
+
+    "GoogleMapsCompatible/" +
+
+    "{z}/{y}/{x}";
+
+
+/* =========================================================
+   實際 URBAN WMTS
+   ========================================================= */
+
+const URBAN_URL =
+
+    NLSC_WMTS +
+
+    "/URBAN/default/" +
+
+    "GoogleMapsCompatible/" +
+
+    "{z}/{y}/{x}";
+
+
+/* =========================================================
+   Map
    ========================================================= */
 
 const map =
@@ -733,20 +725,14 @@ const map =
 
 
 /* =========================================================
-   3. NLSC EMAP
+   EMAP
    ========================================================= */
 
 const emap =
 
     L.tileLayer(
 
-        NLSC_WMTS +
-
-        "/EMAP/default/" +
-
-        "GoogleMapsCompatible/" +
-
-        "{z}/{y}/{x}",
+        EMAP_URL,
 
         {
 
@@ -768,7 +754,7 @@ emap.addTo(map);
 
 
 /* =========================================================
-   4. OpenStreetMap
+   OSM
    ========================================================= */
 
 const osm =
@@ -793,53 +779,84 @@ const osm =
 
 
 /* =========================================================
-   5. URBAN
+   URBAN variables
    ========================================================= */
-
-/*
-
-   NLSC 官方歷史 WMTS 文件所列：
-
-   都市計畫使用分區圖
-   Layer = URBAN
-
-   REST：
-
-   /URBAN/default/EPSG:3857/{z}/{y}/{x}
-
-   官方圖台相關 WMTS 使用方式也存在
-   GoogleMapsCompatible matrix set。
-
-*/
-
-
-const URBAN_URL =
-
-    NLSC_WMTS +
-
-    "/URBAN/default/" +
-
-    "GoogleMapsCompatible/" +
-
-    "{z}/{y}/{x}";
-
 
 let urbanLayer = null;
 
 
-/* =========================================================
-   6. Urban statistics
-   ========================================================= */
-
 let urbanRequested = 0;
 
+
 let urbanLoaded = 0;
+
 
 let urbanErrors = 0;
 
 
+let firstUrbanTile = null;
+
+
 /* =========================================================
-   7. Create Urban Layer
+   DOM
+   ========================================================= */
+
+const statusEl =
+
+    document.getElementById(
+        "status"
+    );
+
+
+const tileUrlEl =
+
+    document.getElementById(
+        "tileUrl"
+    );
+
+
+const diagnosticEl =
+
+    document.getElementById(
+        "diagnostic"
+    );
+
+
+const resultEl =
+
+    document.getElementById(
+        "result"
+    );
+
+
+/* =========================================================
+   Status helper
+   ========================================================= */
+
+function setStatus(
+
+    text,
+
+    type = ""
+
+) {
+
+    statusEl.className =
+
+        type
+        ?
+        "status-" + type
+        :
+        "";
+
+    statusEl.innerHTML =
+        text;
+
+}
+
+
+/* =========================================================
+   URBAN layer
    ========================================================= */
 
 function createUrbanLayer() {
@@ -849,6 +866,8 @@ function createUrbanLayer() {
     urbanLoaded = 0;
 
     urbanErrors = 0;
+
+    firstUrbanTile = null;
 
 
     const layer =
@@ -863,10 +882,11 @@ function createUrbanLayer() {
                     256,
 
                 opacity:
-                    0.75,
-
-                transparent:
-                    true,
+                    Number(
+                        document.getElementById(
+                            "opacity"
+                        ).value
+                    ),
 
                 maxZoom:
                     19,
@@ -887,16 +907,16 @@ function createUrbanLayer() {
                     2,
 
                 attribution:
-                    "都市計畫使用分區圖 © NLSC"
+                    "都市計畫使用分區圖 © NLSC / 國土管理署城鄉發展分署"
 
             }
 
         );
 
 
-    /* ---------------------------------------------
+    /* =====================================================
        tileloadstart
-       --------------------------------------------- */
+       ===================================================== */
 
     layer.on(
 
@@ -906,16 +926,36 @@ function createUrbanLayer() {
 
             urbanRequested++;
 
-            updateUrbanStatus();
+
+            if (
+
+                !firstUrbanTile &&
+
+                e.tile
+
+            ) {
+
+                firstUrbanTile =
+
+                    e.tile.src;
+
+                tileUrlEl.textContent =
+
+                    firstUrbanTile;
+
+            }
+
+
+            updateStatus();
 
         }
 
     );
 
 
-    /* ---------------------------------------------
+    /* =====================================================
        tileload
-       --------------------------------------------- */
+       ===================================================== */
 
     layer.on(
 
@@ -925,11 +965,28 @@ function createUrbanLayer() {
 
             urbanLoaded++;
 
-            updateUrbanStatus();
+
+            if (
+
+                e.tile &&
+
+                e.tile.src
+
+            ) {
+
+                tileUrlEl.textContent =
+
+                    e.tile.src;
+
+            }
+
+
+            updateStatus();
+
 
             console.log(
 
-                "URBAN Tile OK:",
+                "[URBAN TILE LOAD]",
 
                 e.tile.src
 
@@ -940,9 +997,9 @@ function createUrbanLayer() {
     );
 
 
-    /* ---------------------------------------------
+    /* =====================================================
        tileerror
-       --------------------------------------------- */
+       ===================================================== */
 
     layer.on(
 
@@ -952,19 +1009,60 @@ function createUrbanLayer() {
 
             urbanErrors++;
 
-            updateUrbanStatus();
+
+            const url =
+
+                e.tile &&
+
+                e.tile.src
+                ?
+                e.tile.src
+                :
+                "";
+
+
+            if (url) {
+
+                tileUrlEl.textContent =
+
+                    url;
+
+            }
 
 
             console.error(
 
-                "URBAN Tile ERROR:",
-
-                e.tile &&
-                e.tile.src,
+                "[URBAN TILE ERROR]",
 
                 e
 
             );
+
+
+            diagnosticEl.innerHTML =
+
+                "<b>Tile 診斷</b>" +
+
+                "<br><br>" +
+
+                "Leaflet 收到 tileerror。" +
+
+                "<br><br>" +
+
+                "請在 F12 → Network → Img " +
+
+                "查看此 URL 的 Response Headers。" +
+
+                "<br><br>" +
+
+                "<code>" +
+
+                escapeHTML(url) +
+
+                "</code>";
+
+
+            updateStatus();
 
         }
 
@@ -977,36 +1075,67 @@ function createUrbanLayer() {
 
 
 /* =========================================================
-   8. Status
+   Escape
    ========================================================= */
 
-function updateUrbanStatus() {
+function escapeHTML(value) {
 
-    const status =
+    return String(value)
 
-        document.getElementById(
+        .replace(
+            /&/g,
+            "&amp;"
+        )
 
-            "status"
+        .replace(
+            /</g,
+            "&lt;"
+        )
 
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
         );
 
+}
 
-    const total =
+
+/* =========================================================
+   Status
+   ========================================================= */
+
+function updateStatus() {
+
+    const finished =
 
         urbanLoaded +
 
         urbanErrors;
 
 
-    if (total === 0) {
+    if (finished === 0) {
 
-        status.className =
+        setStatus(
 
-            "status-warn";
+            "URBAN 已加入 Leaflet。" +
 
-        status.innerHTML =
+            "<br>" +
 
-            "URBAN 已加入地圖，等待 Tile...";
+            "等待 Tile...",
+
+            "warn"
+
+        );
 
         return;
 
@@ -1021,13 +1150,9 @@ function updateUrbanStatus() {
 
     ) {
 
-        status.className =
+        setStatus(
 
-            "status-ok";
-
-        status.innerHTML =
-
-            "✅ 都市計畫圖已載入" +
+            "✅ 都市計畫圖直接載入成功。" +
 
             "<br>" +
 
@@ -1035,7 +1160,19 @@ function updateUrbanStatus() {
 
             urbanLoaded +
 
-            " 張";
+            " 張" +
+
+            "<br>" +
+
+            "失敗：" +
+
+            urbanErrors +
+
+            " 張",
+
+            "ok"
+
+        );
 
         return;
 
@@ -1050,13 +1187,9 @@ function updateUrbanStatus() {
 
     ) {
 
-        status.className =
+        setStatus(
 
-            "status-warn";
-
-        status.innerHTML =
-
-            "⚠ 都市計畫圖部分載入" +
+            "⚠ 都市計畫圖部分載入。" +
 
             "<br>" +
 
@@ -1072,48 +1205,38 @@ function updateUrbanStatus() {
 
             urbanErrors +
 
-            " 張";
+            " 張",
+
+            "warn"
+
+        );
 
         return;
 
     }
 
 
-    if (
+    setStatus(
 
-        urbanErrors > 0 &&
+        "❌ URBAN Tile 全部失敗。" +
 
-        urbanLoaded === 0
+        "<br>" +
 
-    ) {
+        "失敗：" +
 
-        status.className =
+        urbanErrors +
 
-            "status-error";
+        " 張",
 
-        status.innerHTML =
+        "error"
 
-            "❌ URBAN Tile 全部失敗" +
-
-            "<br>" +
-
-            "失敗：" +
-
-            urbanErrors +
-
-            " 張" +
-
-            "<br><br>" +
-
-            "請查看 F12 → Network → Img。";
-
-    }
+    );
 
 }
 
 
 /* =========================================================
-   9. Show Urban
+   Show Urban
    ========================================================= */
 
 function showUrban() {
@@ -1136,7 +1259,7 @@ function showUrban() {
 
     setTimeout(
 
-        updateUrbanStatus,
+        updateStatus,
 
         300
 
@@ -1146,7 +1269,7 @@ function showUrban() {
 
 
 /* =========================================================
-   10. Hide Urban
+   Hide Urban
    ========================================================= */
 
 function hideUrban() {
@@ -1168,28 +1291,19 @@ function hideUrban() {
     }
 
 
-    document.getElementById(
+    setStatus(
 
-        "status"
+        "都市計畫圖已隱藏。",
 
-    ).className =
+        ""
 
-        "";
-
-
-    document.getElementById(
-
-        "status"
-
-    ).innerHTML =
-
-        "都市計畫圖已隱藏。";
+    );
 
 }
 
 
 /* =========================================================
-   11. Reload Urban
+   Reload Urban
    ========================================================= */
 
 function reloadUrban() {
@@ -1208,30 +1322,15 @@ function reloadUrban() {
     urbanLayer = null;
 
 
-    createUrbanLayerAndShow();
-
-}
-
-
-/* =========================================================
-   12. Create and show
-   ========================================================= */
-
-function createUrbanLayerAndShow() {
-
-    urbanLayer =
-
-        createUrbanLayer();
-
-
-    urbanLayer.addTo(map);
-
-
     setTimeout(
 
-        updateUrbanStatus,
+        function() {
 
-        500
+            showUrban();
+
+        },
+
+        100
 
     );
 
@@ -1239,16 +1338,16 @@ function createUrbanLayerAndShow() {
 
 
 /* =========================================================
-   13. Opacity
+   Opacity
    ========================================================= */
 
-function changeUrbanOpacity(value) {
+function changeOpacity(value) {
 
     document.getElementById(
 
         "opacityValue"
 
-    ).innerText =
+    ).textContent =
 
         Number(value).toFixed(2);
 
@@ -1267,27 +1366,208 @@ function changeUrbanOpacity(value) {
 
 
 /* =========================================================
-   14. Layer Control
+   新北市
    ========================================================= */
+
+function goNewTaipei() {
+
+    map.fitBounds(
+
+        L.latLngBounds(
+
+            [24.75,121.25],
+
+            [25.30,122.05]
+
+        ),
+
+        {
+
+            padding:
+                [20,20]
+
+        }
+
+    );
+
+}
+
+
+/* =========================================================
+   板橋
+   ========================================================= */
+
+function goBanqiao() {
+
+    map.setView(
+
+        [25.0119,121.4618],
+
+        15
+
+    );
+
+}
+
+
+/* =========================================================
+   新莊
+   ========================================================= */
+
+function goXinzhuang() {
+
+    map.setView(
+
+        [25.0330,121.4500],
+
+        15
+
+    );
+
+}
+
+
+/* =========================================================
+   林口
+   ========================================================= */
+
+function goLinkou() {
+
+    map.setView(
+
+        [25.0776,121.3925],
+
+        14
+
+    );
+
+}
+
+
+/* =========================================================
+   淡水
+   ========================================================= */
+
+function goTamsui() {
+
+    map.setView(
+
+        [25.1676,121.4450],
+
+        14
+
+    );
+
+}
+
+
+/* =========================================================
+   Map click
+   ========================================================= */
+
+let marker = null;
+
+
+map.on(
+
+    "click",
+
+    function(e) {
+
+        const lat =
+
+            e.latlng.lat;
+
+
+        const lon =
+
+            e.latlng.lng;
+
+
+        if (marker) {
+
+            map.removeLayer(
+
+                marker
+
+            );
+
+        }
+
+
+        marker =
+
+            L.marker(
+
+                e.latlng
+
+            ).addTo(map);
+
+
+        marker.bindPopup(
+
+            "<b>地圖位置</b>" +
+
+            "<br><br>" +
+
+            "緯度：" +
+
+            lat.toFixed(8) +
+
+            "<br>" +
+
+            "經度：" +
+
+            lon.toFixed(8)
+
+        );
+
+
+        marker.openPopup();
+
+
+        resultEl.innerHTML =
+
+            "<b>目前座標</b>" +
+
+            "<br>" +
+
+            "Latitude：" +
+
+            lat.toFixed(8) +
+
+            "<br>" +
+
+            "Longitude：" +
+
+            lon.toFixed(8);
+
+    }
+
+);
+
+
+/* =========================================================
+   Layer Control
+   ========================================================= */
+
+const baseMaps = {
+
+    "NLSC 臺灣通用電子地圖":
+        emap,
+
+    "OpenStreetMap":
+        osm
+
+};
+
 
 const overlays = {};
 
 
-/* =========================================================
-   15. Map layers
-   ========================================================= */
-
 L.control.layers(
 
-    {
-
-        "NLSC 臺灣通用電子地圖":
-            emap,
-
-        "OpenStreetMap":
-            osm
-
-    },
+    baseMaps,
 
     overlays,
 
@@ -1305,7 +1585,7 @@ L.control.layers(
 
 
 /* =========================================================
-   16. Scale
+   Scale
    ========================================================= */
 
 L.control.scale(
@@ -1327,204 +1607,36 @@ L.control.scale(
 
 
 /* =========================================================
-   17. New Taipei
+   EMAP diagnostics
    ========================================================= */
 
-const newTaipeiBounds =
+emap.on(
 
-    L.latLngBounds(
+    "tileload",
 
-        [24.75,121.25],
+    function() {
 
-        [25.30,122.05]
+        if (
 
-    );
+            !statusEl.classList.contains(
+                "status-ok"
+            )
 
+        ) {
 
-function goNewTaipei() {
+            if (!urbanLayer) {
 
-    map.fitBounds(
+                setStatus(
 
-        newTaipeiBounds,
+                    "✅ NLSC EMAP 底圖載入成功。",
 
-        {
+                    "ok"
 
-            padding:
-                [20,20]
+                );
+
+            }
 
         }
-
-    );
-
-}
-
-
-/* =========================================================
-   18. Banqiao
-   ========================================================= */
-
-function goBanqiao() {
-
-    map.setView(
-
-        [25.0119,121.4618],
-
-        15
-
-    );
-
-}
-
-
-/* =========================================================
-   19. Xinzhuang
-   ========================================================= */
-
-function goXinzhuang() {
-
-    map.setView(
-
-        [25.0330,121.4500],
-
-        15
-
-    );
-
-}
-
-
-/* =========================================================
-   20. Linkou
-   ========================================================= */
-
-function goLinkou() {
-
-    map.setView(
-
-        [25.0776,121.3925],
-
-        14
-
-    );
-
-}
-
-
-/* =========================================================
-   21. Tamsui
-   ========================================================= */
-
-function goTamsui() {
-
-    map.setView(
-
-        [25.1676,121.4450],
-
-        14
-
-    );
-
-}
-
-
-/* =========================================================
-   22. Map click
-   ========================================================= */
-
-let selectedMarker = null;
-
-
-map.on(
-
-    "click",
-
-    function(e) {
-
-        const lat =
-            e.latlng.lat;
-
-        const lon =
-            e.latlng.lng;
-
-
-        const latText =
-            lat.toFixed(8);
-
-        const lonText =
-            lon.toFixed(8);
-
-
-        if (selectedMarker) {
-
-            map.removeLayer(
-
-                selectedMarker
-
-            );
-
-        }
-
-
-        selectedMarker =
-
-            L.marker(
-
-                e.latlng
-
-            ).addTo(map);
-
-
-        selectedMarker.bindPopup(
-
-            "<b>地圖位置</b>" +
-
-            "<br><br>" +
-
-            "緯度：" +
-
-            latText +
-
-            "<br>" +
-
-            "經度：" +
-
-            lonText
-
-        );
-
-
-        selectedMarker.openPopup();
-
-
-        document.getElementById(
-
-            "result"
-
-        ).innerHTML =
-
-            "<b>目前點選位置</b>" +
-
-            "<br>" +
-
-            "Latitude：" +
-
-            latText +
-
-            "<br>" +
-
-            "Longitude：" +
-
-            lonText +
-
-            "<br><br>" +
-
-            "<span style='color:#666'>" +
-
-            "下一階段可在此位置串接都市計畫" +
-
-            " Feature / 點選查詢服務。" +
-
-            "</span>";
 
     }
 
@@ -1532,62 +1644,32 @@ map.on(
 
 
 /* =========================================================
-   23. Initial Urban
+   Initial
    ========================================================= */
 
-showUrban();
+console.log(
+    "NLSC URBAN WMTS:"
+);
+
+console.log(
+    URBAN_URL
+);
+
+
+console.log(
+    "NLSC EMAP WMTS:"
+);
+
+console.log(
+    EMAP_URL
+);
 
 
 /* =========================================================
-   24. Console
+   啟動都市計畫圖
    ========================================================= */
 
-console.log(
-
-    "=========================================="
-
-);
-
-
-console.log(
-
-    "NLSC URBAN Leaflet"
-
-);
-
-
-console.log(
-
-    "=========================================="
-
-);
-
-
-console.log(
-
-    "URBAN URL:",
-
-    URBAN_URL
-
-);
-
-
-console.log(
-
-    "EMAP URL:",
-
-    NLSC_WMTS +
-
-    "/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}"
-
-);
-
-
-console.log(
-
-    "=========================================="
-
-);
+showUrban();
 
 </script>
 
