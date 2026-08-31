@@ -1,24 +1,15 @@
 <!DOCTYPE html>
 
 <html lang="zh-TW">
-
 <head>
-
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<meta
-name="viewport"
-content="width=device-width, initial-scale=1.0"
+<title>新北市都市計畫使用分區圖｜API 自動介接 Leaflet</title>
 
->
-
-<title>
-    NLSC 新北市都市計畫使用分區圖
-</title>
-
-<!-- =====================================================
+<!-- =========================================================
      Leaflet
-     ===================================================== -->
+     ========================================================= -->
 
 <link
     rel="stylesheet"
@@ -29,379 +20,322 @@ content="width=device-width, initial-scale=1.0"
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
 </script>
 
+<!-- =========================================================
+     shpjs
+     用來在瀏覽器直接解析 SHP ZIP → GeoJSON
+     ========================================================= -->
+
+<script
+    src="https://unpkg.com/shpjs@latest/dist/shp.js">
+</script>
+
 <style>
 
-/* =====================================================
-   基本
-   ===================================================== */
+* {
+    box-sizing: border-box;
+}
 
 html,
 body {
-
     width: 100%;
-
     height: 100%;
-
     margin: 0;
-
     padding: 0;
-
-    overflow: hidden;
-
     font-family:
         "Microsoft JhengHei",
         "Noto Sans TC",
         Arial,
         sans-serif;
-
 }
-
 
 #map {
-
     position: absolute;
-
-    left: 0;
-
-    top: 0;
-
+    inset: 0;
     width: 100%;
-
-    height: 100vh;
-
+    height: 100%;
 }
 
-
-/* =====================================================
+/* =========================================================
    控制面板
-   ===================================================== */
+   ========================================================= */
 
 #panel {
-
     position: absolute;
-
     z-index: 10000;
 
     left: 15px;
-
     top: 15px;
 
-    width: 410px;
-
-    max-height:
-        calc(100vh - 30px);
+    width: 420px;
+    max-height: calc(100vh - 30px);
 
     overflow-y: auto;
 
-    box-sizing: border-box;
-
     padding: 16px;
 
-    background:
-        rgba(255,255,255,0.97);
+    background: rgba(255,255,255,0.97);
 
-    border:
-        1px solid #cbd5e1;
-
-    border-radius:
-        10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
 
     box-shadow:
-        0 5px 20px
-        rgba(0,0,0,0.25);
-
+        0 5px 20px rgba(0,0,0,0.25);
 }
-
 
 #panel h2 {
-
-    margin:
-        0 0 5px 0;
-
-    font-size:
-        20px;
-
+    margin: 0 0 5px 0;
+    font-size: 20px;
 }
-
 
 #panel h3 {
-
-    margin:
-        16px 0 8px 0;
-
-    font-size:
-        15px;
-
+    margin: 16px 0 8px 0;
+    font-size: 15px;
 }
-
 
 #panel hr {
-
-    margin:
-        12px 0;
-
-    border:
-        0;
-
-    border-top:
-        1px solid #ddd;
-
+    margin: 12px 0;
+    border: 0;
+    border-top: 1px solid #ddd;
 }
 
-
-/* =====================================================
+/* =========================================================
    Button
-   ===================================================== */
+   ========================================================= */
 
 button {
-
-    margin:
-        3px 3px 3px 0;
-
-    padding:
-        7px 11px;
+    margin: 3px 3px 3px 0;
+    padding: 7px 12px;
 
     border:
         1px solid #9ca3af;
 
-    border-radius:
-        5px;
+    border-radius: 5px;
 
-    background:
-        #fff;
+    background: #fff;
 
-    cursor:
-        pointer;
+    cursor: pointer;
 
-    font-family:
-        inherit;
-
+    font-family: inherit;
 }
-
 
 button:hover {
-
-    background:
-        #f3f4f6;
-
+    background: #f3f4f6;
 }
-
 
 button.primary {
-
-    color:
-        #fff;
-
-    background:
-        #2563eb;
-
-    border-color:
-        #1d4ed8;
-
+    color: #fff;
+    background: #2563eb;
+    border-color: #1d4ed8;
 }
-
 
 button.primary:hover {
-
-    background:
-        #1d4ed8;
-
+    background: #1d4ed8;
 }
 
+button.danger {
+    color: #fff;
+    background: #dc2626;
+    border-color: #b91c1c;
+}
 
-/* =====================================================
+/* =========================================================
    Status
-   ===================================================== */
+   ========================================================= */
 
 #status {
+    margin-top: 8px;
 
-    margin-top:
-        8px;
+    padding: 10px;
 
-    padding:
-        10px;
+    border-radius: 6px;
 
-    border-radius:
-        6px;
+    background: #f3f4f6;
 
-    background:
-        #f3f4f6;
+    line-height: 1.65;
 
-    line-height:
-        1.6;
-
-    word-break:
-        break-word;
-
+    word-break: break-word;
 }
-
 
 .status-ok {
-
-    background:
-        #ecfdf5 !important;
-
-    color:
-        #065f46;
-
+    background: #ecfdf5 !important;
+    color: #065f46;
 }
-
 
 .status-warn {
-
-    background:
-        #fffbeb !important;
-
-    color:
-        #92400e;
-
+    background: #fffbeb !important;
+    color: #92400e;
 }
-
 
 .status-error {
-
-    background:
-        #fef2f2 !important;
-
-    color:
-        #991b1b;
-
+    background: #fef2f2 !important;
+    color: #991b1b;
 }
 
+/* =========================================================
+   Metadata
+   ========================================================= */
 
-/* =====================================================
-   Result
-   ===================================================== */
+#metadata {
+    margin-top: 8px;
 
-#result {
+    padding: 10px;
 
-    margin-top:
-        8px;
-
-    padding:
-        10px;
-
-    background:
-        #f8fafc;
+    background: #f8fafc;
 
     border:
         1px solid #e2e8f0;
 
-    border-radius:
-        6px;
+    border-radius: 6px;
 
-    line-height:
-        1.7;
+    line-height: 1.65;
 
-    word-break:
-        break-word;
-
+    word-break: break-word;
 }
 
+/* =========================================================
+   URL
+   ========================================================= */
 
-#tileUrl {
+#downloadUrl {
+    margin-top: 8px;
 
-    margin-top:
-        8px;
+    padding: 8px;
 
-    padding:
-        8px;
+    background: #111827;
 
-    background:
-        #111827;
+    color: #d1fae5;
 
-    color:
-        #d1fae5;
-
-    border-radius:
-        5px;
+    border-radius: 5px;
 
     font-family:
         Consolas,
         monospace;
 
-    font-size:
-        11px;
+    font-size: 11px;
 
-    line-height:
-        1.5;
+    line-height: 1.5;
 
-    word-break:
-        break-all;
-
+    word-break: break-all;
 }
 
+/* =========================================================
+   Log
+   ========================================================= */
 
-/* =====================================================
+#log {
+    margin-top: 8px;
+
+    max-height: 180px;
+
+    overflow-y: auto;
+
+    padding: 8px;
+
+    background: #0f172a;
+
+    color: #e2e8f0;
+
+    border-radius: 6px;
+
+    font-family:
+        Consolas,
+        monospace;
+
+    font-size: 11px;
+
+    line-height: 1.5;
+
+    white-space: pre-wrap;
+}
+
+/* =========================================================
+   Legend
+   ========================================================= */
+
+.legend {
+    margin-top: 10px;
+
+    padding: 10px;
+
+    background: #fff;
+
+    border:
+        1px solid #ddd;
+
+    border-radius: 6px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin: 5px 0;
+}
+
+.legend-box {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    border: 1px solid #555;
+}
+
+/* =========================================================
+   Popup
+   ========================================================= */
+
+.popup-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.popup-table td {
+    padding: 4px 6px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+}
+
+.popup-table td:first-child {
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* =========================================================
    Note
-   ===================================================== */
+   ========================================================= */
 
 .note {
+    margin-top: 10px;
 
-    margin-top:
-        10px;
+    padding: 10px;
 
-    padding:
-        10px;
-
-    background:
-        #fff7ed;
+    background: #fff7ed;
 
     border:
         1px solid #fed7aa;
 
-    border-radius:
-        6px;
+    border-radius: 6px;
 
-    color:
-        #9a3412;
+    color: #9a3412;
 
-    font-size:
-        12px;
+    font-size: 12px;
 
-    line-height:
-        1.7;
-
+    line-height: 1.7;
 }
 
-
-.successNote {
-
-    background:
-        #ecfdf5;
-
-    border-color:
-        #a7f3d0;
-
-    color:
-        #065f46;
-
-}
-
-
-/* =====================================================
+/* =========================================================
    Mobile
-   ===================================================== */
+   ========================================================= */
 
-@media
-(max-width: 700px) {
+@media (max-width: 700px) {
 
     #panel {
 
-        left:
-            8px;
+        left: 8px;
+        right: 8px;
 
-        right:
-            8px;
+        width: auto;
 
-        width:
-            auto;
-
-        max-height:
-            55vh;
-
+        max-height: 55vh;
     }
-
 }
 
 </style>
@@ -410,47 +344,43 @@ button.primary:hover {
 
 <body>
 
-<!-- =====================================================
+<!-- =========================================================
      MAP
-     ===================================================== -->
+     ========================================================= -->
 
 <div id="map"></div>
 
-<!-- =====================================================
+<!-- =========================================================
      PANEL
-     ===================================================== -->
+     ========================================================= -->
 
 <div id="panel">
 
 ```
 <h2>
-    🗺️ NLSC 都市計畫使用分區圖
+    🗺️ 新北市都市計畫使用分區圖
 </h2>
 
 <div>
-    <b>區域：</b>新北市
+    <b>資料來源：</b>
+    新北市政府城鄉發展局
 </div>
 
 <div>
-    <b>資料：</b>都市計畫使用分區圖(115年4月)
+    <b>方式：</b>
+    OpenData API → GIS 圖資 → Leaflet
 </div>
-
-<div>
-    <b>服務：</b>NLSC URBAN WMTS
-</div>
-
 
 <hr>
 
 
-<!-- =================================================
-     定位
-     ================================================= -->
+<!-- =====================================================
+     ① 定位
+     ===================================================== -->
 
 <h3>
-    ① 新北市定位
+    ① 地圖定位
 </h3>
-
 
 <button
     class="primary"
@@ -459,13 +389,11 @@ button.primary:hover {
     新北市
 </button>
 
-
 <button
     onclick="goBanqiao()"
 >
     板橋
 </button>
-
 
 <button
     onclick="goXinzhuang()"
@@ -473,13 +401,11 @@ button.primary:hover {
     新莊
 </button>
 
-
 <button
     onclick="goLinkou()"
 >
     林口
 </button>
-
 
 <button
     onclick="goTamsui()"
@@ -488,163 +414,157 @@ button.primary:hover {
 </button>
 
 
-<!-- =================================================
-     URBAN
-     ================================================= -->
+<!-- =====================================================
+     ② API
+     ===================================================== -->
 
 <h3>
-    ② 都市計畫圖
+    ② 都市計畫資料
 </h3>
-
 
 <button
     class="primary"
-    onclick="showUrban()"
+    onclick="loadUrbanData()"
 >
-    顯示
+    🔄 從官方 API 載入
 </button>
-
 
 <button
-    onclick="hideUrban()"
+    onclick="clearUrbanLayer()"
 >
-    隱藏
+    清除都市計畫圖
 </button>
 
 
-<button
-    onclick="reloadUrban()"
->
-    重新載入
-</button>
+<!-- =====================================================
+     ③ Status
+     ===================================================== -->
+
+<h3>
+    ③ 系統狀態
+</h3>
+
+<div id="status">
+
+    初始化中...
+
+</div>
 
 
-<br>
+<!-- =====================================================
+     ④ Metadata
+     ===================================================== -->
 
+<h3>
+    ④ 官方資料資訊
+</h3>
+
+<div id="metadata">
+
+    尚未取得資料。
+
+</div>
+
+
+<!-- =====================================================
+     ⑤ Download URL
+     ===================================================== -->
+
+<h3>
+    ⑤ GIS 圖資 URL
+</h3>
+
+<div id="downloadUrl">
+
+    尚未取得下載連結。
+
+</div>
+
+
+<!-- =====================================================
+     ⑥ Log
+     ===================================================== -->
+
+<h3>
+    ⑥ API / GIS 除錯紀錄
+</h3>
+
+<div id="log">
+
+    尚未開始。
+
+</div>
+
+
+<!-- =====================================================
+     Legend
+     ===================================================== -->
+
+<h3>
+    ⑦ 顯示設定
+</h3>
 
 <label>
 
-    透明度：
+    Polygon 透明度：
 
     <input
-        id="opacity"
+        id="fillOpacity"
         type="range"
         min="0"
         max="1"
         step="0.05"
-        value="0.8"
-        oninput="changeOpacity(this.value)"
+        value="0.45"
+        oninput="changeFillOpacity(this.value)"
     >
 
-    <span id="opacityValue">
-        0.80
+    <span id="fillOpacityValue">
+        0.45
     </span>
 
 </label>
 
 
-<!-- =================================================
-     Status
-     ================================================= -->
-
-<h3>
-    ③ Tile 狀態
-</h3>
+<br><br>
 
 
-<div id="status">
+<label>
 
-    初始化 NLSC 地圖...
+    <input
+        type="checkbox"
+        id="showOutline"
+        checked
+        onchange="updatePolygonStyle()"
+    >
 
-</div>
+    顯示分區外框
 
+</label>
 
-<!-- =================================================
-     Tile URL
-     ================================================= -->
-
-<div id="tileUrl">
-
-    尚未收到 URBAN Tile
-
-</div>
-
-
-<!-- =================================================
-     Map click
-     ================================================= -->
-
-<h3>
-    ④ 地圖座標
-</h3>
-
-
-<div id="result">
-
-    點擊地圖取得座標。
-
-</div>
-
-
-<!-- =================================================
-     Important
-     ================================================= -->
 
 <div class="note">
 
-    <b>重要：</b>
-
-    <br><br>
-
-    這裡使用的是 NLSC 官方文件所列的：
+    <b>說明：</b>
 
     <br>
 
-    <code>
-    URBAN
-    </code>
-
-    WMTS Layer。
-
-    <br><br>
-
-    服務根目錄：
+    本頁不是使用 NLSC 的
+    <code>URBAN WMTS</code>。
 
     <br>
 
-    <code>
-    https://wmts.nlsc.gov.tw/wmts/URBAN/default/EPSG:3857/
-    </code>
+    而是使用新北市政府公開資料平台的
+    「新北市都市計畫土地使用分區及範圍圖」。
 
     <br><br>
 
-    目前 NLSC 公開免申請 WMTS 清單已不列
-    URBAN。
-
-    都市計畫圖目前屬於授權圖資，
-    115 年起國土管理署城鄉發展分署另提供
-    全國土地使用分區圖資網路服務申請。
+    API 取得的是官方圖資資訊及下載連結，
+    實際 GIS 圖資再由瀏覽器解析後顯示。
 
     <br><br>
 
-    如果你的服務帳號具有 URBAN 使用權限，
-    本頁會直接將都市計畫圖磚疊在 Leaflet 上。
-
-</div>
-
-
-<div
-    id="diagnostic"
-    class="note"
->
-
-    <b>
-        Tile 診斷
-    </b>
-
-    <br><br>
-
-    尚未開始。
+    若官方資料為 SHP ZIP，
+    本頁使用 shpjs 在瀏覽器端轉換成 GeoJSON。
 
 </div>
 ```
@@ -654,195 +574,150 @@ button.primary:hover {
 <script>
 
 /* =========================================================
-   NLSC
+   1. 官方 OpenData API
    ========================================================= */
 
-const NLSC_WMTS =
+const DATASET_ID =
+    "fe26e0a5-54c2-4876-bbc7-150243c048f5";
 
-    "https://wmts.nlsc.gov.tw/wmts";
+
+const API_URL =
+    "https://data.ntpc.gov.tw/api/datasets/" +
+    DATASET_ID +
+    "/json";
 
 
 /* =========================================================
-   NLSC EMAP
+   2. Leaflet Map
    ========================================================= */
 
-const EMAP_URL =
-
-    NLSC_WMTS +
-
-    "/EMAP/default/" +
-
-    "GoogleMapsCompatible/" +
-
-    "{z}/{y}/{x}";
+const map = L.map(
+    "map",
+    {
+        center: [25.012098, 121.465675],
+        zoom: 13,
+        minZoom: 8,
+        maxZoom: 19,
+        zoomControl: true
+    }
+);
 
 
 /* =========================================================
-   實際 URBAN WMTS
-   ========================================================= */
-
-const URBAN_URL =
-
-    NLSC_WMTS +
-
-    "/URBAN/default/" +
-
-    "GoogleMapsCompatible/" +
-
-    "{z}/{y}/{x}";
-
-
-/* =========================================================
-   Map
-   ========================================================= */
-
-const map =
-
-    L.map(
-
-        "map",
-
-        {
-
-            center:
-                [25.012098,121.465675],
-
-            zoom:
-                13,
-
-            minZoom:
-                8,
-
-            maxZoom:
-                19,
-
-            zoomControl:
-                true
-
-        }
-
-    );
-
-
-/* =========================================================
-   EMAP
+   3. NLSC EMAP
    ========================================================= */
 
 const emap =
-
     L.tileLayer(
 
-        EMAP_URL,
+        "https://wmts.nlsc.gov.tw/wmts/" +
+        "EMAP/default/" +
+        "GoogleMapsCompatible/" +
+        "{z}/{y}/{x}",
 
         {
-
-            tileSize:
-                256,
-
-            maxZoom:
-                19,
+            maxZoom: 19,
 
             attribution:
                 "© 內政部國土測繪中心 NLSC"
-
         }
 
-    );
-
-
-emap.addTo(map);
+    ).addTo(map);
 
 
 /* =========================================================
-   OSM
+   4. OSM
    ========================================================= */
 
 const osm =
-
     L.tileLayer(
 
         "https://{s}.tile.openstreetmap.org/" +
-
         "{z}/{x}/{y}.png",
 
         {
-
-            maxZoom:
-                19,
+            maxZoom: 19,
 
             attribution:
                 "© OpenStreetMap contributors"
-
         }
 
     );
 
 
 /* =========================================================
-   URBAN variables
+   5. Layer variables
    ========================================================= */
 
-let urbanLayer = null;
-
-
-let urbanRequested = 0;
-
-
-let urbanLoaded = 0;
-
-
-let urbanErrors = 0;
-
-
-let firstUrbanTile = null;
+let urbanGeoJsonLayer = null;
 
 
 /* =========================================================
-   DOM
+   6. DOM
    ========================================================= */
 
 const statusEl =
-
     document.getElementById(
         "status"
     );
 
 
-const tileUrlEl =
-
+const metadataEl =
     document.getElementById(
-        "tileUrl"
+        "metadata"
     );
 
 
-const diagnosticEl =
-
+const downloadUrlEl =
     document.getElementById(
-        "diagnostic"
+        "downloadUrl"
     );
 
 
-const resultEl =
-
+const logEl =
     document.getElementById(
-        "result"
+        "log"
     );
 
 
 /* =========================================================
-   Status helper
+   7. Logging
+   ========================================================= */
+
+function log(message) {
+
+    const now =
+        new Date()
+            .toLocaleTimeString();
+
+    logEl.textContent +=
+        "[" +
+        now +
+        "] " +
+        message +
+        "\n";
+
+    logEl.scrollTop =
+        logEl.scrollHeight;
+
+    console.log(
+        "[URBAN]",
+        message
+    );
+
+}
+
+
+/* =========================================================
+   8. Status
    ========================================================= */
 
 function setStatus(
-
-    text,
-
+    message,
     type = ""
-
 ) {
 
     statusEl.className =
-
         type
         ?
         "status-" + type
@@ -850,235 +725,25 @@ function setStatus(
         "";
 
     statusEl.innerHTML =
-        text;
+        message;
 
 }
 
 
 /* =========================================================
-   URBAN layer
-   ========================================================= */
-
-function createUrbanLayer() {
-
-    urbanRequested = 0;
-
-    urbanLoaded = 0;
-
-    urbanErrors = 0;
-
-    firstUrbanTile = null;
-
-
-    const layer =
-
-        L.tileLayer(
-
-            URBAN_URL,
-
-            {
-
-                tileSize:
-                    256,
-
-                opacity:
-                    Number(
-                        document.getElementById(
-                            "opacity"
-                        ).value
-                    ),
-
-                maxZoom:
-                    19,
-
-                minZoom:
-                    10,
-
-                zIndex:
-                    500,
-
-                updateWhenZooming:
-                    false,
-
-                updateWhenIdle:
-                    true,
-
-                keepBuffer:
-                    2,
-
-                attribution:
-                    "都市計畫使用分區圖 © NLSC / 國土管理署城鄉發展分署"
-
-            }
-
-        );
-
-
-    /* =====================================================
-       tileloadstart
-       ===================================================== */
-
-    layer.on(
-
-        "tileloadstart",
-
-        function(e) {
-
-            urbanRequested++;
-
-
-            if (
-
-                !firstUrbanTile &&
-
-                e.tile
-
-            ) {
-
-                firstUrbanTile =
-
-                    e.tile.src;
-
-                tileUrlEl.textContent =
-
-                    firstUrbanTile;
-
-            }
-
-
-            updateStatus();
-
-        }
-
-    );
-
-
-    /* =====================================================
-       tileload
-       ===================================================== */
-
-    layer.on(
-
-        "tileload",
-
-        function(e) {
-
-            urbanLoaded++;
-
-
-            if (
-
-                e.tile &&
-
-                e.tile.src
-
-            ) {
-
-                tileUrlEl.textContent =
-
-                    e.tile.src;
-
-            }
-
-
-            updateStatus();
-
-
-            console.log(
-
-                "[URBAN TILE LOAD]",
-
-                e.tile.src
-
-            );
-
-        }
-
-    );
-
-
-    /* =====================================================
-       tileerror
-       ===================================================== */
-
-    layer.on(
-
-        "tileerror",
-
-        function(e) {
-
-            urbanErrors++;
-
-
-            const url =
-
-                e.tile &&
-
-                e.tile.src
-                ?
-                e.tile.src
-                :
-                "";
-
-
-            if (url) {
-
-                tileUrlEl.textContent =
-
-                    url;
-
-            }
-
-
-            console.error(
-
-                "[URBAN TILE ERROR]",
-
-                e
-
-            );
-
-
-            diagnosticEl.innerHTML =
-
-                "<b>Tile 診斷</b>" +
-
-                "<br><br>" +
-
-                "Leaflet 收到 tileerror。" +
-
-                "<br><br>" +
-
-                "請在 F12 → Network → Img " +
-
-                "查看此 URL 的 Response Headers。" +
-
-                "<br><br>" +
-
-                "<code>" +
-
-                escapeHTML(url) +
-
-                "</code>";
-
-
-            updateStatus();
-
-        }
-
-    );
-
-
-    return layer;
-
-}
-
-
-/* =========================================================
-   Escape
+   9. Escape HTML
    ========================================================= */
 
 function escapeHTML(value) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+
+        return "";
+
+    }
 
     return String(value)
 
@@ -1111,262 +776,1437 @@ function escapeHTML(value) {
 
 
 /* =========================================================
-   Status
+   10. API 資料結構偵測
    ========================================================= */
 
-function updateStatus() {
+function inspectApiResponse(data) {
 
-    const finished =
-
-        urbanLoaded +
-
-        urbanErrors;
+    log(
+        "開始分析 API JSON 結構..."
+    );
 
 
-    if (finished === 0) {
+    console.log(
+        "完整 API Response:",
+        data
+    );
 
-        setStatus(
 
-            "URBAN 已加入 Leaflet。" +
+    /*
+     * 不假設 API 固定結構。
+     *
+     * 新北市 OpenData API 未來欄位若有變動，
+     * 這裡先遞迴搜尋 link / url / download 等欄位。
+     */
 
-            "<br>" +
 
-            "等待 Tile...",
+    const candidates = [];
 
-            "warn"
 
-        );
+    function recursiveSearch(
+        obj,
+        path = ""
+    ) {
 
-        return;
+        if (!obj) {
+            return;
+        }
+
+
+        if (
+            typeof obj ===
+            "string"
+        ) {
+
+            const lower =
+                obj.toLowerCase();
+
+
+            if (
+
+                lower.startsWith(
+                    "http://"
+                ) ||
+
+                lower.startsWith(
+                    "https://"
+                )
+
+            ) {
+
+                candidates.push({
+
+                    path:
+                        path,
+
+                    url:
+                        obj
+
+                });
+
+            }
+
+
+            return;
+
+        }
+
+
+        if (
+            Array.isArray(obj)
+        ) {
+
+            obj.forEach(
+                (item, index) => {
+
+                    recursiveSearch(
+                        item,
+                        path +
+                        "[" +
+                        index +
+                        "]"
+                    );
+
+                }
+            );
+
+            return;
+
+        }
+
+
+        if (
+            typeof obj ===
+            "object"
+        ) {
+
+            Object.keys(obj)
+                .forEach(
+                    key => {
+
+                        recursiveSearch(
+
+                            obj[key],
+
+                            path
+                            ?
+                            path +
+                            "." +
+                            key
+                            :
+                            key
+
+                        );
+
+                    }
+                );
+
+        }
 
     }
 
 
+    recursiveSearch(data);
+
+
+    log(
+        "API 中找到 URL 數量：" +
+        candidates.length
+    );
+
+
+    console.table(
+        candidates
+    );
+
+
+    return candidates;
+
+}
+
+
+/* =========================================================
+   11. 判斷是不是 GIS 圖資
+   ========================================================= */
+
+function scoreDownloadUrl(url) {
+
+    const lower =
+        url.toLowerCase();
+
+
+    let score = 0;
+
+
     if (
-
-        urbanLoaded > 0 &&
-
-        urbanErrors === 0
-
+        lower.includes(".zip")
     ) {
+        score += 100;
+    }
+
+
+    if (
+        lower.includes(".shp")
+    ) {
+        score += 90;
+    }
+
+
+    if (
+        lower.includes(
+            "shapefile"
+        )
+    ) {
+        score += 80;
+    }
+
+
+    if (
+        lower.includes(
+            "geojson"
+        )
+    ) {
+        score += 80;
+    }
+
+
+    if (
+        lower.includes(
+            ".json"
+        )
+    ) {
+        score += 60;
+    }
+
+
+    if (
+        lower.includes(
+            "download"
+        )
+    ) {
+        score += 40;
+    }
+
+
+    if (
+        lower.includes(
+            "gis"
+        )
+    ) {
+        score += 30;
+    }
+
+
+    return score;
+
+}
+
+
+/* =========================================================
+   12. 找真正 GIS URL
+   ========================================================= */
+
+function findBestDownloadUrl(
+    candidates
+) {
+
+    if (
+        !candidates ||
+        candidates.length === 0
+    ) {
+
+        return null;
+
+    }
+
+
+    const sorted =
+        [...candidates]
+            .sort(
+                (a, b) =>
+                    scoreDownloadUrl(
+                        b.url
+                    ) -
+                    scoreDownloadUrl(
+                        a.url
+                    )
+            );
+
+
+    log(
+        "候選 GIS URL 排序完成。"
+    );
+
+
+    sorted.forEach(
+        (item, index) => {
+
+            log(
+                "#" +
+                (index + 1) +
+                " score=" +
+                scoreDownloadUrl(
+                    item.url
+                ) +
+                " " +
+                item.url
+            );
+
+        }
+    );
+
+
+    return sorted[0];
+
+}
+
+
+/* =========================================================
+   13. 從 API 取得資料
+   ========================================================= */
+
+async function loadUrbanData() {
+
+    try {
+
+        setStatus(
+            "⏳ 正在呼叫新北市政府 OpenData API...",
+            "warn"
+        );
+
+
+        log(
+            "API URL："
+            +
+            API_URL
+        );
+
+
+        metadataEl.innerHTML =
+            "正在取得官方資料...";
+
+
+        downloadUrlEl.textContent =
+            "正在取得下載連結...";
+
+
+        /*
+         * ---------------------------------------------------
+         * Fetch
+         * ---------------------------------------------------
+         */
+
+        const response =
+            await fetch(
+                API_URL,
+                {
+                    method:
+                        "GET",
+
+                    cache:
+                        "no-cache"
+                }
+            );
+
+
+        log(
+            "HTTP Status："
+            +
+            response.status
+        );
+
+
+        log(
+            "Content-Type："
+            +
+            (
+                response.headers
+                    .get(
+                        "content-type"
+                    )
+                ||
+                ""
+            )
+        );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+
+                "API HTTP " +
+                response.status
+
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        log(
+            "API JSON 取得成功。"
+        );
+
+
+        /*
+         * ---------------------------------------------------
+         * Metadata 顯示
+         * ---------------------------------------------------
+         */
+
+        metadataEl.innerHTML =
+
+            "<b>Dataset ID：</b>" +
+
+            escapeHTML(
+                DATASET_ID
+            ) +
+
+            "<br><br>" +
+
+            "<b>API：</b>" +
+
+            escapeHTML(
+                API_URL
+            );
+
+
+        /*
+         * ---------------------------------------------------
+         * 搜尋 URL
+         * ---------------------------------------------------
+         */
+
+        const candidates =
+            inspectApiResponse(
+                data
+            );
+
+
+        const best =
+            findBestDownloadUrl(
+                candidates
+            );
+
+
+        if (!best) {
+
+            /*
+             * API 可能本身已經回傳 GeoJSON
+             */
+
+            if (
+                data &&
+                (
+                    data.type ===
+                    "FeatureCollection"
+                    ||
+                    data.type ===
+                    "Feature"
+                )
+            ) {
+
+                log(
+                    "API 本身就是 GeoJSON。"
+                );
+
+
+                await processGeoJSON(
+                    data
+                );
+
+
+                return;
+
+            }
+
+
+            throw new Error(
+
+                "API 有回應，但找不到 GIS 圖資下載 URL。"
+
+            );
+
+        }
+
+
+        const downloadUrl =
+            best.url;
+
+
+        downloadUrlEl.textContent =
+            downloadUrl;
+
+
+        log(
+            "選擇 GIS 圖資 URL："
+            +
+            downloadUrl
+        );
+
+
+        /*
+         * ---------------------------------------------------
+         * 判斷是否 JSON / GeoJSON
+         * ---------------------------------------------------
+         */
+
+        const lowerUrl =
+            downloadUrl
+                .toLowerCase();
+
+
+        if (
+            lowerUrl.includes(
+                "geojson"
+            )
+            ||
+            lowerUrl.endsWith(
+                ".json"
+            )
+        ) {
+
+            await loadGeoJSONUrl(
+                downloadUrl
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * ---------------------------------------------------
+         * SHP ZIP
+         * ---------------------------------------------------
+         */
+
+        await loadShpZip(
+            downloadUrl
+        );
+
+
+    }
+    catch (error) {
+
+        console.error(
+            error
+        );
+
+
+        log(
+            "❌ 發生錯誤：" +
+            error.message
+        );
+
 
         setStatus(
 
-            "✅ 都市計畫圖直接載入成功。" +
+            "❌ 官方資料載入失敗" +
+
+            "<br><br>" +
+
+            escapeHTML(
+                error.message
+            ),
+
+            "error"
+
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   14. 下載 SHP ZIP
+   ========================================================= */
+
+async function loadShpZip(
+    url
+) {
+
+    try {
+
+        setStatus(
+            "⏳ 正在下載官方 GIS 圖資...",
+            "warn"
+        );
+
+
+        log(
+            "開始 fetch GIS："
+            +
+            url
+        );
+
+
+        const response =
+            await fetch(
+                url,
+                {
+                    method:
+                        "GET"
+                }
+            );
+
+
+        log(
+            "GIS HTTP Status："
+            +
+            response.status
+        );
+
+
+        log(
+            "GIS Content-Type："
+            +
+            (
+                response.headers
+                    .get(
+                        "content-type"
+                    )
+                ||
+                ""
+            )
+        );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+
+                "GIS 圖資下載失敗，HTTP " +
+                response.status
+
+            );
+
+        }
+
+
+        const contentType =
+            (
+                response.headers
+                    .get(
+                        "content-type"
+                    )
+                ||
+                ""
+            ).toLowerCase();
+
+
+        /*
+         * 如果伺服器其實直接回 JSON
+         */
+
+        if (
+            contentType.includes(
+                "json"
+            )
+        ) {
+
+            const json =
+                await response.json();
+
+
+            await processGeoJSON(
+                json
+            );
+
+
+            return;
+
+        }
+
+
+        /*
+         * Blob / ArrayBuffer
+         */
+
+        const arrayBuffer =
+            await response.arrayBuffer();
+
+
+        log(
+            "GIS ArrayBuffer 大小：" +
+            arrayBuffer.byteLength +
+            " bytes"
+        );
+
+
+        if (
+            arrayBuffer.byteLength === 0
+        ) {
+
+            throw new Error(
+                "GIS 圖資為空檔案。"
+            );
+
+        }
+
+
+        /*
+         * shpjs
+         */
+
+        if (
+            typeof shp !==
+            "function"
+        ) {
+
+            throw new Error(
+
+                "shpjs 尚未載入，無法解析 SHP ZIP。"
+
+            );
+
+        }
+
+
+        setStatus(
+            "⏳ 正在解析 SHP → GeoJSON...",
+            "warn"
+        );
+
+
+        log(
+            "開始使用 shpjs 解析。"
+        );
+
+
+        const geojson =
+            await shp(
+                arrayBuffer
+            );
+
+
+        log(
+            "SHP 解析完成。"
+        );
+
+
+        await processGeoJSON(
+            geojson
+        );
+
+
+    }
+    catch (error) {
+
+        console.error(
+            error
+        );
+
+
+        log(
+            "❌ GIS 解析失敗：" +
+            error.message
+        );
+
+
+        setStatus(
+
+            "❌ GIS 圖資解析失敗" +
+
+            "<br><br>" +
+
+            escapeHTML(
+                error.message
+            ),
+
+            "error"
+
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   15. GeoJSON URL
+   ========================================================= */
+
+async function loadGeoJSONUrl(
+    url
+) {
+
+    try {
+
+        setStatus(
+            "⏳ 正在下載 GeoJSON...",
+            "warn"
+        );
+
+
+        const response =
+            await fetch(
+                url
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "GeoJSON HTTP " +
+                response.status
+            );
+
+        }
+
+
+        const json =
+            await response.json();
+
+
+        await processGeoJSON(
+            json
+        );
+
+
+    }
+    catch (error) {
+
+        log(
+            "❌ GeoJSON 下載失敗：" +
+            error.message
+        );
+
+
+        setStatus(
+
+            "❌ GeoJSON 載入失敗" +
+
+            "<br><br>" +
+
+            escapeHTML(
+                error.message
+            ),
+
+            "error"
+
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   16. GeoJSON 處理
+   ========================================================= */
+
+async function processGeoJSON(
+    data
+) {
+
+    try {
+
+        /*
+         * shpjs 如果遇到多個 Shapefile，
+         * 可能回傳陣列。
+         */
+
+        if (
+            Array.isArray(data)
+        ) {
+
+            log(
+                "偵測到多個 GeoJSON layer：" +
+                data.length
+            );
+
+
+            /*
+             * 建立一個 FeatureCollection
+             */
+
+            const features = [];
+
+
+            data.forEach(
+                item => {
+
+                    if (
+                        item &&
+                        item.features
+                    ) {
+
+                        features.push(
+                            ...item.features
+                        );
+
+                    }
+
+                }
+            );
+
+
+            data = {
+
+                type:
+                    "FeatureCollection",
+
+                features:
+                    features
+
+            };
+
+        }
+
+
+        if (
+            !data ||
+            !data.features
+        ) {
+
+            throw new Error(
+
+                "資料不是有效的 GeoJSON FeatureCollection。"
+
+            );
+
+        }
+
+
+        log(
+            "Feature 數量：" +
+            data.features.length
+        );
+
+
+        /*
+         * 清除舊圖層
+         */
+
+        clearUrbanLayer();
+
+
+        /*
+         * 建立 Leaflet GeoJSON
+         */
+
+        urbanGeoJsonLayer =
+
+            L.geoJSON(
+
+                data,
+
+                {
+
+                    style:
+                        getPolygonStyle,
+
+                    onEachFeature:
+                        onEachUrbanFeature,
+
+                    pointToLayer:
+                        function(
+                            feature,
+                            latlng
+                        ) {
+
+                            return L.circleMarker(
+                                latlng,
+                                {
+                                    radius: 5
+                                }
+                            );
+
+                        }
+
+                }
+
+            );
+
+
+        urbanGeoJsonLayer.addTo(
+            map
+        );
+
+
+        /*
+         * 自動縮放
+         */
+
+        const bounds =
+            urbanGeoJsonLayer.getBounds();
+
+
+        if (
+            bounds.isValid()
+        ) {
+
+            map.fitBounds(
+                bounds,
+                {
+                    padding:
+                        [30,30]
+                }
+            );
+
+        }
+
+
+        setStatus(
+
+            "✅ 都市計畫圖載入成功" +
 
             "<br>" +
 
-            "成功：" +
-
-            urbanLoaded +
-
-            " 張" +
+            "Feature：" +
+            data.features.length +
 
             "<br>" +
 
-            "失敗：" +
-
-            urbanErrors +
-
-            " 張",
+            "現在可以直接點擊分區。",
 
             "ok"
 
         );
 
-        return;
+
+        metadataEl.innerHTML +=
+
+            "<br><br>" +
+
+            "<b>Feature 數量：</b>" +
+
+            data.features.length;
+
 
     }
+    catch (error) {
+
+        console.error(
+            error
+        );
 
 
-    if (
+        log(
+            "❌ GeoJSON 處理失敗：" +
+            error.message
+        );
 
-        urbanLoaded > 0 &&
-
-        urbanErrors > 0
-
-    ) {
 
         setStatus(
 
-            "⚠ 都市計畫圖部分載入。" +
+            "❌ GeoJSON 處理失敗" +
 
-            "<br>" +
+            "<br><br>" +
 
-            "成功：" +
+            escapeHTML(
+                error.message
+            ),
 
-            urbanLoaded +
-
-            " 張" +
-
-            "<br>" +
-
-            "失敗：" +
-
-            urbanErrors +
-
-            " 張",
-
-            "warn"
+            "error"
 
         );
+
+    }
+
+}
+
+
+/* =========================================================
+   17. Polygon style
+   ========================================================= */
+
+function getPolygonStyle(
+    feature
+) {
+
+    const opacity =
+        Number(
+            document.getElementById(
+                "fillOpacity"
+            ).value
+        );
+
+
+    const outline =
+        document.getElementById(
+            "showOutline"
+        ).checked;
+
+
+    return {
+
+        color:
+            outline
+            ?
+            "#334155"
+            :
+            "transparent",
+
+        weight:
+            outline
+            ?
+            1
+            :
+            0,
+
+        opacity:
+            outline
+            ?
+            0.9
+            :
+            0,
+
+        fillColor:
+            "#f59e0b",
+
+        fillOpacity:
+            opacity
+
+    };
+
+}
+
+
+/* =========================================================
+   18. Feature Popup
+   ========================================================= */
+
+function onEachUrbanFeature(
+    feature,
+    layer
+) {
+
+    const props =
+        feature &&
+        feature.properties
+        ?
+        feature.properties
+        :
+        {};
+
+
+    console.log(
+        "都市計畫 Feature：",
+        props
+    );
+
+
+    /*
+     * 尋找可能的欄位。
+     *
+     * 因為官方資料實際欄位名稱可能不是固定英文，
+     * 所以不硬寫單一欄位。
+     */
+
+    const fieldGroups = [
+
+        {
+            label:
+                "都市計畫名稱",
+
+            keys: [
+                "都市計畫名稱",
+                "計畫名稱",
+                "計畫區名稱",
+                "都市計畫"
+            ]
+        },
+
+        {
+            label:
+                "使用分區名稱",
+
+            keys: [
+                "使用分區名稱",
+                "分區名稱",
+                "使用分區",
+                "ZONE_NAME",
+                "zone_name"
+            ]
+        },
+
+        {
+            label:
+                "使用分區代碼",
+
+            keys: [
+                "使用分區代碼",
+                "分區代碼",
+                "使用分區編號",
+                "ZONE_CODE",
+                "zone_code"
+            ]
+        },
+
+        {
+            label:
+                "計畫區代碼",
+
+            keys: [
+                "計畫區代碼",
+                "都市計畫代碼",
+                "計畫編號",
+                "PLAN_CODE",
+                "plan_code"
+            ]
+        }
+
+    ];
+
+
+    let html =
+
+        "<table class='popup-table'>";
+
+
+    let foundKnownField =
+        false;
+
+
+    fieldGroups.forEach(
+        group => {
+
+            let value =
+                null;
+
+
+            for (
+                const key
+                of group.keys
+            ) {
+
+                if (
+                    props[key] !==
+                    undefined &&
+                    props[key] !==
+                    null &&
+                    props[key] !==
+                    ""
+                ) {
+
+                    value =
+                        props[key];
+
+                    break;
+
+                }
+
+            }
+
+
+            if (
+                value !== null
+            ) {
+
+                foundKnownField =
+                    true;
+
+
+                html +=
+
+                    "<tr>" +
+
+                    "<td>" +
+
+                    escapeHTML(
+                        group.label
+                    ) +
+
+                    "</td>" +
+
+                    "<td>" +
+
+                    escapeHTML(
+                        value
+                    ) +
+
+                    "</td>" +
+
+                    "</tr>";
+
+            }
+
+        }
+    );
+
+
+    /*
+     * 如果找不到預設欄位，
+     * 顯示全部 properties。
+     */
+
+    if (
+        !foundKnownField
+    ) {
+
+        Object.keys(props)
+            .forEach(
+                key => {
+
+                    html +=
+
+                        "<tr>" +
+
+                        "<td>" +
+
+                        escapeHTML(
+                            key
+                        ) +
+
+                        "</td>" +
+
+                        "<td>" +
+
+                        escapeHTML(
+                            props[key]
+                        ) +
+
+                        "</td>" +
+
+                        "</tr>";
+
+                }
+            );
+
+    }
+
+
+    html +=
+        "</table>";
+
+
+    layer.bindPopup(
+        html,
+        {
+            maxWidth:
+                450
+        }
+    );
+
+
+    /*
+     * 點擊反白
+     */
+
+    layer.on(
+        "click",
+        function() {
+
+            if (
+                urbanGeoJsonLayer
+            ) {
+
+                urbanGeoJsonLayer
+                    .resetStyle();
+
+            }
+
+
+            layer.setStyle({
+
+                color:
+                    "#dc2626",
+
+                weight:
+                    3,
+
+                opacity:
+                    1,
+
+                fillColor:
+                    "#facc15",
+
+                fillOpacity:
+                    0.65
+
+            });
+
+
+            if (
+                layer.bringToFront
+            ) {
+
+                layer.bringToFront();
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   19. 清除都市計畫圖
+   ========================================================= */
+
+function clearUrbanLayer() {
+
+    if (
+        urbanGeoJsonLayer &&
+        map.hasLayer(
+            urbanGeoJsonLayer
+        )
+    ) {
+
+        map.removeLayer(
+            urbanGeoJsonLayer
+        );
+
+    }
+
+
+    urbanGeoJsonLayer =
+        null;
+
+}
+
+
+/* =========================================================
+   20. 更新 Polygon Style
+   ========================================================= */
+
+function updatePolygonStyle() {
+
+    if (
+        !urbanGeoJsonLayer
+    ) {
 
         return;
 
     }
 
 
-    setStatus(
-
-        "❌ URBAN Tile 全部失敗。" +
-
-        "<br>" +
-
-        "失敗：" +
-
-        urbanErrors +
-
-        " 張",
-
-        "error"
-
+    urbanGeoJsonLayer.setStyle(
+        getPolygonStyle
     );
 
 }
 
 
 /* =========================================================
-   Show Urban
+   21. Fill opacity
    ========================================================= */
 
-function showUrban() {
-
-    if (!urbanLayer) {
-
-        urbanLayer =
-
-            createUrbanLayer();
-
-    }
-
-
-    if (!map.hasLayer(urbanLayer)) {
-
-        urbanLayer.addTo(map);
-
-    }
-
-
-    setTimeout(
-
-        updateStatus,
-
-        300
-
-    );
-
-}
-
-
-/* =========================================================
-   Hide Urban
-   ========================================================= */
-
-function hideUrban() {
-
-    if (
-
-        urbanLayer &&
-
-        map.hasLayer(urbanLayer)
-
-    ) {
-
-        map.removeLayer(
-
-            urbanLayer
-
-        );
-
-    }
-
-
-    setStatus(
-
-        "都市計畫圖已隱藏。",
-
-        ""
-
-    );
-
-}
-
-
-/* =========================================================
-   Reload Urban
-   ========================================================= */
-
-function reloadUrban() {
-
-    if (urbanLayer) {
-
-        map.removeLayer(
-
-            urbanLayer
-
-        );
-
-    }
-
-
-    urbanLayer = null;
-
-
-    setTimeout(
-
-        function() {
-
-            showUrban();
-
-        },
-
-        100
-
-    );
-
-}
-
-
-/* =========================================================
-   Opacity
-   ========================================================= */
-
-function changeOpacity(value) {
+function changeFillOpacity(
+    value
+) {
 
     document.getElementById(
-
-        "opacityValue"
-
+        "fillOpacityValue"
     ).textContent =
+        Number(value)
+            .toFixed(2);
 
-        Number(value).toFixed(2);
 
-
-    if (urbanLayer) {
-
-        urbanLayer.setOpacity(
-
-            Number(value)
-
-        );
-
-    }
+    updatePolygonStyle();
 
 }
 
 
 /* =========================================================
-   新北市
+   22. 定位
    ========================================================= */
 
 function goNewTaipei() {
@@ -1382,297 +2222,167 @@ function goNewTaipei() {
         ),
 
         {
-
             padding:
                 [20,20]
-
         }
 
     );
 
 }
 
-
-/* =========================================================
-   板橋
-   ========================================================= */
 
 function goBanqiao() {
 
     map.setView(
-
         [25.0119,121.4618],
-
         15
-
     );
 
 }
 
-
-/* =========================================================
-   新莊
-   ========================================================= */
 
 function goXinzhuang() {
 
     map.setView(
-
         [25.0330,121.4500],
-
         15
-
     );
 
 }
 
-
-/* =========================================================
-   林口
-   ========================================================= */
 
 function goLinkou() {
 
     map.setView(
-
         [25.0776,121.3925],
-
         14
-
     );
 
 }
 
-
-/* =========================================================
-   淡水
-   ========================================================= */
 
 function goTamsui() {
 
     map.setView(
-
         [25.1676,121.4450],
-
         14
-
     );
 
 }
 
 
 /* =========================================================
-   Map click
+   23. Layer control
    ========================================================= */
-
-let marker = null;
-
-
-map.on(
-
-    "click",
-
-    function(e) {
-
-        const lat =
-
-            e.latlng.lat;
-
-
-        const lon =
-
-            e.latlng.lng;
-
-
-        if (marker) {
-
-            map.removeLayer(
-
-                marker
-
-            );
-
-        }
-
-
-        marker =
-
-            L.marker(
-
-                e.latlng
-
-            ).addTo(map);
-
-
-        marker.bindPopup(
-
-            "<b>地圖位置</b>" +
-
-            "<br><br>" +
-
-            "緯度：" +
-
-            lat.toFixed(8) +
-
-            "<br>" +
-
-            "經度：" +
-
-            lon.toFixed(8)
-
-        );
-
-
-        marker.openPopup();
-
-
-        resultEl.innerHTML =
-
-            "<b>目前座標</b>" +
-
-            "<br>" +
-
-            "Latitude：" +
-
-            lat.toFixed(8) +
-
-            "<br>" +
-
-            "Longitude：" +
-
-            lon.toFixed(8);
-
-    }
-
-);
-
-
-/* =========================================================
-   Layer Control
-   ========================================================= */
-
-const baseMaps = {
-
-    "NLSC 臺灣通用電子地圖":
-        emap,
-
-    "OpenStreetMap":
-        osm
-
-};
-
-
-const overlays = {};
-
 
 L.control.layers(
 
-    baseMaps,
+    {
+        "NLSC 電子地圖":
+            emap,
 
-    overlays,
+        "OpenStreetMap":
+            osm
+    },
+
+    {},
 
     {
-
         collapsed:
             false,
 
         position:
             "topright"
-
     }
 
 ).addTo(map);
 
 
 /* =========================================================
-   Scale
+   24. Scale
    ========================================================= */
 
-L.control.scale(
+L.control.scale({
 
-    {
+    metric:
+        true,
 
-        metric:
-            true,
+    imperial:
+        false,
 
-        imperial:
-            false,
+    position:
+        "bottomleft"
 
-        position:
-            "bottomleft"
-
-    }
-
-).addTo(map);
+}).addTo(map);
 
 
 /* =========================================================
-   EMAP diagnostics
+   25. Map click
    ========================================================= */
 
-emap.on(
+map.on(
+    "click",
+    function(e) {
 
-    "tileload",
+        console.log(
+            "Map click:",
+            e.latlng
+        );
 
+    }
+);
+
+
+/* =========================================================
+   26. Initial load
+   ========================================================= */
+
+window.addEventListener(
+    "load",
     function() {
 
-        if (
+        log(
+            "頁面載入完成。"
+        );
 
-            !statusEl.classList.contains(
-                "status-ok"
+
+        log(
+            "Leaflet：" +
+            (
+                typeof L !==
+                "undefined"
+                ?
+                "OK"
+                :
+                "FAIL"
             )
+        );
 
-        ) {
 
-            if (!urbanLayer) {
+        log(
+            "shpjs：" +
+            (
+                typeof shp ===
+                "function"
+                ?
+                "OK"
+                :
+                "FAIL"
+            )
+        );
 
-                setStatus(
 
-                    "✅ NLSC EMAP 底圖載入成功。",
+        log(
+            "開始自動取得新北市都市計畫資料..."
+        );
 
-                    "ok"
 
-                );
-
-            }
-
-        }
+        loadUrbanData();
 
     }
-
 );
-
-
-/* =========================================================
-   Initial
-   ========================================================= */
-
-console.log(
-    "NLSC URBAN WMTS:"
-);
-
-console.log(
-    URBAN_URL
-);
-
-
-console.log(
-    "NLSC EMAP WMTS:"
-);
-
-console.log(
-    EMAP_URL
-);
-
-
-/* =========================================================
-   啟動都市計畫圖
-   ========================================================= */
-
-showUrban();
 
 </script>
 
 </body>
-
 </html>
