@@ -9,7 +9,7 @@
 <meta name="viewport"
    content="width=device-width, initial-scale=1.0">
 
-<title>NLSC 新北市都市計畫圖 WMTS 測試</title>
+<title>NLSC URBAN 新北市都市計畫圖測試</title>
 
 <link
     rel="stylesheet"
@@ -44,33 +44,36 @@ body {
 
     position: absolute;
 
+    z-index: 9999;
+
     top: 10px;
     left: 50px;
 
-    z-index: 9999;
-
-    width: 340px;
+    width: 380px;
 
     padding: 15px;
 
-    background: rgba(255,255,255,0.96);
+    background: rgba(255,255,255,0.97);
 
     border-radius: 8px;
 
     box-shadow:
-        0 2px 10px rgba(0,0,0,0.25);
+        0 2px 12px rgba(0,0,0,0.25);
 
     font-family:
         "Microsoft JhengHei",
         Arial,
         sans-serif;
 
+    font-size: 14px;
+
+    line-height: 1.6;
+
 }
 
 #panel h3 {
 
-    margin:
-        0 0 10px 0;
+    margin: 0 0 10px 0;
 
 }
 
@@ -78,23 +81,37 @@ body {
 
     margin-top: 10px;
 
-    padding: 8px;
+    padding: 10px;
 
     background: #f3f4f6;
 
     border-radius: 5px;
 
-    font-size: 13px;
+    word-break: break-all;
+
+    font-size: 12px;
 
 }
 
 button {
 
+    margin-top: 6px;
+
     padding: 7px 12px;
 
-    margin-top: 5px;
+    border: 1px solid #aaa;
+
+    border-radius: 4px;
+
+    background: white;
 
     cursor: pointer;
+
+}
+
+button:hover {
+
+    background: #eee;
 
 }
 
@@ -109,39 +126,36 @@ button {
 <div id="panel">
 
 ```
-<h3>新北市都市計畫圖</h3>
+<h3>
+    🗺️ 新北市都市計畫圖
+</h3>
 
 <div>
-    圖資：
-    NLSC 都市計畫使用分區圖
-</div>
-
-<div>
-    圖層：
+    NLSC WMTS：
     <b>URBAN</b>
 </div>
 
 <div>
-    CRS：
-    EPSG:3857
+    TileMatrixSet：
+    <b>EPSG:3857</b>
 </div>
 
 <hr>
 
 <button onclick="showUrban()">
-    顯示都市計畫圖
+    顯示 URBAN
 </button>
 
 <button onclick="hideUrban()">
-    隱藏都市計畫圖
+    隱藏 URBAN
 </button>
 
-<button onclick="testCapabilities()">
-    測試 NLSC WMTS
+<button onclick="zoomTest()">
+    測試 Z13
 </button>
 
 <div id="status">
-    尚未測試
+    等待測試...
 </div>
 ```
 
@@ -149,38 +163,38 @@ button {
 
 <script>
 
-/* =========================================================
+/* ============================================================
    新北市中心
-   ========================================================= */
+   ============================================================ */
 
-const newTaipeiCenter = [
+const NEW_TAIPEI_CENTER = [
     25.012098,
     121.465675
 ];
 
 
-/* =========================================================
+/* ============================================================
    建立 Leaflet
-   ========================================================= */
+   ============================================================ */
 
 const map = L.map("map", {
 
-    center: newTaipeiCenter,
+    center: NEW_TAIPEI_CENTER,
 
     zoom: 13,
 
-    minZoom: 7,
+    minZoom: 0,
 
     maxZoom: 19
 
 });
 
 
-/* =========================================================
+/* ============================================================
    NLSC EMAP
-   ========================================================= */
+   ============================================================ */
 
-const emap = L.tileLayer(
+const nlscEMAP = L.tileLayer(
 
     "https://wmts.nlsc.gov.tw/wmts/" +
     "EMAP/default/EPSG:3857/" +
@@ -191,11 +205,11 @@ const emap = L.tileLayer(
         attribution:
             "© 內政部國土測繪中心 NLSC",
 
+        tileSize: 256,
+
         minZoom: 0,
 
         maxZoom: 19,
-
-        tileSize: 256,
 
         opacity: 1,
 
@@ -206,11 +220,11 @@ const emap = L.tileLayer(
 );
 
 
-/* =========================================================
+/* ============================================================
    NLSC URBAN
-   ========================================================= */
+   ============================================================ */
 
-const urban = L.tileLayer(
+const nlscURBAN = L.tileLayer(
 
     "https://wmts.nlsc.gov.tw/wmts/" +
     "URBAN/default/EPSG:3857/" +
@@ -219,13 +233,13 @@ const urban = L.tileLayer(
     {
 
         attribution:
-            "© 內政部國土測繪中心 NLSC－都市計畫使用分區圖",
+            "© 內政部國土測繪中心－都市計畫使用分區圖",
+
+        tileSize: 256,
 
         minZoom: 0,
 
         maxZoom: 19,
-
-        tileSize: 256,
 
         opacity: 1,
 
@@ -236,30 +250,272 @@ const urban = L.tileLayer(
 );
 
 
-/* =========================================================
-   預設載入電子地圖
-   ========================================================= */
+/* ============================================================
+   加入底圖
+   ============================================================ */
 
-emap.addTo(map);
+nlscEMAP.addTo(map);
 
 
-/* =========================================================
-   圖層控制
-   ========================================================= */
+/* ============================================================
+   加入 URBAN
+   ============================================================ */
+
+nlscURBAN.addTo(map);
+
+
+/* ============================================================
+   Tile 載入成功
+   ============================================================ */
+
+nlscURBAN.on(
+
+    "tileload",
+
+    function(e) {
+
+        console.log(
+            "================================"
+        );
+
+        console.log(
+            "URBAN TILE LOAD OK"
+        );
+
+        console.log(
+            e.tile.src
+        );
+
+        console.log(
+            "================================"
+        );
+
+        document.getElementById(
+            "status"
+        ).innerHTML =
+
+            "✅ URBAN Tile 載入成功<br><br>" +
+
+            e.tile.src;
+
+    }
+
+);
+
+
+/* ============================================================
+   Tile 載入失敗
+   ============================================================ */
+
+nlscURBAN.on(
+
+    "tileerror",
+
+    function(e) {
+
+        console.error(
+            "================================"
+        );
+
+        console.error(
+            "URBAN TILE ERROR"
+        );
+
+        console.error(
+            e.tile
+        );
+
+        console.error(
+            e.tile?.src
+        );
+
+        console.error(
+            "================================"
+        );
+
+        document.getElementById(
+            "status"
+        ).innerHTML =
+
+            "❌ URBAN Tile 載入失敗<br><br>" +
+
+            (
+                e.tile?.src ||
+                "沒有取得 URL"
+            );
+
+    }
+
+);
+
+
+/* ============================================================
+   顯示 URBAN
+   ============================================================ */
+
+function showUrban() {
+
+    if (!map.hasLayer(nlscURBAN)) {
+
+        nlscURBAN.addTo(map);
+
+    }
+
+    document.getElementById(
+        "status"
+    ).innerHTML =
+
+        "URBAN 已顯示，等待 Tile...";
+
+}
+
+
+/* ============================================================
+   隱藏 URBAN
+   ============================================================ */
+
+function hideUrban() {
+
+    if (map.hasLayer(nlscURBAN)) {
+
+        map.removeLayer(nlscURBAN);
+
+    }
+
+    document.getElementById(
+        "status"
+    ).innerHTML =
+
+        "URBAN 已隱藏";
+
+}
+
+
+/* ============================================================
+   測試 Z13
+   ============================================================ */
+
+function zoomTest() {
+
+    map.setView(
+
+        NEW_TAIPEI_CENTER,
+
+        13
+
+    );
+
+    setTimeout(
+
+        function() {
+
+            const center =
+                map.getCenter();
+
+            const zoom =
+                map.getZoom();
+
+            const point =
+                map.project(
+                    center,
+                    zoom
+                );
+
+            const tileX =
+                Math.floor(
+                    point.x / 256
+                );
+
+            const tileY =
+                Math.floor(
+                    point.y / 256
+                );
+
+
+            const testURL =
+
+                "https://wmts.nlsc.gov.tw/wmts/" +
+
+                "URBAN/default/EPSG:3857/" +
+
+                zoom +
+                "/" +
+                tileY +
+                "/" +
+                tileX;
+
+
+            console.log(
+                "Leaflet 計算 Tile："
+            );
+
+            console.log(
+                "Z =",
+                zoom
+            );
+
+            console.log(
+                "X =",
+                tileX
+            );
+
+            console.log(
+                "Y =",
+                tileY
+            );
+
+            console.log(
+                "URL =",
+                testURL
+            );
+
+
+            document.getElementById(
+                "status"
+            ).innerHTML =
+
+                "<b>目前 Z13 Tile</b><br><br>" +
+
+                "Z = " +
+                zoom +
+                "<br>" +
+
+                "X = " +
+                tileX +
+                "<br>" +
+
+                "Y = " +
+                tileY +
+                "<br><br>" +
+
+                testURL;
+
+        },
+
+        500
+
+    );
+
+}
+
+
+/* ============================================================
+   Layer Control
+   ============================================================ */
 
 L.control.layers(
 
     {
 
-        "NLSC 臺灣通用電子地圖":
-            emap
+        "NLSC 電子地圖":
+            nlscEMAP
 
     },
 
     {
 
-        "都市計畫使用分區圖 URBAN":
-            urban
+        "都市計畫使用分區 URBAN":
+            nlscURBAN
 
     },
 
@@ -272,240 +528,54 @@ L.control.layers(
 ).addTo(map);
 
 
-/* =========================================================
-   顯示 URBAN
-   ========================================================= */
+/* ============================================================
+   Scale
+   ============================================================ */
 
-function showUrban() {
+L.control.scale({
 
-    if (!map.hasLayer(urban)) {
+    imperial: false,
 
-        urban.addTo(map);
+    metric: true
 
-    }
+}).addTo(map);
 
-    document.getElementById("status").innerHTML =
-        "✅ URBAN 已加入地圖";
 
-}
-
-
-/* =========================================================
-   隱藏 URBAN
-   ========================================================= */
-
-function hideUrban() {
-
-    if (map.hasLayer(urban)) {
-
-        map.removeLayer(urban);
-
-    }
-
-    document.getElementById("status").innerHTML =
-        "URBAN 已隱藏";
-
-}
-
-
-/* =========================================================
-   Tile 載入成功
-   ========================================================= */
-
-urban.on(
-
-    "tileload",
-
-    function(e) {
-
-        console.log(
-            "URBAN Tile 載入成功：",
-            e.tile.src
-        );
-
-        document.getElementById("status").innerHTML =
-            "✅ URBAN Tile 載入成功";
-
-    }
-
-);
-
-
-/* =========================================================
-   Tile 載入失敗
-   ========================================================= */
-
-urban.on(
-
-    "tileerror",
-
-    function(e) {
-
-        console.error(
-            "❌ URBAN Tile 載入失敗",
-            e
-        );
-
-        console.error(
-            "Tile URL：",
-            e.tile?.src
-        );
-
-        document.getElementById("status").innerHTML =
-            "❌ URBAN Tile 載入失敗，請開啟 F12 Console 查看 URL";
-
-    }
-
-);
-
-
-/* =========================================================
-   NLSC WMTS GetCapabilities
-   ========================================================= */
-
-async function testCapabilities() {
-
-    const status =
-        document.getElementById("status");
-
-    status.innerHTML =
-        "正在取得 NLSC WMTS GetCapabilities...";
-
-    const url =
-        "https://wmts.nlsc.gov.tw/wmts" +
-        "?SERVICE=WMTS" +
-        "&REQUEST=GetCapabilities" +
-        "&VERSION=1.0.0";
-
-
-    console.log(
-        "NLSC GetCapabilities：",
-        url
-    );
-
-
-    try {
-
-        const response =
-            await fetch(url);
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                "HTTP " +
-                response.status
-            );
-
-        }
-
-
-        const text =
-            await response.text();
-
-
-        console.log(
-            "===== NLSC WMTS GetCapabilities ====="
-        );
-
-        console.log(text);
-
-
-        if (
-            text.includes("URBAN")
-        ) {
-
-            status.innerHTML =
-                "✅ NLSC WMTS 正常<br>" +
-                "✅ 找到 URBAN 圖層<br>" +
-                "請查看 Console";
-
-        }
-
-        else {
-
-            status.innerHTML =
-                "⚠ WMTS 可連線，但沒有找到 URBAN";
-
-        }
-
-    }
-
-    catch(error) {
-
-        console.error(
-            "❌ GetCapabilities 失敗",
-            error
-        );
-
-        status.innerHTML =
-            "❌ GetCapabilities 失敗<br>" +
-            error.message;
-
-    }
-
-}
-
-
-/* =========================================================
-   地圖點擊測試
-   ========================================================= */
+/* ============================================================
+   Zoom 改變時顯示 Tile
+   ============================================================ */
 
 map.on(
 
-    "click",
+    "zoomend",
 
-    function(e) {
+    function() {
 
-        L.popup()
-
-            .setLatLng(e.latlng)
-
-            .setContent(
-
-                "<b>目前位置</b><br>" +
-
-                "緯度："
-                +
-                e.latlng.lat.toFixed(7)
-                +
-                "<br>" +
-
-                "經度："
-                +
-                e.latlng.lng.toFixed(7)
-
-            )
-
-            .openOn(map);
+        console.log(
+            "目前 Zoom：",
+            map.getZoom()
+        );
 
     }
 
 );
 
 
-/* =========================================================
-   Console
-   ========================================================= */
+/* ============================================================
+   初始測試
+   ============================================================ */
 
 console.log(
-    "======================================"
+    "NLSC URBAN initialized."
 );
 
 console.log(
-    "NLSC URBAN WMTS Test"
+    "URL template:"
 );
 
 console.log(
-    "Layer：URBAN"
-);
-
-console.log(
-    "CRS：EPSG:3857"
-);
-
-console.log(
-    "======================================"
+    "https://wmts.nlsc.gov.tw/wmts/" +
+    "URBAN/default/EPSG:3857/{z}/{y}/{x}"
 );
 
 </script>
