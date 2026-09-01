@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
 
 <meta charset="UTF-8">
@@ -7,34 +8,46 @@
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0">
 
-<title>實際道路幾何寬度 V3 - NLSC GIS</title>
+<title>
+實際道路幾何寬度 V3.2 - NLSC GIS
+</title>
 
 
 <!-- =====================================================
      Leaflet
 ===================================================== -->
 
-<link rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link
+rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script
+src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+</script>
 
 
 <!-- =====================================================
      Leaflet Draw
 ===================================================== -->
 
-<link rel="stylesheet"
-      href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+<link
+rel="stylesheet"
+href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"
+/>
 
-<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script
+src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js">
+</script>
 
 
 <!-- =====================================================
      Turf.js
 ===================================================== -->
 
-<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+<script
+src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js">
+</script>
 
 
 <style>
@@ -45,8 +58,10 @@
 
 html,
 body{
+
     width:100%;
     height:100%;
+
     margin:0;
     padding:0;
 
@@ -54,6 +69,7 @@ body{
         "Microsoft JhengHei",
         Arial,
         sans-serif;
+
 }
 
 
@@ -62,39 +78,42 @@ body{
 ===================================================== */
 
 #map{
+
     position:absolute;
 
     left:0;
     top:0;
 
-    width:calc(100% - 420px);
+    width:calc(100% - 430px);
+
     height:100%;
+
 }
 
 
 /* =====================================================
-   Right Panel
+   Panel
 ===================================================== */
 
 #roadWidthPanel{
 
     position:absolute;
 
-    top:0;
     right:0;
+    top:0;
 
-    width:420px;
+    width:430px;
+
     height:100%;
 
-    box-sizing:border-box;
-
-    background:#ffffff;
+    background:#fff;
 
     border-left:1px solid #ccc;
 
+    z-index:1000;
+
     overflow-y:auto;
 
-    z-index:1000;
 }
 
 
@@ -107,15 +126,17 @@ body{
     padding:15px;
 
     font-size:19px;
+
     font-weight:bold;
 
-    border-bottom:1px solid #ddd;
+    background:#f3f3f3;
 
-    background:#f5f5f5;
+    border-bottom:1px solid #ddd;
 
     cursor:move;
 
     user-select:none;
+
 }
 
 
@@ -125,61 +146,20 @@ body{
 
 #roadWidthContent{
 
-    padding:15px;
+    padding:14px;
 
 }
 
 
 /* =====================================================
-   Button
-===================================================== */
-
-button{
-
-    width:100%;
-
-    padding:10px;
-
-    margin-top:8px;
-
-    border:none;
-
-    border-radius:5px;
-
-    font-size:14px;
-
-    cursor:pointer;
-
-}
-
-
-#analyzeBtn{
-
-    background:#1976d2;
-
-    color:#fff;
-
-}
-
-
-#clearBtn{
-
-    background:#666;
-
-    color:#fff;
-
-}
-
-
-/* =====================================================
-   Information Box
+   Info
 ===================================================== */
 
 .infoBox{
 
-    margin-bottom:12px;
-
     padding:10px;
+
+    margin-bottom:10px;
 
     background:#f7f7f7;
 
@@ -196,9 +176,9 @@ button{
 
 .warningBox{
 
-    margin-top:12px;
-
     padding:10px;
+
+    margin-top:10px;
 
     background:#fff8e1;
 
@@ -214,6 +194,56 @@ button{
 
 
 /* =====================================================
+   Buttons
+===================================================== */
+
+button{
+
+    width:100%;
+
+    padding:10px;
+
+    margin-top:7px;
+
+    border:0;
+
+    border-radius:5px;
+
+    cursor:pointer;
+
+    font-size:14px;
+
+}
+
+
+#analyzeBtn{
+
+    background:#1976d2;
+
+    color:white;
+
+}
+
+
+#clearBtn{
+
+    background:#666;
+
+    color:white;
+
+}
+
+
+#debugBtn{
+
+    background:#455a64;
+
+    color:white;
+
+}
+
+
+/* =====================================================
    Loading
 ===================================================== */
 
@@ -221,7 +251,7 @@ button{
 
     display:none;
 
-    margin-top:12px;
+    margin-top:10px;
 
     padding:10px;
 
@@ -268,7 +298,7 @@ button{
 
     justify-content:space-between;
 
-    padding:8px 10px;
+    padding:7px 10px;
 
     border-top:1px solid #eee;
 
@@ -276,6 +306,56 @@ button{
 
 
 .resultValue{
+
+    font-weight:bold;
+
+}
+
+
+/* =====================================================
+   Diagnostic
+===================================================== */
+
+#diagnosticPanel{
+
+    margin-top:15px;
+
+    border:1px solid #ddd;
+
+    border-radius:5px;
+
+    overflow:hidden;
+
+}
+
+
+.diagnosticTitle{
+
+    padding:10px;
+
+    background:#eceff1;
+
+    font-weight:bold;
+
+}
+
+
+.diagRow{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    padding:6px 10px;
+
+    border-top:1px solid #eee;
+
+    font-size:13px;
+
+}
+
+
+.diagValue{
 
     font-weight:bold;
 
@@ -305,7 +385,7 @@ button{
 
     border-collapse:collapse;
 
-    font-size:12px;
+    font-size:11px;
 
 }
 
@@ -326,18 +406,40 @@ button{
 #roadTable th,
 #roadTable td{
 
-    padding:6px;
+    padding:5px;
 
     border:1px solid #ddd;
-
-    text-align:left;
 
 }
 
 
-.geometry{
+/* =====================================================
+   Debug Console
+===================================================== */
 
-    font-weight:bold;
+#debugConsole{
+
+    display:none;
+
+    margin-top:12px;
+
+    padding:10px;
+
+    background:#111;
+
+    color:#00ff66;
+
+    font-family:Consolas,monospace;
+
+    font-size:11px;
+
+    line-height:1.6;
+
+    max-height:300px;
+
+    overflow:auto;
+
+    white-space:pre-wrap;
 
 }
 
@@ -359,290 +461,522 @@ button{
 
 
 <!-- =====================================================
-     ROAD WIDTH PANEL
+     PANEL
 ===================================================== -->
 
 <div id="roadWidthPanel">
 
 
-    <div id="roadWidthHeader">
+<div id="roadWidthHeader">
 
-        🛣️ 實際道路幾何寬度 V3
+🛣️ 實際道路幾何寬度 V3.2
 
-    </div>
+</div>
 
 
-    <div id="roadWidthContent">
+<div id="roadWidthContent">
 
 
-        <div class="infoBox">
+<div class="infoBox">
 
-            <b>V3 GIS 分析原理</b>
+<b>V3.2 分析順序</b>
 
-            <br>
+<br>
 
-            ① 優先使用道路面 Polygon
+1️⃣ OSM 道路中心線
 
-            <br>
+<br>
 
-            ② 分析範圍與道路面做真正 Intersection
+2️⃣ 正確裁切 Polygon 內道路
 
-            <br>
+<br>
 
-            ③ 道路寬度：
+3️⃣ 有道路面 → Area ÷ Length
 
-            <br>
+<br>
 
-            <b>道路面積 ÷ 對應中心線長度</b>
+4️⃣ 無道路面 → OSM width
 
-            <br>
+<br>
 
-            ④ 無道路面時使用 OSM width
+5️⃣ 無 width → est_width
 
-            <br>
+<br>
 
-            ⑤ 再使用 est_width
+6️⃣ 都沒有 → 不納入平均
 
-            <br>
+<br><br>
 
-            ⑥ 不使用 lanes 推估
+<b>注意：</b>
 
-        </div>
+不使用 lanes × 3.5m 推估道路寬度。
 
+</div>
 
-        <button id="analyzeBtn"
-                onclick="analyzeRoadWidth()">
 
-            🔍 執行道路寬度分析
 
-        </button>
+<button
+id="analyzeBtn"
+onclick="analyzeRoadWidth()">
 
+🔍 執行道路寬度分析
 
-        <button id="clearBtn"
-                onclick="clearAll()">
+</button>
 
-            🗑 清除全部
 
-        </button>
+<button
+id="debugBtn"
+onclick="toggleDebug()">
 
+🐞 顯示 / 隱藏 Debug Console
 
-        <div id="loading">
+</button>
 
-            ⏳ 正在取得 OSM 道路中心線與道路面資料...
 
-        </div>
+<button
+id="clearBtn"
+onclick="clearAll()">
 
+🗑 清除全部
 
+</button>
 
-        <!-- =============================================
-             RESULT
-        ============================================== -->
 
-        <div id="resultPanel">
 
+<div id="loading">
 
-            <div class="resultTitle">
+⏳ 正在取得 OSM 道路資料並進行 GIS 分析...
 
-                📊 分析結果
+</div>
 
-            </div>
 
 
-            <div class="resultRow">
+<!-- =====================================================
+     RESULT
+===================================================== -->
 
-                <span>分析 Polygon</span>
+<div id="resultPanel">
 
-                <span class="resultValue"
-                      id="polygonCount">
 
-                    0
+<div class="resultTitle">
 
-                </span>
+📊 正式分析結果
 
-            </div>
+</div>
 
 
-            <div class="resultRow">
+<div class="resultRow">
 
-                <span>道路資料數</span>
+<span>
+分析 Polygon
+</span>
 
-                <span class="resultValue"
-                      id="roadCount">
+<span
+class="resultValue"
+id="polygonCount">
 
-                    0
+0
 
-                </span>
+</span>
 
-            </div>
+</div>
 
 
-            <div class="resultRow">
+<div class="resultRow">
 
-                <span>總道路長度</span>
+<span>
+可分析道路
+</span>
 
-                <span class="resultValue"
-                      id="totalLength">
+<span
+class="resultValue"
+id="roadCount">
 
-                    0 m
+0
 
-                </span>
+</span>
 
-            </div>
+</div>
 
 
-            <div class="resultRow">
+<div class="resultRow">
 
-                <span>Geometry 實測</span>
+<span>
+道路總長度
+</span>
 
-                <span class="resultValue"
-                      id="geometryCount">
+<span
+class="resultValue"
+id="totalLength">
 
-                    0
+0 m
 
-                </span>
+</span>
 
-            </div>
+</div>
 
 
-            <div class="resultRow">
+<div class="resultRow">
 
-                <span>OSM width</span>
+<span>
+Geometry 道路
+</span>
 
-                <span class="resultValue"
-                      id="widthCount">
+<span
+class="resultValue"
+id="geometryCount">
 
-                    0
+0
 
-                </span>
+</span>
 
-            </div>
+</div>
 
 
-            <div class="resultRow">
+<div class="resultRow">
 
-                <span>OSM est_width</span>
+<span>
+OSM width
+</span>
 
-                <span class="resultValue"
-                      id="estWidthCount">
+<span
+class="resultValue"
+id="widthCount">
 
-                    0
+0
 
-                </span>
+</span>
 
-            </div>
+</div>
 
 
-            <div class="resultRow">
+<div class="resultRow">
 
-                <span>Geometry 覆蓋率</span>
+<span>
+OSM est_width
+</span>
 
-                <span class="resultValue"
-                      id="geometryCoverage">
+<span
+class="resultValue"
+id="estWidthCount">
 
-                    0 %
+0
 
-                </span>
+</span>
 
-            </div>
+</div>
 
 
-            <div class="resultRow">
+<div class="resultRow">
 
-                <span>平均道路寬度</span>
+<span>
+Geometry 長度覆蓋率
+</span>
 
-                <span class="resultValue"
-                      id="averageWidth">
+<span
+class="resultValue"
+id="geometryCoverage">
 
-                    0 m
+0 %
 
-                </span>
+</span>
 
-            </div>
+</div>
 
 
-            <div class="resultRow">
+<div class="resultRow">
 
-                <span>分析可信度</span>
+<span>
+平均道路寬度
+</span>
 
-                <span class="resultValue"
-                      id="confidence">
+<span
+class="resultValue"
+id="averageWidth">
 
-                    無資料
+0.00 m
 
-                </span>
+</span>
 
-            </div>
+</div>
 
 
-        </div>
+<div class="resultRow">
 
+<span>
+加權可信度
+</span>
 
+<span
+class="resultValue"
+id="confidence">
 
-        <!-- =============================================
-             TABLE
-        ============================================== -->
+無資料
 
-        <div id="tableContainer">
+</span>
 
+</div>
 
-            <table id="roadTable">
 
+</div>
 
-                <thead>
 
-                    <tr>
 
-                        <th>道路</th>
+<!-- =====================================================
+     DIAGNOSTIC
+===================================================== -->
 
-                        <th>類型</th>
+<div id="diagnosticPanel">
 
-                        <th>寬度來源</th>
 
-                        <th>寬度(m)</th>
+<div class="diagnosticTitle">
 
-                        <th>長度(m)</th>
+🔎 GIS 資料診斷
 
-                        <th>Confidence</th>
+</div>
 
-                    </tr>
 
-                </thead>
+<div class="diagRow">
 
+<span>
+Overpass Elements
+</span>
 
-                <tbody>
+<span
+class="diagValue"
+id="diagElements">
 
-                </tbody>
+0
 
+</span>
 
-            </table>
+</div>
 
 
-        </div>
+<div class="diagRow">
 
+<span>
+OSM 中心線
+</span>
 
-        <div class="warningBox">
+<span
+class="diagValue"
+id="diagLines">
 
-            <b>⚠ GIS 注意事項</b>
+0
 
-            <br>
+</span>
 
-            本系統優先使用 OSM 中存在的道路面狀幾何。
+</div>
 
-            <br><br>
 
-            如果某道路在 OSM 沒有 Surface Polygon，
-            系統才會降級使用 width 或 est_width。
+<div class="diagRow">
 
-            <br><br>
+<span>
+OSM 道路面
+</span>
 
-            因此「Geometry 覆蓋率」越高，
-            平均道路寬度的可靠程度越高。
+<span
+class="diagValue"
+id="diagSurfaces">
 
-        </div>
+0
 
+</span>
 
-    </div>
+</div>
 
+
+<div class="diagRow">
+
+<span>
+進入分析範圍
+</span>
+
+<span
+class="diagInside">
+
+0
+
+</span>
+
+</div>
+
+
+<div class="diagRow">
+
+<span>
+成功裁切
+</span>
+
+<span
+class="diagValue"
+id="diagClipped">
+
+0
+
+</span>
+
+</div>
+
+
+<div class="diagRow">
+
+<span>
+Geometry 成功
+</span>
+
+<span
+class="diagValue"
+id="diagGeometry">
+
+0
+
+</span>
+
+</div>
+
+
+<div class="diagRow">
+
+<span>
+width 成功
+</span>
+
+<span
+class="diagValue"
+id="diagWidth">
+
+0
+
+</span>
+
+</div>
+
+
+<div class="diagRow">
+
+<span>
+est_width 成功
+</span>
+
+<span
+class="diagValue"
+id="diagEstWidth">
+
+0
+
+</span>
+
+</div>
+
+
+<div class="diagRow">
+
+<span>
+無寬度資料
+</span>
+
+<span
+class="diagValue"
+id="diagNoWidth">
+
+0
+
+</span>
+
+</div>
+
+
+</div>
+
+
+
+<!-- =====================================================
+     TABLE
+===================================================== -->
+
+<div id="tableContainer">
+
+
+<table id="roadTable">
+
+
+<thead>
+
+<tr>
+
+<th>道路</th>
+
+<th>類型</th>
+
+<th>來源</th>
+
+<th>寬度</th>
+
+<th>長度</th>
+
+<th>信度</th>
+
+</tr>
+
+</thead>
+
+
+<tbody>
+
+</tbody>
+
+
+</table>
+
+
+</div>
+
+
+
+<div class="warningBox">
+
+<b>V3.2 資料來源說明</b>
+
+<br><br>
+
+Geometry：
+
+<br>
+
+道路面積 ÷ 道路中心線長度
+
+<br><br>
+
+OSM width：
+
+<br>
+
+使用 OSM 的 width 標籤
+
+<br><br>
+
+OSM est_width：
+
+<br>
+
+使用 OSM 的 est_width 標籤
+
+<br><br>
+
+如果三者皆不存在，
+道路會被標示為「無寬度資料」，
+不會使用 lanes 推估。
+
+</div>
+
+
+
+<div id="debugConsole"></div>
+
+
+</div>
 
 </div>
 
@@ -652,7 +986,7 @@ button{
 
 
 /* =====================================================
-   GLOBAL VARIABLES
+   GLOBAL
 ===================================================== */
 
 
@@ -666,6 +1000,7 @@ let roadSurfaceLayer;
 
 let analysisRunning = false;
 
+let debugEnabled = false;
 
 
 /* =====================================================
@@ -675,7 +1010,6 @@ let analysisRunning = false;
 
 const OVERPASS_URL =
     "https://overpass-api.de/api/interpreter";
-
 
 
 /* =====================================================
@@ -708,7 +1042,102 @@ const ROAD_TYPES = [
 
 
 /* =====================================================
-   INITIALIZE MAP
+   DEBUG
+===================================================== */
+
+
+function debugLog(){
+
+    const args =
+        Array.from(arguments);
+
+    console.log(
+        "[ROAD-WIDTH]",
+        ...args
+    );
+
+
+    if(!debugEnabled){
+
+        return;
+
+    }
+
+
+    const consoleBox =
+        document.getElementById(
+            "debugConsole"
+        );
+
+
+    const text =
+        args.map(function(v){
+
+            if(typeof v === "object"){
+
+                try{
+
+                    return JSON.stringify(
+                        v
+                    );
+
+                }
+                catch(e){
+
+                    return String(v);
+
+                }
+
+            }
+
+            return String(v);
+
+        }).join(" ");
+
+
+    consoleBox.textContent +=
+        text + "\n";
+
+
+    consoleBox.scrollTop =
+        consoleBox.scrollHeight;
+
+}
+
+
+
+function toggleDebug(){
+
+    debugEnabled =
+        !debugEnabled;
+
+
+    const box =
+        document.getElementById(
+            "debugConsole"
+        );
+
+
+    box.style.display =
+        debugEnabled
+        ? "block"
+        : "none";
+
+
+    if(debugEnabled){
+
+        debugLog(
+            "Debug Console enabled."
+        );
+
+    }
+
+}
+
+
+
+/* =====================================================
+   INIT MAP
 ===================================================== */
 
 
@@ -734,66 +1163,74 @@ function initMap(){
     );
 
 
-    /* =================================================
+    /* =============================================
        NLSC
-    ================================================= */
+    ============================================= */
 
 
-    const nlscLayer = L.tileLayer(
+    const nlscLayer =
+        L.tileLayer(
 
-        "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}",
+            "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}",
 
-        {
+            {
 
-            maxZoom:20,
+                maxZoom:20,
 
-            attribution:"© 國土測繪中心"
+                attribution:
+                    "© 國土測繪中心"
 
-        }
+            }
 
-    );
+        );
 
 
     nlscLayer.addTo(map);
 
 
 
-    /* =================================================
+    /* =============================================
        OSM
-    ================================================= */
+    ============================================= */
 
 
-    const osmLayer = L.tileLayer(
+    const osmLayer =
+        L.tileLayer(
 
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+
+            {
+
+                maxZoom:20,
+
+                attribution:
+                    "© OpenStreetMap"
+
+            }
+
+        );
+
+
+
+    L.control.layers(
 
         {
 
-            maxZoom:20,
+            "NLSC 電子地圖":
+                nlscLayer,
 
-            attribution:"© OpenStreetMap"
+            "OpenStreetMap":
+                osmLayer
 
         }
 
-    );
+    ).addTo(map);
 
 
 
-    L.control.layers({
-
-        "NLSC 電子地圖":
-            nlscLayer,
-
-        "OpenStreetMap":
-            osmLayer
-
-    }).addTo(map);
-
-
-
-    /* =================================================
-       DRAWN ITEMS
-    ================================================= */
+    /* =============================================
+       Drawn Items
+    ============================================= */
 
 
     drawnItems =
@@ -805,10 +1242,9 @@ function initMap(){
     );
 
 
-
-    /* =================================================
-       RESULT LAYER
-    ================================================= */
+    /* =============================================
+       Result Layers
+    ============================================= */
 
 
     roadResultLayer =
@@ -820,9 +1256,9 @@ function initMap(){
 
 
 
-    /* =================================================
-       DRAW CONTROL
-    ================================================= */
+    /* =============================================
+       Draw Control
+    ============================================= */
 
 
     const drawControl =
@@ -866,11 +1302,6 @@ function initMap(){
 
 
 
-    /* =================================================
-       CREATED
-    ================================================= */
-
-
     map.on(
 
         L.Draw.Event.CREATED,
@@ -881,18 +1312,11 @@ function initMap(){
                 event.layer
             );
 
-
             updatePolygonCount();
 
         }
 
     );
-
-
-
-    /* =================================================
-       EDITED
-    ================================================= */
 
 
     map.on(
@@ -908,12 +1332,6 @@ function initMap(){
     );
 
 
-
-    /* =================================================
-       DELETED
-    ================================================= */
-
-
     map.on(
 
         L.Draw.Event.DELETED,
@@ -926,13 +1344,12 @@ function initMap(){
 
     );
 
-
 }
 
 
 
 /* =====================================================
-   UPDATE POLYGON COUNT
+   POLYGON COUNT
 ===================================================== */
 
 
@@ -942,11 +1359,13 @@ function updatePolygonCount(){
     let count = 0;
 
 
-    drawnItems.eachLayer(function(){
+    drawnItems.eachLayer(
+        function(){
 
-        count++;
+            count++;
 
-    });
+        }
+    );
 
 
     document.getElementById(
@@ -958,9 +1377,7 @@ function updatePolygonCount(){
 
 
 /* =====================================================
-   GET ANALYSIS AREA
-
-   Multi Polygon → FeatureCollection
+   GET POLYGON FEATURES
 ===================================================== */
 
 
@@ -970,25 +1387,35 @@ function getAnalysisFeatures(){
     const features = [];
 
 
-    drawnItems.eachLayer(function(layer){
+    drawnItems.eachLayer(
 
-        const feature =
-            layer.toGeoJSON();
+        function(layer){
+
+            const feature =
+                layer.toGeoJSON();
 
 
-        if(
+            if(
 
-            feature.geometry.type === "Polygon" ||
+                feature.geometry.type ===
+                "Polygon"
 
-            feature.geometry.type === "MultiPolygon"
+                ||
 
-        ){
+                feature.geometry.type ===
+                "MultiPolygon"
 
-            features.push(feature);
+            ){
+
+                features.push(
+                    feature
+                );
+
+            }
 
         }
 
-    });
+    );
 
 
     return features;
@@ -998,27 +1425,7 @@ function getAnalysisFeatures(){
 
 
 /* =====================================================
-   GET BOUNDS
-===================================================== */
-
-
-function getAnalysisBounds(){
-
-
-    return drawnItems.getBounds();
-
-}
-
-
-
-/* =====================================================
    BUILD OVERPASS QUERY
-
-   同時取得：
-
-   A. Road Centerline
-
-   B. Road Surface Polygon
 ===================================================== */
 
 
@@ -1041,7 +1448,7 @@ function buildOverpassQuery(bounds){
         bounds.getEast();
 
 
-    const roadRegex =
+    const regex =
         ROAD_TYPES.join("|");
 
 
@@ -1051,44 +1458,18 @@ function buildOverpassQuery(bounds){
 
 (
 
-/* ==============================================
-   A. ROAD CENTERLINE
-============================================== */
-
 way
-["highway"~"${roadRegex}"]
+["highway"~"${regex}"]
 (${south},${west},${north},${east});
 
-
-/* ==============================================
-   B. EXPLICIT ROAD AREA
-============================================== */
-
 way
-["highway"]
 ["area:highway"="yes"]
 (${south},${west},${north},${east});
 
-
-/* ==============================================
-   C. HIGHWAY AREA
-============================================== */
-
 way
-["highway"~"${roadRegex}"]
+["highway"]
 ["area"="yes"]
 (${south},${west},${north},${east});
-
-
-/* ==============================================
-   D. PEDESTRIAN / SERVICE AREA
-============================================== */
-
-way
-["highway"~"pedestrian|service"]
-["area"="yes"]
-(${south},${west},${north},${east});
-
 
 );
 
@@ -1101,7 +1482,7 @@ out geom tags;
 
 
 /* =====================================================
-   FETCH OVERPASS
+   FETCH OSM
 ===================================================== */
 
 
@@ -1110,6 +1491,12 @@ async function fetchOSMRoads(bounds){
 
     const query =
         buildOverpassQuery(bounds);
+
+
+    debugLog(
+        "Overpass Query:",
+        query
+    );
 
 
     const response =
@@ -1139,8 +1526,8 @@ async function fetchOSMRoads(bounds){
 
         throw new Error(
 
-            "Overpass API 回應錯誤："
-            + response.status
+            "Overpass HTTP " +
+            response.status
 
         );
 
@@ -1154,7 +1541,7 @@ async function fetchOSMRoads(bounds){
 
 
 /* =====================================================
-   OSM ELEMENT → LINESTRING
+   OSM → LINE
 ===================================================== */
 
 
@@ -1174,43 +1561,56 @@ function elementToLine(element){
     }
 
 
-    const coordinates =
-        element.geometry.map(function(p){
+    const coords =
+        element.geometry.map(
 
-            return [
+            function(p){
 
-                p.lon,
+                return [
 
-                p.lat
+                    p.lon,
 
-            ];
+                    p.lat
 
-        });
+                ];
+
+            }
+
+        );
 
 
-    return turf.lineString(
+    try{
 
-        coordinates,
 
-        {
+        return turf.lineString(
 
-            osm_id:
-                element.id,
+            coords,
 
-            ...(element.tags || {})
+            {
 
-        }
+                osm_id:
+                    element.id,
 
-    );
+                ...(element.tags || {})
+
+            }
+
+        );
+
+
+    }
+    catch(error){
+
+        return null;
+
+    }
 
 }
 
 
 
 /* =====================================================
-   OSM ELEMENT → POLYGON
-
-   必須 Closed Ring
+   OSM → POLYGON
 ===================================================== */
 
 
@@ -1230,35 +1630,43 @@ function elementToPolygon(element){
     }
 
 
-    const coordinates =
-        element.geometry.map(function(p){
+    const coords =
+        element.geometry.map(
 
-            return [
+            function(p){
 
-                p.lon,
+                return [
 
-                p.lat
+                    p.lon,
 
-            ];
+                    p.lat
 
-        });
+                ];
+
+            }
+
+        );
 
 
     const first =
-        coordinates[0];
+        coords[0];
 
 
     const last =
-        coordinates[
-            coordinates.length - 1
-        ];
+        coords[coords.length - 1];
 
 
     if(
 
-        first[0] !== last[0] ||
+        Math.abs(
+            first[0] - last[0]
+        ) > 1e-10
 
-        first[1] !== last[1]
+        ||
+
+        Math.abs(
+            first[1] - last[1]
+        ) > 1e-10
 
     ){
 
@@ -1269,9 +1677,10 @@ function elementToPolygon(element){
 
     try{
 
+
         return turf.polygon(
 
-            [coordinates],
+            [coords],
 
             {
 
@@ -1284,8 +1693,8 @@ function elementToPolygon(element){
 
         );
 
-    }
 
+    }
     catch(error){
 
         return null;
@@ -1297,21 +1706,22 @@ function elementToPolygon(element){
 
 
 /* =====================================================
-   CLASSIFY ELEMENT
-
-   Road Polygon or Centerline
+   CLASSIFY OSM
 ===================================================== */
 
 
-function classifyOSMElements(elements){
+function classifyElements(elements){
 
 
     const lines = [];
 
-    const polygons = [];
+    const surfaces = [];
 
 
-    for(const element of elements){
+    for(
+        const element
+        of elements
+    ){
 
 
         if(!element.geometry){
@@ -1321,56 +1731,69 @@ function classifyOSMElements(elements){
         }
 
 
-        const polygon =
-            elementToPolygon(element);
+        const tags =
+            element.tags || {};
 
 
-        if(polygon){
+        const isSurface =
+
+            tags["area:highway"] === "yes"
+
+            ||
+
+            tags.area === "yes";
 
 
-            const tags =
-                element.tags || {};
+        if(isSurface){
 
 
-            const isArea =
+            const polygon =
+                elementToPolygon(
+                    element
+                );
 
-                tags["area:highway"] === "yes" ||
 
-                tags.area === "yes";
+            if(polygon){
 
+                surfaces.push({
 
-            if(isArea){
+                    feature:
+                        polygon,
 
-                polygons.push({
+                    tags:
+                        tags,
 
-                    feature:polygon,
-
-                    tags:tags,
-
-                    osm_id:element.id
+                    osm_id:
+                        element.id
 
                 });
 
-                continue;
-
             }
+
+
+            continue;
 
         }
 
 
         const line =
-            elementToLine(element);
+            elementToLine(
+                element
+            );
 
 
         if(line){
 
             lines.push({
 
-                feature:line,
+                feature:
+                    line,
 
-                tags:element.tags || {},
+                tags:
+                    tags,
 
-                osm_id:element.id
+                osm_id:
+                    element.id
 
             });
 
@@ -1383,7 +1806,7 @@ function classifyOSMElements(elements){
 
         lines,
 
-        polygons
+        surfaces
 
     };
 
@@ -1392,78 +1815,74 @@ function classifyOSMElements(elements){
 
 
 /* =====================================================
-   POLYGON INTERSECTION
-
-   Analysis Polygon ∩ Road Surface
+   POINT INSIDE POLYGON
 ===================================================== */
 
 
-function getSurfaceInsideAnalysisArea(
+function pointInsideAnyPolygon(
 
-    roadSurface,
+    point,
 
-    analysisFeatures
+    polygons
 
 ){
 
 
-    const results = [];
-
-
-    for(const area of analysisFeatures){
+    for(
+        const polygon
+        of polygons
+    ){
 
 
         try{
 
 
-            const intersection =
-                turf.intersect(
-
-                    roadSurface,
-
-                    area
-
-                );
-
-
             if(
 
-                intersection &&
+                turf.booleanPointInPolygon(
 
-                turf.area(intersection) > 1
+                    point,
+
+                    polygon
+
+                )
 
             ){
 
-                results.push(
-                    intersection
-                );
+                return true;
 
             }
 
-        }
-
-        catch(error){
-
-            console.warn(
-                "Surface intersection error",
-                error
-            );
 
         }
+        catch(error){}
 
     }
 
 
-    return results;
+    return false;
 
 }
 
 
 
 /* =====================================================
-   CLIP LINE TO POLYGON
+   ROBUST LINE CLIP
+=====================================================
 
-   使用 LineSplit
+   核心修正：
+
+   不再完全依賴 lineSplit。
+
+   方法：
+
+   1. 原始線段逐段處理
+   2. 每一小段判斷端點
+   3. 找 Boundary intersection
+   4. 建立切割點
+   5. 按道路原始順序排序
+   6. 每個小段 midpoint 判斷
+
 ===================================================== */
 
 
@@ -1479,113 +1898,126 @@ function clipLineToPolygon(
     try{
 
 
-        const boundary =
-            turf.polygonToLine(
-                polygon
-            );
-
-
-        const intersections =
-            turf.lineIntersect(
-
-                line,
-
-                boundary
-
-            );
-
-
-        /* =============================================
-           沒有交點
-
-           判斷中心點是否在 Polygon
-        ============================================= */
+        const coordinates =
+            line.geometry.coordinates;
 
 
         if(
-
-            intersections.features.length === 0
-
+            coordinates.length < 2
         ){
-
-
-            const length =
-                turf.length(line);
-
-
-            const midpoint =
-                turf.along(
-
-                    line,
-
-                    length / 2
-
-                );
-
-
-            if(
-
-                turf.booleanPointInPolygon(
-
-                    midpoint,
-
-                    polygon
-
-                )
-
-            ){
-
-                return [line];
-
-            }
-
 
             return [];
 
         }
 
 
-
-        /* =============================================
-           Split
-        ============================================= */
+        const output = [];
 
 
-        const split =
-            turf.lineSplit(
+        /* =========================================
+           Polygon Boundary
+        ========================================= */
 
-                line,
 
-                intersections
-
+        const boundary =
+            turf.polygonToLine(
+                polygon
             );
 
 
-        const inside = [];
+        /* =========================================
+           處理每一個原始 Line Segment
+        ========================================= */
 
 
-        split.features.forEach(
+        for(
 
-            function(segment){
+            let i = 0;
 
+            i < coordinates.length - 1;
 
-                const length =
-                    turf.length(segment);
+            i++
 
-
-                if(length <= 0){
-
-                    return;
-
-                }
+        ){
 
 
-                const midpoint =
-                    turf.along(
+            const a =
+                coordinates[i];
+
+
+            const b =
+                coordinates[i + 1];
+
+
+            const segment =
+                turf.lineString([
+                    a,
+                    b
+                ]);
+
+
+            const cutPoints = [
+
+                turf.point(a),
+
+                turf.point(b)
+
+            ];
+
+
+            /* =====================================
+               找 Boundary intersection
+            ===================================== */
+
+
+            try{
+
+
+                const intersections =
+                    turf.lineIntersect(
 
                         segment,
 
-                        length / 2
+                        boundary
+
+                    );
+
+
+                intersections.features.forEach(
+
+                    function(point){
+
+                        cutPoints.push(
+                            point
+                        );
+
+                    }
+
+                );
+
+            }
+            catch(error){}
+
+
+
+            /* =====================================
+               沒有交點：
+
+               直接判斷 midpoint
+            ===================================== */
+
+
+            if(
+                cutPoints.length === 2
+            ){
+
+
+                const midpoint =
+                    turf.midpoint(
+
+                        turf.point(a),
+
+                        turf.point(b)
 
                     );
 
@@ -1602,22 +2034,210 @@ function clipLineToPolygon(
 
                 ){
 
-                    inside.push(
+                    output.push(
                         segment
+                    );
+
+                }
+
+
+                continue;
+
+            }
+
+
+
+            /* =====================================
+               去除重複點
+            ===================================== */
+
+
+            const uniquePoints = [];
+
+
+            cutPoints.forEach(
+
+                function(point){
+
+                    const coord =
+                        point.geometry.coordinates;
+
+
+                    const exists =
+                        uniquePoints.some(
+
+                            function(p){
+
+                                const c =
+                                    p.geometry.coordinates;
+
+
+                                return (
+
+                                    Math.abs(
+                                        c[0] - coord[0]
+                                    ) < 1e-10
+
+                                    &&
+
+                                    Math.abs(
+                                        c[1] - coord[1]
+                                    ) < 1e-10
+
+                                );
+
+                            }
+
+                        );
+
+
+                    if(!exists){
+
+                        uniquePoints.push(
+                            point
+                        );
+
+                    }
+
+                }
+
+            );
+
+
+
+            /* =====================================
+               按距離起點排序
+            ===================================== */
+
+
+            uniquePoints.sort(
+
+                function(p1,p2){
+
+                    return (
+
+                        turf.distance(
+
+                            turf.point(a),
+
+                            p1
+
+                        )
+
+                        -
+
+                        turf.distance(
+
+                            turf.point(a),
+
+                            p2
+
+                        )
+
+                    );
+
+                }
+
+            );
+
+
+
+            /* =====================================
+               建立子線段
+            ===================================== */
+
+
+            for(
+
+                let j = 0;
+
+                j < uniquePoints.length - 1;
+
+                j++
+
+            ){
+
+
+                const p1 =
+                    uniquePoints[j]
+                    .geometry
+                    .coordinates;
+
+
+                const p2 =
+                    uniquePoints[j + 1]
+                    .geometry
+                    .coordinates;
+
+
+                const subSegment =
+                    turf.lineString([
+
+                        p1,
+
+                        p2
+
+                    ]);
+
+
+                const subLength =
+                    turf.length(
+                        subSegment
+                    );
+
+
+                if(
+                    subLength <= 0
+                ){
+
+                    continue;
+
+                }
+
+
+                const midpoint =
+                    turf.along(
+
+                        subSegment,
+
+                        subLength / 2
+
+                    );
+
+
+                if(
+
+                    turf.booleanPointInPolygon(
+
+                        midpoint,
+
+                        polygon
+
+                    )
+
+                ){
+
+                    output.push(
+                        subSegment
                     );
 
                 }
 
             }
 
-        );
+        }
 
 
-        return inside;
+        return output;
 
     }
 
     catch(error){
+
+        debugLog(
+            "clipLineToPolygon error:",
+            error
+        );
 
         return [];
 
@@ -1628,24 +2248,26 @@ function clipLineToPolygon(
 
 
 /* =====================================================
-   GET CENTERLINE LENGTH INSIDE SURFACE
-
-   Road Surface 對應中心線：
-
-   使用中心線與道路面 Intersection
+   CLIP LINE TO MULTI POLYGON
 ===================================================== */
 
 
-function getCenterlineLengthInsideSurface(
+function clipLineToAnalysisArea(
 
     line,
 
-    surface
+    polygons
 
 ){
 
 
-    try{
+    const result = [];
+
+
+    for(
+        const polygon
+        of polygons
+    ){
 
 
         const segments =
@@ -1653,231 +2275,26 @@ function getCenterlineLengthInsideSurface(
 
                 line,
 
-                surface
+                polygon
 
             );
 
 
-        let length = 0;
-
-
-        segments.forEach(function(segment){
-
-            length +=
-                turf.length(segment) * 1000;
-
-        });
-
-
-        return length;
-
-    }
-
-    catch(error){
-
-        return 0;
-
-    }
-
-}
-
-
-
-/* =====================================================
-   ROAD MATCH SCORE
-
-   Road Surface ↔ Centerline
-===================================================== */
-
-
-function calculateMatchScore(
-
-    lineData,
-
-    polygonData
-
-){
-
-
-    const lineTags =
-        lineData.tags || {};
-
-
-    const polyTags =
-        polygonData.tags || {};
-
-
-    let score = 0;
-
-
-    /* =============================================
-       Same Name
-    ============================================= */
-
-
-    if(
-
-        lineTags.name &&
-
-        polyTags.name &&
-
-        lineTags.name === polyTags.name
-
-    ){
-
-        score += 50;
-
-    }
-
-
-
-    /* =============================================
-       Same Ref
-    ============================================= */
-
-
-    if(
-
-        lineTags.ref &&
-
-        polyTags.ref &&
-
-        lineTags.ref === polyTags.ref
-
-    ){
-
-        score += 40;
-
-    }
-
-
-
-    /* =============================================
-       Same Highway Type
-    ============================================= */
-
-
-    if(
-
-        lineTags.highway &&
-
-        polyTags.highway &&
-
-        lineTags.highway === polyTags.highway
-
-    ){
-
-        score += 20;
-
-    }
-
-
-
-    /* =============================================
-       Geometry Relationship
-
-       線有多少長度落在面內
-    ============================================= */
-
-
-    const insideLength =
-        getCenterlineLengthInsideSurface(
-
-            lineData.feature,
-
-            polygonData.feature
-
+        result.push(
+            ...segments
         );
 
-
-    if(insideLength > 5){
-
-        score += 100;
-
     }
 
 
-    return {
-
-        score,
-
-        insideLength
-
-    };
+    return result;
 
 }
 
 
 
 /* =====================================================
-   FIND BEST CENTERLINE
-
-   Surface → Centerline Matching
-===================================================== */
-
-
-function findBestCenterline(
-
-    surfaceData,
-
-    lineDataList
-
-){
-
-
-    let best = null;
-
-    let bestScore = 0;
-
-
-    for(const lineData of lineDataList){
-
-
-        const result =
-            calculateMatchScore(
-
-                lineData,
-
-                surfaceData
-
-            );
-
-
-        if(
-
-            result.score > bestScore
-
-        ){
-
-            bestScore =
-                result.score;
-
-
-            best = {
-
-                lineData,
-
-                score:
-                    result.score,
-
-                insideLength:
-                    result.insideLength
-
-            };
-
-        }
-
-    }
-
-
-    return best;
-
-}
-
-
-
-/* =====================================================
-   PARSE WIDTH
+   WIDTH PARSER
 ===================================================== */
 
 
@@ -1885,11 +2302,8 @@ function parseWidth(value){
 
 
     if(
-
         value === undefined ||
-
         value === null
-
     ){
 
         return null;
@@ -1899,28 +2313,42 @@ function parseWidth(value){
 
     let text =
         String(value)
+        .trim()
+        .replace(/,/g,".");
 
 
-        .replace(",", ".")
+    /*
+       處理：
 
-        .replace(/meters?/gi, "")
-
-        .replace(/metres?/gi, "")
-
-        .replace(/m/gi, "")
-
-        .trim();
+       10 m
+       10m
+       10 meters
+    */
 
 
-    /* =============================================
-       width=10;12 等複雜格式不直接使用
-    ============================================= */
+    text =
+        text.replace(
+            /meters?|metres?/gi,
+            ""
+        );
+
+
+    text =
+        text.replace(
+            /m/gi,
+            ""
+        );
+
+
+    /*
+       OSM 有時：
+
+       10;12
+    */
 
 
     if(
-
         text.includes(";")
-
     ){
 
         text =
@@ -1955,7 +2383,7 @@ function parseWidth(value){
 
 
 /* =====================================================
-   GET TAGGED WIDTH
+   TAGGED WIDTH
 ===================================================== */
 
 
@@ -1970,7 +2398,9 @@ function getTaggedWidth(tags){
 
 
     const width =
-        parseWidth(tags.width);
+        parseWidth(
+            tags.width
+        );
 
 
     if(width !== null){
@@ -1979,9 +2409,11 @@ function getTaggedWidth(tags){
 
             width,
 
-            source:"OSM width",
+            source:
+                "OSM width",
 
-            confidence:0.75
+            confidence:
+                0.75
 
         };
 
@@ -1989,18 +2421,23 @@ function getTaggedWidth(tags){
 
 
     const estWidth =
-        parseWidth(tags.est_width);
+        parseWidth(
+            tags.est_width
+        );
 
 
     if(estWidth !== null){
 
         return {
 
-            width:estWidth,
+            width:
+                estWidth,
 
-            source:"OSM est_width",
+            source:
+                "OSM est_width",
 
-            confidence:0.50
+            confidence:
+                0.50
 
         };
 
@@ -2014,29 +2451,22 @@ function getTaggedWidth(tags){
 
 
 /* =====================================================
-   GET ROAD NAME
+   ROAD NAME
 ===================================================== */
 
 
 function getRoadName(tags){
 
 
-    if(!tags){
-
-        return "未命名道路";
-
-    }
-
-
     return (
 
-        tags.name ||
+        tags?.name ||
 
-        tags["name:zh"] ||
+        tags?.["name:zh"] ||
 
-        tags.ref ||
+        tags?.ref ||
 
-        tags.highway ||
+        tags?.highway ||
 
         "未命名道路"
 
@@ -2047,50 +2477,535 @@ function getRoadName(tags){
 
 
 /* =====================================================
-   GET LINE INSIDE ANALYSIS AREA
+   FIND MATCHING SURFACE
 ===================================================== */
 
 
-function getLineInsideAnalysisArea(
+function findBestSurface(
 
-    line,
+    lineData,
 
-    analysisFeatures
+    surfaces,
+
+    analysisPolygons
 
 ){
 
 
-    const results = [];
+    let best = null;
+
+    let bestScore = 0;
 
 
-    for(const polygon of analysisFeatures){
+    for(
+        const surface
+        of surfaces
+    ){
 
 
-        const segments =
-            clipLineToPolygon(
-
-                line,
-
-                polygon
-
-            );
+        let score = 0;
 
 
-        results.push(
-            ...segments
-        );
+        const lineTags =
+            lineData.tags || {};
+
+
+        const surfaceTags =
+            surface.tags || {};
+
+
+        /* =====================================
+           Same Name
+        ===================================== */
+
+
+        if(
+
+            lineTags.name &&
+
+            surfaceTags.name &&
+
+            lineTags.name ===
+            surfaceTags.name
+
+        ){
+
+            score += 50;
+
+        }
+
+
+
+        /* =====================================
+           Same Ref
+        ===================================== */
+
+
+        if(
+
+            lineTags.ref &&
+
+            surfaceTags.ref &&
+
+            lineTags.ref ===
+            surfaceTags.ref
+
+        ){
+
+            score += 40;
+
+        }
+
+
+
+        /* =====================================
+           Same Highway
+        ===================================== */
+
+
+        if(
+
+            lineTags.highway &&
+
+            surfaceTags.highway &&
+
+            lineTags.highway ===
+            surfaceTags.highway
+
+        ){
+
+            score += 20;
+
+        }
+
+
+
+        /* =====================================
+           Check centerline point
+        ===================================== */
+
+
+        try{
+
+
+            const center =
+                turf.along(
+
+                    lineData.feature,
+
+                    turf.length(
+                        lineData.feature
+                    ) / 2
+
+                );
+
+
+            if(
+
+                turf.booleanPointInPolygon(
+
+                    center,
+
+                    surface.feature
+
+                )
+
+            ){
+
+                score += 100;
+
+            }
+
+        }
+        catch(error){}
+
+
+
+        /* =====================================
+           Check analysis area
+        ===================================== */
+
+
+        let intersectsArea = false;
+
+
+        for(
+            const polygon
+            of analysisPolygons
+        ){
+
+
+            try{
+
+
+                const intersection =
+                    turf.intersect(
+
+                        surface.feature,
+
+                        polygon
+
+                    );
+
+
+                if(
+                    intersection
+                ){
+
+                    intersectsArea = true;
+
+                    break;
+
+                }
+
+            }
+            catch(error){}
+
+        }
+
+
+        if(intersectsArea){
+
+            score += 20;
+
+        }
+
+
+
+        if(score > bestScore){
+
+            bestScore = score;
+
+            best = {
+
+                surface,
+
+                score
+
+            };
+
+        }
 
     }
 
 
-    return results;
+    return best;
 
 }
 
 
 
 /* =====================================================
-   ANALYZE ROAD WIDTH
+   GEOMETRY WIDTH
+===================================================== */
+
+
+function calculateGeometryWidth(
+
+    lineData,
+
+    surfaceData,
+
+    analysisPolygons
+
+){
+
+
+    let area = 0;
+
+
+    let length = 0;
+
+
+    /* =============================================
+       Surface ∩ Analysis Polygon
+    ============================================= */
+
+
+    for(
+        const polygon
+        of analysisPolygons
+    ){
+
+
+        try{
+
+
+            const intersection =
+                turf.intersect(
+
+                    surfaceData.feature,
+
+                    polygon
+
+                );
+
+
+            if(intersection){
+
+                area +=
+                    turf.area(
+                        intersection
+                    );
+
+            }
+
+        }
+        catch(error){
+
+            debugLog(
+                "Surface intersection:",
+                error
+            );
+
+        }
+
+    }
+
+
+
+    if(area <= 0){
+
+        return null;
+
+    }
+
+
+
+    /* =============================================
+       Centerline ∩ Analysis Polygon
+    ============================================= */
+
+
+    const segments =
+        clipLineToAnalysisArea(
+
+            lineData.feature,
+
+            analysisPolygons
+
+        );
+
+
+    segments.forEach(
+
+        function(segment){
+
+            length +=
+
+                turf.length(segment)
+
+                *
+
+                1000;
+
+        }
+
+    );
+
+
+    if(length <= 1){
+
+        return null;
+
+    }
+
+
+
+    const width =
+        area / length;
+
+
+    if(
+
+        width <= 0 ||
+
+        width > 100
+
+    ){
+
+        return null;
+
+    }
+
+
+    return {
+
+        width,
+
+        area,
+
+        length,
+
+        source:
+            "Geometry Area ÷ Length",
+
+        confidence:
+            0.95
+
+    };
+
+}
+
+
+
+/* =====================================================
+   DRAW LINE
+===================================================== */
+
+
+function drawRoadLine(
+
+    segments,
+
+    info
+
+){
+
+
+    segments.forEach(
+
+        function(segment){
+
+
+            const latlngs =
+                segment.geometry.coordinates.map(
+
+                    function(c){
+
+                        return [
+
+                            c[1],
+
+                            c[0]
+
+                        ];
+
+                    }
+
+                );
+
+
+            const line =
+                L.polyline(
+
+                    latlngs,
+
+                    {
+
+                        weight:5,
+
+                        opacity:0.85
+
+                    }
+
+                );
+
+
+            line.bindPopup(
+
+                "<b>" +
+
+                escapeHtml(
+                    info.name
+                ) +
+
+                "</b>" +
+
+                "<br>道路類型：" +
+
+                escapeHtml(
+                    info.highway
+                ) +
+
+                "<br>寬度：" +
+
+                info.width.toFixed(2) +
+
+                " m" +
+
+                "<br>來源：" +
+
+                escapeHtml(
+                    info.source
+                ) +
+
+                "<br>長度：" +
+
+                info.length.toFixed(1) +
+
+                " m" +
+
+                "<br>信度：" +
+
+                Math.round(
+                    info.confidence * 100
+                ) +
+
+                "%"
+
+            );
+
+
+            roadResultLayer.addLayer(
+                line
+            );
+
+        }
+
+    );
+
+}
+
+
+
+/* =====================================================
+   DRAW SURFACE
+===================================================== */
+
+
+function drawSurface(surface){
+
+
+    try{
+
+
+        const layer =
+            L.geoJSON(
+
+                surface,
+
+                {
+
+                    style:{
+
+                        weight:1,
+
+                        opacity:0.7,
+
+                        fillOpacity:0.20
+
+                    }
+
+                }
+
+            );
+
+
+        roadSurfaceLayer.addLayer(
+            layer
+        );
+
+
+    }
+    catch(error){}
+
+}
+
+
+
+/* =====================================================
+   MAIN ANALYSIS
 ===================================================== */
 
 
@@ -2104,18 +3019,14 @@ async function analyzeRoadWidth(){
     }
 
 
-    const analysisFeatures =
+    const polygons =
         getAnalysisFeatures();
 
 
-    if(
-
-        analysisFeatures.length === 0
-
-    ){
+    if(polygons.length === 0){
 
         alert(
-            "請先繪製至少一個分析多邊形"
+            "請先在地圖上繪製 Polygon。"
         );
 
         return;
@@ -2135,13 +3046,36 @@ async function analyzeRoadWidth(){
     try{
 
 
+        debugLog(
+            "===================================="
+        );
+
+
+        debugLog(
+            "V3.2 Analysis Start"
+        );
+
+
+        debugLog(
+            "Polygon count:",
+            polygons.length
+        );
+
+
+
         /* =============================================
            BOUNDS
         ============================================= */
 
 
         const bounds =
-            getAnalysisBounds();
+            drawnItems.getBounds();
+
+
+        debugLog(
+            "Bounds:",
+            bounds.toBBoxString()
+        );
 
 
 
@@ -2150,21 +3084,22 @@ async function analyzeRoadWidth(){
         ============================================= */
 
 
-        console.log(
-            "開始取得 OSM 道路資料..."
-        );
-
-
-        const osmData =
+        const data =
             await fetchOSMRoads(
                 bounds
             );
 
 
-        console.log(
-            "OSM Elements:",
-            osmData.elements.length
+        debugLog(
+            "Overpass elements:",
+            data.elements.length
         );
+
+
+        document.getElementById(
+            "diagElements"
+        ).textContent =
+            data.elements.length;
 
 
 
@@ -2173,43 +3108,53 @@ async function analyzeRoadWidth(){
         ============================================= */
 
 
-        const {
-
-            lines,
-
-            polygons
-
-        } =
-            classifyOSMElements(
-                osmData.elements
+        const classified =
+            classifyElements(
+                data.elements
             );
 
 
-        console.log(
+        const lines =
+            classified.lines;
+
+
+        const surfaces =
+            classified.surfaces;
+
+
+        document.getElementById(
+            "diagLines"
+        ).textContent =
+            lines.length;
+
+
+        document.getElementById(
+            "diagSurfaces"
+        ).textContent =
+            surfaces.length;
+
+
+        debugLog(
             "Centerlines:",
             lines.length
         );
 
 
-        console.log(
-            "Road Surfaces:",
-            polygons.length
+        debugLog(
+            "Surfaces:",
+            surfaces.length
         );
 
 
 
         /* =============================================
-           RESULT VARIABLES
+           STATISTICS
         ============================================= */
 
 
-        const results = [];
+        let insideRoadCount = 0;
 
-
-        let totalLength = 0;
-
-        let totalWeightedWidth = 0;
-
+        let clippedRoadCount = 0;
 
         let geometryCount = 0;
 
@@ -2217,21 +3162,20 @@ async function analyzeRoadWidth(){
 
         let estWidthCount = 0;
 
+        let noWidthCount = 0;
+
 
         let geometryLength = 0;
 
-        let analyzedRoadCount = 0;
+        let totalLength = 0;
+
+        let weightedWidth = 0;
 
 
-
-        /* =============================================
-           TRACK PROCESSED LINES
-
-           防止同一道路重複使用
-        ============================================= */
+        const results = [];
 
 
-        const processedLineIds =
+        const processed =
             new Set();
 
 
@@ -2239,146 +3183,72 @@ async function analyzeRoadWidth(){
         /* =============================================
            STEP 1
 
-           GEOMETRY WIDTH
+           PROCESS CENTERLINES
         ============================================= */
 
 
-        console.log(
-            "STEP 1：分析道路面 Polygon..."
-        );
-
-
-        for(const surfaceData of polygons){
-
-
-            /* =========================================
-               Surface ∩ Analysis Area
-            ========================================= */
-
-
-            const clippedSurfaces =
-                getSurfaceInsideAnalysisArea(
-
-                    surfaceData.feature,
-
-                    analysisFeatures
-
-                );
-
-
-            if(
-
-                clippedSurfaces.length === 0
-
-            ){
-
-                continue;
-
-            }
+        for(
+            const lineData
+            of lines
+        ){
 
 
             /* =========================================
-               Find Centerline
+               Clip
             ========================================= */
 
 
-            const match =
-                findBestCenterline(
-
-                    surfaceData,
-
-                    lines
-
-                );
-
-
-            if(
-
-                !match ||
-
-                match.insideLength < 5
-
-            ){
-
-                continue;
-
-            }
-
-
-            const lineData =
-                match.lineData;
-
-
-            /* =========================================
-               Avoid duplicate
-            ========================================= */
-
-
-            const lineKey =
-                String(lineData.osm_id);
-
-
-            if(
-
-                processedLineIds.has(
-                    lineKey
-                )
-
-            ){
-
-                continue;
-
-            }
-
-
-            processedLineIds.add(
-                lineKey
-            );
-
-
-            /* =========================================
-               Total Surface Area
-            ========================================= */
-
-
-            let totalSurfaceArea = 0;
-
-
-            clippedSurfaces.forEach(
-                function(surface){
-
-                    totalSurfaceArea +=
-                        turf.area(surface);
-
-                }
-            );
-
-
-            /* =========================================
-               Centerline length
-
-               使用道路中心線落在
-               分析範圍的實際長度
-            ========================================= */
-
-
-            const lineSegments =
-                getLineInsideAnalysisArea(
+            const segments =
+                clipLineToAnalysisArea(
 
                     lineData.feature,
 
-                    analysisFeatures
+                    polygons
 
                 );
 
 
-            let lineLength = 0;
+            if(
+                segments.length === 0
+            ){
+
+                continue;
+
+            }
 
 
-            lineSegments.forEach(
+            insideRoadCount++;
+
+
+            clippedRoadCount++;
+
+
+            document.getElementById(
+                "diagInside"
+            ).textContent =
+                insideRoadCount;
+
+
+            document.getElementById(
+                "diagClipped"
+            ).textContent =
+                clippedRoadCount;
+
+
+
+            /* =========================================
+               Length
+            ========================================= */
+
+
+            let clippedLength = 0;
+
+
+            segments.forEach(
+
                 function(segment){
 
-                    lineLength +=
+                    clippedLength +=
 
                         turf.length(segment)
 
@@ -2387,13 +3257,12 @@ async function analyzeRoadWidth(){
                         1000;
 
                 }
+
             );
 
 
             if(
-
-                lineLength < 5
-
+                clippedLength < 1
             ){
 
                 continue;
@@ -2401,345 +3270,282 @@ async function analyzeRoadWidth(){
             }
 
 
-            /* =========================================
-               GEOMETRY WIDTH
 
-               Area / Length
+            /* =========================================
+               GEOMETRY SURFACE
             ========================================= */
 
 
-            const width =
-                totalSurfaceArea
+            const matchingSurface =
+                findBestSurface(
 
-                /
+                    lineData,
 
-                lineLength;
+                    surfaces,
 
-
-            /* =========================================
-               Sanity Check
-            ========================================= */
-
-
-            if(
-
-                width <= 0 ||
-
-                width > 100
-
-            ){
-
-                continue;
-
-            }
-
-
-            const roadName =
-                getRoadName(
-                    lineData.tags
-                );
-
-
-            const highway =
-                lineData.tags.highway ||
-                surfaceData.tags.highway ||
-                "-";
-
-
-            const confidence =
-                0.95;
-
-
-            results.push({
-
-                osm_id:
-                    lineData.osm_id,
-
-                name:
-                    roadName,
-
-                highway:
-                    highway,
-
-                source:
-                    "Geometry Area ÷ Length",
-
-                width:
-                    width,
-
-                length:
-                    lineLength,
-
-                area:
-                    totalSurfaceArea,
-
-                confidence:
-                    confidence,
-
-                feature:
-                    lineData.feature
-
-            });
-
-
-            totalLength +=
-                lineLength;
-
-
-            totalWeightedWidth +=
-
-                width
-
-                *
-
-                lineLength;
-
-
-            geometryCount++;
-
-            geometryLength +=
-                lineLength;
-
-            analyzedRoadCount++;
-
-
-            drawRoadLine(
-
-                lineSegments,
-
-                roadName,
-
-                highway,
-
-                width,
-
-                "Geometry Area ÷ Length",
-
-                lineLength,
-
-                confidence
-
-            );
-
-
-            drawRoadSurfaces(
-                clippedSurfaces
-            );
-
-        }
-
-
-
-        /* =============================================
-           STEP 2
-
-           TAG WIDTH FALLBACK
-        ============================================= */
-
-
-        console.log(
-            "STEP 2：分析 width / est_width..."
-        );
-
-
-        for(const lineData of lines){
-
-
-            const lineKey =
-                String(lineData.osm_id);
-
-
-            /* =========================================
-               已使用 Geometry
-            ========================================= */
-
-
-            if(
-
-                processedLineIds.has(
-                    lineKey
-                )
-
-            ){
-
-                continue;
-
-            }
-
-
-            /* =========================================
-               Clip to Analysis Area
-            ========================================= */
-
-
-            const segments =
-                getLineInsideAnalysisArea(
-
-                    lineData.feature,
-
-                    analysisFeatures
+                    polygons
 
                 );
 
 
-            if(
+            let geometryResult = null;
 
-                segments.length === 0
 
-            ){
+            if(matchingSurface){
+
+
+                geometryResult =
+                    calculateGeometryWidth(
+
+                        lineData,
+
+                        matchingSurface.surface,
+
+                        polygons
+
+                    );
+
+            }
+
+
+
+            /* =========================================
+               GEOMETRY SUCCESS
+            ========================================= */
+
+
+            if(geometryResult){
+
+
+                const key =
+                    "G-" +
+                    lineData.osm_id;
+
+
+                if(
+                    processed.has(key)
+                ){
+
+                    continue;
+
+                }
+
+
+                processed.add(key);
+
+
+                geometryCount++;
+
+
+                geometryLength +=
+                    geometryResult.length;
+
+
+                totalLength +=
+                    geometryResult.length;
+
+
+                weightedWidth +=
+
+                    geometryResult.width *
+
+                    geometryResult.length;
+
+
+                const info = {
+
+                    osm_id:
+                        lineData.osm_id,
+
+                    name:
+                        getRoadName(
+                            lineData.tags
+                        ),
+
+                    highway:
+                        lineData.tags.highway ||
+                        "-",
+
+                    source:
+                        geometryResult.source,
+
+                    width:
+                        geometryResult.width,
+
+                    length:
+                        geometryResult.length,
+
+                    confidence:
+                        geometryResult.confidence
+
+                };
+
+
+                results.push(info);
+
+
+                drawRoadLine(
+
+                    segments,
+
+                    info
+
+                );
+
+
+                drawSurface(
+
+                    matchingSurface.surface.feature
+
+                );
+
+
+                document.getElementById(
+                    "diagGeometry"
+                ).textContent =
+                    geometryCount;
+
 
                 continue;
 
             }
 
 
+
             /* =========================================
-               Tagged Width
+               WIDTH / EST_WIDTH
             ========================================= */
 
 
-            const taggedWidth =
+            const tagged =
                 getTaggedWidth(
                     lineData.tags
                 );
 
 
-            if(!taggedWidth){
-
-                continue;
-
-            }
+            if(tagged){
 
 
-            let totalSegmentLength = 0;
+                const key =
+                    "T-" +
+                    lineData.osm_id;
 
 
-            segments.forEach(
-                function(segment){
+                if(
+                    processed.has(key)
+                ){
 
-                    totalSegmentLength +=
-
-                        turf.length(segment)
-
-                        *
-
-                        1000;
+                    continue;
 
                 }
-            );
 
 
-            if(
-
-                totalSegmentLength < 5
-
-            ){
-
-                continue;
-
-            }
+                processed.add(key);
 
 
-            const roadName =
-                getRoadName(
-                    lineData.tags
+                totalLength +=
+                    clippedLength;
+
+
+                weightedWidth +=
+
+                    tagged.width *
+
+                    clippedLength;
+
+
+                if(
+
+                    tagged.source ===
+                    "OSM width"
+
+                ){
+
+                    widthCount++;
+
+
+                }
+                else{
+
+                    estWidthCount++;
+
+                }
+
+
+                const info = {
+
+                    osm_id:
+                        lineData.osm_id,
+
+                    name:
+                        getRoadName(
+                            lineData.tags
+                        ),
+
+                    highway:
+                        lineData.tags.highway ||
+                        "-",
+
+                    source:
+                        tagged.source,
+
+                    width:
+                        tagged.width,
+
+                    length:
+                        clippedLength,
+
+                    confidence:
+                        tagged.confidence
+
+                };
+
+
+                results.push(info);
+
+
+                drawRoadLine(
+
+                    segments,
+
+                    info
+
                 );
 
 
-            const highway =
-                lineData.tags.highway ||
-                "-";
+                document.getElementById(
+                    "diagWidth"
+                ).textContent =
+                    widthCount;
 
 
-            results.push({
+                document.getElementById(
+                    "diagEstWidth"
+                ).textContent =
+                    estWidthCount;
 
-                osm_id:
-                    lineData.osm_id,
-
-                name:
-                    roadName,
-
-                highway:
-                    highway,
-
-                source:
-                    taggedWidth.source,
-
-                width:
-                    taggedWidth.width,
-
-                length:
-                    totalSegmentLength,
-
-                area:
-                    null,
-
-                confidence:
-                    taggedWidth.confidence,
-
-                feature:
-                    lineData.feature
-
-            });
-
-
-            totalLength +=
-                totalSegmentLength;
-
-
-            totalWeightedWidth +=
-
-                taggedWidth.width
-
-                *
-
-                totalSegmentLength;
-
-
-            if(
-
-                taggedWidth.source ===
-                "OSM width"
-
-            ){
-
-                widthCount++;
 
             }
             else{
 
-                estWidthCount++;
+
+                noWidthCount++;
+
+
+                document.getElementById(
+                    "diagNoWidth"
+                ).textContent =
+                    noWidthCount;
+
 
             }
-
-
-            analyzedRoadCount++;
-
-
-            drawRoadLine(
-
-                segments,
-
-                roadName,
-
-                highway,
-
-                taggedWidth.width,
-
-                taggedWidth.source,
-
-                totalSegmentLength,
-
-                taggedWidth.confidence
-
-            );
 
         }
 
 
 
         /* =============================================
-           FINAL CALCULATION
+           FINAL AVERAGE
         ============================================= */
 
 
@@ -2750,9 +3556,7 @@ async function analyzeRoadWidth(){
 
             averageWidth =
 
-                totalWeightedWidth
-
-                /
+                weightedWidth /
 
                 totalLength;
 
@@ -2762,6 +3566,10 @@ async function analyzeRoadWidth(){
 
         /* =============================================
            GEOMETRY COVERAGE
+
+           注意：
+
+           使用所有「可分析道路」的長度
         ============================================= */
 
 
@@ -2772,13 +3580,9 @@ async function analyzeRoadWidth(){
 
             geometryCoverage =
 
-                geometryLength
+                geometryLength /
 
-                /
-
-                totalLength
-
-                *
+                totalLength *
 
                 100;
 
@@ -2794,17 +3598,19 @@ async function analyzeRoadWidth(){
         let confidenceScore = 0;
 
 
-        results.forEach(function(item){
+        results.forEach(
 
-            confidenceScore +=
+            function(item){
 
-                item.confidence
+                confidenceScore +=
 
-                *
+                    item.confidence *
 
-                item.length;
+                    item.length;
 
-        });
+            }
+
+        );
 
 
         if(totalLength > 0){
@@ -2818,17 +3624,17 @@ async function analyzeRoadWidth(){
 
 
         /* =============================================
-           UPDATE UI
+           UPDATE
         ============================================= */
 
 
         updateResultUI({
 
             polygonCount:
-                analysisFeatures.length,
+                polygons.length,
 
             roadCount:
-                analyzedRoadCount,
+                results.length,
 
             totalLength:
                 totalLength,
@@ -2859,48 +3665,59 @@ async function analyzeRoadWidth(){
         );
 
 
-        console.log(
-            "===== 道路寬度分析完成 ====="
+        debugLog(
+            "===================================="
         );
 
 
-        console.table(
-
-            results.map(function(r){
-
-                return {
-
-                    道路:r.name,
-
-                    類型:r.highway,
-
-                    來源:r.source,
-
-                    寬度:r.width,
-
-                    長度:r.length,
-
-                    Confidence:r.confidence
-
-                };
-
-            })
-
+        debugLog(
+            "Analysis Finished"
         );
 
 
-        alert(
-
-            "分析完成！\n\n" +
-
-            "平均道路寬度：" +
-
-            averageWidth.toFixed(2) +
-
-            " m"
-
+        debugLog(
+            "Results:",
+            results.length
         );
 
+
+        debugLog(
+            "Average width:",
+            averageWidth
+        );
+
+
+        debugLog(
+            "===================================="
+        );
+
+
+        if(results.length === 0){
+
+            alert(
+
+                "分析完成，但沒有任何道路具有可用寬度資料。\n\n" +
+
+                "請查看右側「GIS 資料診斷」。"
+
+            );
+
+        }
+        else{
+
+            alert(
+
+                "道路寬度分析完成。\n\n" +
+
+                "平均道路寬度：" +
+
+                averageWidth.toFixed(2) +
+
+                " m"
+
+            );
+
+        }
 
     }
 
@@ -2908,7 +3725,12 @@ async function analyzeRoadWidth(){
 
 
         console.error(
-            "Road Width Error:",
+            error
+        );
+
+
+        debugLog(
+            "FATAL ERROR:",
             error
         );
 
@@ -2922,7 +3744,6 @@ async function analyzeRoadWidth(){
         );
 
     }
-
 
     finally{
 
@@ -2939,170 +3760,7 @@ async function analyzeRoadWidth(){
 
 
 /* =====================================================
-   DRAW ROAD LINE
-===================================================== */
-
-
-function drawRoadLine(
-
-    segments,
-
-    roadName,
-
-    highway,
-
-    width,
-
-    source,
-
-    length,
-
-    confidence
-
-){
-
-
-    segments.forEach(function(segment){
-
-
-        const coordinates =
-            segment.geometry.coordinates.map(
-
-                function(c){
-
-                    return [
-
-                        c[1],
-
-                        c[0]
-
-                    ];
-
-                }
-
-            );
-
-
-        const line =
-            L.polyline(
-
-                coordinates,
-
-                {
-
-                    weight:5,
-
-                    opacity:0.85
-
-                }
-
-            );
-
-
-        line.bindPopup(
-
-            "<b>" +
-
-            escapeHtml(roadName) +
-
-            "</b>" +
-
-            "<br>道路類型：" +
-
-            escapeHtml(highway) +
-
-            "<br>寬度：" +
-
-            width.toFixed(2) +
-
-            " m" +
-
-            "<br>來源：" +
-
-            escapeHtml(source) +
-
-            "<br>分析長度：" +
-
-            length.toFixed(1) +
-
-            " m" +
-
-            "<br>Confidence：" +
-
-            Math.round(
-                confidence * 100
-            ) +
-
-            "%"
-
-        );
-
-
-        roadResultLayer.addLayer(
-            line
-        );
-
-    });
-
-}
-
-
-
-/* =====================================================
-   DRAW ROAD SURFACE
-===================================================== */
-
-
-function drawRoadSurfaces(surfaces){
-
-
-    surfaces.forEach(function(surface){
-
-
-        try{
-
-
-            const layer =
-                L.geoJSON(
-
-                    surface,
-
-                    {
-
-                        style:{
-
-                            weight:1,
-
-                            opacity:0.7,
-
-                            fillOpacity:0.2
-
-                        }
-
-                    }
-
-                );
-
-
-            roadSurfaceLayer.addLayer(
-                layer
-            );
-
-
-        }
-
-        catch(error){
-
-        }
-
-    });
-
-}
-
-
-
-/* =====================================================
-   UPDATE RESULT UI
+   RESULT UI
 ===================================================== */
 
 
@@ -3176,66 +3834,20 @@ function updateResultUI(data){
         "confidence"
     ).textContent =
 
-        getConfidenceText(
-            data.confidenceScore
-        );
+        Math.round(
+            data.confidenceScore * 100
+        )
+
+        +
+
+        "%";
 
 }
 
 
 
 /* =====================================================
-   CONFIDENCE TEXT
-===================================================== */
-
-
-function getConfidenceText(score){
-
-
-    const percent =
-        Math.round(score * 100);
-
-
-    if(percent >= 90){
-
-        return "★★★★★ " +
-               percent + "%";
-
-    }
-
-
-    if(percent >= 75){
-
-        return "★★★★☆ " +
-               percent + "%";
-
-    }
-
-
-    if(percent >= 60){
-
-        return "★★★☆☆ " +
-               percent + "%";
-
-    }
-
-
-    if(percent > 0){
-
-        return "★★☆☆☆ " +
-               percent + "%";
-
-    }
-
-
-    return "無資料";
-
-}
-
-
-
-/* =====================================================
-   RENDER TABLE
+   TABLE
 ===================================================== */
 
 
@@ -3251,125 +3863,128 @@ function renderRoadTable(results){
     tbody.innerHTML = "";
 
 
-    results.sort(function(a,b){
+    results.sort(
 
-        return b.length - a.length;
+        function(a,b){
 
-    });
+            return b.length - a.length;
 
+        }
 
-    results.forEach(function(item){
-
-
-        const tr =
-            document.createElement("tr");
+    );
 
 
-        const confidence =
-            Math.round(
-                item.confidence * 100
-            );
+    results.forEach(
+
+        function(item){
 
 
-        tr.innerHTML =
-
-            "<td>" +
-
-            escapeHtml(item.name) +
-
-            "</td>" +
-
-            "<td>" +
-
-            escapeHtml(item.highway) +
-
-            "</td>" +
-
-            "<td>" +
-
-            escapeHtml(item.source) +
-
-            "</td>" +
-
-            "<td>" +
-
-            item.width.toFixed(2) +
-
-            "</td>" +
-
-            "<td>" +
-
-            item.length.toFixed(1) +
-
-            "</td>" +
-
-            "<td>" +
-
-            confidence +
-
-            "%</td>";
+            const tr =
+                document.createElement(
+                    "tr"
+                );
 
 
-        tbody.appendChild(tr);
+            tr.innerHTML =
 
-    });
+                "<td>" +
+
+                escapeHtml(
+                    item.name
+                ) +
+
+                "</td>" +
+
+                "<td>" +
+
+                escapeHtml(
+                    item.highway
+                ) +
+
+                "</td>" +
+
+                "<td>" +
+
+                escapeHtml(
+                    item.source
+                ) +
+
+                "</td>" +
+
+                "<td>" +
+
+                item.width.toFixed(2) +
+
+                "</td>" +
+
+                "<td>" +
+
+                item.length.toFixed(1) +
+
+                "</td>" +
+
+                "<td>" +
+
+                Math.round(
+                    item.confidence * 100
+                ) +
+
+                "%</td>";
+
+
+            tbody.appendChild(tr);
+
+        }
+
+    );
 
 }
 
 
 
 /* =====================================================
-   ESCAPE HTML
+   ESCAPE
 ===================================================== */
 
 
 function escapeHtml(value){
 
 
-    return String(value || "")
+    return String(
+        value ?? ""
+    )
 
-        .replace(/&/g,"&amp;")
+    .replace(
+        /&/g,
+        "&amp;"
+    )
 
-        .replace(/</g,"&lt;")
+    .replace(
+        /</g,
+        "&lt;"
+    )
 
-        .replace(/>/g,"&gt;")
+    .replace(
+        />/g,
+        "&gt;"
+    )
 
-        .replace(/"/g,"&quot;")
+    .replace(
+        /"/g,
+        "&quot;"
+    )
 
-        .replace(/'/g,"&#039;");
-
-}
-
-
-
-/* =====================================================
-   LOADING
-===================================================== */
-
-
-function showLoading(show){
-
-
-    document.getElementById(
-        "loading"
-    ).style.display =
-
-        show
-
-        ?
-
-        "block"
-
-        :
-
-        "none";
+    .replace(
+        /'/g,
+        "&#039;"
+    );
 
 }
 
 
 
 /* =====================================================
-   CLEAR ANALYSIS RESULTS
+   CLEAR ANALYSIS
 ===================================================== */
 
 
@@ -3386,44 +4001,124 @@ function clearAnalysisResults(){
     ).innerHTML = "";
 
 
-    document.getElementById(
-        "roadCount"
-    ).textContent = "0";
+    const ids = [
+
+        "roadCount",
+
+        "totalLength",
+
+        "geometryCount",
+
+        "widthCount",
+
+        "estWidthCount",
+
+        "geometryCoverage",
+
+        "averageWidth",
+
+        "confidence",
+
+        "diagElements",
+
+        "diagLines",
+
+        "diagSurfaces",
+
+        "diagInside",
+
+        "diagClipped",
+
+        "diagGeometry",
+
+        "diagWidth",
+
+        "diagEstWidth",
+
+        "diagNoWidth"
+
+    ];
 
 
-    document.getElementById(
-        "totalLength"
-    ).textContent = "0 m";
+    ids.forEach(
+
+        function(id){
+
+            const el =
+                document.getElementById(id);
 
 
-    document.getElementById(
-        "geometryCount"
-    ).textContent = "0";
+            if(el){
+
+                if(
+
+                    id ===
+                    "totalLength"
+
+                ){
+
+                    el.textContent =
+                        "0 m";
+
+                }
+
+                else if(
+
+                    id ===
+                    "geometryCoverage"
+
+                ){
+
+                    el.textContent =
+                        "0 %";
+
+                }
+
+                else if(
+
+                    id ===
+                    "averageWidth"
+
+                ){
+
+                    el.textContent =
+                        "0.00 m";
+
+                }
+
+                else if(
+
+                    id ===
+                    "confidence"
+
+                ){
+
+                    el.textContent =
+                        "無資料";
+
+                }
+
+                else{
+
+                    el.textContent =
+                        "0";
+
+                }
+
+            }
+
+        }
+
+    );
 
 
-    document.getElementById(
-        "widthCount"
-    ).textContent = "0";
+    const debugConsole =
+        document.getElementById(
+            "debugConsole"
+        );
 
 
-    document.getElementById(
-        "estWidthCount"
-    ).textContent = "0";
-
-
-    document.getElementById(
-        "geometryCoverage"
-    ).textContent = "0 %";
-
-
-    document.getElementById(
-        "averageWidth"
-    ).textContent = "0 m";
-
-
-    document.getElementById(
-        "confidence"
-    ).textContent = "無資料";
+    debugConsole.textContent = "";
 
 }
 
@@ -3445,12 +4140,33 @@ function clearAll(){
 
     updatePolygonCount();
 
+
 }
 
 
 
 /* =====================================================
-   DRAGGABLE PANEL
+   LOADING
+===================================================== */
+
+
+function showLoading(show){
+
+
+    document.getElementById(
+        "loading"
+    ).style.display =
+
+        show
+        ? "block"
+        : "none";
+
+}
+
+
+
+/* =====================================================
+   DRAG PANEL
 ===================================================== */
 
 
@@ -3488,11 +4204,13 @@ roadWidthHeader.addEventListener(
 
 
         roadWidthOffsetX =
-            e.clientX - rect.left;
+            e.clientX -
+            rect.left;
 
 
         roadWidthOffsetY =
-            e.clientY - rect.top;
+            e.clientY -
+            rect.top;
 
 
         roadWidthPanel.style.right =
@@ -3514,7 +4232,9 @@ document.addEventListener(
     function(e){
 
 
-        if(!isRoadWidthDragging){
+        if(
+            !isRoadWidthDragging
+        ){
 
             return;
 
@@ -3530,11 +4250,9 @@ document.addEventListener(
                 Math.min(
 
                     window.innerWidth -
-
                     roadWidthPanel.offsetWidth,
 
                     e.clientX -
-
                     roadWidthOffsetX
 
                 )
@@ -3555,11 +4273,9 @@ document.addEventListener(
                 Math.min(
 
                     window.innerHeight -
-
                     roadWidthPanel.offsetHeight,
 
                     e.clientY -
-
                     roadWidthOffsetY
 
                 )
@@ -3582,7 +4298,8 @@ document.addEventListener(
 
     function(){
 
-        isRoadWidthDragging = false;
+        isRoadWidthDragging =
+            false;
 
     }
 
