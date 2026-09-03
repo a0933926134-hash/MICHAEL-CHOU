@@ -5046,21 +5046,61 @@ function renderTable() {
 }
 
 function exportExcel() {
-    if (!results.length) { alert("無資料"); return; }
-    
-    const exportData = results.map(r => ({
-        名稱: r.名稱,
-        類型: r.類型,
-        直線距離: r.在範圍內 ? "位於區段範圍內" : r.直線距離顯示,
-        路線距離: r.在範圍內 ? "位於區段範圍內" : (r.路線距離 || ""), 
-        緯度: r.座標[0], 
-        經度: r.座標[1]
-    }));
-    
+
+    if (!results.length) {
+        alert("無資料");
+        return;
+    }
+
+    const exportData = results.map(r => {
+
+        // r.座標格式：[緯度, 經度]
+        const lat = r.座標[0];
+        const lng = r.座標[1];
+
+        // WGS84 → TWD97
+        const twd97 = latLngToTWD97(lat, lng);
+
+        return {
+            名稱: r.名稱,
+            類型: r.類型,
+
+            直線距離: r.在範圍內
+                ? "位於區段範圍內"
+                : r.直線距離顯示,
+
+            路線距離: r.在範圍內
+                ? "位於區段範圍內"
+                : (r.路線距離 || ""),
+
+            // =============================
+            // WGS84 經緯度
+            // =============================
+            緯度_WGS84: lat,
+            經度_WGS84: lng,
+
+            // =============================
+            // TWD97 TM2
+            // =============================
+            TWD97_X: twd97[0],
+            TWD97_Y: twd97[1]
+        };
+    });
+
     const ws = XLSX.utils.json_to_sheet(exportData);
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "查詢結果");
-    XLSX.writeFile(wb, "市價徵收查詢結果.xlsx");
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        ws,
+        "查詢結果"
+    );
+
+    XLSX.writeFile(
+        wb,
+        "GIS查詢結果.xlsx"
+    );
 }
 
 function exportPolygonsToGeoJSON() {
@@ -5130,7 +5170,57 @@ function exportPolygonsToGeoJSON() {
 function isTWD97Coordinate(x, y) {
     return x > 100000 && x < 400000 && y > 2000000 && y < 2900000;
 }
+// =====================================================
+// WGS84 (EPSG:4326) → TWD97 / TM2 zone 121 (EPSG:3826)
+// 台灣本島適用
+// 回傳：[X, Y]
+// =====================================================
+function latLngToTWD97(lat, lng) {
 
+    const a = 6378137.0;
+    const b = 6356752.314245;
+    const long0 = 121 * Math.PI / 180;
+    const k0 = 0.9999;
+    const dx = 250000;
+    const e = Math.pow(1 - Math.pow(b, 2) / Math.pow(a, 2), 0.5);
+
+    const lngRad = lng * Math.PI / 180;
+    const latRad = lat * Math.PI / 180;
+
+    const e2 = Math.pow(e, 2) / (1 - Math.pow(e, 2));
+
+    const N = a / Math.pow(1 - Math.pow(e, 2) * Math.pow(Math.sin(latRad), 2), 0.5);
+    const T = Math.pow(Math.tan(latRad), 2);
+    const C = e2 * Math.pow(Math.cos(latRad), 2);
+    const A = Math.cos(latRad) * (lngRad - long0);
+
+    const M = a * (
+        (1 - Math.pow(e, 2) / 4 - 3 * Math.pow(e, 4) / 64 - 5 * Math.pow(e, 6) / 256) * latRad
+        - (3 * Math.pow(e, 2) / 8 + 3 * Math.pow(e, 4) / 32 + 45 * Math.pow(e, 6) / 1024) * Math.sin(2 * latRad)
+        + (15 * Math.pow(e, 4) / 256 + 45 * Math.pow(e, 6) / 1024) * Math.sin(4 * latRad)
+        - (35 * Math.pow(e, 6) / 3072) * Math.sin(6 * latRad)
+    );
+
+    const x = dx + k0 * N * (
+        A
+        + (1 - T + C) * Math.pow(A, 3) / 6
+        + (5 - 18 * T + Math.pow(T, 2) + 72 * C - 58 * e2) * Math.pow(A, 5) / 120
+    );
+
+    const y = k0 * (
+        M
+        + N * Math.tan(latRad) * (
+            Math.pow(A, 2) / 2
+            + (5 - T + 9 * C + 4 * Math.pow(C, 2)) * Math.pow(A, 4) / 24
+            + (61 - 58 * T + Math.pow(T, 2) + 600 * C - 330 * e2) * Math.pow(A, 6) / 720
+        )
+    );
+
+    return [
+        Math.round(x * 100) / 100,
+        Math.round(y * 100) / 100
+    ];
+}
 function twd97ToWGS84(x, y) {
     const a = 6378137.0;
     const f = 1 / 298.257222101;
