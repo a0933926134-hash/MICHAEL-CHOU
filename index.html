@@ -4900,52 +4900,79 @@ async function runQuery() {
                 nwr["amenity"="university"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
             else if (t === "gas") {
-                parts.push(`nwr["power"="tower"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
-                parts.push(`nwr["power"="substation"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
-                parts.push(`nwr["name"~"高壓電塔|高壓電線塔|電塔|變電所|變電站|電所",i](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
-                 parts.push(`
 
-        /* =========================
-           瓦斯相關工業設施
-        ========================= */
+```
+// =====================================================
+// 高壓電塔
+// =====================================================
+parts.push(`
+    nwr["power"="tower"](
+        around:${radius},
+        ${centroidForQuery[0]},
+        ${centroidForQuery[1]}
+    );
+`);
 
-        nwr["industrial"="gas"](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );
+// =====================================================
+// 變電所
+// =====================================================
+parts.push(`
+    nwr["power"="substation"](
+        around:${radius},
+        ${centroidForQuery[0]},
+        ${centroidForQuery[1]}
+    );
+`);
 
-        nwr["man_made"="works"]["industrial"="gas"](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );
+// =====================================================
+// 高壓電力設施名稱補強
+// =====================================================
+parts.push(`
+    nwr["name"~"高壓電塔|高壓電線塔|電塔|變電所|變電站|電所",i](
+        around:${radius},
+        ${centroidForQuery[0]},
+        ${centroidForQuery[1]}
+    );
+`);
 
-        /* =========================
-           液化石油氣 / LPG
-        ========================= */
+// =====================================================
+// 瓦斯相關工業設施
+// =====================================================
+parts.push(`
 
-        nwr["name"~"瓦斯分裝|瓦斯儲存|液化石油氣|LPG",i](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );
+    /* 標準 OSM 工業標籤 */
+    nwr["industrial"="gas"](
+        around:${radius},
+        ${centroidForQuery[0]},
+        ${centroidForQuery[1]}
+    );
 
-        /* =========================
-           名稱補強
-           注意：可能包含一般瓦斯行
-        ========================= */
+    /* 瓦斯工廠 */
+    nwr["man_made"="works"]["industrial"="gas"](
+        around:${radius},
+        ${centroidForQuery[0]},
+        ${centroidForQuery[1]}
+    );
 
-        nwr["name"~"瓦斯",i](
-            around:${radius},
-            ${centroidForQuery[0]},
-            ${centroidForQuery[1]}
-        );
+    /* 液化石油氣 / 瓦斯分裝廠 */
+    nwr["name"~"瓦斯分裝|瓦斯儲存|液化石油氣|液化瓦斯|LPG",i](
+        around:${radius},
+        ${centroidForQuery[0]},
+        ${centroidForQuery[1]}
+    );
 
-    `);
+    /* 名稱補強 */
+    nwr["name"~"瓦斯",i](
+        around:${radius},
+        ${centroidForQuery[0]},
+        ${centroidForQuery[1]}
+    );
+
+`);
+```
 
 }
-            }
+
             else if (t === "pollution") {
                 parts.push(`nwr["man_made"="wastewater_treatment_plant"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
