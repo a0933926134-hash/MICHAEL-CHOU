@@ -4882,14 +4882,12 @@ async function runQuery() {
     const lon = centroidForQuery[1];
 
     parts.push(`
-        nwr[
-            "tourism"~
-            "attraction|museum|zoo|theme_park|viewpoint|aquarium"
-        ](
-            around:${radius},
-            ${lat},
-            ${lon}
-        );
+        // 1. 觀光與自然遊憩據點 + 2. 休閒娛樂與文化設施 (旅遊與歷史類)
+        nwr["tourism"~"attraction|museum|zoo|theme_park|viewpoint|aquarium"](around:${radius}, ${lat}, ${lon});
+        nwr["historic"~"monument|castle|heritage"](around:${radius}, ${lat}, ${lon});
+        
+        // 3. 大型運動與體育休閒場地 / 休閒園區 (休閒與運動類)
+        nwr["leisure"~"sports_centre|stadium|water_park|golf_course|nature_reserve"](around:${radius}, ${lat}, ${lon});
     `);
 }
             else if (t === "bank") {
