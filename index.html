@@ -4824,7 +4824,55 @@ async function runQuery() {
                 nwr["shop"="supermarket"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
             else if (t === "waste_disposal") {
-                parts.push(`nwr["amenity"="waste_transfer_station"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
+
+    const lat = centroidForQuery[0];
+    const lon = centroidForQuery[1];
+
+    // =====================================================
+    // 1. 廢棄物轉運站
+    // =====================================================
+    parts.push(`
+        nwr["amenity"="waste_transfer_station"](
+            around:${radius},
+            ${lat},
+            ${lon}
+        );
+    `);
+
+    // =====================================================
+    // 2. 廢棄物處理設施
+    // =====================================================
+    parts.push(`
+        nwr["amenity"="waste_disposal"](
+            around:${radius},
+            ${lat},
+            ${lon}
+        );
+    `);
+
+    // =====================================================
+    // 3. 垃圾處理／焚化相關設施名稱補強
+    // =====================================================
+    parts.push(`
+        nwr["name"~"垃圾處理|垃圾焚化|焚化廠|焚化爐|廢棄物處理|廢棄物清除|廢棄物轉運|垃圾轉運|垃圾掩埋",i](
+            around:${radius},
+            ${lat},
+            ${lon}
+        );
+    `);
+
+    // =====================================================
+    // 4. 資源回收設施（名稱明確者）
+    // =====================================================
+    parts.push(`
+        nwr["name"~"資源回收場|資源回收中心|資源回收廠",i](
+            around:${radius},
+            ${lat},
+            ${lon}
+        );
+    `);
+
+}
             }
             else if (t === "park") {
                 parts.push(`nwr["leisure"="park"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
