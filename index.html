@@ -5054,8 +5054,45 @@ async function runQuery() {
 
 }
             else if (t === "pollution") {
-                parts.push(`nwr["man_made"="wastewater_treatment_plant"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
-            }
+
+    const lat = centroidForQuery[0];
+    const lon = centroidForQuery[1];
+
+    // =====================================================
+    // 🚰 污水處理廠
+    // =====================================================
+    parts.push(`
+        nwr["man_made"="wastewater_treatment_plant"](
+            around:${radius},
+            ${lat},
+            ${lon}
+        );
+    `);
+
+    // =====================================================
+    // 🚰 污水處理設施
+    // =====================================================
+    parts.push(`
+        nwr["man_made"="wastewater_plant"](
+            around:${radius},
+            ${lat},
+            ${lon}
+        );
+    `);
+
+    // =====================================================
+    // 🏭 污水相關工業／公共處理設施
+    // 名稱補強
+    // =====================================================
+    parts.push(`
+        nwr["name"~"污水處理廠|污水處理中心|水資源回收中心|水資源回收廠|污水廠",i](
+            around:${radius},
+            ${lat},
+            ${lon}
+        );
+    `);
+
+}
         });
 
         const query = `[out:json][timeout:60];(${parts.join("\n")});out center;`;
