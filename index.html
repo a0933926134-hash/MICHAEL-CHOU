@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -203,6 +204,23 @@ th {
 
 }
 
+.clickHint {
+
+    margin-top: 10px;
+
+    padding: 10px;
+
+    background: #e3f2fd;
+
+    border-left:
+        4px solid #1976d2;
+
+    font-size: 13px;
+
+    line-height: 1.5;
+
+}
+
 </style>
 </head>
 
@@ -266,6 +284,20 @@ th {
             📥 匯出 CSV
         </button>
 
+        <!-- ========================= -->
+        <!-- 滑鼠定位提示 -->
+        <!-- ========================= -->
+
+        <div class="clickHint">
+
+            🖱️ <b>滑鼠定位</b><br>
+
+            請直接點擊地圖上的任意位置，
+            系統會自動將該位置的
+            WGS84 緯度、經度填入上方欄位。
+
+        </div>
+
         <div id="status">
             尚未查詢
         </div>
@@ -274,7 +306,8 @@ th {
 
             <b>資料來源說明</b><br>
 
-            本系統僅擷取 OpenStreetMap 已存在的 Tags。<br>
+            本系統僅擷取 OpenStreetMap
+            已存在的 Tags。<br>
 
             若 OSM 未填寫：
             建築完成日期、戶數、樓層或高度，
@@ -310,6 +343,11 @@ let resultLayer;
 
 let communityData = [];
 
+/*
+ * 🆕 滑鼠選取的位置 Marker
+ */
+let selectedLocationMarker = null;
+
 
 /* =========================================================
    Initialize Map
@@ -322,6 +360,7 @@ function initMap() {
         14
     );
 
+
     L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
@@ -332,7 +371,106 @@ function initMap() {
     ).addTo(map);
 
 
-    resultLayer = L.layerGroup().addTo(map);
+    resultLayer =
+        L.layerGroup().addTo(map);
+
+
+    /*
+     * =====================================================
+     * 🆕 地圖滑鼠點擊定位
+     * =====================================================
+     */
+
+    map.on(
+        "click",
+        function(e) {
+
+            const lat =
+                e.latlng.lat;
+
+            const lon =
+                e.latlng.lng;
+
+
+            /*
+             * 更新緯度
+             */
+
+            document.getElementById("lat").value =
+                lat.toFixed(8);
+
+
+            /*
+             * 更新經度
+             */
+
+            document.getElementById("lon").value =
+                lon.toFixed(8);
+
+
+            /*
+             * 移除舊定位 Marker
+             */
+
+            if (
+                selectedLocationMarker
+            ) {
+
+                map.removeLayer(
+                    selectedLocationMarker
+                );
+
+            }
+
+
+            /*
+             * 建立新定位 Marker
+             */
+
+            selectedLocationMarker =
+                L.marker(
+                    [lat, lon]
+                ).addTo(map);
+
+
+            selectedLocationMarker
+                .bindPopup(`
+
+                    <b>📍 查詢位置</b>
+
+                    <br><br>
+
+                    <b>WGS84</b><br>
+
+                    緯度：
+                    ${lat.toFixed(8)}
+
+                    <br>
+
+                    經度：
+                    ${lon.toFixed(8)}
+
+                `)
+                .openPopup();
+
+
+            /*
+             * 更新狀態
+             */
+
+            document.getElementById(
+                "status"
+            ).innerHTML =
+
+                `📍 已重新定位<br>
+                 緯度：
+                 <b>${lat.toFixed(8)}</b><br>
+                 經度：
+                 <b>${lon.toFixed(8)}</b><br>
+                 請按「查詢 OSM 社區資料」執行查詢。`;
+
+        }
+    );
 
 }
 
@@ -368,14 +506,66 @@ async function searchCommunities() {
         !Number.isFinite(radius)
     ) {
 
-        alert("請輸入正確的座標與搜尋半徑");
+        alert(
+            "請輸入正確的座標與搜尋半徑"
+        );
 
         return;
 
     }
 
 
-    document.getElementById("status").innerHTML =
+    /*
+     * ================================================
+     * 若使用者直接修改座標欄位，
+     * 查詢時同步更新地圖定位 Marker
+     * ================================================
+     */
+
+    if (
+        selectedLocationMarker
+    ) {
+
+        selectedLocationMarker.setLatLng(
+            [lat, lon]
+        );
+
+    }
+
+    else {
+
+        selectedLocationMarker =
+            L.marker(
+                [lat, lon]
+            ).addTo(map);
+
+    }
+
+
+    selectedLocationMarker
+        .bindPopup(`
+
+            <b>📍 查詢位置</b>
+
+            <br><br>
+
+            <b>WGS84</b><br>
+
+            緯度：
+            ${lat.toFixed(8)}
+
+            <br>
+
+            經度：
+            ${lon.toFixed(8)}
+
+        `);
+
+
+    document.getElementById(
+        "status"
+    ).innerHTML =
+
         "⏳ 正在從 OpenStreetMap 查詢資料...";
 
 
@@ -501,14 +691,15 @@ out center tags;
 
             }
 
-
             else if (
                 item.center
             ) {
 
-                itemLat = item.center.lat;
+                itemLat =
+                    item.center.lat;
 
-                itemLon = item.center.lon;
+                itemLon =
+                    item.center.lon;
 
             }
 
@@ -525,14 +716,7 @@ out center tags;
 
             /* =============================================
                Community / Committee Name
-
-               優先順序：
-
-               1. 管委會相關名稱
-               2. operator
-               3. name
             ============================================= */
-
 
             const committeeName =
                 tags["management:name"] ||
@@ -684,37 +868,58 @@ out center tags;
             const popupHTML = `
 
 <b>🏢 社區名稱</b><br>
-${communityName || "未提供"}
+
+${escapeHTML(
+    communityName || "未提供"
+)}
 
 <hr>
 
 <b>🏛️ 管委會名稱</b><br>
-${committeeName || "未提供"}
+
+${escapeHTML(
+    committeeName || "未提供"
+)}
 
 <br><br>
 
 <b>📅 建築完成日期：</b>
-${completionDate || "未提供"}
+
+${escapeHTML(
+    completionDate || "未提供"
+)}
 
 <br>
 
 <b>👨‍👩‍👧‍👦 總戶數：</b>
-${households || "未提供"}
+
+${escapeHTML(
+    households || "未提供"
+)}
 
 <br>
 
 <b>🏢 樓層數：</b>
-${levels || "未提供"}
+
+${escapeHTML(
+    levels || "未提供"
+)}
 
 <br>
 
 <b>📏 建築高度：</b>
-${height || "未提供"}
+
+${escapeHTML(
+    height || "未提供"
+)}
 
 <br>
 
 <b>🏠 建物用途：</b>
-${buildingUse || "未提供"}
+
+${escapeHTML(
+    buildingUse || "未提供"
+)}
 
 <hr>
 
@@ -822,7 +1027,8 @@ ${twd97.y.toFixed(2)}
 
 function removeDuplicates(data) {
 
-    const mapData = new Map();
+    const mapData =
+        new Map();
 
 
     for (
@@ -830,7 +1036,6 @@ function removeDuplicates(data) {
     ) {
 
         const key =
-
             `${item.osmType}_${item.osmId}`;
 
 
@@ -915,23 +1120,33 @@ function displayResults() {
 <tr>
 
 <td>
-${escapeHTML(item.communityName)}
+${escapeHTML(
+    item.communityName
+)}
 </td>
 
 <td>
-${escapeHTML(item.completionDate)}
+${escapeHTML(
+    item.completionDate
+)}
 </td>
 
 <td>
-${escapeHTML(item.households)}
+${escapeHTML(
+    item.households
+)}
 </td>
 
 <td>
-${escapeHTML(item.levels)}
+${escapeHTML(
+    item.levels
+)}
 </td>
 
 <td>
-${escapeHTML(item.buildingUse)}
+${escapeHTML(
+    item.buildingUse
+)}
 </td>
 
 </tr>
@@ -966,15 +1181,30 @@ function escapeHTML(value) {
         value || ""
     )
 
-    .replace(/&/g, "&amp;")
+    .replace(
+        /&/g,
+        "&amp;"
+    )
 
-    .replace(/</g, "&lt;")
+    .replace(
+        /</g,
+        "&lt;"
+    )
 
-    .replace(/>/g, "&gt;")
+    .replace(
+        />/g,
+        "&gt;"
+    )
 
-    .replace(/"/g, "&quot;")
+    .replace(
+        /"/g,
+        "&quot;"
+    )
 
-    .replace(/'/g, "&#039;");
+    .replace(
+        /'/g,
+        "&#039;"
+    );
 
 }
 
@@ -1372,3 +1602,4 @@ function exportCSV() {
 
 </body>
 </html>
+```
