@@ -4577,49 +4577,275 @@ function scoreEntrance(candidate) {
 }
 
 async function buildEntranceCandidates(junction) {
+
     const SEARCH_RADIUS = 1000;
-    const lat = junction[0];
-    const lon = junction[1];
-    const query = `[out:json][timeout:25]; (way["highway"="motorway_link"](around:${SEARCH_RADIUS},${lat},${lon});); out body; >; out skel qt;`;
-    
+
+    const [lat, lon] = junction;
+
+    // =====================================================
+    // Candidate Road Types
+    // =====================================================
+
+    const query = `
+        [out:json][timeout:25];
+
+        (
+            way
+                ["highway"~"^(motorway_link|trunk_link)$"]
+                (around:${SEARCH_RADIUS},${lat},${lon});
+        );
+
+        out body;
+
+        >;
+
+        out skel qt;
+    `;
+
     try {
-        const res = await fetch("https://overpass-api.de/api/interpreter", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: "data=" + encodeURIComponent(query)
-        });
+
+        // =====================================================
+        // Overpass Request
+        // =====================================================
+
+        const res = await fetch(
+            "https://overpass-api.de/api/interpreter",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/x-www-form-urlencoded"
+                },
+
+                body:
+                    "data=" +
+                    encodeURIComponent(query)
+            }
+        );
+
+        if (!res.ok) {
+
+            throw new Error(
+                `Overpass HTTP Error: ${res.status}`
+            );
+
+        }
+
         const data = await res.json();
-        if (!data.elements) return [];
+
+        if (!Array.isArray(data.elements)) {
+
+            return [];
+
+        }
+
+        // =====================================================
+        // Build Node Map
+        // =====================================================
 
         const nodeMap = new Map();
-        data.elements.filter(e => e.type === "node").forEach(n => {
-            nodeMap.set(n.id, { lat: n.lat, lon: n.lon });
-        });
+
+        for (const element of data.elements) {
+
+            if (
+                element.type === "node" &&
+                Number.isFinite(element.lat) &&
+                Number.isFinite(element.lon)
+            ) {
+
+                nodeMap.set(
+                    element.id,
+                    {
+                        lat: element.lat,
+                        lon: element.lon,
+                        tags: element.tags || {}
+                    }
+                );
+
+            }
+
+        }
+
+        // =====================================================
+        // Build Candidates
+        // =====================================================
 
         const candidates = [];
-        data.elements.filter(e => e.type === "way").forEach(w => {
-            if (!w.nodes || w.nodes.length < 2) return;
-            const firstNode = nodeMap.get(w.nodes[0]);
-            if (!firstNode) return;
-            const secondNode = nodeMap.get(w.nodes[1]);
-            let bearing = null;
-            if (secondNode) bearing = calculateBearing(firstNode.lat, firstNode.lon, secondNode.lat, secondNode.lon);
-            const score = scoreEntrance({ tags: w.tags || {} });
-            candidates.push({
-                wayId: w.id,
-                coordinate: [firstNode.lat, firstNode.lon],
-                bearing,
-                score,
-                tags: w.tags || {}
-            });
-        });
 
-        candidates.sort((a, b) => b.score - a.score);
+        for (const way of data.elements) {
+
+            if (
+                way.type !== "way" ||
+                !Array.isArray(way.nodes) ||
+                way.nodes.length < 2
+            ) {
+                continue;
+            }
+
+            const tags = way.tags || {};
+
+            const firstNode =
+                nodeMap.get(way.nodes[0]);
+
+            const lastNode =
+                nodeMap.get(
+                    way.nodes[way.nodes.length - 1]
+                );
+
+            if (!firstNode || !lastNode) {
+
+                continue;
+
+            }
+
+            // =================================================
+            // Calculate Direction
+            // =================================================
+
+            const secondNode =
+                nodeMap.get(way.nodes[1]);
+
+            const beforeLastNode =
+                nodeMap.get(
+                    way.nodes[
+                        way.nodes.length - 2
+                    ]
+                );
+
+            // First → Second
+            const startBearing =
+                secondNode
+                    ? calculateBearing(
+                        firstNode.lat,
+                        firstNode.lon,
+                        secondNode.lat,
+                        secondNode.lon
+                    )
+                    : null;
+
+            // Before Last → Last
+            const endBearing =
+                beforeLastNode
+                    ? calculateBearing(
+                        beforeLastNode.lat,
+                        beforeLastNode.lon,
+                        lastNode.lat,
+                        lastNode.lon
+                    )
+                    : null;
+
+            // =================================================
+            // Build BOTH endpoints
+            // =================================================
+
+            const endpoints = [
+
+                {
+                    position: "start",
+
+                    nodeId: way.nodes[0],
+
+                    coordinate: [
+                        firstNode.lat,
+                        firstNode.lon
+                    ],
+
+                    bearing: startBearing
+                },
+
+                {
+                    position: "end",
+
+                    nodeId:
+                        way.nodes[
+                            way.nodes.length - 1
+                        ],
+
+                    coordinate: [
+                        lastNode.lat,
+                        lastNode.lon
+                    ],
+
+                    bearing: endBearing
+                }
+
+            ];
+
+            // =================================================
+            // Create Candidate
+            // =================================================
+
+            for (const endpoint of endpoints) {
+
+                const distanceToJunction =
+                    calculateDistance(
+                        lat,
+                        lon,
+                        endpoint.coordinate[0],
+                        endpoint.coordinate[1]
+                    );
+
+                const candidate = {
+
+                    wayId: way.id,
+
+                    highwayType:
+                        tags.highway || null,
+
+                    endpoint:
+                        endpoint.position,
+
+                    nodeId:
+                        endpoint.nodeId,
+
+                    coordinate:
+                        endpoint.coordinate,
+
+                    bearing:
+                        endpoint.bearing,
+
+                    distanceToJunction,
+
+                    tags,
+
+                    score: 0
+                };
+
+                // =================================================
+                // Entrance Score
+                // =================================================
+
+                candidate.score =
+                    scoreEntrance(candidate);
+
+                candidates.push(candidate);
+
+            }
+
+        }
+
+        // =====================================================
+        // Sort
+        // =====================================================
+
+        candidates.sort(
+            (a, b) => b.score - a.score
+        );
+
         return candidates;
+
     } catch (err) {
-        console.error("Candidate Builder Error", err);
+
+        console.error(
+            "Candidate Builder Error:",
+            err
+        );
+
         return [];
+
     }
+
 }
 
 // ========== 修正：優先使用門牌位置計算距離 ==========
