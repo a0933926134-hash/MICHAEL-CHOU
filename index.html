@@ -4734,7 +4734,6 @@ async function buildEntranceCandidates(junction) {
                     endpoint.coordinate[1]
                 );
 
-                // 檢查端點連接的道路型態，精準過濾單行道與高速公路內側端
                 const connectedWays = nodeWays.get(endpoint.nodeId) || [];
                 let hasSurfaceRoad = false;
                 let hasHighSpeedRoad = false;
@@ -4750,6 +4749,14 @@ async function buildEntranceCandidates(junction) {
                     }
                 }
 
+                // =================================================
+                // 檢查 OSM layer 與 bridge 標籤，識別高架/重疊路段
+                // =================================================
+                const endpointNode = nodeMap.get(endpoint.nodeId);
+                const nodeLayer = parseInt(endpointNode?.tags?.layer || tags.layer || "0", 10);
+                const isBridge = tags.bridge === "yes" || endpointNode?.tags?.bridge === "yes";
+                const isElevated = nodeLayer > 0 || isBridge;
+
                 const isMotorwaySide = hasHighSpeedRoad && !hasSurfaceRoad;
 
                 const candidate = {
@@ -4763,6 +4770,7 @@ async function buildEntranceCandidates(junction) {
                     tags,
                     hasSurfaceRoad,
                     isMotorwaySide,
+                    isElevated,
                     score: 0
                 };
 
@@ -4776,14 +4784,17 @@ async function buildEntranceCandidates(junction) {
                 candidate.score = entranceScore;
 
                 // =================================================
-                // 拓撲修正評分：優先選取平面道路交會端，嚴懲高速公路內側
+                // 評分修正：優先選取平面道路，重疊高架/橋樑段嚴格降權
                 // =================================================
 
                 if (hasSurfaceRoad) {
-                    candidate.score += 60;
+                    candidate.score += 70;
+                }
+                if (isElevated) {
+                    candidate.score -= 120; // 透過 layer > 0 或 bridge 標籤強力懲罰高架重疊段
                 }
                 if (isMotorwaySide) {
-                    candidate.score -= 100; // 大幅降低內側端點權重，避免導航迴轉繞遠路
+                    candidate.score -= 100;
                 }
                 if (distanceToJunction > 800) {
                     candidate.score -= 20;
@@ -4794,7 +4805,7 @@ async function buildEntranceCandidates(junction) {
         }
 
         // =====================================================
-        // Candidate Deduplication (避免同一 Node 重複計算)
+        // Candidate Deduplication
         // =====================================================
 
         const uniqueCandidates = new Map();
@@ -4811,12 +4822,15 @@ async function buildEntranceCandidates(junction) {
         const finalCandidates = Array.from(uniqueCandidates.values());
 
         // =====================================================
-        // Sort (平面道路端優先 > 分數高 > 距離近)
+        // Sort (平面道路優先 > 非高架優先 > 分數高 > 距離近)
         // =====================================================
 
         finalCandidates.sort((a, b) => {
             if (a.hasSurfaceRoad !== b.hasSurfaceRoad) {
                 return a.hasSurfaceRoad ? -1 : 1;
+            }
+            if (a.isElevated !== b.isElevated) {
+                return a.isElevated ? 1 : -1;
             }
             if (b.score !== a.score) {
                 return b.score - a.score;
