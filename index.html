@@ -4578,42 +4578,62 @@ function scoreEntrance(candidate) {
 
 async function buildEntranceCandidates(junction) {
 
-    const SEARCH_RADIUS = 1000;
+    // =====================================================
+    // 🚗 交流道候選建立器 V3
+    //
+    // 三層交流道定義：
+    //
+    // ① motorway_link
+    //    → 國道交流道
+    //
+    // ② trunk_link
+    //    → 快速道路交流道
+    //
+    // ③ primary_link
+    //    → 主要快速道路出入口
+    //      但必須確認附近確實連接 motorway / trunk
+    //
+    // 另外：
+    // ✓ 入口優先
+    // ✓ 明確出口排除
+    // ✓ 避免把一般 primary_link 誤判為交流道
+    // ✓ 保留既有 scoreEntrance(candidate)
+    // =====================================================
 
-    // Endpoint 周邊道路拓撲搜尋距離
-    const TOPOLOGY_RADIUS = 50;
+
+    const SEARCH_RADIUS = 1000;
+    const TOPOLOGY_RADIUS = 60;
+    const DEDUP_RADIUS = 25;
 
     const [lat, lon] = junction;
 
+
     // =====================================================
-    // Local Distance Function
-    //
-    // 不再依賴外部 calculateDistance()
+    // ① 內部距離函式
     // =====================================================
 
-    const distanceMeters = (
+    function distanceMeters(
         lat1,
         lon1,
         lat2,
         lon2
-    ) => {
+    ) {
 
         const R = 6371000;
 
-        const toRad = value =>
-            value * Math.PI / 180;
-
         const dLat =
-            toRad(lat2 - lat1);
+            (lat2 - lat1) *
+            Math.PI / 180;
 
         const dLon =
-            toRad(lon2 - lon1);
+            (lon2 - lon1) *
+            Math.PI / 180;
 
         const a =
             Math.sin(dLat / 2) *
             Math.sin(dLat / 2) +
-            Math.cos(toRad(lat1)) *
-            Math.cos(toRad(lat2)) *
+            Math.cos(lat1 * Math.PI / 180) *
+            Math.cos(lat2 * Math.PI / 180) *
             Math.sin(dLon / 2) *
             Math.sin(dLon / 2);
 
@@ -4625,19 +4645,28 @@ async function buildEntranceCandidates(junction) {
             );
 
         return R * c;
+    }
 
-    };
 
     // =====================================================
-    // Candidate Road Types
+    // ② 第一階段：
+    //    搜尋三種匝道
     // =====================================================
 
     const query = `
-        [out:json][timeout:40];
+        [out:json][timeout:30];
 
         (
             way
-                ["highway"~"^(motorway_link|trunk_link)$"]
+                ["highway"="motorway_link"]
+                (around:${SEARCH_RADIUS},${lat},${lon});
+
+            way
+                ["highway"="trunk_link"]
+                (around:${SEARCH_RADIUS},${lat},${lon});
+
+            way
+                ["highway"="primary_link"]
                 (around:${SEARCH_RADIUS},${lat},${lon});
         );
 
@@ -4648,11 +4677,8 @@ async function buildEntranceCandidates(junction) {
         out skel qt;
     `;
 
-    try {
 
-        // =====================================================
-        // Overpass Request
-        // =====================================================
+    try {
 
         const res = await fetch(
             "https://overpass-api.de/api/interpreter",
@@ -4670,6 +4696,7 @@ async function buildEntranceCandidates(junction) {
             }
         );
 
+
         if (!res.ok) {
 
             throw new Error(
@@ -4678,21 +4705,33 @@ async function buildEntranceCandidates(junction) {
 
         }
 
-        const data = await res.json();
 
-        if (!Array.isArray(data.elements)) {
+        const data =
+            await res.json();
+
+
+        if (
+            !data ||
+            !Array.isArray(data.elements)
+        ) {
 
             return [];
 
         }
 
-        // =====================================================
-        // Build Node Map
-        // =====================================================
 
-        const nodeMap = new Map();
+        // =================================================
+        // ③ 建立 Node Map
+        // =================================================
 
-        for (const element of data.elements) {
+        const nodeMap =
+            new Map();
+
+
+        for (
+            const element
+            of data.elements
+        ) {
 
             if (
                 element.type === "node" &&
@@ -4713,110 +4752,68 @@ async function buildEntranceCandidates(junction) {
 
         }
 
-        // =====================================================
-        // Build Link Way Map
-        // =====================================================
 
-        const linkWayMap = new Map();
+        // =================================================
+        // ④ 找出三種 Link Way
+        // =================================================
 
-        for (const element of data.elements) {
+        const linkWays = [];
 
-            if (
-                element.type === "way" &&
-                Array.isArray(element.nodes)
-            ) {
 
-                const highway =
-                    element.tags?.highway;
-
-                if (
-                    highway === "motorway_link" ||
-                    highway === "trunk_link"
-                ) {
-
-                    linkWayMap.set(
-                        element.id,
-                        element
-                    );
-
-                }
-
-            }
-
-        }
-
-        // =====================================================
-        // Collect ALL Endpoint Coordinates
-        //
-        // 後面一次查詢所有 endpoint 周邊道路
-        // 避免每個 Candidate 發一個 Overpass request
-        // =====================================================
-
-        const endpointMap = new Map();
-
-        for (const way of linkWayMap.values()) {
+        for (
+            const element
+            of data.elements
+        ) {
 
             if (
-                !Array.isArray(way.nodes) ||
-                way.nodes.length < 2
+                element.type !== "way" ||
+                !Array.isArray(element.nodes) ||
+                element.nodes.length < 2
             ) {
 
                 continue;
 
             }
 
-            const firstId =
-                way.nodes[0];
 
-            const lastId =
-                way.nodes[
-                    way.nodes.length - 1
-                ];
+            const highway =
+                element.tags?.highway;
 
-            const firstNode =
-                nodeMap.get(firstId);
 
-            const lastNode =
-                nodeMap.get(lastId);
+            if (
+                highway !== "motorway_link" &&
+                highway !== "trunk_link" &&
+                highway !== "primary_link"
+            ) {
 
-            if (firstNode) {
-
-                endpointMap.set(
-                    String(firstId),
-                    {
-                        nodeId: firstId,
-                        lat: firstNode.lat,
-                        lon: firstNode.lon
-                    }
-                );
+                continue;
 
             }
 
-            if (lastNode) {
 
-                endpointMap.set(
-                    String(lastId),
-                    {
-                        nodeId: lastId,
-                        lat: lastNode.lat,
-                        lon: lastNode.lon
-                    }
-                );
-
-            }
+            linkWays.push(element);
 
         }
 
-        // =====================================================
-        // Endpoint Topology Query
-        //
-        // 一次取得整個交流道附近所有 highway way
-        //
-        // 這比「每個 endpoint 查一次」穩定很多
-        // =====================================================
 
-        const endpointTopologyQuery = `
-            [out:json][timeout:40];
+        if (!linkWays.length) {
+
+            return [];
+
+        }
+
+
+        // =================================================
+        // ⑤ 第二階段：
+        //    搜尋附近完整道路拓樸
+        //
+        //    目的：
+        //    判斷 primary_link 是否真的連到
+        //    motorway / trunk
+        // =================================================
+
+        const topologyQuery = `
+            [out:json][timeout:30];
 
             (
                 way
@@ -4825,198 +4822,179 @@ async function buildEntranceCandidates(junction) {
             );
 
             out body;
+
+            >;
+
+            out skel qt;
         `;
 
-        let topologyElements = [];
 
-        try {
+        const topologyRes =
+            await fetch(
+                "https://overpass-api.de/api/interpreter",
+                {
+                    method: "POST",
 
-            const topologyRes =
-                await fetch(
-                    "https://overpass-api.de/api/interpreter",
-                    {
-                        method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/x-www-form-urlencoded"
+                    },
 
-                        headers: {
-                            "Content-Type":
-                                "application/x-www-form-urlencoded"
-                        },
-
-                        body:
-                            "data=" +
-                            encodeURIComponent(
-                                endpointTopologyQuery
-                            )
-                    }
-                );
-
-            if (topologyRes.ok) {
-
-                const topologyData =
-                    await topologyRes.json();
-
-                if (
-                    Array.isArray(
-                        topologyData.elements
-                    )
-                ) {
-
-                    topologyElements =
-                        topologyData.elements;
-
+                    body:
+                        "data=" +
+                        encodeURIComponent(
+                            topologyQuery
+                        )
                 }
+            );
 
-            }
 
-        } catch (topologyError) {
+        if (!topologyRes.ok) {
 
-            console.warn(
-                "Endpoint topology query failed:",
-                topologyError
+            throw new Error(
+                `Topology Overpass HTTP Error: ${topologyRes.status}`
             );
 
         }
 
-        // =====================================================
-        // Highway Classification
-        // =====================================================
 
-        const HIGH_SPEED_ROADS = new Set([
-            "motorway",
-            "trunk"
-        ]);
+        const topologyData =
+            await topologyRes.json();
 
-        const LINK_ROADS = new Set([
-            "motorway_link",
-            "trunk_link"
-        ]);
 
-        const MAJOR_SURFACE_ROADS = new Set([
-            "primary",
-            "secondary",
-            "tertiary"
-        ]);
+        const topologyWays = [];
 
-        const SURFACE_ROADS = new Set([
-            "primary",
-            "secondary",
-            "tertiary",
-            "unclassified",
-            "residential",
-            "living_street",
-            "service"
-        ]);
 
-        // =====================================================
-        // 判斷兩個座標是否接近
-        // =====================================================
-
-        const isNear =
-            (
-                lat1,
-                lon1,
-                lat2,
-                lon2,
-                tolerance
-            ) => {
-
-                return (
-                    distanceMeters(
-                        lat1,
-                        lon1,
-                        lat2,
-                        lon2
-                    ) <= tolerance
-                );
-
-            };
-
-        // =====================================================
-        // Build Endpoint Topology Map
-        //
-        // nodeId →
-        // {
-        //   connectedHighways,
-        //   connectedWays,
-        //   hasMotorway,
-        //   hasTrunk,
-        //   hasSurfaceRoad,
-        //   hasMajorSurfaceRoad
-        // }
-        // =====================================================
-
-        const topologyMap = new Map();
-
-        for (
-            const endpoint of
-            endpointMap.values()
+        if (
+            topologyData &&
+            Array.isArray(
+                topologyData.elements
+            )
         ) {
 
-            const connectedHighways = [];
-            const connectedWays = [];
-            const connectedNames = [];
-
-            let hasMotorway = false;
-            let hasTrunk = false;
-            let hasSurfaceRoad = false;
-            let hasMajorSurfaceRoad = false;
-            let nearbyLinkCount = 0;
-
             for (
-                const way of
-                topologyElements
+                const element
+                of topologyData.elements
             ) {
 
                 if (
-                    way.type !== "way" ||
-                    !Array.isArray(way.nodes) ||
-                    !way.tags?.highway
+                    element.type !== "way" ||
+                    !Array.isArray(element.nodes) ||
+                    element.nodes.length < 2
                 ) {
 
                     continue;
 
                 }
 
+
+                topologyWays.push(
+                    element
+                );
+
+            }
+
+        }
+
+
+        // =================================================
+        // ⑥ 拓樸道路分類
+        // =================================================
+
+        const HIGH_SPEED =
+            new Set([
+                "motorway",
+                "trunk"
+            ]);
+
+
+        const LINK_TYPES =
+            new Set([
+                "motorway_link",
+                "trunk_link",
+                "primary_link"
+            ]);
+
+
+        const SURFACE_MAJOR =
+            new Set([
+                "primary",
+                "secondary",
+                "tertiary"
+            ]);
+
+
+        // =================================================
+        // ⑦ 判斷某個 Link Endpoint
+        //    附近是否連接 motorway / trunk
+        // =================================================
+
+        function analyseEndpointTopology(
+            endpointNodeId,
+            endpointCoordinate
+        ) {
+
+            const connectedHighways =
+                new Set();
+
+            const connectedWays = [];
+
+            const connectedNames =
+                new Set();
+
+            let hasMotorway = false;
+            let hasTrunk = false;
+            let hasSurfaceMajor = false;
+
+            let nearbyLinkCount = 0;
+
+
+            for (
+                const way
+                of topologyWays
+            ) {
+
+                const tags =
+                    way.tags || {};
+
                 const highway =
-                    way.tags.highway;
+                    tags.highway;
 
-                // ---------------------------------------------
-                // 先看這條道路的 node 是否包含 endpoint
-                // ---------------------------------------------
 
-                let containsEndpoint =
-                    false;
+                if (!highway) {
+                    continue;
+                }
 
-                for (
-                    const nodeId of
-                    way.nodes
+
+                let connected = false;
+
+
+                // -----------------------------------------
+                // A. 最可靠：
+                //    共用同一個 Node
+                // -----------------------------------------
+
+                if (
+                    Array.isArray(way.nodes) &&
+                    way.nodes.includes(
+                        endpointNodeId
+                    )
                 ) {
 
-                    if (
-                        String(nodeId) ===
-                        String(endpoint.nodeId)
-                    ) {
-
-                        containsEndpoint = true;
-
-                        break;
-
-                    }
+                    connected = true;
 
                 }
 
-                // ---------------------------------------------
-                // OSM 幾何可能沒有完全共用 node，
-                // 因此再做一次 50m 空間判斷。
-                // ---------------------------------------------
 
-                if (
-                    !containsEndpoint
-                ) {
+                // -----------------------------------------
+                // B. 空間距離補充判斷
+                // -----------------------------------------
+
+                if (!connected) {
 
                     for (
-                        const nodeId of
-                        way.nodes
+                        const nodeId
+                        of way.nodes
                     ) {
 
                         const n =
@@ -5025,23 +5003,25 @@ async function buildEntranceCandidates(junction) {
                             );
 
                         if (!n) {
-
                             continue;
-
                         }
 
-                        if (
-                            isNear(
-                                endpoint.lat,
-                                endpoint.lon,
+
+                        const d =
+                            distanceMeters(
+                                endpointCoordinate[0],
+                                endpointCoordinate[1],
                                 n.lat,
-                                n.lon,
-                                TOPOLOGY_RADIUS
-                            )
+                                n.lon
+                            );
+
+
+                        if (
+                            d <=
+                            TOPOLOGY_RADIUS
                         ) {
 
-                            containsEndpoint =
-                                true;
+                            connected = true;
 
                             break;
 
@@ -5051,60 +5031,30 @@ async function buildEntranceCandidates(junction) {
 
                 }
 
-                if (
-                    !containsEndpoint
-                ) {
 
+                if (!connected) {
                     continue;
-
                 }
 
-                // ---------------------------------------------
-                // 不把目前 link 自己排除在外的判斷
-                // 留給後面依 currentWayId 處理
-                // ---------------------------------------------
 
-                connectedHighways.push(
+                connectedHighways.add(
                     highway
                 );
 
-                const name =
-                    way.tags?.name ||
-                    way.tags?.["name:zh"] ||
-                    "";
 
-                connectedWays.push({
+                connectedWays.push(
+                    way.id
+                );
 
-                    wayId:
-                        way.id,
 
-                    highway:
-                        highway,
+                if (tags.name) {
 
-                    name:
-                        name,
-
-                    oneway:
-                        way.tags?.oneway ||
-                        null,
-
-                    lanes:
-                        way.tags?.lanes ||
-                        null
-
-                });
-
-                if (name) {
-
-                    connectedNames.push(
-                        name
+                    connectedNames.add(
+                        tags.name
                     );
 
                 }
 
-                // ---------------------------------------------
-                // 高快速道路
-                // ---------------------------------------------
 
                 if (
                     highway === "motorway"
@@ -5114,6 +5064,7 @@ async function buildEntranceCandidates(junction) {
 
                 }
 
+
                 if (
                     highway === "trunk"
                 ) {
@@ -5122,43 +5073,26 @@ async function buildEntranceCandidates(junction) {
 
                 }
 
-                // ---------------------------------------------
-                // 平面道路
-                // ---------------------------------------------
 
                 if (
-                    SURFACE_ROADS.has(
+                    SURFACE_MAJOR.has(
                         highway
                     )
                 ) {
 
-                    hasSurfaceRoad = true;
-
-                }
-
-                // ---------------------------------------------
-                // 主要平面道路
-                // ---------------------------------------------
-
-                if (
-                    MAJOR_SURFACE_ROADS.has(
-                        highway
-                    )
-                ) {
-
-                    hasMajorSurfaceRoad =
+                    hasSurfaceMajor =
                         true;
 
                 }
 
-                // ---------------------------------------------
-                // 其他匝道
-                // ---------------------------------------------
 
                 if (
-                    LINK_ROADS.has(
-                        highway
-                    )
+                    highway ===
+                        "motorway_link" ||
+                    highway ===
+                        "trunk_link" ||
+                    highway ===
+                        "primary_link"
                 ) {
 
                     nearbyLinkCount++;
@@ -5167,51 +5101,41 @@ async function buildEntranceCandidates(junction) {
 
             }
 
-            topologyMap.set(
-                String(endpoint.nodeId),
-                {
 
-                    connectedHighways:
-                        [
-                            ...new Set(
-                                connectedHighways
-                            )
-                        ],
+            return {
 
-                    connectedWays,
+                connectedHighways:
+                    [...connectedHighways],
 
-                    connectedNames:
-                        [
-                            ...new Set(
-                                connectedNames
-                            )
-                        ],
+                connectedWays,
 
-                    hasMotorway,
+                connectedNames:
+                    [...connectedNames],
 
-                    hasTrunk,
+                hasMotorway,
 
-                    hasSurfaceRoad,
+                hasTrunk,
 
-                    hasMajorSurfaceRoad,
+                hasSurfaceMajor,
 
-                    nearbyLinkCount
+                nearbyLinkCount
 
-                }
-            );
+            };
 
         }
 
-        // =====================================================
-        // Determine Oneway Direction
+
+        // =================================================
+        // ⑧ Oneway 方向判斷
         //
-        // start + oneway=yes
-        //     → link 從 start 往 end
+        //    start：
+        //      oneway=yes → 出
         //
-        // end + oneway=yes
-        //     → link 往 end
-        //     → 因此 end 是出口側
-        // =====================================================
+        //    end：
+        //      oneway=yes → 入
+        //
+        //    oneway=-1 反向
+        // =================================================
 
         function getOnewayDirection(
             way,
@@ -5219,7 +5143,11 @@ async function buildEntranceCandidates(junction) {
         ) {
 
             const oneway =
-                way.tags?.oneway;
+                String(
+                    way.tags?.oneway ||
+                    ""
+                ).toLowerCase();
+
 
             if (
                 oneway === "yes" ||
@@ -5227,53 +5155,34 @@ async function buildEntranceCandidates(junction) {
                 oneway === "true"
             ) {
 
-                if (
-                    endpointPosition === "start"
-                ) {
-
-                    return "outgoing";
-
-                }
-
-                if (
-                    endpointPosition === "end"
-                ) {
-
-                    return "incoming";
-
-                }
+                return endpointPosition ===
+                    "start"
+                    ? "outgoing"
+                    : "incoming";
 
             }
+
 
             if (
                 oneway === "-1"
             ) {
 
-                if (
-                    endpointPosition === "start"
-                ) {
-
-                    return "incoming";
-
-                }
-
-                if (
-                    endpointPosition === "end"
-                ) {
-
-                    return "outgoing";
-
-                }
+                return endpointPosition ===
+                    "start"
+                    ? "incoming"
+                    : "outgoing";
 
             }
+
 
             return "unknown";
 
         }
 
-        // =====================================================
-        // Classify Entrance / Exit
-        // =====================================================
+
+        // =================================================
+        // ⑨ 判斷入口 / 出口
+        // =================================================
 
         function classifyEndpoint(
             way,
@@ -5281,153 +5190,226 @@ async function buildEntranceCandidates(junction) {
             topology
         ) {
 
+            const highway =
+                way.tags?.highway;
+
+
             const direction =
                 getOnewayDirection(
                     way,
                     endpoint.position
                 );
 
-            const hasHighSpeed =
-                topology.hasMotorway ||
-                topology.hasTrunk;
 
-            const hasSurface =
-                topology.hasSurfaceRoad;
-
-            const hasMajorSurface =
-                topology.hasMajorSurfaceRoad;
-
-            let role = "unknown";
-
-            let confidence = 0;
-
-            // =================================================
-            // 明確入口
+            // ---------------------------------------------
+            // A. motorway_link
             //
-            // endpoint 是平面道路側
-            // link 從 endpoint 往高速道路
-            // =================================================
+            //    國道交流道
+            // ---------------------------------------------
 
             if (
-                hasSurface &&
-                direction === "outgoing"
+                highway ===
+                "motorway_link"
             ) {
 
-                role = "entrance";
+                if (
+                    direction ===
+                    "outgoing"
+                ) {
 
-                confidence = 100;
+                    return {
+                        role: "entrance",
+                        confidence: 100
+                    };
+
+                }
+
+
+                if (
+                    direction ===
+                    "incoming"
+                ) {
+
+                    return {
+                        role: "exit",
+                        confidence: 100
+                    };
+
+                }
+
+
+                return {
+                    role: "unknown",
+                    confidence: 70
+                };
 
             }
 
-            // =================================================
-            // 明確出口
+
+            // ---------------------------------------------
+            // B. trunk_link
             //
-            // link 從高速道路往 endpoint
-            // =================================================
+            //    快速道路交流道
+            // ---------------------------------------------
 
-            else if (
-                hasSurface &&
-                direction === "incoming"
+            if (
+                highway ===
+                "trunk_link"
             ) {
 
-                role = "exit";
+                if (
+                    direction ===
+                    "outgoing"
+                ) {
 
-                confidence = 100;
+                    return {
+                        role: "entrance",
+                        confidence: 100
+                    };
+
+                }
+
+
+                if (
+                    direction ===
+                    "incoming"
+                ) {
+
+                    return {
+                        role: "exit",
+                        confidence: 100
+                    };
+
+                }
+
+
+                return {
+                    role: "unknown",
+                    confidence: 70
+                };
 
             }
 
-            // =================================================
-            // 沒有明確方向
+
+            // ---------------------------------------------
+            // C. primary_link
             //
-            // 只知道 endpoint 附近有平面道路
-            // 不強制判斷。
-            // =================================================
+            //    主要快速道路出入口
+            //
+            //    必須真的連接：
+            //    motorway 或 trunk
+            // ---------------------------------------------
 
-            else if (
-                hasSurface
+            if (
+                highway ===
+                "primary_link"
             ) {
 
-                role = "unknown";
+                const connectedToHighSpeed =
+                    topology.hasMotorway ||
+                    topology.hasTrunk;
 
-                confidence =
-                    hasMajorSurface
-                        ? 60
-                        : 40;
+
+                // -----------------------------------------
+                // 沒有連接高速／快速道路
+                // → 視為一般道路連接線
+                // → 不列入交流道
+                // -----------------------------------------
+
+                if (
+                    !connectedToHighSpeed
+                ) {
+
+                    return {
+                        role: "reject",
+                        confidence: 0
+                    };
+
+                }
+
+
+                // -----------------------------------------
+                // 有連接快速道路
+                // -----------------------------------------
+
+                if (
+                    direction ===
+                    "outgoing"
+                ) {
+
+                    return {
+                        role: "entrance",
+                        confidence: 90
+                    };
+
+                }
+
+
+                if (
+                    direction ===
+                    "incoming"
+                ) {
+
+                    return {
+                        role: "exit",
+                        confidence: 90
+                    };
+
+                }
+
+
+                return {
+                    role: "unknown",
+                    confidence: 60
+                };
 
             }
 
-            // =================================================
-            // 高速道路內部端
-            // =================================================
-
-            else if (
-                hasHighSpeed &&
-                !hasSurface
-            ) {
-
-                role = "unknown";
-
-                confidence = 10;
-
-            }
 
             return {
-
-                role,
-
-                confidence,
-
-                direction,
-
-                hasHighSpeed,
-
-                hasSurface,
-
-                hasMajorSurface
-
+                role: "reject",
+                confidence: 0
             };
 
         }
 
-        // =====================================================
-        // Build Candidates
-        // =====================================================
+
+        // =================================================
+        // ⑩ 建立候選
+        // =================================================
 
         const candidates = [];
 
+
         for (
-            const way of
-            linkWayMap.values()
+            const way
+            of linkWays
         ) {
-
-            if (
-                !Array.isArray(
-                    way.nodes
-                ) ||
-                way.nodes.length < 2
-            ) {
-
-                continue;
-
-            }
 
             const tags =
                 way.tags || {};
 
-            const highwayType =
-                tags.highway;
+
+            const firstNodeId =
+                way.nodes[0];
+
+            const lastNodeId =
+                way.nodes[
+                    way.nodes.length - 1
+                ];
+
 
             const firstNode =
                 nodeMap.get(
-                    way.nodes[0]
+                    firstNodeId
                 );
+
 
             const lastNode =
                 nodeMap.get(
-                    way.nodes[
-                        way.nodes.length - 1
-                    ]
+                    lastNodeId
                 );
+
 
             if (
                 !firstNode ||
@@ -5438,14 +5420,16 @@ async function buildEntranceCandidates(junction) {
 
             }
 
-            // =================================================
-            // Calculate Direction
-            // =================================================
+
+            // =============================================
+            // Start / End Bearing
+            // =============================================
 
             const secondNode =
                 nodeMap.get(
                     way.nodes[1]
                 );
+
 
             const beforeLastNode =
                 nodeMap.get(
@@ -5453,6 +5437,7 @@ async function buildEntranceCandidates(junction) {
                         way.nodes.length - 2
                     ]
                 );
+
 
             const startBearing =
                 secondNode
@@ -5464,6 +5449,7 @@ async function buildEntranceCandidates(junction) {
                     )
                     : null;
 
+
             const endBearing =
                 beforeLastNode
                     ? calculateBearing(
@@ -5474,19 +5460,14 @@ async function buildEntranceCandidates(junction) {
                     )
                     : null;
 
-            // =================================================
-            // BOTH endpoints
-            // =================================================
 
             const endpoints = [
 
                 {
-
-                    position:
-                        "start",
+                    position: "start",
 
                     nodeId:
-                        way.nodes[0],
+                        firstNodeId,
 
                     coordinate: [
                         firstNode.lat,
@@ -5495,18 +5476,13 @@ async function buildEntranceCandidates(junction) {
 
                     bearing:
                         startBearing
-
                 },
 
                 {
-
-                    position:
-                        "end",
+                    position: "end",
 
                     nodeId:
-                        way.nodes[
-                            way.nodes.length - 1
-                        ],
+                        lastNodeId,
 
                     coordinate: [
                         lastNode.lat,
@@ -5515,19 +5491,58 @@ async function buildEntranceCandidates(junction) {
 
                     bearing:
                         endBearing
-
                 }
 
             ];
 
-            // =================================================
-            // Analyse Endpoint
-            // =================================================
 
             for (
-                const endpoint of
-                endpoints
+                const endpoint
+                of endpoints
             ) {
+
+                const topology =
+                    analyseEndpointTopology(
+                        endpoint.nodeId,
+                        endpoint.coordinate
+                    );
+
+
+                const classification =
+                    classifyEndpoint(
+                        way,
+                        endpoint,
+                        topology
+                    );
+
+
+                // =========================================
+                // 排除一般 primary_link
+                // =========================================
+
+                if (
+                    classification.role ===
+                    "reject"
+                ) {
+
+                    continue;
+
+                }
+
+
+                // =========================================
+                // 明確出口直接排除
+                // =========================================
+
+                if (
+                    classification.role ===
+                    "exit"
+                ) {
+
+                    continue;
+
+                }
+
 
                 const distanceToJunction =
                     distanceMeters(
@@ -5537,58 +5552,66 @@ async function buildEntranceCandidates(junction) {
                         endpoint.coordinate[1]
                     );
 
+
+                const highway =
+                    tags.highway;
+
+
+                // =========================================
+                // 交流道等級
+                // =========================================
+
+                let interchangeLevel = 0;
+                let interchangeType = "";
+
+
                 if (
-                    distanceToJunction >
-                    SEARCH_RADIUS
+                    highway ===
+                    "motorway_link"
                 ) {
 
-                    continue;
+                    interchangeLevel = 3;
+                    interchangeType =
+                        "國道交流道";
+
+                }
+                else if (
+                    highway ===
+                    "trunk_link"
+                ) {
+
+                    interchangeLevel = 2;
+                    interchangeType =
+                        "快速道路交流道";
+
+                }
+                else if (
+                    highway ===
+                    "primary_link"
+                ) {
+
+                    interchangeLevel = 1;
+                    interchangeType =
+                        "主要快速道路出入口";
 
                 }
 
-                const topology =
-                    topologyMap.get(
-                        String(
-                            endpoint.nodeId
-                        )
-                    ) || {
 
-                        connectedHighways: [],
-
-                        connectedWays: [],
-
-                        connectedNames: [],
-
-                        hasMotorway: false,
-
-                        hasTrunk: false,
-
-                        hasSurfaceRoad: false,
-
-                        hasMajorSurfaceRoad: false,
-
-                        nearbyLinkCount: 0
-
-                    };
-
-                const classification =
-                    classifyEndpoint(
-                        way,
-                        endpoint,
-                        topology
-                    );
-
-                // =================================================
-                // Candidate
-                // =================================================
+                // =========================================
+                // 建立 Candidate
+                // =========================================
 
                 const candidate = {
+
+                    // -------------------------------------
+                    // 基本資訊
+                    // -------------------------------------
 
                     wayId:
                         way.id,
 
                     highwayType:
-                        highwayType,
+                        highway,
 
                     endpoint:
                         endpoint.position,
@@ -5602,18 +5625,29 @@ async function buildEntranceCandidates(junction) {
                     bearing:
                         endpoint.bearing,
 
-                    distanceToJunction:
-                        distanceToJunction,
+                    distanceToJunction,
 
-                    tags:
-                        tags,
+                    tags,
 
-                    // =================================================
-                    // Direction / Role
-                    // =================================================
+
+                    // -------------------------------------
+                    // 交流道分類
+                    // -------------------------------------
+
+                    interchangeLevel,
+
+                    interchangeType,
+
+
+                    // -------------------------------------
+                    // 方向
+                    // -------------------------------------
 
                     direction:
-                        classification.direction,
+                        getOnewayDirection(
+                            way,
+                            endpoint.position
+                        ),
 
                     directionRole:
                         classification.role,
@@ -5632,9 +5666,10 @@ async function buildEntranceCandidates(junction) {
                     entranceConfidence:
                         classification.confidence,
 
-                    // =================================================
-                    // Topology
-                    // =================================================
+
+                    // -------------------------------------
+                    // 拓樸
+                    // -------------------------------------
 
                     connectedHighways:
                         topology.connectedHighways,
@@ -5651,54 +5686,60 @@ async function buildEntranceCandidates(junction) {
                     hasTrunk:
                         topology.hasTrunk,
 
-                    hasSurfaceRoad:
-                        topology.hasSurfaceRoad,
-
-                    hasMajorSurfaceRoad:
-                        topology.hasMajorSurfaceRoad,
+                    hasSurfaceMajor:
+                        topology.hasSurfaceMajor,
 
                     nearbyLinkCount:
                         topology.nearbyLinkCount,
 
-                    score:
-                        0
+
+                    // -------------------------------------
+                    // 分數
+                    // -------------------------------------
+
+                    baseScore: 0,
+
+                    topologyScore: 0,
+
+                    score: 0
 
                 };
 
-                // =================================================
-                // Existing Entrance Score
-                // =================================================
 
-                let baseScore = 0;
+                // =========================================
+                // 原有 scoreEntrance()
+                // =========================================
 
                 try {
 
-                    baseScore =
-                        scoreEntrance(
-                            candidate
-                        );
+                    candidate.baseScore =
+                        Number(
+                            scoreEntrance(
+                                candidate
+                            )
+                        ) || 0;
 
-                } catch (scoreErr) {
+                }
+                catch (e) {
 
                     console.warn(
-                        "scoreEntrance() Error:",
-                        scoreErr
+                        "scoreEntrance() 執行失敗：",
+                        e
                     );
 
-                    baseScore = 0;
+                    candidate.baseScore = 0;
 
                 }
 
-                // =================================================
-                // Topology Score
-                // =================================================
+
+                // =========================================
+                // 拓樸加權
+                // =========================================
 
                 let topologyScore = 0;
 
-                // =================================================
-                // ★ 明確入口
-                // =================================================
 
+                // 入口
                 if (
                     candidate.isEntrance
                 ) {
@@ -5707,81 +5748,70 @@ async function buildEntranceCandidates(junction) {
 
                 }
 
-                // =================================================
-                // ★ 主要平面道路
-                // =================================================
 
+                // 國道最高優先
                 if (
-                    candidate.hasMajorSurfaceRoad
+                    highway ===
+                    "motorway_link"
                 ) {
 
-                    topologyScore += 50;
+                    topologyScore += 100;
 
                 }
 
-                // =================================================
-                // 一般平面道路
-                // =================================================
 
+                // 快速道路第二優先
                 else if (
-                    candidate.hasSurfaceRoad
+                    highway ===
+                    "trunk_link"
                 ) {
 
-                    topologyScore += 30;
+                    topologyScore += 70;
 
                 }
 
-                // =================================================
-                // ★ 明確出口
-                //
-                // 大幅扣分
-                // 後面會直接排除
-                // =================================================
+
+                // 主要快速道路出入口
+                else if (
+                    highway ===
+                    "primary_link"
+                ) {
+
+                    topologyScore += 40;
+
+                }
+
+
+                // 確實連接高速／快速道路
+                if (
+                    topology.hasMotorway
+                ) {
+
+                    topologyScore += 80;
+
+                }
+
 
                 if (
-                    candidate.isExit
+                    topology.hasTrunk
                 ) {
 
-                    topologyScore -= 300;
+                    topologyScore += 60;
 
                 }
 
-                // =================================================
-                // 高速道路內部端
-                // =================================================
 
+                // 有主要平面道路連接
                 if (
-                    (
-                        candidate.hasMotorway ||
-                        candidate.hasTrunk
-                    ) &&
-                    !candidate.hasSurfaceRoad
+                    topology.hasSurfaceMajor
                 ) {
 
-                    topologyScore -= 120;
+                    topologyScore += 40;
 
                 }
 
-                // =================================================
-                // 沒有明確 OSM 方向
-                // =================================================
 
-                if (
-                    candidate.direction ===
-                    "unknown"
-                ) {
-
-                    topologyScore -= 10;
-
-                }
-
-                // =================================================
-                // 距離交流道中心
-                //
-                // 只做輕微修正
-                // 不讓「最近」壓過真正入口
-                // =================================================
-
+                // 距離太遠稍微扣分
                 if (
                     distanceToJunction >
                     800
@@ -5791,19 +5821,26 @@ async function buildEntranceCandidates(junction) {
 
                 }
 
-                // =================================================
-                // Final Score
-                // =================================================
 
-                candidate.baseScore =
-                    baseScore;
+                // 未知方向稍微降低
+                if (
+                    candidate.direction ===
+                    "unknown"
+                ) {
+
+                    topologyScore -= 15;
+
+                }
+
 
                 candidate.topologyScore =
                     topologyScore;
 
+
                 candidate.score =
-                    baseScore +
-                    topologyScore;
+                    candidate.baseScore +
+                    candidate.topologyScore;
+
 
                 candidates.push(
                     candidate
@@ -5813,175 +5850,68 @@ async function buildEntranceCandidates(junction) {
 
         }
 
-        // =====================================================
-        // ★ 明確入口
-        // =====================================================
 
-        const entranceCandidates =
-            candidates.filter(
-                c =>
-                    c.isEntrance === true
-            );
-
-        // =====================================================
-        // ★ 明確出口
-        // =====================================================
-
-        const exitCandidates =
-            candidates.filter(
-                c =>
-                    c.isExit === true
-            );
-
-        // =====================================================
-        // Filter
+        // =================================================
+        // ⑪ 空間去重
         //
-        // 有明確入口：
-        // → 排除出口
-        //
-        // 沒有明確入口：
-        // → 仍排除明確出口
-        // → 保留 unknown 作 fallback
-        // =====================================================
+        //    同一個入口可能被多個 Link Way 描述
+        // =================================================
 
-        let filteredCandidates =
-            candidates.filter(
-                c =>
-                    !c.isExit
-            );
+        candidates.sort(
+            (a, b) => {
 
-        // =====================================================
-        // 如果已經有明確入口
-        //
-        // 優先讓入口候選排在最前面。
-        // =====================================================
-
-        if (
-            entranceCandidates.length > 0
-        ) {
-
-            filteredCandidates.sort(
-                (a, b) => {
-
-                    if (
-                        a.isEntrance !==
-                        b.isEntrance
-                    ) {
-
-                        return a.isEntrance
-                            ? -1
-                            : 1;
-
-                    }
-
-                    if (
-                        b.score !==
-                        a.score
-                    ) {
-
-                        return (
-                            b.score -
-                            a.score
-                        );
-
-                    }
+                // 國道 > 快速道路 > 主要快速道路
+                if (
+                    b.interchangeLevel !==
+                    a.interchangeLevel
+                ) {
 
                     return (
-                        a.distanceToJunction -
-                        b.distanceToJunction
+                        b.interchangeLevel -
+                        a.interchangeLevel
                     );
 
                 }
-            );
 
-        } else {
 
-            filteredCandidates.sort(
-                (a, b) => {
-
-                    if (
-                        b.score !==
-                        a.score
-                    ) {
-
-                        return (
-                            b.score -
-                            a.score
-                        );
-
-                    }
+                // 分數高者優先
+                if (
+                    b.score !==
+                    a.score
+                ) {
 
                     return (
-                        a.distanceToJunction -
-                        b.distanceToJunction
+                        b.score -
+                        a.score
                     );
 
                 }
-            );
 
-        }
 
-        // =====================================================
-        // Node Deduplication
-        // =====================================================
-
-        const uniqueCandidates =
-            new Map();
-
-        for (
-            const candidate of
-            filteredCandidates
-        ) {
-
-            const key =
-                String(
-                    candidate.nodeId
-                );
-
-            const existing =
-                uniqueCandidates.get(
-                    key
-                );
-
-            if (
-                !existing ||
-                candidate.score >
-                    existing.score
-            ) {
-
-                uniqueCandidates.set(
-                    key,
-                    candidate
+                // 距離近者優先
+                return (
+                    a.distanceToJunction -
+                    b.distanceToJunction
                 );
 
             }
+        );
 
-        }
-
-        // =====================================================
-        // Spatial Deduplication
-        // =====================================================
 
         const spatialCandidates = [];
 
-        const SPATIAL_DEDUP_DISTANCE = 25;
 
         for (
-            const candidate of
-            Array.from(
-                uniqueCandidates.values()
-            ).sort(
-                (a, b) =>
-                    b.score -
-                    a.score
-            )
+            const candidate
+            of candidates
         ) {
 
-            let tooClose = false;
+            let duplicated = false;
+
 
             for (
-                const existing of
-                spatialCandidates
+                const existing
+                of spatialCandidates
             ) {
 
                 const d =
@@ -5992,12 +5922,12 @@ async function buildEntranceCandidates(junction) {
                         existing.coordinate[1]
                     );
 
+
                 if (
-                    d <
-                    SPATIAL_DEDUP_DISTANCE
+                    d <= DEDUP_RADIUS
                 ) {
 
-                    tooClose = true;
+                    duplicated = true;
 
                     break;
 
@@ -6005,9 +5935,8 @@ async function buildEntranceCandidates(junction) {
 
             }
 
-            if (
-                !tooClose
-            ) {
+
+            if (!duplicated) {
 
                 spatialCandidates.push(
                     candidate
@@ -6017,31 +5946,32 @@ async function buildEntranceCandidates(junction) {
 
         }
 
-        // =====================================================
-        // Final Sort
-        // =====================================================
+
+        // =================================================
+        // ⑫ 最終排序
+        //
+        //    國道交流道
+        //    ↓
+        //    快速道路交流道
+        //    ↓
+        //    主要快速道路出入口
+        // =================================================
 
         spatialCandidates.sort(
             (a, b) => {
 
-                // ---------------------------------------------
-                // ① 明確入口優先
-                // ---------------------------------------------
-
                 if (
-                    a.isEntrance !==
-                    b.isEntrance
+                    b.interchangeLevel !==
+                    a.interchangeLevel
                 ) {
 
-                    return a.isEntrance
-                        ? -1
-                        : 1;
+                    return (
+                        b.interchangeLevel -
+                        a.interchangeLevel
+                    );
 
                 }
 
-                // ---------------------------------------------
-                // ② Score
-                // ---------------------------------------------
 
                 if (
                     b.score !==
@@ -6055,9 +5985,6 @@ async function buildEntranceCandidates(junction) {
 
                 }
 
-                // ---------------------------------------------
-                // ③ 距離
-                // ---------------------------------------------
 
                 return (
                     a.distanceToJunction -
@@ -6067,38 +5994,35 @@ async function buildEntranceCandidates(junction) {
             }
         );
 
-        // =====================================================
-        // Debug
-        // =====================================================
+
+        // =================================================
+        // ⑬ Debug
+        // =================================================
 
         console.group(
-            "🚗 Entrance Candidate Builder"
+            "🚗 Entrance Candidate Builder V3"
         );
 
-        console.log(
-            "Junction:",
-            junction
-        );
 
         console.log(
-            "全部 Candidate:",
+            "交流道定義：",
+            "motorway_link = 國道交流道；",
+            "trunk_link = 快速道路交流道；",
+            "primary_link = 主要快速道路出入口"
+        );
+
+
+        console.log(
+            "原始候選：",
             candidates.length
         );
 
-        console.log(
-            "明確 Entrance:",
-            entranceCandidates.length
-        );
 
         console.log(
-            "明確 Exit:",
-            exitCandidates.length
-        );
-
-        console.log(
-            "最終 Candidate:",
+            "去重後候選：",
             spatialCandidates.length
         );
+
 
         console.table(
             spatialCandidates.map(
@@ -6107,39 +6031,25 @@ async function buildEntranceCandidates(junction) {
                     wayId:
                         c.wayId,
 
-                    nodeId:
-                        c.nodeId,
+                    類型:
+                        c.interchangeType,
 
                     highway:
                         c.highwayType,
 
-                    endpoint:
-                        c.endpoint,
-
-                    role:
+                    角色:
                         c.role,
 
-                    isEntrance:
-                        c.isEntrance,
-
-                    isExit:
-                        c.isExit,
-
-                    direction:
+                    方向:
                         c.direction,
 
-                    confidence:
+                    信心:
                         c.entranceConfidence,
 
-                    connected:
-                        c.connectedHighways
-                            .join(","),
-
-                    surfaceRoad:
-                        c.hasSurfaceRoad,
-
-                    majorSurface:
-                        c.hasMajorSurfaceRoad,
+                    距離:
+                        Math.round(
+                            c.distanceToJunction
+                        ),
 
                     motorway:
                         c.hasMotorway,
@@ -6147,29 +6057,27 @@ async function buildEntranceCandidates(junction) {
                     trunk:
                         c.hasTrunk,
 
-                    distance:
+                    surfaceMajor:
+                        c.hasSurfaceMajor,
+
+                    score:
                         Math.round(
-                            c.distanceToJunction
-                        ) + " m",
-
-                    baseScore:
-                        c.baseScore,
-
-                    topologyScore:
-                        c.topologyScore,
-
-                    finalScore:
-                        c.score
+                            c.score
+                        )
 
                 })
             )
         );
 
+
         console.groupEnd();
+
 
         return spatialCandidates;
 
-    } catch (err) {
+
+    }
+    catch (err) {
 
         console.error(
             "Candidate Builder Error:",
