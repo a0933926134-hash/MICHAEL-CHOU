@@ -41,12 +41,6 @@ button:disabled{opacity:.55;cursor:not-allowed}
  padding:8px;border-radius:8px;background:#fff;border:1px solid #e5e7eb;
  font-size:12px;line-height:1.5;white-space:pre-wrap
 }
-.diagbox{margin-top:8px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:9px;overflow:hidden;}
-.diagtitle{font-weight:700;padding:7px 9px;background:#e2e8f0;color:#334155;font-size:12px;}
-.diagbody{padding:8px;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-word;color:#334155;}
-.diag-ok{color:#166534;font-weight:700;}
-.diag-warn{color:#92400e;font-weight:700;}
-.diag-err{color:#b91c1c;font-weight:700;}
 .progress{height:10px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin:7px 0}
 .progress>div{height:100%;width:0%;background:#2563eb;transition:width .15s}
 .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
@@ -87,7 +81,10 @@ th:first-child,td:first-child{text-align:left}
     <button onclick="clearKey()">清除 Key</button>
   </div>
   <div id="apiStatus" class="status">尚未測試 API。</div>
-  <div id="apiDiag" class="diagbox"><div class="diagtitle">🔎 API 詳細診斷</div><div id="apiDiagBody" class="diagbody">尚未執行診斷。</div></div>
+  <div class="row">
+    <button id="diagBtn" class="primary" onclick="runCorsDiagnostic()">🔎 CORS／HTTP 詳細診斷</button>
+  </div>
+  <div id="diagStatus" class="status" style="white-space:pre-wrap;max-height:360px;overflow:auto">尚未執行詳細診斷。</div>
 
   <h3>② 查估範圍</h3>
   <div id="drawHint" class="small">請按「開始畫範圍」，再於地圖上依序點擊 Polygon 頂點。</div>
@@ -265,83 +262,177 @@ function getKey(){
 function clearKey(){
   document.getElementById("apiKey").value="";
   setStatus("apiStatus","已清除 API Key。");
-  setApiDiag("尚未執行診斷。","");
 }
-
-function setApiDiag(text,cls=""){
-  const el=document.getElementById("apiDiagBody");
-  el.className="diagbody "+cls;
-  el.textContent=text;
-}
-
-function maskUrl(url){
-  return url.replace(/([?&]access_token=)[^&]*/i,"$1********");
-}
-
-function formatHeaders(headers){
-  const wanted=["content-type","content-length","server","date","access-control-allow-origin","access-control-allow-methods","access-control-allow-headers","access-control-expose-headers","www-authenticate"];
-  const out=[];
-  wanted.forEach(k=>{const v=headers.get(k); if(v!==null) out.push(`${k}: ${v}`);});
-  return out.length?out.join("\n"):"（瀏覽器未提供可讀取的相關 Response Headers）";
-}
-
-function classifyFetchError(err){
-  const name=err?.name||"UnknownError", msg=String(err?.message||err||"");
-  if(name==="AbortError") return {title:"⏱️ 請求逾時或被中止",detail:"瀏覽器已發出請求，但在限定時間內沒有取得可用回應。"};
-  if(name==="TypeError" && /fetch|network|failed/i.test(msg)) return {title:"🚫 Fetch 層失敗：高度疑似 CORS／網路層問題",detail:"JavaScript 沒有取得 HTTP Response，因此目前無法判斷 401/403/500 等狀態。常見原因是 CORS 預檢（OPTIONS）被拒絕、伺服器未允許此來源、DNS/網路阻擋、TLS/憑證問題，或 API 服務端直接拒絕瀏覽器請求。"};
-  return {title:"❌ JavaScript／Fetch 錯誤",detail:`${name}: ${msg}`};
-}
-
 function parseElevations(data,expected){
+  // 兼容常見回傳格式：
+  // [1,2,3]
+  // {"elevations":[1,2,3]}
+  // {"data":[1,2,3]}
+  // [{"elevation":1},...]
   let arr=null;
   if(Array.isArray(data)) arr=data;
   else if(data && Array.isArray(data.elevations)) arr=data.elevations;
   else if(data && Array.isArray(data.data)) arr=data.data;
   else if(data && Array.isArray(data.results)) arr=data.results;
+
   if(!arr) throw new Error("無法辨識 API 回傳格式。回傳："+JSON.stringify(data).slice(0,500));
+
   const vals=arr.map(x=>{
-    if(typeof x==="number") return x; if(typeof x==="string") return Number(x);
-    if(x && typeof x.elevation==="number") return x.elevation; if(x && typeof x.elevation==="string") return Number(x.elevation);
-    if(x && typeof x.z==="number") return x.z; if(x && typeof x.height==="number") return x.height; return NaN;
+    if(typeof x==="number") return x;
+    if(typeof x==="string") return Number(x);
+    if(x && typeof x.elevation==="number") return x.elevation;
+    if(x && typeof x.elevation==="string") return Number(x.elevation);
+    if(x && typeof x.z==="number") return x.z;
+    if(x && typeof x.height==="number") return x.height;
+    return NaN;
   });
-  if(vals.length!==expected) throw new Error(`API 回傳筆數 ${vals.length}，但送出 ${expected} 點。`);
-  if(vals.some(v=>!Number.isFinite(v))) throw new Error("API 回傳中存在無法解析的高程值。");
+
+  if(vals.length!==expected){
+    throw new Error(`API 回傳筆數 ${vals.length}，但送出 ${expected} 點。`);
+  }
+  if(vals.some(v=>!Number.isFinite(v))){
+    throw new Error("API 回傳中存在無法解析的高程值。");
+  }
   return vals;
 }
 
 async function requestElevations(pointsLonLat){
-  const key=getKey(); if(!key) throw new Error("請先輸入 Taiwan Elevation API Key。");
+  const key=getKey();
+  if(!key) throw new Error("請先輸入 Taiwan Elevation API Key。");
+
   const url=API_URL+"?access_token="+encodeURIComponent(key);
-  const res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(pointsLonLat)});
-  const text=await res.text(); let data; try{data=JSON.parse(text)}catch(e){data=text}
-  if(!res.ok) throw new Error(`HTTP ${res.status}：${typeof data==="string"?data:JSON.stringify(data)}`);
+  const res=await fetch(url,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(pointsLonLat)
+  });
+  const text=await res.text();
+  let data;
+  try{data=JSON.parse(text)}catch(e){data=text}
+  if(!res.ok){
+    throw new Error(`HTTP ${res.status}：${typeof data==="string"?data:JSON.stringify(data)}`);
+  }
   return parseElevations(data,pointsLonLat.length);
+}
+
+function maskUrl(url){
+  try{
+    const u=new URL(url);
+    if(u.searchParams.has("access_token")) u.searchParams.set("access_token","********");
+    return u.toString();
+  }catch(e){return url.replace(/access_token=[^&]+/i,"access_token=********");}
+}
+function fmtHeaders(headers){
+  const wanted=["access-control-allow-origin","access-control-allow-methods","access-control-allow-headers","content-type","server","date","www-authenticate","content-length"];
+  const out=[];
+  for(const k of wanted){
+    const v=headers.get(k);
+    out.push(`${k}: ${v===null?"<未回傳>":v}`);
+  }
+  return out.join("\n");
+}
+function classifyFetchError(err, elapsed, phase){
+  const msg=String(err && err.message || err);
+  let advice="";
+  if(msg.includes("Failed to fetch")){
+    advice = phase==="OPTIONS"
+      ? "⚠️ OPTIONS 預檢無法取得 Response。若 Console 同時出現 CORS policy，代表 API 端未允許此瀏覽器來源／預檢。若沒有 CORS 訊息，仍需排查 DNS、TLS、網路或服務端限制。"
+      : "⚠️ 正式 POST 無法取得 Response。最常見是 CORS 預檢／Access-Control-Allow-Origin 問題；也可能是 DNS、TLS、網路、防火牆或服務端限制。";
+  }else advice=`⚠️ ${phase} 發生 JavaScript 錯誤：${msg}`;
+  return `❌ ${phase}：${msg}\n耗時：${elapsed} ms\n${advice}`;
+}
+async function runFetchWithTiming(url, options, phase){
+  const t0=performance.now();
+  try{
+    const res=await fetch(url,options);
+    const elapsed=Math.round(performance.now()-t0);
+    return {ok:true,res,elapsed};
+  }catch(err){
+    const elapsed=Math.round(performance.now()-t0);
+    return {ok:false,error:err,elapsed};
+  }
+}
+async function testNetworkReachability(){
+  const url="https://outdoorsafetylab.org/";
+  const r=await runFetchWithTiming(url,{method:"GET",mode:"no-cors",cache:"no-store"},"網路可達性");
+  if(!r.ok) return {text:classifyFetchError(r.error,r.elapsed,"網路可達性"),reachable:false};
+  return {text:`🟢 網路可達性：瀏覽器可建立到 outdoorsafetylab.org 的請求。\n耗時：${r.elapsed} ms\nResponse type：${r.res.type}\n注意：no-cors 只能證明網路層可碰到主機，不能讀取內容，也不能證明 API CORS 設定正確。`,reachable:true};
+}
+async function testOptions(url){
+  const r=await runFetchWithTiming(url,{method:"OPTIONS",mode:"cors",cache:"no-store",headers:{"Access-Control-Request-Method":"POST","Access-Control-Request-Headers":"content-type"}},"OPTIONS");
+  if(!r.ok) return {text:classifyFetchError(r.error,r.elapsed,"OPTIONS"),ok:false};
+  const res=r.res;
+  const body=await res.text().catch(()=>"");
+  return {ok:res.ok,text:`${res.ok?"🟢":"🔴"} OPTIONS HTTP ${res.status} ${res.statusText}\n耗時：${r.elapsed} ms\n\nCORS／Response Headers：\n${fmtHeaders(res.headers)}\n\nResponse Body（前 800 字）：\n${body.slice(0,800)||"<空>"}`};
+}
+async function testPostDetailed(){
+  const key=getKey();
+  if(!key) return {ok:false,text:"🔴 正式 POST：未輸入 API Key，無法測試。"};
+  const url=API_URL+"?access_token="+encodeURIComponent(key);
+  const points=[[121.465675,25.012098]];
+  const r=await runFetchWithTiming(url,{method:"POST",mode:"cors",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify(points)},"正式 POST");
+  if(!r.ok) return {ok:false,text:classifyFetchError(r.error,r.elapsed,"正式 POST"),url:maskUrl(url)};
+  const res=r.res;
+  const body=await res.text().catch(()=>"");
+  let parsed=null, jsonOK=false;
+  try{parsed=JSON.parse(body);jsonOK=true}catch(e){}
+  let parseMsg="";
+  if(jsonOK){
+    try{const vals=parseElevations(parsed,1);parseMsg=`🟢 JSON／高程解析成功：${vals[0]} m`;}catch(e){parseMsg=`🔴 JSON 有效，但高程格式解析失敗：${e.message}`;}
+  }else parseMsg="🔴 Response 不是可解析 JSON。";
+  return {ok:res.ok,text:`${res.ok?"🟢":"🔴"} POST HTTP ${res.status} ${res.statusText}\n耗時：${r.elapsed} ms\n\nResponse Headers：\n${fmtHeaders(res.headers)}\n\n${parseMsg}\n\nResponse Body（前 1200 字）：\n${body.slice(0,1200)||"<空>"}`,url:maskUrl(url)};
+}
+async function runCorsDiagnostic(){
+  const key=getKey();
+  const btn=document.getElementById("diagBtn");
+  btn.disabled=true;
+  const out=[];
+  const apiUrl=API_URL+(key?"?access_token="+encodeURIComponent(key):"");
+  out.push("════════ Taiwan Elevation API CORS／HTTP 詳細診斷 ════════");
+  out.push(`時間：${new Date().toLocaleString()}`);
+  out.push(`來源 Origin：${location.origin}`);
+  out.push(`API：${maskUrl(apiUrl)}`);
+  out.push(`測試座標：[121.465675, 25.012098]`);
+  out.push("");
+  try{
+    out.push("① 網路可達性（no-cors GET）");
+    const net=await testNetworkReachability(); out.push(net.text); out.push("");
+    out.push("② CORS 預檢（OPTIONS）");
+    const opt=await testOptions(apiUrl); out.push(opt.text); out.push("");
+    out.push("③ 正式 API POST");
+    const post=await testPostDetailed(); out.push(post.text); out.push("");
+    out.push("④ 診斷結論");
+    if(post.ok){
+      out.push("🟢 API POST 已取得 HTTP Response。CORS 通道可用；若高程解析也成功，則可進入 20m DTM／Horn 3×3 分析。");
+    }else if(!opt.ok && net.reachable){
+      out.push("🟡 主機可達，但 OPTIONS／正式 POST 無法取得可讀 Response。高度懷疑 CORS 預檢或 API 端未允許瀏覽器來源。請同步查看 F12 → Console 的 CORS policy 訊息。");
+    }else if(!net.reachable){
+      out.push("🔴 連主機的網路層測試也失敗。先排查 DNS、TLS、公司／機關防火牆、Proxy 或網路環境，再談 API Key／CORS。");
+    }else{
+      out.push("🟠 尚無法單獨歸因。請查看 OPTIONS 與 POST 的完整結果，以及 F12 → Console。");
+    }
+    out.push("\n⑤ 瀏覽器 Console 建議檢查：");
+    out.push("• blocked by CORS policy");
+    out.push("• No 'Access-Control-Allow-Origin' header");
+    out.push("• Response to preflight request doesn't pass access control check");
+    out.push("• ERR_NAME_NOT_RESOLVED / ERR_CONNECTION / ERR_CERT");
+  }catch(e){out.push("診斷程式本身發生錯誤："+e.stack);}
+  document.getElementById("diagStatus").textContent=out.join("\n");
+  btn.disabled=false;
 }
 
 async function testAPI(){
   const key=getKey();
-  if(!key){setStatus("apiStatus","請輸入 API Key。");setApiDiag("❌ 未輸入 API Key。請輸入後再測試。","diag-warn");return;}
-  const btn=document.getElementById("testBtn"); btn.disabled=true;
-  const p=[[121.465675,25.012098]], url=API_URL+"?access_token="+encodeURIComponent(key), body=JSON.stringify(p), started=performance.now();
-  setStatus("apiStatus","診斷中：POST 1 個座標…");
-  setApiDiag(`① 目標 URL\n${maskUrl(url)}\n\n② Request\n方法：POST\nContent-Type：application/json\n座標數：${p.length}\nBody：${body}\n\n③ 正在等待瀏覽器 Fetch 結果…`);
+  if(!key){setStatus("apiStatus","請輸入 API Key。");return;}
+  const btn=document.getElementById("testBtn");
+  btn.disabled=true;
+  setStatus("apiStatus","測試中：查詢 1 個座標…");
   try{
-    const res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body,cache:"no-store"});
-    const elapsed=(performance.now()-started).toFixed(0), responseText=await res.text();
-    let parsed=null,jsonOK=true; try{parsed=JSON.parse(responseText)}catch(e){jsonOK=false}
-    const corsOrigin=res.headers.get("access-control-allow-origin"), corsMethods=res.headers.get("access-control-allow-methods"), corsHeaders=res.headers.get("access-control-allow-headers");
-    let classification="",cls="";
-    if(res.ok){classification="✅ HTTP 層成功";cls="diag-ok";} else if(res.status===401||res.status===403){classification="🔐 HTTP 驗證／授權失敗";cls="diag-warn";} else if(res.status>=400&&res.status<500){classification="⚠️ HTTP 用戶端請求錯誤";cls="diag-warn";} else if(res.status>=500){classification="🔥 HTTP 伺服器錯誤";cls="diag-err";}
-    const diag=`① 連線結果\n${classification}\nHTTP Status：${res.status} ${res.statusText||""}\n耗時：約 ${elapsed} ms\n\n② CORS 相關 Response Headers\nAccess-Control-Allow-Origin：${corsOrigin||"（未提供／瀏覽器不可見）"}\nAccess-Control-Allow-Methods：${corsMethods||"（未提供／瀏覽器不可見）"}\nAccess-Control-Allow-Headers：${corsHeaders||"（未提供／瀏覽器不可見）"}\n\n③ 其他可讀 Headers\n${formatHeaders(res.headers)}\n\n④ Response Body\n${responseText?responseText.slice(0,1200):"（空白）"}\n\n⑤ JSON 判斷\n${jsonOK?"可解析為 JSON":"不是 JSON（可能是純文字／HTML 錯誤頁）"}`;
-    if(!res.ok){setStatus("apiStatus",`API 測試收到 HTTP ${res.status}。\n請查看下方「詳細診斷」。`);setApiDiag(diag,cls);return;}
-    let z;
-    try{z=parseElevations(parsed,p.length)}catch(parseErr){setStatus("apiStatus","HTTP 200，但回傳格式無法解析。\n請查看詳細診斷中的 Response Body。");setApiDiag(diag+`\n\n⑥ 高程解析\n❌ ${parseErr.message}`,"diag-warn");return;}
+    const p=[[121.465675,25.012098]];
+    const z=await requestElevations(p);
     setStatus("apiStatus",`API 測試成功。\n座標：${p[0][1].toFixed(6)}, ${p[0][0].toFixed(6)}\n高程：${z[0].toFixed(2)} m`);
-    setApiDiag(diag+`\n\n⑥ 高程解析\n✅ 成功解析 ${z.length} 筆\n測試高程：${z[0].toFixed(2)} m\n\n結論：API 已可由目前瀏覽器正常取得資料。`,"diag-ok");
   }catch(err){
-    const elapsed=(performance.now()-started).toFixed(0), c=classifyFetchError(err);
-    const diag=`① Fetch 結果\n${c.title}\n${c.detail}\n\n② 耗時\n約 ${elapsed} ms\n\n③ 目前可確認\n• Request：POST JSON\n• URL：${maskUrl(url)}\n• 座標：${p[0][1].toFixed(6)}, ${p[0][0].toFixed(6)}\n• 瀏覽器沒有取得可讀的 HTTP Response，因此無法直接判定 HTTP 狀態碼。\n\n④ CORS 判讀\n若瀏覽器 Console 同時出現「blocked by CORS policy」或「No 'Access-Control-Allow-Origin' header」，即可高度確認是 CORS。\n若 Console 沒有 CORS 訊息，則還需排查 DNS、TLS、網路、防火牆或服務端限制。\n\n⑤ Error\n${err?.name||"UnknownError"}: ${err?.message||String(err)}`;
-    setStatus("apiStatus","API 測試未取得 HTTP Response。\n請查看詳細 CORS／HTTP 診斷。\n\n"+c.detail); setApiDiag(diag,"diag-err");
+    setStatus("apiStatus","API 測試失敗。\n"+err.message+"\n\n請改按「🔎 CORS／HTTP 詳細診斷」，取得 OPTIONS、網路可達性及正式 POST 的分層結果。");
   }finally{btn.disabled=false;}
 }
 
