@@ -3,1342 +3,605 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>20m DTM 坡度分析｜Taiwan Elevation API｜Horn 3×3</title>
 
-<title>NLSC 所選範圍坡度分析</title>
-
-<link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js"></script>
 
 <style>
-html,
-body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    font-family:
-        "Microsoft JhengHei",
-        "Noto Sans TC",
-        Arial,
-        sans-serif;
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:"Microsoft JhengHei",Arial,sans-serif}
+#map{height:100vh;width:100%}
+#panel{
+ position:absolute;z-index:1000;top:12px;right:12px;width:360px;
+ max-height:calc(100vh - 24px);overflow:auto;padding:14px;
+ background:linear-gradient(135deg,#fffdf5,#fef3c7);
+ border:1px solid #fcd34d;border-radius:16px;
+ box-shadow:0 5px 18px rgba(0,0,0,.18)
 }
-
-#map {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+h2{font-size:19px;margin:0 0 8px}
+h3{font-size:15px;margin:12px 0 7px}
+.small{font-size:12px;color:#555;line-height:1.55}
+.row{display:flex;gap:7px;margin:6px 0}
+.row>*{flex:1}
+label{display:block;font-size:12px;font-weight:700;margin:5px 0 3px}
+input,button,select{
+ width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;
+ font-size:13px;background:#fff
 }
-
-/* =====================================================
-   左上操作面板
-===================================================== */
-
-#toolbar {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    z-index: 1000;
-
-    width: 285px;
-
-    background:
-        linear-gradient(
-            145deg,
-            #fffdf5,
-            #fef3c7
-        );
-
-    border: 1px solid #fcd34d;
-    border-radius: 16px;
-
-    padding: 14px;
-
-    box-shadow:
-        0 5px 18px rgba(0,0,0,.18);
+button{cursor:pointer;font-weight:700}
+button.primary{background:#2563eb;color:white;border-color:#2563eb}
+button.green{background:#059669;color:white;border-color:#059669}
+button.warn{background:#d97706;color:white;border-color:#d97706}
+button.danger{background:#dc2626;color:white;border-color:#dc2626}
+button:disabled{opacity:.55;cursor:not-allowed}
+.status{
+ padding:8px;border-radius:8px;background:#fff;border:1px solid #e5e7eb;
+ font-size:12px;line-height:1.5;white-space:pre-wrap
 }
-
-#toolbar h3 {
-    margin:
-        0 0 12px 0;
-
-    font-size: 18px;
+.progress{height:10px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin:7px 0}
+.progress>div{height:100%;width:0%;background:#2563eb;transition:width .15s}
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stat{
+ background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:7px
 }
-
-.tool-row {
-    margin-bottom: 9px;
+.stat b{display:block;font-size:15px;margin-top:2px}
+table{width:100%;border-collapse:collapse;background:#fff;font-size:11px}
+th,td{padding:5px;border-bottom:1px solid #e5e7eb;text-align:right}
+th:first-child,td:first-child{text-align:left}
+.legend{
+ position:absolute;z-index:900;left:12px;bottom:25px;background:white;
+ padding:9px 10px;border-radius:9px;box-shadow:0 2px 10px rgba(0,0,0,.2);
+ font-size:11px
 }
-
-.tool-row label {
-    display: block;
-    margin-bottom: 4px;
-
-    font-size: 13px;
-    font-weight: 700;
-}
-
-button,
-select {
-    width: 100%;
-
-    box-sizing: border-box;
-
-    min-height: 40px;
-
-    border-radius: 9px;
-    border: 1px solid #cbd5e1;
-
-    background: #ffffff;
-
-    padding:
-        7px 10px;
-
-    font-size: 14px;
-
-    cursor: pointer;
-}
-
-button:hover {
-    background: #f8fafc;
-}
-
-button.primary {
-    background: #2563eb;
-    color: white;
-    border-color: #2563eb;
-}
-
-button.primary:hover {
-    background: #1d4ed8;
-}
-
-button.danger {
-    background: #fee2e2;
-    color: #991b1b;
-    border-color: #fecaca;
-}
-
-.info-box {
-    margin-top: 12px;
-
-    padding: 10px;
-
-    border-radius: 10px;
-
-    background: rgba(255,255,255,.7);
-
-    font-size: 12px;
-
-    line-height: 1.6;
-}
-
-/* =====================================================
-   右側坡度分析結果
-===================================================== */
-
-#slopePanel {
-    position: absolute;
-
-    top: 12px;
-    right: 12px;
-
-    z-index: 1000;
-
-    width: 330px;
-
-    max-height: calc(100vh - 24px);
-
-    overflow-y: auto;
-
-    box-sizing: border-box;
-
-    background:
-        linear-gradient(
-            145deg,
-            #fffdf5,
-            #fef3c7
-        );
-
-    border: 1px solid #fcd34d;
-
-    border-radius: 16px;
-
-    padding: 14px;
-
-    box-shadow:
-        0 5px 18px rgba(0,0,0,.18);
-}
-
-#slopePanel h3 {
-    margin:
-        0 0 5px 0;
-
-    font-size: 18px;
-}
-
-.panel-subtitle {
-    font-size: 12px;
-    color: #64748b;
-    margin-bottom: 12px;
-}
-
-.stat-grid {
-    display: grid;
-
-    grid-template-columns:
-        1fr 1fr;
-
-    gap: 8px;
-}
-
-.stat-card {
-    background: white;
-
-    border:
-        1px solid #e2e8f0;
-
-    border-radius: 10px;
-
-    padding: 9px;
-}
-
-.stat-label {
-    font-size: 11px;
-    color: #64748b;
-}
-
-.stat-value {
-    margin-top: 3px;
-
-    font-size: 17px;
-
-    font-weight: 800;
-
-    color: #1e293b;
-}
-
-.section-title {
-    margin-top: 16px;
-    margin-bottom: 8px;
-
-    font-weight: 800;
-    font-size: 14px;
-}
-
-.slope-row {
-    display: grid;
-
-    grid-template-columns:
-        75px 1fr 50px;
-
-    gap: 7px;
-
-    align-items: center;
-
-    margin-bottom: 8px;
-
-    font-size: 12px;
-}
-
-.slope-bar {
-    height: 13px;
-
-    background: #e2e8f0;
-
-    border-radius: 20px;
-
-    overflow: hidden;
-}
-
-.slope-fill {
-    height: 100%;
-}
-
-.s0 {
-    background: #65a30d;
-}
-
-.s1 {
-    background: #eab308;
-}
-
-.s2 {
-    background: #f97316;
-}
-
-.s3 {
-    background: #dc2626;
-}
-
-.note {
-    margin-top: 12px;
-
-    padding: 10px;
-
-    border-radius: 10px;
-
-    background: #eff6ff;
-
-    color: #1e3a8a;
-
-    font-size: 12px;
-
-    line-height: 1.6;
-}
-
-/* =====================================================
-   Leaflet 控制項
-===================================================== */
-
-.leaflet-control-layers {
-    border-radius: 10px !important;
-}
-
-.leaflet-control-scale {
-    margin-bottom: 25px !important;
-}
-
-/* =====================================================
-   Polygon
-===================================================== */
-
-.analysis-polygon {
-    stroke: #dc2626;
-
-    stroke-width: 3;
-
-    fill: #facc15;
-
-    fill-opacity: .12;
-}
+.lg{display:flex;align-items:center;margin:3px 0}
+.sw{width:18px;height:12px;margin-right:5px;border:1px solid #999}
+#drawHint{color:#92400e;font-weight:700}
+.cell-tooltip{font-size:11px}
 </style>
 </head>
 
 <body>
-
 <div id="map"></div>
 
+<div id="panel">
+  <h2>⛰️ 20m DTM 坡度分析</h2>
+  <div class="small">
+    Taiwan Elevation API＋20m DTM＋Horn 3×3。<br>
+    坡度統計採「20m 網格與查估 Polygon 實際相交面積」加權。
+  </div>
 
-<!-- =====================================================
-     左側工具列
-===================================================== -->
+  <h3>① Taiwan Elevation API</h3>
+  <label>API Key（不會寫入 HTML）</label>
+  <input id="apiKey" type="password" autocomplete="off" placeholder="請輸入你的 API Key">
+  <div class="row">
+    <button id="testBtn" class="warn" onclick="testAPI()">測試 API</button>
+    <button onclick="clearKey()">清除 Key</button>
+  </div>
+  <div id="apiStatus" class="status">尚未測試 API。</div>
 
-<div id="toolbar">
+  <h3>② 查估範圍</h3>
+  <div id="drawHint" class="small">請按「開始畫範圍」，再於地圖上依序點擊 Polygon 頂點。</div>
+  <div class="row">
+    <button id="drawBtn" class="primary" onclick="startDraw()">開始畫範圍</button>
+    <button onclick="finishPolygon()">完成 Polygon</button>
+  </div>
+  <div class="row">
+    <button onclick="clearPolygon()">清除範圍</button>
+    <button onclick="fitPolygon()">定位範圍</button>
+  </div>
 
-    <h3>⛰️ NLSC 坡度分析</h3>
-
-    <div class="tool-row">
-
-        <button
-            id="drawBtn"
-            class="primary"
-        >
-            ✏️ 開始繪製分析範圍
-        </button>
-
+  <h3>③ 分析設定</h3>
+  <div class="row">
+    <div>
+      <label>DTM 網格</label>
+      <input value="20 m" disabled>
     </div>
-
-
-    <div class="tool-row">
-
-        <button
-            id="finishBtn"
-        >
-            ✔ 完成範圍
-        </button>
-
+    <div>
+      <label>Horn 視窗</label>
+      <input value="3 × 3" disabled>
     </div>
+  </div>
+  <div class="row">
+    <button id="analyzeBtn" class="green" onclick="runAnalysis()">開始 DTM 坡度分析</button>
+  </div>
 
+  <div class="progress"><div id="progressBar"></div></div>
+  <div id="progressText" class="small">進度：0%</div>
+  <div id="runStatus" class="status">等待分析。</div>
 
-    <div class="tool-row">
+  <h3>④ 坡度統計</h3>
+  <div class="statgrid">
+    <div class="stat">Polygon 面積<b id="sArea">—</b></div>
+    <div class="stat">有效分析面積<b id="sValidArea">—</b></div>
+    <div class="stat">有效網格<b id="sCells">—</b></div>
+    <div class="stat">平均坡度<b id="sAvg">—</b></div>
+    <div class="stat">平均坡度角<b id="sDeg">—</b></div>
+    <div class="stat">最低 / 最高<b id="sMinMax">—</b></div>
+    <div class="stat">＞15% 面積<b id="sOverArea">—</b></div>
+    <div class="stat">＞15% 面積比例<b id="sOverRatio">—</b></div>
+  </div>
 
-        <button
-            id="calculateBtn"
-            class="primary"
-        >
-            ⛰️ 計算所選範圍坡度
-        </button>
+  <h3>⑤ 坡度分級</h3>
+  <table>
+    <thead><tr><th>級別</th><th>坡度</th><th>面積 m²</th><th>比例</th></tr></thead>
+    <tbody id="classTable"></tbody>
+  </table>
 
-    </div>
-
-
-    <div class="tool-row">
-
-        <button
-            id="clearBtn"
-            class="danger"
-        >
-            🗑 清除分析
-        </button>
-
-    </div>
-
-
-    <div class="tool-row">
-
-        <label>
-            坡度分析資料
-        </label>
-
-        <select id="slopeLayerSelect">
-
-            <option value="none">
-                不顯示
-            </option>
-
-            <option value="slope7">
-                NLSC 20m DTM 坡度圖－7級
-            </option>
-
-            <option value="slope30">
-                NLSC 20m DTM 坡度圖－30%以上
-            </option>
-
-            <option value="aspect">
-                NLSC 20m DTM 坡向圖
-            </option>
-
-            <option value="contour">
-                NLSC 20m DTM 等高線
-            </option>
-
-        </select>
-
-    </div>
-
-
-    <div class="info-box">
-
-        <b>操作方式</b><br>
-
-        ① 點擊「開始繪製分析範圍」<br>
-        ② 在地圖上逐點點擊<br>
-        ③ 點擊「完成範圍」<br>
-        ④ 點擊「計算所選範圍坡度」<br><br>
-
-        底圖：
-        <b>NLSC 臺灣通用電子地圖</b>
-
-    </div>
-
+  <h3>⑥ 診斷</h3>
+  <div id="diag" class="status">尚無分析資料。</div>
 </div>
 
-
-<!-- =====================================================
-     右側分析結果
-===================================================== -->
-
-<div id="slopePanel">
-
-    <h3>⛰️ 坡度分析結果</h3>
-
-    <div class="panel-subtitle">
-        目前選取範圍
-    </div>
-
-
-    <div class="stat-grid">
-
-        <div class="stat-card">
-
-            <div class="stat-label">
-                分析面積
-            </div>
-
-            <div
-                class="stat-value"
-                id="areaValue"
-            >
-                —
-            </div>
-
-        </div>
-
-
-        <div class="stat-card">
-
-            <div class="stat-label">
-                Polygon
-            </div>
-
-            <div
-                class="stat-value"
-                id="polygonValue"
-            >
-                0
-            </div>
-
-        </div>
-
-
-        <div class="stat-card">
-
-            <div class="stat-label">
-                平均坡度
-            </div>
-
-            <div
-                class="stat-value"
-                id="meanSlope"
-            >
-                —
-            </div>
-
-        </div>
-
-
-        <div class="stat-card">
-
-            <div class="stat-label">
-                最大坡度
-            </div>
-
-            <div
-                class="stat-value"
-                id="maxSlope"
-            >
-                —
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="section-title">
-        坡度分級
-    </div>
-
-
-    <div id="slopeDistribution">
-
-        <div class="slope-row">
-
-            <span>
-                0～5%
-            </span>
-
-            <div class="slope-bar">
-                <div
-                    class="slope-fill s0"
-                    id="bar0"
-                    style="width:0%"
-                ></div>
-            </div>
-
-            <strong id="pct0">
-                0%
-            </strong>
-
-        </div>
-
-
-        <div class="slope-row">
-
-            <span>
-                5～15%
-            </span>
-
-            <div class="slope-bar">
-                <div
-                    class="slope-fill s1"
-                    id="bar1"
-                    style="width:0%"
-                ></div>
-            </div>
-
-            <strong id="pct1">
-                0%
-            </strong>
-
-        </div>
-
-
-        <div class="slope-row">
-
-            <span>
-                15～30%
-            </span>
-
-            <div class="slope-bar">
-                <div
-                    class="slope-fill s2"
-                    id="bar2"
-                    style="width:0%"
-                ></div>
-            </div>
-
-            <strong id="pct2">
-                0%
-            </strong>
-
-        </div>
-
-
-        <div class="slope-row">
-
-            <span>
-                30%以上
-            </span>
-
-            <div class="slope-bar">
-                <div
-                    class="slope-fill s3"
-                    id="bar3"
-                    style="width:0%"
-                ></div>
-            </div>
-
-            <strong id="pct3">
-                0%
-            </strong>
-
-        </div>
-
-    </div>
-
-
-    <div class="section-title">
-        查估參考指標
-    </div>
-
-
-    <div class="stat-card">
-
-        <div class="stat-label">
-            15%以上坡度面積比例
-        </div>
-
-        <div
-            class="stat-value"
-            id="steepArea"
-        >
-            —
-        </div>
-
-    </div>
-
-
-    <div class="note" id="status">
-
-        尚未選取分析範圍。
-
-        <br><br>
-
-        NLSC 底圖已啟用。
-
-    </div>
-
+<div class="legend">
+  <div><b>坡度分級</b></div>
+  <div class="lg"><span class="sw" style="background:#2ca25f"></span>≤ 5%</div>
+  <div class="lg"><span class="sw" style="background:#99d8c9"></span>&gt;5–15%</div>
+  <div class="lg"><span class="sw" style="background:#fec44f"></span>&gt;15–30%</div>
+  <div class="lg"><span class="sw" style="background:#fe9929"></span>&gt;30–40%</div>
+  <div class="lg"><span class="sw" style="background:#ec7014"></span>&gt;40–55%</div>
+  <div class="lg"><span class="sw" style="background:#cc4c02"></span>&gt;55–100%</div>
+  <div class="lg"><span class="sw" style="background:#993404"></span>&gt;100%</div>
 </div>
-
-
-<script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
-</script>
-
-<script
-    src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js">
-</script>
-
 
 <script>
+/* ============================================================
+   20m DTM + Taiwan Elevation API + Horn 3x3
+   純 HTML / JavaScript，無 Python。
+   ============================================================ */
 
-"use strict";
+const API_URL = "https://outdoorsafetylab.org/api/v1/elevations";
+const GRID = 20;
 
+// New Taipei / Taiwan main island: UTM Zone 51N
+const WGS84 = "EPSG:4326";
+const UTM51 = "EPSG:32651";
 
-/* =====================================================
-   NLSC 底圖
-===================================================== */
+const map = L.map("map").setView([25.012098,121.465675],15);
 
-const nlscEMAP =
-    L.tileLayer(
-        "https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}",
-        {
-            maxZoom: 19,
-
-            attribution:
-                "© 內政部國土測繪中心 NLSC"
-        }
-    );
-
-
-/* =====================================================
-   NLSC 正射影像
-===================================================== */
-
-const nlscPHOTO =
-    L.tileLayer(
-        "https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/EPSG:3857/{z}/{y}/{x}",
-        {
-            maxZoom: 19,
-
-            attribution:
-                "© 內政部國土測繪中心 NLSC"
-        }
-    );
-
-
-/* =====================================================
-   NLSC 等高線
-===================================================== */
-
-const nlscContour =
-    L.tileLayer(
-        "https://wmts.nlsc.gov.tw/wmts/EMAP5/default/EPSG:3857/{z}/{y}/{x}",
-        {
-            maxZoom: 19,
-
-            opacity: .75,
-
-            attribution:
-                "© 內政部國土測繪中心 NLSC"
-        }
-    );
-
-
-/* =====================================================
-   地圖
-===================================================== */
-
-const map =
-    L.map(
-        "map",
-        {
-            center:
-                [
-                    25.012098,
-                    121.465675
-                ],
-
-            zoom: 15,
-
-            layers:
-                [
-                    nlscEMAP
-                ],
-
-            zoomControl:
-                true
-        }
-    );
-
-
-/* =====================================================
-   NLSC DTM 坡度相關圖層
-===================================================== */
-
-/*
-   注意：
-
-   以下服務是 NLSC 圖資服務雲所發布的
-   20m DTM 加值成果。
-
-   它們是「圖磚成果」，可以用來視覺檢核
-   坡度位置。
-
-   真正的 Polygon 數值統計仍應使用
-   DTM 分析 API 或 DEM 原始格網。
-*/
-
-
-const nlscSlope7 =
-    L.tileLayer(
-        "https://wmts.nlsc.gov.tw/wmts/SLOPE7/default/EPSG:3857/{z}/{y}/{x}",
-        {
-            maxZoom: 19,
-
-            opacity: .65,
-
-            attribution:
-                "© 內政部國土測繪中心 NLSC"
-        }
-    );
-
-
-const nlscSlope30 =
-    L.tileLayer(
-        "https://wmts.nlsc.gov.tw/wmts/SLOPE30/default/EPSG:3857/{z}/{y}/{x}",
-        {
-            maxZoom: 19,
-
-            opacity: .65,
-
-            attribution:
-                "© 內政部國土測繪中心 NLSC"
-        }
-    );
-
-
-const nlscAspect =
-    L.tileLayer(
-        "https://wmts.nlsc.gov.tw/wmts/ASPECT/default/EPSG:3857/{z}/{y}/{x}",
-        {
-            maxZoom: 19,
-
-            opacity: .65,
-
-            attribution:
-                "© 內政部國土測繪中心 NLSC"
-        }
-    );
-
-
-/* =====================================================
-   圖層控制
-===================================================== */
-
-const baseLayers = {
-
-    "NLSC 臺灣通用電子地圖":
-        nlscEMAP,
-
-    "NLSC 正射影像":
-        nlscPHOTO
-
-};
-
-
-const overlayLayers = {
-
-    "NLSC 等高線":
-        nlscContour,
-
-    "NLSC DTM 坡度－7級":
-        nlscSlope7,
-
-    "NLSC DTM 坡度－30%以上":
-        nlscSlope30,
-
-    "NLSC DTM 坡向":
-        nlscAspect
-
-};
-
-
-L.control.layers(
-    baseLayers,
-    overlayLayers,
-    {
-        collapsed: true,
-        position: "topright"
-    }
+const emap = L.tileLayer(
+  "https://wmts.nlsc.gov.tw/wmts/EMAP/default/EPSG:3857/{z}/{y}/{x}",
+  {maxZoom:19,attribution:"NLSC"}
 ).addTo(map);
 
-
-/* =====================================================
-   比例尺
-===================================================== */
-
-L.control.scale(
-    {
-        imperial: false,
-        position: "bottomleft"
-    }
-).addTo(map);
-
-
-/* =====================================================
-   Polygon 狀態
-===================================================== */
-
-let drawing = false;
-
-let drawPoints = [];
-
-let tempLine = null;
-
-let analysisPolygon = null;
-
-let polygonLayer = null;
-
-
-/* =====================================================
-   開始繪製
-===================================================== */
-
-document
-    .getElementById("drawBtn")
-    .addEventListener(
-        "click",
-        function() {
-
-            drawing = true;
-
-            drawPoints = [];
-
-            if (tempLine) {
-
-                map.removeLayer(tempLine);
-
-                tempLine = null;
-
-            }
-
-            if (polygonLayer) {
-
-                map.removeLayer(polygonLayer);
-
-                polygonLayer = null;
-
-            }
-
-            analysisPolygon = null;
-
-            document
-                .getElementById("status")
-                .innerHTML =
-                "繪製模式已啟用。<br>" +
-                "請在地圖上依序點擊 Polygon 頂點。";
-
-        }
-    );
-
-
-/* =====================================================
-   地圖點擊
-===================================================== */
-
-map.on(
-    "click",
-    function(e) {
-
-        if (!drawing) {
-
-            return;
-
-        }
-
-        drawPoints.push(
-            [
-                e.latlng.lat,
-                e.latlng.lng
-            ]
-        );
-
-
-        if (tempLine) {
-
-            map.removeLayer(tempLine);
-
-        }
-
-
-        tempLine =
-            L.polyline(
-                drawPoints,
-                {
-                    color: "#2563eb",
-
-                    weight: 3,
-
-                    dashArray: "7 5"
-                }
-            ).addTo(map);
-
-    }
+const photo = L.tileLayer(
+  "https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/EPSG:3857/{z}/{y}/{x}",
+  {maxZoom:19,attribution:"NLSC"}
 );
 
+const osm = L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {maxZoom:19,attribution:"© OpenStreetMap"}
+);
 
-/* =====================================================
-   完成 Polygon
-===================================================== */
+L.control.layers({
+  "NLSC EMAP":emap,
+  "NLSC PHOTO2":photo,
+  "OpenStreetMap":osm
+}).addTo(map);
 
-document
-    .getElementById("finishBtn")
-    .addEventListener(
-        "click",
-        function() {
+let drawing=false;
+let vertices=[];
+let vertexMarkers=[];
+let polygonLayer=null;
+let slopeLayer=null;
+let resultCells=[];
 
-            if (drawPoints.length < 3) {
+function setStatus(id,msg){
+  document.getElementById(id).textContent=msg;
+}
+function setProgress(p,msg){
+  const x=Math.max(0,Math.min(100,p));
+  document.getElementById("progressBar").style.width=x+"%";
+  document.getElementById("progressText").textContent=`進度：${x.toFixed(0)}%${msg?"｜"+msg:""}`;
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
-                alert(
-                    "至少需要 3 個點才能形成分析範圍。"
-                );
+function startDraw(){
+  clearPolygon();
+  drawing=true;
+  vertices=[];
+  document.getElementById("drawHint").textContent="繪圖中：請依序點擊 Polygon 頂點，至少 3 點後按「完成 Polygon」。";
+  setStatus("runStatus","正在繪製查估範圍。");
+}
+map.on("click",e=>{
+  if(!drawing)return;
+  vertices.push([e.latlng.lng,e.latlng.lat]);
+  const m=L.circleMarker(e.latlng,{radius:5,color:"#b91c1c",fillColor:"#ef4444",fillOpacity:1}).addTo(map);
+  vertexMarkers.push(m);
 
-                return;
-
-            }
-
-
-            drawing = false;
-
-
-            if (tempLine) {
-
-                map.removeLayer(tempLine);
-
-                tempLine = null;
-
-            }
-
-
-            analysisPolygon =
-                L.polygon(
-                    drawPoints,
-                    {
-                        className:
-                            "analysis-polygon",
-
-                        color:
-                            "#dc2626",
-
-                        weight:
-                            3,
-
-                        fillColor:
-                            "#facc15",
-
-                        fillOpacity:
-                            .12
-                    }
-                ).addTo(map);
-
-
-            polygonLayer =
-                analysisPolygon;
-
-
-            map.fitBounds(
-                analysisPolygon.getBounds(),
-                {
-                    padding:
-                        [30, 30]
-                }
-            );
-
-
-            const area =
-                calculateLeafletPolygonArea(
-                    drawPoints
-                );
-
-
-            document
-                .getElementById("areaValue")
-                .textContent =
-                formatArea(area);
-
-
-            document
-                .getElementById("polygonValue")
-                .textContent =
-                "1";
-
-
-            document
-                .getElementById("status")
-                .innerHTML =
-                "分析範圍已完成。<br>" +
-                "請按「計算所選範圍坡度」。";
-
-        }
-    );
-
-
-/* =====================================================
-   計算 Polygon 面積
-===================================================== */
-
-function calculateLeafletPolygonArea(
-    latlngs
-) {
-
-    const coordinates =
-        latlngs.map(
-            p => [
-                p[1],
-                p[0]
-            ]
-        );
-
-
-    coordinates.push(
-        coordinates[0]
-    );
-
-
-    const polygon =
-        turf.polygon(
-            [coordinates]
-        );
-
-
-    return turf.area(
-        polygon
-    );
-
+  if(polygonLayer) map.removeLayer(polygonLayer);
+  if(vertices.length>=3){
+    polygonLayer=L.polygon(vertices.map(p=>[p[1],p[0]]),{
+      color:"#dc2626",weight:2,fillColor:"#fde68a",fillOpacity:.25
+    }).addTo(map);
+  }
+});
+function finishPolygon(){
+  if(vertices.length<3){
+    alert("至少需要 3 個頂點。");
+    return;
+  }
+  drawing=false;
+  document.getElementById("drawHint").textContent=`Polygon 已完成，共 ${vertices.length} 點。`;
+  if(polygonLayer) polygonLayer.bringToFront();
+  fitPolygon();
+}
+function clearPolygon(){
+  drawing=false;
+  vertices=[];
+  vertexMarkers.forEach(x=>map.removeLayer(x));
+  vertexMarkers=[];
+  if(polygonLayer){map.removeLayer(polygonLayer);polygonLayer=null;}
+  if(slopeLayer){map.removeLayer(slopeLayer);slopeLayer=null;}
+  resultCells=[];
+  document.getElementById("drawHint").textContent="請按「開始畫範圍」，再於地圖上依序點擊 Polygon 頂點。";
+  setProgress(0);
+  setStatus("runStatus","等待分析。");
+  setStatus("diag","尚無分析資料。");
+  resetStats();
+}
+function fitPolygon(){
+  if(polygonLayer) map.fitBounds(polygonLayer.getBounds(),{padding:[30,30]});
+}
+function resetStats(){
+  ["sArea","sValidArea","sCells","sAvg","sDeg","sMinMax","sOverArea","sOverRatio"]
+    .forEach(id=>document.getElementById(id).textContent="—");
+  document.getElementById("classTable").innerHTML="";
 }
 
+/* ---------- API ---------- */
+function getKey(){
+  return document.getElementById("apiKey").value.trim();
+}
+function clearKey(){
+  document.getElementById("apiKey").value="";
+  setStatus("apiStatus","已清除 API Key。");
+}
+function parseElevations(data,expected){
+  // 兼容常見回傳格式：
+  // [1,2,3]
+  // {"elevations":[1,2,3]}
+  // {"data":[1,2,3]}
+  // [{"elevation":1},...]
+  let arr=null;
+  if(Array.isArray(data)) arr=data;
+  else if(data && Array.isArray(data.elevations)) arr=data.elevations;
+  else if(data && Array.isArray(data.data)) arr=data.data;
+  else if(data && Array.isArray(data.results)) arr=data.results;
 
-/* =====================================================
-   面積格式
-===================================================== */
+  if(!arr) throw new Error("無法辨識 API 回傳格式。回傳："+JSON.stringify(data).slice(0,500));
 
-function formatArea(
-    area
-) {
+  const vals=arr.map(x=>{
+    if(typeof x==="number") return x;
+    if(typeof x==="string") return Number(x);
+    if(x && typeof x.elevation==="number") return x.elevation;
+    if(x && typeof x.elevation==="string") return Number(x.elevation);
+    if(x && typeof x.z==="number") return x.z;
+    if(x && typeof x.height==="number") return x.height;
+    return NaN;
+  });
 
-    if (area < 10000) {
+  if(vals.length!==expected){
+    throw new Error(`API 回傳筆數 ${vals.length}，但送出 ${expected} 點。`);
+  }
+  if(vals.some(v=>!Number.isFinite(v))){
+    throw new Error("API 回傳中存在無法解析的高程值。");
+  }
+  return vals;
+}
 
-        return (
-            area.toFixed(1) +
-            " m²"
-        );
+async function requestElevations(pointsLonLat){
+  const key=getKey();
+  if(!key) throw new Error("請先輸入 Taiwan Elevation API Key。");
 
+  const url=API_URL+"?access_token="+encodeURIComponent(key);
+  const res=await fetch(url,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(pointsLonLat)
+  });
+  const text=await res.text();
+  let data;
+  try{data=JSON.parse(text)}catch(e){data=text}
+  if(!res.ok){
+    throw new Error(`HTTP ${res.status}：${typeof data==="string"?data:JSON.stringify(data)}`);
+  }
+  return parseElevations(data,pointsLonLat.length);
+}
+
+async function testAPI(){
+  const key=getKey();
+  if(!key){setStatus("apiStatus","請輸入 API Key。");return;}
+  const btn=document.getElementById("testBtn");
+  btn.disabled=true;
+  setStatus("apiStatus","測試中：查詢 1 個座標…");
+  try{
+    const p=[[121.465675,25.012098]];
+    const z=await requestElevations(p);
+    setStatus("apiStatus",`API 測試成功。\n座標：${p[0][1].toFixed(6)}, ${p[0][0].toFixed(6)}\n高程：${z[0].toFixed(2)} m`);
+  }catch(err){
+    setStatus("apiStatus","API 測試失敗。\n"+err.message+
+      "\n\n如果是 Failed to fetch，通常是瀏覽器跨來源（CORS）限制、網路環境或 API 服務端限制。");
+  }finally{btn.disabled=false;}
+}
+
+/* ---------- Geometry / grid ---------- */
+function polygonFeature(){
+  if(vertices.length<3)return null;
+  const ring=vertices.slice();
+  ring.push(vertices[0]);
+  return turf.polygon([ring]);
+}
+function projectLonLat(p){
+  return proj4(WGS84,UTM51,p);
+}
+function unprojectXY(p){
+  return proj4(UTM51,WGS84,p);
+}
+function makeGrid(poly){
+  const ring=poly.geometry.coordinates[0];
+  const xy=ring.map(projectLonLat);
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  xy.forEach(([x,y])=>{
+    minX=Math.min(minX,x);maxX=Math.max(maxX,x);
+    minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+  });
+
+  // 將網格原點對齊到 20m 整數線，並向外擴 1 格，
+  // 確保 Polygon 邊界附近的 Horn 3×3 鄰域完整。
+  const x0=Math.floor(minX/GRID)-1;
+  const x1=Math.ceil(maxX/GRID)+1;
+  const y0=Math.floor(minY/GRID)-1;
+  const y1=Math.ceil(maxY/GRID)+1;
+
+  const cells=[];
+  for(let i=x0;i<x1;i++){
+    for(let j=y0;j<y1;j++){
+      const xmin=i*GRID,xmax=(i+1)*GRID;
+      const ymin=j*GRID,ymax=(j+1)*GRID;
+      const corners=[
+        [xmin,ymin],[xmax,ymin],[xmax,ymax],[xmin,ymax],[xmin,ymin]
+      ].map(unprojectXY);
+
+      const cell=turf.polygon([[...corners]]);
+      // 用 bbox 初篩，再用 Turf intersection 做實際相交面積。
+      if(!turf.booleanIntersects(cell,poly)) continue;
+
+      const center=[(xmin+xmax)/2,(ymin+ymax)/2];
+      cells.push({
+        i,j,
+        xmin,xmax,ymin,ymax,
+        centerXY:center,
+        centerLonLat:unprojectXY(center),
+        cellFeature:cell
+      });
+    }
+  }
+
+  // 所有 Horn 所需的節點。
+  const nodeMap=new Map();
+  const nodes=[];
+  for(const c of cells){
+    for(let di=-1;di<=1;di++){
+      for(let dj=-1;dj<=1;dj++){
+        const ni=c.i+di,nj=c.j+dj;
+        const k=ni+","+nj;
+        if(nodeMap.has(k))continue;
+        const xy=[(ni)*GRID,(nj)*GRID];
+        nodeMap.set(k,nodes.length);
+        nodes.push({i:ni,j:nj,xy,lonlat:unprojectXY(xy)});
+      }
+    }
+  }
+  return {cells,nodes,nodeMap};
+}
+
+/* ---------- Slope ---------- */
+function classInfo(p){
+  if(p<=5) return {cls:1,label:"≤5%",fill:"#2ca25f"};
+  if(p<=15) return {cls:2,label:">5–15%",fill:"#99d8c9"};
+  if(p<=30) return {cls:3,label:">15–30%",fill:"#fec44f"};
+  if(p<=40) return {cls:4,label:">30–40%",fill:"#fe9929"};
+  if(p<=55) return {cls:5,label:">40–55%",fill:"#ec7014"};
+  if(p<=100)return {cls:6,label:">55–100%",fill:"#cc4c02"};
+  return {cls:7,label:">100%",fill:"#993404"};
+}
+function horn(z,cell){
+  // 節點配置：
+  // Z1 Z2 Z3
+  // Z4 Z5 Z6
+  // Z7 Z8 Z9
+  const get=(di,dj)=>z[cell.i+","+cell.j+"_"+di+"_"+dj];
+  const z1=get(-1,-1),z2=get(0,-1),z3=get(1,-1);
+  const z4=get(-1,0), z5=get(0,0), z6=get(1,0);
+  const z7=get(-1,1), z8=get(0,1), z9=get(1,1);
+  const dzdx=(z3+2*z6+z9-z1-2*z4-z7)/(8*GRID);
+  const dzdy=(z7+2*z8+z9-z1-2*z2-z3)/(8*GRID);
+  const ratio=Math.sqrt(dzdx*dzdx+dzdy*dzdy);
+  return {
+    ratio,
+    percent:ratio*100,
+    degree:Math.atan(ratio)*180/Math.PI
+  };
+}
+
+/* ---------- API batch ---------- */
+async function getNodeElevations(grid){
+  // 小批次可降低單次 request 過大的風險。
+  // 若服務端有更嚴格限制，可再調小。
+  const BATCH=300;
+  const elevations=new Map();
+  let done=0;
+  for(let s=0;s<grid.nodes.length;s+=BATCH){
+    const batch=grid.nodes.slice(s,s+BATCH);
+    const vals=await requestElevations(batch.map(n=>n.lonlat));
+    batch.forEach((n,k)=>elevations.set(n.i+","+n.j,vals[k]));
+    done+=batch.length;
+    const p=15+55*(done/grid.nodes.length);
+    setProgress(p,`高程查詢 ${done}/${grid.nodes.length}`);
+    setStatus("runStatus",`正在向 Taiwan Elevation API 查詢高程…\n已完成 ${done}/${grid.nodes.length} 個節點。`);
+    // 避免瀏覽器瞬間連續大量請求
+    if(s+BATCH<grid.nodes.length) await sleep(100);
+  }
+  return elevations;
+}
+
+function colorSlopeLayer(cells){
+  if(slopeLayer)map.removeLayer(slopeLayer);
+  slopeLayer=L.layerGroup().addTo(map);
+
+  cells.forEach(c=>{
+    const ci=classInfo(c.slope.percent);
+    const ll=c.cellFeature.geometry.coordinates[0].map(p=>[p[1],p[0]]);
+    const layer=L.polygon(ll,{
+      color:ci.fill,weight:0.7,fillColor:ci.fill,fillOpacity:.62
+    }).bindTooltip(
+      `坡度：${c.slope.percent.toFixed(2)}%<br>`+
+      `坡度角：${c.slope.degree.toFixed(2)}°<br>`+
+      `相交面積：${c.intersectionArea.toFixed(2)} m²`,
+      {className:"cell-tooltip"}
+    );
+    layer.addTo(slopeLayer);
+  });
+  if(polygonLayer)polygonLayer.bringToFront();
+}
+
+/* ---------- Analysis ---------- */
+async function runAnalysis(){
+  if(vertices.length<3){alert("請先畫出至少 3 點的 Polygon。");return;}
+  if(!getKey()){alert("請先輸入 Taiwan Elevation API Key。");return;}
+
+  const btn=document.getElementById("analyzeBtn");
+  btn.disabled=true;
+  resetStats();
+  if(slopeLayer){map.removeLayer(slopeLayer);slopeLayer=null;}
+
+  try{
+    const poly=polygonFeature();
+    const polygonArea=turf.area(poly);
+
+    setProgress(3,"建立 20m 網格");
+    setStatus("runStatus","正在建立 20m × 20m 網格，並計算 Polygon 實際相交面積…");
+
+    const grid=makeGrid(poly);
+    if(!grid.cells.length)throw new Error("Polygon 沒有與 20m 網格相交。");
+    setProgress(10,`找到 ${grid.cells.length} 個相交網格`);
+    setStatus("runStatus",
+      `20m 網格建立完成。\n`+
+      `相交網格：${grid.cells.length} 格\n`+
+      `Horn 所需高程節點：${grid.nodes.length} 點`
+    );
+
+    const elev=await getNodeElevations(grid);
+
+    setProgress(72,"計算 Horn 3×3");
+    const cells=[];
+    let missing=0;
+
+    for(let idx=0;idx<grid.cells.length;idx++){
+      const c=grid.cells[idx];
+      const z={};
+      let ok=true;
+      for(let di=-1;di<=1;di++){
+        for(let dj=-1;dj<=1;dj++){
+          const key=(c.i+di)+","+(c.j+dj);
+          const val=elev.get(key);
+          if(!Number.isFinite(val)){ok=false;break;}
+          z[c.i+","+c.j+"_"+di+"_"+dj]=val;
+        }
+        if(!ok)break;
+      }
+      if(!ok){missing++;continue;}
+
+      const slope=horn(z,c);
+
+      // Polygon × 20m cell 的實際相交面積。
+      const inter=turf.intersect(turf.featureCollection([poly,c.cellFeature]));
+      const area=inter?turf.area(inter):0;
+      if(area<=0)continue;
+
+      cells.push({...c,slope,intersectionArea:area});
+      if(idx%30===0){
+        setProgress(72+20*(idx/grid.cells.length),`坡度計算 ${idx+1}/${grid.cells.length}`);
+        await sleep(0);
+      }
     }
 
+    if(!cells.length)throw new Error("沒有成功取得可計算 Horn 3×3 的有效網格。");
 
-    return (
-        (area / 10000)
-            .toFixed(2) +
-        " 公頃"
+    setProgress(94,"統計與分級著色");
+    const totalArea=cells.reduce((s,c)=>s+c.intersectionArea,0);
+    const weightedSlope=cells.reduce((s,c)=>s+c.slope.percent*c.intersectionArea,0)/totalArea;
+    const weightedDeg=cells.reduce((s,c)=>s+c.slope.degree*c.intersectionArea,0)/totalArea;
+    const min=Math.min(...cells.map(c=>c.slope.percent));
+    const max=Math.max(...cells.map(c=>c.slope.percent));
+    const overArea=cells.filter(c=>c.slope.percent>15)
+                        .reduce((s,c)=>s+c.intersectionArea,0);
+
+    const classes=[
+      {cls:1,label:"≤5%",area:0},
+      {cls:2,label:">5–15%",area:0},
+      {cls:3,label:">15–30%",area:0},
+      {cls:4,label:">30–40%",area:0},
+      {cls:5,label:">40–55%",area:0},
+      {cls:6,label:">55–100%",area:0},
+      {cls:7,label:">100%",area:0}
+    ];
+    cells.forEach(c=>c.classInfo=classInfo(c.slope.percent));
+    cells.forEach(c=>classes[c.classInfo.cls-1].area+=c.intersectionArea);
+
+    resultCells=cells;
+    colorSlopeLayer(cells);
+
+    document.getElementById("sArea").textContent=polygonArea.toFixed(2)+" m²";
+    document.getElementById("sValidArea").textContent=totalArea.toFixed(2)+" m²";
+    document.getElementById("sCells").textContent=cells.length+" 格";
+    document.getElementById("sAvg").textContent=weightedSlope.toFixed(2)+" %";
+    document.getElementById("sDeg").textContent=weightedDeg.toFixed(2)+"°";
+    document.getElementById("sMinMax").textContent=min.toFixed(2)+"% / "+max.toFixed(2)+"%";
+    document.getElementById("sOverArea").textContent=overArea.toFixed(2)+" m²";
+    document.getElementById("sOverRatio").textContent=(overArea/totalArea*100).toFixed(2)+" %";
+
+    document.getElementById("classTable").innerHTML=classes.map(x=>{
+      const ratio=x.area/totalArea*100;
+      return `<tr><td>${x.cls}</td><td>${x.label}</td><td>${x.area.toFixed(2)}</td><td>${ratio.toFixed(2)}%</td></tr>`;
+    }).join("");
+
+    const coverage=totalArea/polygonArea*100;
+    setProgress(100,"完成");
+    setStatus("runStatus",
+      `分析完成。\n`+
+      `20m 相交網格：${grid.cells.length} 格\n`+
+      `Horn 有效網格：${cells.length} 格\n`+
+      `API 高程節點：${grid.nodes.length} 點`
+    );
+    setStatus("diag",
+      `Polygon 面積：${polygonArea.toFixed(2)} m²\n`+
+      `網格實際相交面積：${totalArea.toFixed(2)} m²\n`+
+      `有效覆蓋率：${coverage.toFixed(2)}%\n`+
+      `Horn 無法計算網格：${missing} 格\n`+
+      `坡度 >15%：${overArea.toFixed(2)} m²（${(overArea/totalArea*100).toFixed(2)}%）\n`+
+      `計算方式：20m × 20m cell 與 Polygon 實際相交面積加權`
     );
 
+  }catch(err){
+    console.error(err);
+    setProgress(0,"失敗");
+    setStatus("runStatus","DTM 分析失敗：\n"+err.message);
+    setStatus("diag",
+      "可能原因：\n"+
+      "1. API Key 無效或額度不足\n"+
+      "2. Taiwan Elevation API 暫時無法連線\n"+
+      "3. 瀏覽器 CORS / 網路環境限制\n"+
+      "4. Polygon 太大，API 查詢節點過多\n\n"+
+      "請先使用「測試 API」確認單點查詢。"
+    );
+  }finally{
+    btn.disabled=false;
+  }
 }
-
-
-/* =====================================================
-   坡度圖層切換
-===================================================== */
-
-document
-    .getElementById("slopeLayerSelect")
-    .addEventListener(
-        "change",
-        function() {
-
-            nlscSlope7.removeFrom(map);
-
-            nlscSlope30.removeFrom(map);
-
-            nlscAspect.removeFrom(map);
-
-            nlscContour.removeFrom(map);
-
-
-            switch (
-                this.value
-            ) {
-
-                case "slope7":
-
-                    nlscSlope7.addTo(map);
-
-                    break;
-
-
-                case "slope30":
-
-                    nlscSlope30.addTo(map);
-
-                    break;
-
-
-                case "aspect":
-
-                    nlscAspect.addTo(map);
-
-                    break;
-
-
-                case "contour":
-
-                    nlscContour.addTo(map);
-
-                    break;
-
-            }
-
-        }
-    );
-
-
-/* =====================================================
-   坡度分析
-===================================================== */
-
-document
-    .getElementById("calculateBtn")
-    .addEventListener(
-        "click",
-        function() {
-
-            if (!analysisPolygon) {
-
-                alert(
-                    "請先繪製並完成分析範圍。"
-                );
-
-                return;
-
-            }
-
-
-            const area =
-                calculateLeafletPolygonArea(
-                    drawPoints
-                );
-
-
-            document
-                .getElementById("areaValue")
-                .textContent =
-                formatArea(area);
-
-
-            /*
-             * ------------------------------------------------
-             * V1：
-             * 先使用 NLSC DTM 坡度圖作為視覺檢核。
-             *
-             * 不把 WMTS JPG 當成 DEM 數值。
-             *
-             * 因此下面不虛構平均坡度。
-             * ------------------------------------------------
-             */
-
-
-            document
-                .getElementById("meanSlope")
-                .textContent =
-                "待 DTM API";
-
-
-            document
-                .getElementById("maxSlope")
-                .textContent =
-                "待 DTM API";
-
-
-            document
-                .getElementById("steepArea")
-                .textContent =
-                "待 DTM API";
-
-
-            document
-                .getElementById("status")
-                .innerHTML =
-                "<b>範圍分析已建立</b><br><br>" +
-
-                "面積：" +
-                formatArea(area) +
-                "<br><br>" +
-
-                "目前已套用 NLSC DTM 坡度成果作為視覺檢核。<br><br>" +
-
-                "平均坡度、最大坡度及「15%以上坡度面積比例」" +
-                "下一階段應直接接 NLSC DTM 分析服務取得數值，" +
-                "避免把坡度圖磚影像誤當成 DEM 高程資料。";
-
-        }
-    );
-
-
-/* =====================================================
-   清除
-===================================================== */
-
-document
-    .getElementById("clearBtn")
-    .addEventListener(
-        "click",
-        function() {
-
-            drawing = false;
-
-            drawPoints = [];
-
-
-            if (tempLine) {
-
-                map.removeLayer(tempLine);
-
-                tempLine = null;
-
-            }
-
-
-            if (polygonLayer) {
-
-                map.removeLayer(
-                    polygonLayer
-                );
-
-                polygonLayer = null;
-
-            }
-
-
-            analysisPolygon = null;
-
-
-            document
-                .getElementById("areaValue")
-                .textContent =
-                "—";
-
-
-            document
-                .getElementById("polygonValue")
-                .textContent =
-                "0";
-
-
-            document
-                .getElementById("meanSlope")
-                .textContent =
-                "—";
-
-
-            document
-                .getElementById("maxSlope")
-                .textContent =
-                "—";
-
-
-            document
-                .getElementById("steepArea")
-                .textContent =
-                "—";
-
-
-            for (
-                let i = 0;
-                i < 4;
-                i++
-            ) {
-
-                document
-                    .getElementById(
-                        "bar" + i
-                    )
-                    .style.width =
-                    "0%";
-
-
-                document
-                    .getElementById(
-                        "pct" + i
-                    )
-                    .textContent =
-                    "0%";
-
-            }
-
-
-            document
-                .getElementById("status")
-                .innerHTML =
-                "分析範圍已清除。";
-
-        }
-    );
-
-
 </script>
-
 </body>
 </html>
