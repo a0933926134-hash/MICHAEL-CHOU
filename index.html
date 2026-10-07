@@ -1795,6 +1795,76 @@ body.mobile-mode .about-link-btn {
 .custom-wms-layer-item .btn-remove:hover {
     background: #fecaca;
 }
+/* =========================================
+           分析設施類型－分類收合
+           ========================================= */
+
+        .facility-category {
+            width: 100%;
+        }
+
+        .facility-category-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            padding: 10px 12px;
+            margin: 5px 0;
+
+            background: rgba(255,255,255,0.72);
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+
+            font-weight: 600;
+            cursor: pointer;
+
+            transition:
+                background 0.2s ease,
+                border-color 0.2s ease;
+        }
+
+        .facility-category-header:hover {
+            background: #fff;
+            border-color: #f59e0b;
+        }
+
+        .category-arrow {
+            display: inline-block;
+            width: 16px;
+            font-size: 12px;
+            transition: transform 0.2s ease;
+        }
+
+        .facility-category-header.active .category-arrow {
+            transform: rotate(90deg);
+        }
+
+        .facility-category-content {
+            display: none;
+            padding: 5px 8px 8px 24px;
+        }
+
+        .facility-category-content.open {
+            display: block;
+        }
+
+        .facility-category-content .checkbox-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 7px;
+            margin: 7px 0;
+        }
+
+        .facility-category-content .checkbox-item input {
+            flex-shrink: 0;
+            margin-top: 3px;
+        }
+
+        .facility-category-content .checkbox-item label {
+            cursor: pointer;
+            line-height: 1.4;
+        }
+    
 </style>
 </head>
 <body>
@@ -6370,4 +6440,27 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('✅ 修正：直線距離及路線距離在區段範圍內時同時顯示「位於區段範圍內」');
     console.log('✅ 著作權合規：MIT License + ODbL Attribution');
 });
+// =========================================
+// 分析設施類型－分類展開 / 收合
+// =========================================
+function toggleFacilityCategory(category) {
+
+    const content = document.getElementById(
+        'facility-' + category
+    );
+
+    if (!content) return;
+
+    const header = content.previousElementSibling;
+
+    const isOpen = content.classList.contains('open');
+
+    if (isOpen) {
+        content.classList.remove('open');
+        header.classList.remove('active');
+    } else {
+        content.classList.add('open');
+        header.classList.add('active');
+    }
+}    
 </script>
