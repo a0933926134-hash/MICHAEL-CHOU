@@ -217,7 +217,7 @@
 
     <script>
         /*
-         * OSM 真實道路寬度分析 V4
+         * OSM 真實道路寬度分析 V5
          * 資料源：OpenStreetMap / Overpass
          * 1. highway 道路中心線：真實 OSM geometry
          * 2. area:highway / highway+area=yes：道路面幾何
@@ -409,8 +409,17 @@
                 drawDebugLayers(clippedSurfaces,buildingFeatures);
 
                 const total=roads.length,valid=currentRoadData.length;
+                const surfaceCount=roads.filter(r=>r.surfaceWidth!==null).length;
+                const tagCount=roads.filter(r=>r.osmWidth!==null||r.osmEstWidth!==null).length;
+                const buildingCount=roads.filter(r=>r.widthSource==='建物邊界橫向採樣推估').length;
                 document.getElementById('polygon-status').innerHTML=`<span class="text-emerald-400 font-semibold"><i class="fa-solid fa-check-circle mr-1"></i>分析完成：Polygon 內 ${total} 個路段，${valid} 個路段取得寬度</span>`;
-                if(!valid)alert('OSM 已取得真實道路幾何，但目前範圍沒有足夠的道路面、width、est_width 或建物邊界資料可估算寬度。');
+                if(!valid)alert(`OSM 已取得真實道路幾何，但仍無可用寬度。
+
+道路面可配對：${surfaceCount}
+width/est_width：${tagCount}
+建物邊界有效推估：${buildingCount}
+
+系統不會以人工預設寬度取代真實資料。`);
             }catch(err){
                 if(token!==requestToken)return;
                 console.error(err);
@@ -455,7 +464,7 @@
 
         async function fetchOverpassTile(t){
             const b=`${t.south.toFixed(7)},${t.west.toFixed(7)},${t.north.toFixed(7)},${t.east.toFixed(7)}`;
-            const q=`[out:json][timeout:70];(way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"](${b});way["area:highway"](${b});way["highway"]["area"="yes"](${b});way["building"](${b}););out geom;`;
+            const q=`[out:json][timeout:70];(way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"](${b});way["area:highway"](${b});way["highway"]["area"="yes"](${b});way["building"](${b});rel["building"](${b}););out geom;`;
             let last='';
             for(let e=0;e<OVERPASS_ENDPOINTS.length;e++){
                 for(let retry=0;retry<2;retry++){
@@ -544,53 +553,71 @@
             const candidates=surfaces.filter(s=>{
                 const rn=s.tags?.name||'',rr=s.tags?.ref||'';
                 const tagMatch=(ref&&rr&&ref===rr)||(name&&rn&&name===rn);
-                try{return tagMatch?turf.booleanIntersects(s.feature,seg):turf.booleanIntersects(s.feature,seg);}
-                catch(e){return false;}
+                try{
+                    // 優先同名/同 ref；沒有名稱的道路則允許鄰近且真正相交的道路面。
+                    return turf.booleanIntersects(s.feature,seg) && (tagMatch || (!rn && !rr) || (!name && !ref));
+                }catch(e){return false;}
             });
             if(!candidates.length)return null;
             const len=turf.length(seg,{units:'kilometers'})*1000;
             if(!len)return null;
-            // 僅使用真正與該裁切中心線相交的道路面；不再把同名道路全區面積加總。
-            const area=candidates.reduce((sum,x)=>sum+x.area,0);
-            return area/len;
+            // 避免多個重疊 area:highway 面重複計算：先取與中心線實際相交面積的聯集。
+            try{
+                const fc=turf.featureCollection(candidates.map(x=>x.feature));
+                const merged=turf.union(fc);
+                const area=turf.area(merged);
+                const w=area/len;
+                return (w>=2&&w<=120)?w:null;
+            }catch(e){
+                const area=candidates.reduce((sum,x)=>sum+x.area,0);
+                const w=area/len;
+                return (w>=2&&w<=120)?w:null;
+            }
         }
 
         function estimateWidthFromBuildings(line,buildings){
+            // 建物邊界不是正式道路界線，因此只作最後一道推估；
+            // 改用「橫向線兩端最近交點」判斷左右側，避免原本以 bearing=90 度附近造成左右誤判。
             if(!buildings.length)return null;
             const totalKm=turf.length(line,{units:'kilometers'});
             if(totalKm<=0)return null;
-            const count=Math.min(18,Math.max(4,Math.ceil(totalKm*1000/10)));
+            const sampleCount=Math.min(24,Math.max(5,Math.ceil(totalKm*1000/12)));
             const widths=[];
-            for(let i=1;i<count;i++){
-                const d=totalKm*i/count;
+            const MAX_SIDE_M=80;
+            for(let i=1;i<sampleCount;i++){
+                const d=totalKm*i/sampleCount;
                 const pt=turf.along(line,d,{units:'kilometers'});
-                const before=turf.along(line,Math.max(0,d-0.005),{units:'kilometers'});
-                const after=turf.along(line,Math.min(totalKm,d+0.005),{units:'kilometers'});
+                const before=turf.along(line,Math.max(0,d-0.008),{units:'kilometers'});
+                const after=turf.along(line,Math.min(totalKm,d+0.008),{units:'kilometers'});
                 const bearing=turf.bearing(before,after);
-                const left=turf.destination(pt,0.05,bearing-90,{units:'kilometers'});
-                const right=turf.destination(pt,0.05,bearing+90,{units:'kilometers'});
+                const left=turf.destination(pt,MAX_SIDE_M/1000,bearing-90,{units:'kilometers'});
+                const right=turf.destination(pt,MAX_SIDE_M/1000,bearing+90,{units:'kilometers'});
                 const tran=turf.lineString([left.geometry.coordinates,right.geometry.coordinates]);
                 const leftHits=[],rightHits=[];
                 for(const b of buildings){
                     try{
+                        if(!turf.booleanIntersects(tran,b))continue;
                         const ints=turf.lineIntersect(tran,turf.polygonToLine(b));
                         for(const f of ints.features){
-                            const br=turf.bearing(pt,f);
-                            const delta=Math.abs((((br-bearing)+540)%360)-180);
-                            const side=delta<90?'right':'left';
-                            const dM=turf.distance(pt,f,{units:'meters'});
-                            if(dM>1&&dM<55)(side==='left'?leftHits:rightHits).push(dM);
+                            const dl=turf.distance(pt,left,{units:'meters'});
+                            const dr=turf.distance(pt,right,{units:'meters'});
+                            const di=turf.distance(pt,f,{units:'meters'});
+                            if(di<1 || di>MAX_SIDE_M)continue;
+                            // 交點若更接近左端點即視為左側，反之右側。
+                            if(turf.distance(f,left,{units:'meters'}) < turf.distance(f,right,{units:'meters'})) leftHits.push(di);
+                            else rightHits.push(di);
                         }
                     }catch(e){}
                 }
                 if(leftHits.length&&rightHits.length){
                     leftHits.sort((a,b)=>a-b);rightHits.sort((a,b)=>a-b);
                     const w=leftHits[0]+rightHits[0];
-                    if(w>=2&&w<=100)widths.push(w);
+                    if(w>=2&&w<=120)widths.push(w);
                 }
             }
             if(widths.length<2)return null;
             widths.sort((a,b)=>a-b);
+            // 保留中間 60%，降低交叉口、退縮空間與孤立建物造成的異常值。
             const lo=Math.floor(widths.length*.2),hi=Math.max(lo+1,Math.ceil(widths.length*.8));
             const kept=widths.slice(lo,hi);
             return {width:kept.reduce((a,b)=>a+b,0)/kept.length,samples:widths.length};
