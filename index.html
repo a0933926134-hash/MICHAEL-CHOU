@@ -452,94 +452,157 @@
         }
 
         async function fetchNlsc(url, label) {
-            const response = await fetch(url, {
-                method: 'GET',
-                mode: 'cors',
-                credentials: 'omit',
-                cache: 'no-store'
-            });
+            let response;
+            try {
+                response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    cache: 'no-store'
+                });
+            } catch (e) {
+                throw new Error(
+                    `${label}：瀏覽器無法取得 NLSC WFS。\n` +
+                    `URL：${url}\n` +
+                    `原始錯誤：${e.message || e}`
+                );
+            }
 
             const text = await response.text();
+            const contentType = response.headers.get('content-type') || '';
+            const preview = text.replace(/\s+/g, ' ').trim().slice(0, 1200);
 
             if (!response.ok) {
-                throw new Error(`${label} HTTP ${response.status}\\n${text.slice(0, 800)}`);
+                throw new Error(
+                    `${label}：HTTP ${response.status} ${response.statusText || ''}\n` +
+                    `Content-Type：${contentType}\n` +
+                    `NLSC 回覆：${preview}`
+                );
             }
 
+            // NLSC WFS 發生權限、Filter、服務錯誤時，可能仍回 HTTP 200，
+            // 但內容其實是 ExceptionReport / ServiceException XML。
             if (/ExceptionReport|ServiceException|AccessDenied|Unauthorized|Forbidden/i.test(text)) {
-                throw new Error(`${label}：NLSC WFS 回傳服務錯誤\\n${stripXml(text).slice(0, 1000)}`);
+                throw new Error(
+                    `${label}：NLSC WFS 回傳服務錯誤。\n` +
+                    `Content-Type：${contentType}\n` +
+                    `NLSC 回覆：${stripXml(text).slice(0, 1200)}`
+                );
             }
 
-            return { text, url };
+            if (!/<(?:[A-Za-z_][\w.-]*:)?(?:FeatureCollection|featureMember|featureMembers|boundedBy)\b/i.test(text)) {
+                throw new Error(
+                    `${label}：HTTP ${response.status}，但回傳內容不是可辨識的 NLSC GML。\n` +
+                    `Content-Type：${contentType}\n` +
+                    `回傳前 1200 字元：${preview}`
+                );
+            }
+
+            return { text, url, status: response.status, contentType };
         }
 
         /*
-         * 將 NLSC GML 解析成 GeoJSON。
-         * NLSC 不同服務版本可能出現：
-         * gml:coordinates、gml:posList、gml:pos、gml:coord。
+         * NLSC GML parser：刻意不用 querySelector('[local-name()=...]')。
+         * 部分瀏覽器對 XML namespace + CSS local-name() selector 行為不一致，
+         * 會把正常 GML 誤判為解析失敗。
          */
         function parseNlscGml(xmlText) {
-            const xml = new DOMParser().parseFromString(xmlText, 'text/xml');
-
-            if (xml.querySelector('parsererror')) {
-                throw new Error('NLSC GML XML 解析失敗。');
+            const xml = new DOMParser().parseFromString(xmlText, 'application/xml');
+            const parserErrors = xml.getElementsByTagName('parsererror');
+            if (parserErrors.length) {
+                throw new Error(
+                    'NLSC GML XML 解析失敗。\n' +
+                    '回傳內容前 1200 字元：' + xmlText.replace(/\s+/g, ' ').trim().slice(0, 1200)
+                );
             }
 
-            const members = [
-                ...xml.getElementsByTagNameNS('*', 'featureMember'),
-                ...xml.getElementsByTagNameNS('*', 'featureMembers')
-            ];
-
+            const all = Array.from(xml.getElementsByTagName('*'));
             const featureNodes = [];
-            if (members.length) {
-                members.forEach(m => {
-                    Array.from(m.children || []).forEach(ch => featureNodes.push(ch));
-                });
-            }
 
-            // 某些 GML 服務使用 featureMember / featureMembers 的不同 namespace，
-            // 若上面抓不到，直接尋找包含 geometry 子節點的第一層 feature。
+            // 優先處理 WFS 1.0 的 featureMember。
+            all.filter(n => (n.localName || '').toLowerCase() === 'featuremember')
+               .forEach(member => {
+                    Array.from(member.children || []).forEach(child => featureNodes.push(child));
+               });
+
+            // WFS 1.1 / 部分服務可能使用 featureMembers。
             if (!featureNodes.length) {
-                const all = Array.from(xml.documentElement.children || []);
+                all.filter(n => (n.localName || '').toLowerCase() === 'featuremembers')
+                   .forEach(members => {
+                        Array.from(members.children || []).forEach(child => {
+                            const ln = (child.localName || '').toLowerCase();
+                            if (ln !== 'boundedby') featureNodes.push(child);
+                        });
+                   });
+            }
+
+            // 後備：找出具有真正幾何元素的 feature。
+            if (!featureNodes.length) {
                 all.forEach(n => {
-                    if (hasGeometryNode(n)) featureNodes.push(n);
+                    if (!n.parentElement) return;
+                    const ln = (n.localName || '').toLowerCase();
+                    if (['featurecollection','featuremember','featuremembers','boundedby',
+                         'envelope','box','linearring','linestring','multilinestring',
+                         'polygon','multipolygon','point','multipoint'].includes(ln)) return;
+                    if (findFirstGeometryElement(n)) featureNodes.push(n);
                 });
             }
 
+            const unique = [...new Set(featureNodes)];
             const features = [];
 
-            featureNodes.forEach(featureNode => {
+            unique.forEach((featureNode) => {
                 const geom = parseFeatureGeometry(featureNode);
                 if (!geom) return;
 
                 const props = {};
                 Array.from(featureNode.children || []).forEach(el => {
+                    if (isGeometryContainer(el)) return;
                     const local = el.localName || el.nodeName.split(':').pop();
-                    if (isGeometryElement(el)) return;
-                    const val = el.textContent.trim();
-                    if (val) props[local] = val;
+                    const val = (el.textContent || '').trim();
+                    if (local && val) props[local] = val;
                 });
 
-                features.push({
-                    type: 'Feature',
-                    properties: props,
-                    geometry: geom
-                });
+                features.push({ type: 'Feature', properties: props, geometry: geom });
             });
 
             return features;
         }
 
-        function hasGeometryNode(node) {
-            return !!node.querySelector(
-                'LineString,MultiLineString,Polygon,MultiPolygon,Point,MultiPoint,' +
-                '[local-name()="LineString"],[local-name()="Polygon"],[local-name()="MultiPolygon"]'
+        function descendants(node) {
+            return Array.from(node.getElementsByTagName('*'));
+        }
+
+        function childrenByLocalName(node, localName) {
+            return Array.from(node.children || []).filter(
+                el => (el.localName || el.nodeName.split(':').pop()).toLowerCase() === localName.toLowerCase()
             );
         }
 
-        function isGeometryElement(el) {
-            const n = (el.localName || '').toLowerCase();
-            return ['linestring','multilinestring','polygon','multipolygon','point','multipoint',
-                    'multisurface','surface','geometry','multigeometry'].includes(n);
+        function descendantsByLocalName(node, localName) {
+            return descendants(node).filter(
+                el => (el.localName || el.nodeName.split(':').pop()).toLowerCase() === localName.toLowerCase()
+            );
+        }
+
+        function hasGeometryNode(node) {
+            return descendants(node).some(el => [
+                'point','multipoint','linestring','multilinestring','polygon','multipolygon','multisurface','surface'
+            ].includes((el.localName || '').toLowerCase()));
+        }
+
+        function isGeometryContainer(el) {
+            return [
+                'point','multipoint','linestring','multilinestring','polygon','multipolygon',
+                'multisurface','surface','geometry','multigeometry','linearring','geometryproperty','shape'
+            ].includes((el.localName || '').toLowerCase());
+        }
+
+        function findFirstGeometryElement(featureNode) {
+            const wanted = new Set([
+                'point','multipoint','linestring','multilinestring','polygon','multipolygon','multisurface','surface'
+            ]);
+            return descendants(featureNode).find(el => wanted.has((el.localName || '').toLowerCase())) || null;
         }
 
         function parseFeatureGeometry(featureNode) {
@@ -559,78 +622,57 @@
             }
 
             if (name === 'multilinestring') {
-                const lines = Array.from(geomEl.getElementsByTagNameNS('*', 'LineString'))
+                const lines = descendantsByLocalName(geomEl, 'linestring')
                     .map(ls => extractCoordinateSequence(ls))
                     .filter(a => a.length >= 2);
                 return lines.length ? { type: 'MultiLineString', coordinates: lines } : null;
             }
 
-            if (name === 'polygon' || name === 'multipolygon' || name === 'multisurface' || name === 'surface') {
+            if (['polygon','multipolygon','multisurface','surface'].includes(name)) {
                 const polys = parsePolygons(geomEl);
                 if (!polys.length) return null;
                 if (polys.length === 1) return { type: 'Polygon', coordinates: polys[0] };
                 return { type: 'MultiPolygon', coordinates: polys.map(p => [p]) };
             }
 
-            // 後備：往下尋找真正的幾何節點
-            const line = geomEl.querySelector('[local-name()="LineString"]');
-            if (line) {
-                const pts = extractCoordinateSequence(line);
-                return pts.length >= 2 ? { type: 'LineString', coordinates: pts } : null;
-            }
-
-            const poly = geomEl.querySelector('[local-name()="Polygon"]');
-            if (poly) {
-                const polys = parsePolygons(poly);
-                return polys.length ? { type: 'Polygon', coordinates: polys[0] } : null;
-            }
-
             return null;
         }
 
-        function findFirstGeometryElement(featureNode) {
-            const candidates = Array.from(featureNode.querySelectorAll(
-                '[local-name()="Point"],[local-name()="LineString"],[local-name()="MultiLineString"],' +
-                '[local-name()="Polygon"],[local-name()="MultiPolygon"],[local-name()="MultiSurface"],' +
-                '[local-name()="Surface"]'
-            ));
-            return candidates[0] || null;
-        }
-
         function extractCoordinateSequence(node) {
-            const posList = node.querySelector('[local-name()="posList"]');
+            const posList = descendantsByLocalName(node, 'poslist')[0];
             if (posList) {
-                const vals = posList.textContent.trim().split(/\s+/).map(Number).filter(Number.isFinite);
+                const vals = (posList.textContent || '').trim().split(/\s+/).map(Number).filter(Number.isFinite);
                 const dim = Number(posList.getAttribute('srsDimension') || node.getAttribute('srsDimension') || 2);
                 const out = [];
-                for (let i = 0; i + dim - 1 < vals.length; i += dim) {
+                for (let i = 0; i + 1 < vals.length; i += dim) {
                     out.push([vals[i], vals[i + 1]]);
                 }
                 return out;
             }
 
-            const coordinates = node.querySelector('[local-name()="coordinates"]');
+            const coordinates = descendantsByLocalName(node, 'coordinates')[0];
             if (coordinates) {
-                const pairs = coordinates.textContent.trim().split(/\s+/);
+                const raw = (coordinates.textContent || '').trim();
+                const pairs = raw.split(/\s+/);
                 return pairs.map(p => {
                     const a = p.split(',').map(Number);
                     return [a[0], a[1]];
                 }).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
             }
 
-            const pos = Array.from(node.querySelectorAll('[local-name()="pos"]'));
+            const pos = descendantsByLocalName(node, 'pos');
             if (pos.length) {
-                return pos.map(p => p.textContent.trim().split(/\s+/).map(Number))
+                return pos.map(p => (p.textContent || '').trim().split(/\s+/).map(Number))
                     .map(a => [a[0], a[1]])
                     .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
             }
 
-            const coords = Array.from(node.querySelectorAll('[local-name()="coord"]'));
+            const coords = descendantsByLocalName(node, 'coord');
             if (coords.length) {
                 return coords.map(c => {
-                    const x = Number(c.querySelector('[local-name()="X"]')?.textContent);
-                    const y = Number(c.querySelector('[local-name()="Y"]')?.textContent);
-                    return [x, y];
+                    const xEl = descendantsByLocalName(c, 'x')[0];
+                    const yEl = descendantsByLocalName(c, 'y')[0];
+                    return [Number(xEl?.textContent), Number(yEl?.textContent)];
                 }).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
             }
 
@@ -638,20 +680,20 @@
         }
 
         function parsePolygons(polyNode) {
-            const polygonNodes = (polyNode.localName || '').toLowerCase() === 'polygon'
+            const name = (polyNode.localName || '').toLowerCase();
+            const polygonNodes = name === 'polygon'
                 ? [polyNode]
-                : Array.from(polyNode.querySelectorAll('[local-name()="Polygon"]'));
+                : descendantsByLocalName(polyNode, 'polygon');
 
             return polygonNodes.map(poly => {
-                const rings = Array.from(poly.querySelectorAll('[local-name()="LinearRing"]'))
+                const rings = descendantsByLocalName(poly, 'linearring')
                     .map(r => {
                         const pts = extractCoordinateSequence(r);
                         return pts.length >= 3 ? closeRing(pts) : null;
                     })
                     .filter(Boolean);
 
-                if (!rings.length) return null;
-                return rings;
+                return rings.length ? rings : null;
             }).filter(Boolean);
         }
 
