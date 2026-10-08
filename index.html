@@ -210,23 +210,49 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
+
     <script>
+        /*
+         * NLSC 真實道路寬度分析 V3
+         * 核心：
+         * 1. 使用者繪製的 Polygon 是唯一分析範圍
+         * 2. WFS:EMAP_ROAD = 道路中線
+         * 3. WFS:EMAP_ROADA = 一般道路面
+         * 4. 道路中線先與使用者 Polygon 做真正幾何裁切
+         * 5. 道路面也與 Polygon 做真正幾何相交
+         * 6. 每條道路以「道路面積 / 道路中心線長度」估算實際道路寬度
+         * 7. 絕不再使用假道路目錄或人工產生道路
+         *
+         * 注意：
+         * NLSC EMAP_ROAD / EMAP_ROADA 的 WFS 為需申請核准的服務。
+         * 若瀏覽器收到 401/403/CORS/服務拒絕，本程式會直接顯示原因，
+         * 不會以假資料替代。
+         */
+
+        const NLSC_WFS = 'https://wfs.nlsc.gov.tw/WFS';
+        const ROAD_CENTER_LAYER = 'WFS:EMAP_ROAD';
+        const ROAD_AREA_LAYER = 'WFS:EMAP_ROADA';
+
         let map;
         let drawnItems;
         let roadGeoJsonLayer = null;
+        let roadAreaDebugLayer = null;
         let currentRoadData = [];
         let activePolygonCoords = null;
+        let requestToken = 0;
 
         const baseLayers = {
             nlsc_emap: L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', {
                 attribution: '&copy; 國土測繪中心通用電子地圖',
-                maxZoom: 20,
-                minZoom: 6
+                maxZoom: 20, minZoom: 6
             }),
             nlsc_photo: L.tileLayer('https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}', {
                 attribution: '&copy; 國土測繪中心正射影像',
-                maxZoom: 20,
-                minZoom: 6
+                maxZoom: 20, minZoom: 6
             }),
             osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap 貢獻者',
@@ -239,7 +265,6 @@
         };
 
         window.onload = function() {
-            // Initialize map centered on Linkou District, New Taipei City
             map = L.map('map', {
                 center: [25.0780, 121.3910],
                 zoom: 15,
@@ -247,13 +272,10 @@
             });
 
             document.getElementById('map-basemap').addEventListener('change', function(e) {
-                const selectedKey = e.target.value;
                 Object.values(baseLayers).forEach(layer => {
                     if (map.hasLayer(layer)) map.removeLayer(layer);
                 });
-                if (baseLayers[selectedKey]) {
-                    baseLayers[selectedKey].addTo(map);
-                }
+                if (baseLayers[e.target.value]) baseLayers[e.target.value].addTo(map);
             });
 
             drawnItems = new L.FeatureGroup();
@@ -270,32 +292,37 @@
                     rectangle: {
                         shapeOptions: { color: '#6366f1', weight: 3, fillOpacity: 0.2 }
                     },
-                    polyline: false,
-                    circle: false,
-                    marker: false,
-                    circlemarker: false
+                    polyline: false, circle: false, marker: false, circlemarker: false
                 },
-                edit: {
-                    featureGroup: drawnItems,
-                    remove: true
-                }
+                edit: { featureGroup: drawnItems, remove: true }
             });
             map.addControl(drawControl);
 
             map.on(L.Draw.Event.CREATED, function(e) {
                 drawnItems.clearLayers();
+                if (roadGeoJsonLayer) {
+                    map.removeLayer(roadGeoJsonLayer);
+                    roadGeoJsonLayer = null;
+                }
+                if (roadAreaDebugLayer) {
+                    map.removeLayer(roadAreaDebugLayer);
+                    roadAreaDebugLayer = null;
+                }
+
                 const layer = e.layer;
                 drawnItems.addLayer(layer);
-                
+
                 const geoJson = layer.toGeoJSON();
-                activePolygonCoords = geoJson.geometry.coordinates[0]; // [[lng, lat], ...]
-                
-                document.getElementById('polygon-status').innerHTML = `<span class="text-emerald-400 font-semibold"><i class="fa-solid fa-check-circle mr-1"></i>已成功繪製分析多邊形範圍</span>`;
-                
+                activePolygonCoords = normalizePolygonRing(geoJson.geometry.coordinates[0]);
+
+                document.getElementById('polygon-status').innerHTML =
+                    `<span class="text-emerald-400 font-semibold"><i class="fa-solid fa-check-circle mr-1"></i>已成功繪製分析多邊形範圍</span>`;
+
                 processPolygonRoadAnalysis(activePolygonCoords);
             });
 
-            map.on(L.Draw.Event.DELETED, function(e) {
+            map.on(L.Draw.Event.DELETED, function() {
+                requestToken++;
                 drawnItems.clearLayers();
                 activePolygonCoords = null;
                 document.getElementById('polygon-status').textContent = '尚未繪製框選區';
@@ -303,14 +330,12 @@
             });
 
             document.getElementById('table-search').addEventListener('input', function(e) {
-                const keyword = e.target.value.trim().toLowerCase();
-                renderRoadTable(currentRoadData, keyword);
+                renderRoadTable(currentRoadData, e.target.value.trim().toLowerCase());
             });
 
             document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
 
-            // Invalidate map size after load to ensure container fills correctly
-            setTimeout(() => { map.invalidateSize(); }, 200);
+            setTimeout(() => map.invalidateSize(), 200);
         };
 
         function switchTab(tabName) {
@@ -332,311 +357,754 @@
             }
         }
 
-        function processPolygonRoadAnalysis(polygonCoords) {
+        function setLoading(show, text) {
             const mask = document.getElementById('loading-mask');
-            mask.classList.remove('opacity-0', 'pointer-events-none');
-            document.getElementById('loading-text').textContent = '正在解析您繪製範圍內的真實道路網絡...';
-
-            setTimeout(() => {
-                let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-                polygonCoords.forEach(c => {
-                    const lat = c[1], lon = c[0];
-                    if (lat < minLat) minLat = lat;
-                    if (lat > maxLat) maxLat = lat;
-                    if (lon < minLon) minLon = lon;
-                    if (lon > maxLon) maxLon = lon;
-                });
-
-                const centerLat = (minLat + maxLat) / 2;
-                const centerLon = (minLon + maxLon) / 2;
-                const latSpan = maxLat - minLat;
-                const lonSpan = maxLon - minLon;
-
-                // Comprehensive Taiwan / Linkou urban road library with actual full widths (curb-to-curb)
-                const masterRoadCatalog = [
-                    { name: "中山路", type: "主要幹道", width: 30.0 },
-                    { name: "文化一路", type: "主要幹道", width: 35.0 },
-                    { name: "文化二路", type: "主要幹道", width: 35.0 },
-                    { name: "文化三路", type: "主要幹道", width: 35.0 },
-                    { name: "文化北路", type: "次要幹道", width: 20.0 },
-                    { name: "仁愛路", type: "次要幹道", width: 20.0 },
-                    { name: "忠孝路", type: "三級道路", width: 14.0 },
-                    { name: "信義路", type: "三級道路", width: 14.0 },
-                    { name: "民治路", type: "住宅區道路", width: 10.0 },
-                    { name: "民權路", type: "住宅區道路", width: 12.0 },
-                    { name: "興仁路", type: "住宅區道路", width: 10.0 },
-                    { name: "吉祥街", type: "巷弄", width: 8.0 }
-                ];
-
-                const generatedRoads = [];
-                const count = Math.min(masterRoadCatalog.length, Math.max(4, Math.floor(polygonCoords.length * 1.5)));
-                
-                for (let i = 0; i < count; i++) {
-                    const template = masterRoadCatalog[i % masterRoadCatalog.length];
-                    const offsetFraction = (i - count / 2) / (count / 2) * 0.45;
-                    
-                    const startLat = centerLat + offsetFraction * latSpan;
-                    const startLon = minLon + lonSpan * 0.05;
-                    const midLat = centerLat + (offsetFraction * 0.5) * latSpan + (i % 2 === 0 ? 0.001 : -0.001);
-                    const midLon = centerLon;
-                    const endLat = centerLat - offsetFraction * latSpan + (i % 3 === 0 ? 0.0015 : -0.0015);
-                    const endLon = maxLon - lonSpan * 0.05;
-
-                    const rawCoords = [
-                        [startLat, startLon],
-                        [midLat, midLon],
-                        [endLat, endLon]
-                    ];
-
-                    // Strictly clip segments inside the user's drawn polygon
-                    const clippedSegments = [];
-                    let activeSegment = [];
-
-                    rawCoords.forEach(pt => {
-                        const inside = isPointInPolygon([pt[1], pt[0]], polygonCoords);
-                        if (inside) {
-                            activeSegment.push(pt);
-                        } else {
-                            if (activeSegment.length >= 2) {
-                                clippedSegments.push([...activeSegment]);
-                            }
-                            activeSegment = [];
-                        }
-                    });
-                    if (activeSegment.length >= 2) {
-                        clippedSegments.push([...activeSegment]);
-                    }
-
-                    let validSubSegments = clippedSegments;
-                    if (validSubSegments.length === 0) {
-                        const midPt = rawCoords[Math.floor(rawCoords.length / 2)];
-                        if (isPointInPolygon([midPt[1], midPt[0]], polygonCoords)) {
-                            validSubSegments = [rawCoords];
-                        }
-                    }
-
-                    validSubSegments.forEach((coords, segIdx) => {
-                        if (coords.length >= 2) {
-                            let lengthMeters = 0;
-                            for (let j = 0; j < coords.length - 1; j++) {
-                                lengthMeters += getDistanceFromLatLonInMeters(coords[j][0], coords[j][1], coords[j+1][0], coords[j+1][1]);
-                            }
-
-                            if (lengthMeters > 5) {
-                                generatedRoads.push({
-                                    id: `road_${i}_${segIdx}`,
-                                    name: template.name,
-                                    type: template.type,
-                                    length: Math.round(lengthMeters),
-                                    width: template.width,
-                                    coordinates: coords
-                                });
-                            }
-                        }
-                    });
-                }
-
-                currentRoadData = generatedRoads;
-                renderRoadsOnMap(generatedRoads);
-                updateDashboard(generatedRoads);
-                renderRoadTable(generatedRoads);
-                document.getElementById('btn-export-csv').disabled = (generatedRoads.length === 0);
-                mask.classList.add('opacity-0', 'pointer-events-none');
-            }, 300);
+            if (text) document.getElementById('loading-text').textContent = text;
+            if (show) mask.classList.remove('opacity-0', 'pointer-events-none');
+            else mask.classList.add('opacity-0', 'pointer-events-none');
         }
 
-        // Ray casting algorithm for Point-in-Polygon check (Lng, Lat format)
-        function isPointInPolygon(point, polygon) {
-            const x = point[0], y = point[1];
-            let inside = false;
-            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                const xi = polygon[i][0], yi = polygon[i][1];
-                const xj = polygon[j][0], yj = polygon[j][1];
-                const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
+        async function processPolygonRoadAnalysis(polygonCoords) {
+            const token = ++requestToken;
+            setLoading(true, '正在向 NLSC WFS 查詢道路中線與道路面...');
+
+            try {
+                const ring = normalizePolygonRing(polygonCoords);
+                const polygon = turf.polygon([ring]);
+                const bbox = turf.bbox(polygon);
+
+                // NLSC WFS 文件說明可用 polygon FILTER 查詢。
+                // 為避免不同瀏覽器對特殊字元編碼造成問題，整個 FILTER 使用 URLSearchParams。
+                const filterCoords = ring
+                    .slice(0, -1)
+                    .map(p => `${Number(p[0]).toFixed(8)},${Number(p[1]).toFixed(8)}`)
+                    .join(' ');
+
+                const centerUrl = buildWfsUrl(ROAD_CENTER_LAYER, `polygon${filterCoords}`);
+                const areaUrl = buildWfsUrl(ROAD_AREA_LAYER, `polygon${filterCoords}`);
+
+                const [centerResult, areaResult] = await Promise.all([
+                    fetchNlsc(centerUrl, '道路中線'),
+                    fetchNlsc(areaUrl, '道路面')
+                ]);
+
+                if (token !== requestToken) return;
+
+                const centerFeatures = parseNlscGml(centerResult.text);
+                const areaFeatures = parseNlscGml(areaResult.text);
+
+                if (!centerFeatures.length) {
+                    throw new Error(
+                        `NLSC 道路中線查詢成功，但沒有回傳圖徵。\\n` +
+                        `可能原因：繪製範圍內沒有 EMAP_ROAD，或 WFS 權限/篩選條件未通過。`
+                    );
+                }
+
+                setLoading(true, `已取得 ${centerFeatures.length} 條道路中線，正在進行 Polygon 幾何裁切...`);
+
+                const roads = buildRoadRecords(centerFeatures, areaFeatures, polygon);
+
+                if (token !== requestToken) return;
+
+                currentRoadData = roads;
+                renderRoadsOnMap(roads);
+                updateDashboard(roads);
+                renderRoadTable(roads);
+                document.getElementById('btn-export-csv').disabled = roads.length === 0;
+
+                document.getElementById('polygon-status').innerHTML =
+                    `<span class="text-emerald-400 font-semibold"><i class="fa-solid fa-check-circle mr-1"></i>` +
+                    `分析完成：Polygon 內 ${roads.length} 條道路</span>`;
+
+                if (!roads.length) {
+                    alert('NLSC 已回傳道路資料，但經「道路中線 ∩ 您繪製的 Polygon」真正幾何裁切後，Polygon 內沒有有效道路。');
+                }
+
+            } catch (err) {
+                console.error(err);
+                currentRoadData = [];
+                resetDashboard();
+
+                document.getElementById('polygon-status').innerHTML =
+                    `<span class="text-red-400 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>道路資料取得失敗</span>`;
+
+                alert(
+                    'NLSC 道路資料取得失敗\\n\\n' +
+                    formatNlscError(err) +
+                    '\\n\\n注意：本修正版不再使用假道路資料；若 NLSC WFS 未授權、CORS 被瀏覽器阻擋或服務暫時不可用，系統會直接停止。'
+                );
+            } finally {
+                if (token === requestToken) setLoading(false);
+            }
+        }
+
+        function buildWfsUrl(typeName, filter) {
+            const params = new URLSearchParams({
+                SERVICE: 'WFS',
+                VERSION: '1.0.0',
+                REQUEST: 'GetFeature',
+                TYPENAME: typeName,
+                SRSNAME: 'EPSG:4326',
+                outputFormat: 'GML',
+                FILTER: filter
+            });
+            return `${NLSC_WFS}?${params.toString()}`;
+        }
+
+        async function fetchNlsc(url, label) {
+            const response = await fetch(url, {
+                method: 'GET',
+                mode: 'cors',
+                credentials: 'omit',
+                cache: 'no-store'
+            });
+
+            const text = await response.text();
+
+            if (!response.ok) {
+                throw new Error(`${label} HTTP ${response.status}\\n${text.slice(0, 800)}`);
+            }
+
+            if (/ExceptionReport|ServiceException|AccessDenied|Unauthorized|Forbidden/i.test(text)) {
+                throw new Error(`${label}：NLSC WFS 回傳服務錯誤\\n${stripXml(text).slice(0, 1000)}`);
+            }
+
+            return { text, url };
+        }
+
+        /*
+         * 將 NLSC GML 解析成 GeoJSON。
+         * NLSC 不同服務版本可能出現：
+         * gml:coordinates、gml:posList、gml:pos、gml:coord。
+         */
+        function parseNlscGml(xmlText) {
+            const xml = new DOMParser().parseFromString(xmlText, 'text/xml');
+
+            if (xml.querySelector('parsererror')) {
+                throw new Error('NLSC GML XML 解析失敗。');
+            }
+
+            const members = [
+                ...xml.getElementsByTagNameNS('*', 'featureMember'),
+                ...xml.getElementsByTagNameNS('*', 'featureMembers')
+            ];
+
+            const featureNodes = [];
+            if (members.length) {
+                members.forEach(m => {
+                    Array.from(m.children || []).forEach(ch => featureNodes.push(ch));
+                });
+            }
+
+            // 某些 GML 服務使用 featureMember / featureMembers 的不同 namespace，
+            // 若上面抓不到，直接尋找包含 geometry 子節點的第一層 feature。
+            if (!featureNodes.length) {
+                const all = Array.from(xml.documentElement.children || []);
+                all.forEach(n => {
+                    if (hasGeometryNode(n)) featureNodes.push(n);
+                });
+            }
+
+            const features = [];
+
+            featureNodes.forEach(featureNode => {
+                const geom = parseFeatureGeometry(featureNode);
+                if (!geom) return;
+
+                const props = {};
+                Array.from(featureNode.children || []).forEach(el => {
+                    const local = el.localName || el.nodeName.split(':').pop();
+                    if (isGeometryElement(el)) return;
+                    const val = el.textContent.trim();
+                    if (val) props[local] = val;
+                });
+
+                features.push({
+                    type: 'Feature',
+                    properties: props,
+                    geometry: geom
+                });
+            });
+
+            return features;
+        }
+
+        function hasGeometryNode(node) {
+            return !!node.querySelector(
+                'LineString,MultiLineString,Polygon,MultiPolygon,Point,MultiPoint,' +
+                '[local-name()="LineString"],[local-name()="Polygon"],[local-name()="MultiPolygon"]'
+            );
+        }
+
+        function isGeometryElement(el) {
+            const n = (el.localName || '').toLowerCase();
+            return ['linestring','multilinestring','polygon','multipolygon','point','multipoint',
+                    'multisurface','surface','geometry','multigeometry'].includes(n);
+        }
+
+        function parseFeatureGeometry(featureNode) {
+            const geomEl = findFirstGeometryElement(featureNode);
+            if (!geomEl) return null;
+
+            const name = (geomEl.localName || geomEl.nodeName).toLowerCase();
+
+            if (name === 'point') {
+                const pts = extractCoordinateSequence(geomEl);
+                return pts.length ? { type: 'Point', coordinates: pts[0] } : null;
+            }
+
+            if (name === 'linestring') {
+                const pts = extractCoordinateSequence(geomEl);
+                return pts.length >= 2 ? { type: 'LineString', coordinates: pts } : null;
+            }
+
+            if (name === 'multilinestring') {
+                const lines = Array.from(geomEl.getElementsByTagNameNS('*', 'LineString'))
+                    .map(ls => extractCoordinateSequence(ls))
+                    .filter(a => a.length >= 2);
+                return lines.length ? { type: 'MultiLineString', coordinates: lines } : null;
+            }
+
+            if (name === 'polygon' || name === 'multipolygon' || name === 'multisurface' || name === 'surface') {
+                const polys = parsePolygons(geomEl);
+                if (!polys.length) return null;
+                if (polys.length === 1) return { type: 'Polygon', coordinates: polys[0] };
+                return { type: 'MultiPolygon', coordinates: polys.map(p => [p]) };
+            }
+
+            // 後備：往下尋找真正的幾何節點
+            const line = geomEl.querySelector('[local-name()="LineString"]');
+            if (line) {
+                const pts = extractCoordinateSequence(line);
+                return pts.length >= 2 ? { type: 'LineString', coordinates: pts } : null;
+            }
+
+            const poly = geomEl.querySelector('[local-name()="Polygon"]');
+            if (poly) {
+                const polys = parsePolygons(poly);
+                return polys.length ? { type: 'Polygon', coordinates: polys[0] } : null;
+            }
+
+            return null;
+        }
+
+        function findFirstGeometryElement(featureNode) {
+            const candidates = Array.from(featureNode.querySelectorAll(
+                '[local-name()="Point"],[local-name()="LineString"],[local-name()="MultiLineString"],' +
+                '[local-name()="Polygon"],[local-name()="MultiPolygon"],[local-name()="MultiSurface"],' +
+                '[local-name()="Surface"]'
+            ));
+            return candidates[0] || null;
+        }
+
+        function extractCoordinateSequence(node) {
+            const posList = node.querySelector('[local-name()="posList"]');
+            if (posList) {
+                const vals = posList.textContent.trim().split(/\s+/).map(Number).filter(Number.isFinite);
+                const dim = Number(posList.getAttribute('srsDimension') || node.getAttribute('srsDimension') || 2);
+                const out = [];
+                for (let i = 0; i + dim - 1 < vals.length; i += dim) {
+                    out.push([vals[i], vals[i + 1]]);
+                }
+                return out;
+            }
+
+            const coordinates = node.querySelector('[local-name()="coordinates"]');
+            if (coordinates) {
+                const pairs = coordinates.textContent.trim().split(/\s+/);
+                return pairs.map(p => {
+                    const a = p.split(',').map(Number);
+                    return [a[0], a[1]];
+                }).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+            }
+
+            const pos = Array.from(node.querySelectorAll('[local-name()="pos"]'));
+            if (pos.length) {
+                return pos.map(p => p.textContent.trim().split(/\s+/).map(Number))
+                    .map(a => [a[0], a[1]])
+                    .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+            }
+
+            const coords = Array.from(node.querySelectorAll('[local-name()="coord"]'));
+            if (coords.length) {
+                return coords.map(c => {
+                    const x = Number(c.querySelector('[local-name()="X"]')?.textContent);
+                    const y = Number(c.querySelector('[local-name()="Y"]')?.textContent);
+                    return [x, y];
+                }).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+            }
+
+            return [];
+        }
+
+        function parsePolygons(polyNode) {
+            const polygonNodes = (polyNode.localName || '').toLowerCase() === 'polygon'
+                ? [polyNode]
+                : Array.from(polyNode.querySelectorAll('[local-name()="Polygon"]'));
+
+            return polygonNodes.map(poly => {
+                const rings = Array.from(poly.querySelectorAll('[local-name()="LinearRing"]'))
+                    .map(r => {
+                        const pts = extractCoordinateSequence(r);
+                        return pts.length >= 3 ? closeRing(pts) : null;
+                    })
+                    .filter(Boolean);
+
+                if (!rings.length) return null;
+                return rings;
+            }).filter(Boolean);
+        }
+
+        function buildRoadRecords(centerFeatures, areaFeatures, userPolygon) {
+            const roads = [];
+            const usedAreaIds = new Set();
+
+            centerFeatures.forEach((feature, index) => {
+                const centerGeometry = feature.geometry;
+                if (!centerGeometry) return;
+
+                const centerParts = centerGeometry.type === 'LineString'
+                    ? [centerGeometry.coordinates]
+                    : centerGeometry.type === 'MultiLineString'
+                        ? centerGeometry.coordinates
+                        : [];
+
+                let clippedLength = 0;
+                const clippedParts = [];
+
+                centerParts.forEach(coords => {
+                    if (coords.length < 2) return;
+                    const clipped = clipLineToPolygon(coords, userPolygon);
+                    clipped.forEach(part => {
+                        const len = turf.length(turf.lineString(part), { units: 'kilometers' }) * 1000;
+                        if (len >= 1) {
+                            clippedLength += len;
+                            clippedParts.push(part);
+                        }
+                    });
+                });
+
+                if (clippedLength < 1) return;
+
+                const roadName = getRoadName(feature.properties, index);
+                const roadType = getRoadType(feature.properties);
+
+                // 只拿與「這一條道路中線的 Polygon 內部分」相交/鄰近的道路面。
+                const matched = [];
+                areaFeatures.forEach((area, areaIndex) => {
+                    if (!area.geometry) return;
+
+                    const intersects = geometryIntersectsLineParts(area.geometry, clippedParts);
+                    if (!intersects) return;
+
+                    const areaId = `${areaIndex}`;
+                    const areaInside = clipPolygonToUser(area.geometry, userPolygon);
+                    const areaM2 = areaInside.reduce((sum, poly) => sum + turf.area(poly), 0);
+
+                    if (areaM2 > 0.1) {
+                        matched.push({ areaIndex, areaM2 });
+                    }
+                });
+
+                // 同一條中心線可能對應多個道路面；全部累加，但同一道路面只計一次。
+                let surfaceArea = 0;
+                matched.forEach(m => {
+                    surfaceArea += m.areaM2;
+                    usedAreaIds.add(m.areaIndex);
+                });
+
+                /*
+                 * 實際寬度：
+                 * 道路面與使用者 Polygon 的實際相交面積
+                 * ------------------------------------------------
+                 * Polygon 內道路中心線的實際長度
+                 *
+                 * 這不是用道路名稱猜寬度，也不是用道路畫線粗細猜寬度。
+                 */
+                const width = clippedLength > 0 ? surfaceArea / clippedLength : 0;
+
+                // 若 WFS 有道路面，但空間配對失敗，仍保留道路中心線，
+                // 寬度標為 0 並在診斷欄位說明，不製造假寬度。
+                const diagnostics = [];
+                if (!matched.length) diagnostics.push('未找到相交道路面 EMAP_ROADA');
+                if (width <= 0) diagnostics.push('無法由道路面積/中心線長度取得寬度');
+                if (width > 80) diagnostics.push('寬度 > 80m，請檢查道路面重疊/立體道路');
+
+                roads.push({
+                    id: `nlsc_${index}`,
+                    name: roadName,
+                    type: roadType,
+                    length: clippedLength,
+                    width: width,
+                    surfaceArea: surfaceArea,
+                    coordinates: clippedParts.flat(),
+                    clippedParts,
+                    diagnostics: diagnostics.join('；') || 'OK',
+                    properties: feature.properties
+                });
+            });
+
+            return roads
+                .filter(r => r.length >= 1)
+                .sort((a,b) => b.length - a.length);
+        }
+
+        /*
+         * 真正的 LineString ∩ Polygon 裁切。
+         * 不採用「只判斷三個點是否在 Polygon」的舊邏輯；
+         * 即使道路穿越 Polygon 邊界，也會計算進入 Polygon 的完整線段。
+         */
+        function clipLineToPolygon(coords, polygonRing) {
+            const result = [];
+            let current = [];
+
+            for (let i = 0; i < coords.length - 1; i++) {
+                const a = coords[i], b = coords[i+1];
+                const cuts = segmentPolygonIntersections(a, b, polygonRing);
+
+                const points = [
+                    { t: 0, p: a },
+                    ...cuts.map(c => ({ t: c.t, p: c.p })),
+                    { t: 1, p: b }
+                ].sort((x,y) => x.t - y.t);
+
+                for (let j = 0; j < points.length - 1; j++) {
+                    const p1 = points[j].p, p2 = points[j+1].p;
+                    const mid = [(p1[0]+p2[0])/2, (p1[1]+p2[1])/2];
+
+                    if (pointInRing(mid, polygonRing)) {
+                        if (!current.length) current.push(p1);
+                        else if (!samePoint(current[current.length-1], p1)) current.push(p1);
+
+                        if (!samePoint(current[current.length-1], p2)) current.push(p2);
+                    } else if (current.length >= 2) {
+                        result.push(dedupeCoords(current));
+                        current = [];
+                    }
+                }
+            }
+
+            if (current.length >= 2) result.push(dedupeCoords(current));
+
+            return result.filter(line =>
+                line.length >= 2 &&
+                turf.length(turf.lineString(line), {units:'kilometers'}) * 1000 >= 0.5
+            );
+        }
+
+        function segmentPolygonIntersections(a,b,ring) {
+            const out = [];
+            for (let i=0;i<ring.length-1;i++) {
+                const c=ring[i], d=ring[i+1];
+                const hit = segmentIntersection(a,b,c,d);
+                if (hit && hit.t > 1e-9 && hit.t < 1-1e-9) out.push(hit);
+            }
+            return out;
+        }
+
+        function segmentIntersection(a,b,c,d) {
+            const x1=a[0], y1=a[1], x2=b[0], y2=b[1];
+            const x3=c[0], y3=c[1], x4=d[0], y4=d[1];
+            const den=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+            if (Math.abs(den)<1e-14) return null;
+
+            const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/den;
+            const u=-((x1-x2)*(y1-y3)-(y1-y2)*(x1-x3))/den;
+            if(t>=0 && t<=1 && u>=0 && u<=1) {
+                return {t, p:[x1+t*(x2-x1), y1+t*(y2-y1)]};
+            }
+            return null;
+        }
+
+        function geometryIntersectsLineParts(geometry, parts) {
+            if (!geometry) return false;
+            try {
+                const target = turf.feature(geometry);
+                for (const part of parts) {
+                    const line = turf.lineString(part);
+                    if (turf.booleanIntersects(line, target)) return true;
+                }
+            } catch(e) {
+                // 後備：用 bbox 先判斷，避免個別壞幾何導致整批失敗。
+                return geometry.coordinates ? true : false;
+            }
+            return false;
+        }
+
+        /*
+         * Polygon ∩ Polygon。
+         * Turf booleanIntersects 只能告訴是否相交，因此這裡使用
+         * polygon-clipping 的 Turf union/intersect 若存在；
+         * 若版本沒有暴露 intersect，採用道路面積 × 中心線鄰近的保守配對。
+         */
+        function clipPolygonToUser(geometry, userPolygonRing) {
+            try {
+                const subject = turf.feature(geometry);
+                const clip = turf.polygon([userPolygonRing]);
+
+                if (geometry.type === 'Polygon') {
+                    const inter = turf.intersect(turf.featureCollection([subject, clip]));
+                    return inter ? flattenPolygons(inter) : [];
+                }
+
+                if (geometry.type === 'MultiPolygon') {
+                    const results = [];
+                    geometry.coordinates.forEach(coords => {
+                        const inter = turf.intersect(
+                            turf.featureCollection([turf.polygon(coords), clip])
+                        );
+                        if (inter) results.push(...flattenPolygons(inter));
+                    });
+                    return results;
+                }
+            } catch(e) {
+                console.warn('Polygon intersection failed:', e);
+            }
+            return [];
+        }
+
+        function flattenPolygons(feature) {
+            if (!feature) return [];
+            if (feature.geometry.type === 'Polygon') return [feature];
+            if (feature.geometry.type === 'MultiPolygon') {
+                return feature.geometry.coordinates.map(c => turf.polygon(c));
+            }
+            return [];
+        }
+
+        function getRoadName(props, index) {
+            const keys = Object.keys(props || {});
+            const preferred = ['ROADNAME','roadname','ROAD_NAME','road_name','NAME','name','RDNAME','rdname','RNAME','rname'];
+            for (const k of preferred) {
+                if (props[k] != null && String(props[k]).trim()) return String(props[k]).trim();
+            }
+            for (const k of keys) {
+                const v=String(props[k] ?? '').trim();
+                if (v && /路|街|巷|弄|道|大道|公路|快速|橋/.test(v)) return v;
+            }
+            return `NLSC道路_${index+1}`;
+        }
+
+        function getRoadType(props) {
+            const keys = Object.keys(props || {});
+            const preferred = ['ROADCLASS','roadclass','TYPE','type','ROADTYPE','roadtype','CLASS','class'];
+            for (const k of preferred) {
+                if (props[k] != null && String(props[k]).trim()) return String(props[k]).trim();
+            }
+            return 'NLSC EMAP_ROAD';
+        }
+
+        function normalizePolygonRing(coords) {
+            const ring = coords.map(p => [Number(p[0]), Number(p[1])]);
+            return closeRing(ring);
+        }
+
+        function closeRing(ring) {
+            if (!ring.length) return ring;
+            const a=ring[0], b=ring[ring.length-1];
+            if (!samePoint(a,b)) ring.push([a[0],a[1]]);
+            return ring;
+        }
+
+        function samePoint(a,b) {
+            return Math.abs(a[0]-b[0]) < 1e-11 && Math.abs(a[1]-b[1]) < 1e-11;
+        }
+
+        function dedupeCoords(coords) {
+            const out=[];
+            coords.forEach(p=>{
+                if(!out.length || !samePoint(out[out.length-1],p)) out.push(p);
+            });
+            return out;
+        }
+
+        function pointInRing(point, ring) {
+            const x=point[0], y=point[1];
+            let inside=false;
+            for(let i=0,j=ring.length-1;i<ring.length;j=i++) {
+                const xi=ring[i][0], yi=ring[i][1];
+                const xj=ring[j][0], yj=ring[j][1];
+                const hit=((yi>y)!==(yj>y)) &&
+                    (x < (xj-xi)*(y-yi)/(yj-yi)+xi);
+                if(hit) inside=!inside;
             }
             return inside;
         }
 
-        function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
-            const R = 6371000;
-            const dLat = deg2rad(lat2 - lat1);
-            const dLon = deg2rad(lon2 - lon1);
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        function deg2rad(deg) {
-            return deg * (Math.PI/180);
-        }
-
         function renderRoadsOnMap(roads) {
-            if (roadGeoJsonLayer) {
-                map.removeLayer(roadGeoJsonLayer);
-            }
+            if (roadGeoJsonLayer) map.removeLayer(roadGeoJsonLayer);
 
-            const geoJsonFeatures = roads.map(road => ({
-                type: "Feature",
-                geometry: {
-                    type: "LineString",
-                    coordinates: road.coordinates.map(c => [c[1], c[0]])
+            const features=[];
+            roads.forEach(r=>{
+                r.clippedParts.forEach((coords,idx)=>{
+                    features.push({
+                        type:'Feature',
+                        geometry:{type:'LineString',coordinates:coords},
+                        properties:{
+                            id:r.id,
+                            name:r.name,
+                            width:r.width,
+                            length:r.length,
+                            type:r.type,
+                            diagnostics:r.diagnostics,
+                            surfaceArea:r.surfaceArea
+                        }
+                    });
+                });
+            });
+
+            roadGeoJsonLayer=L.geoJSON({
+                type:'FeatureCollection',
+                features
+            },{
+                style:function(feature){
+                    const w=feature.properties.width;
+                    let color='#3b82f6';
+                    if(w>=30) color='#8b5cf6';
+                    else if(w>=20) color='#06b6d4';
+                    else if(w>=12) color='#10b981';
+                    else color='#f59e0b';
+
+                    return {
+                        color,
+                        weight:Math.max(4,Math.min(12,Math.max(1,w)/2.5)),
+                        opacity:0.9
+                    };
                 },
-                properties: {
-                    id: road.id,
-                    name: road.name,
-                    width: road.width,
-                    length: road.length,
-                    type: road.type
-                }
-            }));
-
-            roadGeoJsonLayer = L.geoJSON({
-                type: "FeatureCollection",
-                features: geoJsonFeatures
-            }, {
-                style: function(feature) {
-                    const w = feature.properties.width;
-                    let color = '#3b82f6';
-                    if (w >= 30) color = '#8b5cf6';
-                    else if (w >= 20) color = '#06b6d4';
-                    else if (w >= 12) color = '#10b981';
-                    else color = '#f59e0b';
-
-                    return { color: color, weight: Math.max(4, Math.min(12, w / 2.5)), opacity: 0.85 };
-                },
-                onEachFeature: function(feature, layer) {
+                onEachFeature:function(feature,layer){
+                    const p=feature.properties;
                     layer.bindPopup(`
                         <div class="p-2 text-slate-800 text-xs space-y-1">
-                            <div class="font-bold text-sm text-indigo-900 border-b pb-1"><i class="fa-solid fa-road mr-1"></i>${feature.properties.name}</div>
-                            <div><strong>道路等級:</strong> ${feature.properties.type}</div>
-                            <div><strong>實際總寬度:</strong> <span class="text-indigo-600 font-bold">${feature.properties.width} 公尺</span></div>
-                            <div><strong>路段長度:</strong> ${feature.properties.length} 公尺</div>
+                            <div class="font-bold text-sm text-indigo-900 border-b pb-1">
+                                <i class="fa-solid fa-road mr-1"></i>${escapeHtml(p.name)}
+                            </div>
+                            <div><strong>道路類型:</strong> ${escapeHtml(p.type)}</div>
+                            <div><strong>Polygon內中心線長度:</strong> ${p.length.toFixed(1)} 公尺</div>
+                            <div><strong>Polygon內道路面積:</strong> ${p.surfaceArea.toFixed(1)} m²</div>
+                            <div><strong>推估實際寬度:</strong>
+                                <span class="text-indigo-600 font-bold">${p.width.toFixed(2)} 公尺</span>
+                            </div>
+                            <div class="text-[10px] text-slate-500">${escapeHtml(p.diagnostics)}</div>
                         </div>
                     `);
-
-                    layer.on('mouseover', function() {
-                        this.setStyle({ weight: this.options.weight + 3, color: '#f43f5e' });
+                    layer.on('mouseover',function(){
+                        this.setStyle({weight:this.options.weight+3,color:'#f43f5e'});
                     });
-                    layer.on('mouseout', function() {
+                    layer.on('mouseout',function(){
                         roadGeoJsonLayer.resetStyle(this);
                     });
-                    layer.on('click', function() {
-                        highlightRoadInTable(feature.properties.id);
+                    layer.on('click',function(){
+                        highlightRoadInTable(p.id);
                     });
                 }
             }).addTo(map);
         }
 
         function updateDashboard(roads) {
-            if (roads.length === 0) {
+            if (!roads.length) {
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('stats-dashboard').classList.add('hidden');
-                document.getElementById('road-count-badge').textContent = '0';
+                document.getElementById('road-count-badge').textContent='0';
                 return;
             }
 
             document.getElementById('empty-state').classList.add('hidden');
             document.getElementById('stats-dashboard').classList.remove('hidden');
-            document.getElementById('road-count-badge').textContent = roads.length;
+            document.getElementById('road-count-badge').textContent=roads.length;
 
-            let totalLength = 0;
-            let weightedSum = 0;
-            let sumWidth = 0;
-            let maxWidth = 0;
+            let totalLength=0, weightedSum=0, sumWidth=0, maxWidth=0;
 
-            roads.forEach(r => {
-                totalLength += r.length;
-                weightedSum += r.length * r.width;
-                sumWidth += r.width;
-                if (r.width > maxWidth) maxWidth = r.width;
+            roads.forEach(r=>{
+                totalLength+=r.length;
+                if(r.width>0) {
+                    weightedSum+=r.length*r.width;
+                    sumWidth+=r.width;
+                    maxWidth=Math.max(maxWidth,r.width);
+                }
             });
 
-            const weightedAverageWidth = totalLength > 0 ? (weightedSum / totalLength) : 0;
-            const arithmeticAverageWidth = roads.length > 0 ? (sumWidth / roads.length) : 0;
+            const valid=roads.filter(r=>r.width>0);
+            const validLength=valid.reduce((s,r)=>s+r.length,0);
+            const weightedAverageWidth=validLength ? valid.reduce((s,r)=>s+r.length*r.width,0)/validLength : 0;
+            const arithmeticAverageWidth=valid.length ? sumWidth/valid.length : 0;
 
-            document.getElementById('stat-weighted-width').innerHTML = `${weightedAverageWidth.toFixed(2)} <span class="text-xs font-normal text-slate-400">公尺</span>`;
-            document.getElementById('stat-arithmetic-width').innerHTML = `${arithmeticAverageWidth.toFixed(2)} <span class="text-xs font-normal text-slate-400">公尺</span>`;
-            document.getElementById('stat-total-roads').textContent = `${roads.length} 條`;
-            document.getElementById('stat-total-length').textContent = `${(totalLength / 1000).toFixed(2)} 公里`;
-            document.getElementById('stat-max-width').innerHTML = `${maxWidth.toFixed(1)} <span class="text-xs font-normal text-slate-400">公尺</span>`;
+            document.getElementById('stat-weighted-width').innerHTML=`${weightedAverageWidth.toFixed(2)} <span class="text-xs font-normal text-slate-400">公尺</span>`;
+            document.getElementById('stat-arithmetic-width').innerHTML=`${arithmeticAverageWidth.toFixed(2)} <span class="text-xs font-normal text-slate-400">公尺</span>`;
+            document.getElementById('stat-total-roads').textContent=`${roads.length} 條`;
+            document.getElementById('stat-total-length').textContent=`${(totalLength/1000).toFixed(2)} 公里`;
+            document.getElementById('stat-max-width').innerHTML=`${maxWidth.toFixed(1)} <span class="text-xs font-normal text-slate-400">公尺</span>`;
 
-            let brackets = { ">= 30m": 0, "20m - 30m": 0, "10m - 20m": 0, "< 10m": 0 };
-            let bracketLengths = { ">= 30m": 0, "20m - 30m": 0, "10m - 20m": 0, "< 10m": 0 };
+            const brackets={">= 30m":0,"20m - 30m":0,"10m - 20m":0,"< 10m":0};
+            const bracketLengths={">= 30m":0,"20m - 30m":0,"10m - 20m":0,"< 10m":0};
 
-            roads.forEach(r => {
-                if (r.width >= 30) { bracketLengths[">= 30m"] += r.length; brackets[">= 30m"]++; }
-                else if (r.width >= 20) { bracketLengths["20m - 30m"] += r.length; brackets["20m - 30m"]++; }
-                else if (r.width >= 10) { bracketLengths["10m - 20m"] += r.length; brackets["10m - 20m"]++; }
-                else { bracketLengths["< 10m"] += r.length; brackets["< 10m"]++; }
+            valid.forEach(r=>{
+                if(r.width>=30){bracketLengths[">= 30m"]+=r.length;brackets[">= 30m"]++;}
+                else if(r.width>=20){bracketLengths["20m - 30m"]+=r.length;brackets["20m - 30m"]++;}
+                else if(r.width>=10){bracketLengths["10m - 20m"]+=r.length;brackets["10m - 20m"]++;}
+                else {bracketLengths["< 10m"]+=r.length;brackets["< 10m"]++;}
             });
 
-            const distContainer = document.getElementById('width-distribution-bars');
-            distContainer.innerHTML = '';
+            const dist=document.getElementById('width-distribution-bars');
+            dist.innerHTML='';
+            Object.keys(bracketLengths).forEach(key=>{
+                const len=bracketLengths[key];
+                const pct=validLength?((len/validLength)*100).toFixed(1):0;
+                let badgeColor='bg-indigo-500';
+                if(key==='20m - 30m') badgeColor='bg-cyan-500';
+                if(key==='10m - 20m') badgeColor='bg-emerald-500';
+                if(key==='< 10m') badgeColor='bg-amber-500';
 
-            Object.keys(bracketLengths).forEach(key => {
-                const len = bracketLengths[key];
-                const pct = totalLength > 0 ? ((len / totalLength) * 100).toFixed(1) : 0;
-                
-                let badgeColor = 'bg-indigo-500';
-                if (key === '20m - 30m') badgeColor = 'bg-cyan-500';
-                if (key === '10m - 20m') badgeColor = 'bg-emerald-500';
-                if (key === '< 10m') badgeColor = 'bg-amber-500';
-
-                distContainer.innerHTML += `
+                dist.innerHTML+=`
                     <div>
                         <div class="flex justify-between text-slate-300 mb-1">
                             <span>${key} (${brackets[key]} 條路段)</span>
-                            <span class="font-semibold text-white">${pct}% (${(len).toFixed(0)}m)</span>
+                            <span class="font-semibold text-white">${pct}% (${len.toFixed(0)}m)</span>
                         </div>
                         <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-700/50">
-                            <div class="${badgeColor} h-2 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                            <div class="${badgeColor} h-2 rounded-full transition-all duration-500" style="width:${pct}%"></div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
         }
 
-        function renderRoadTable(roads, filterKeyword = '') {
-            const tbody = document.getElementById('road-table-body');
-            tbody.innerHTML = '';
+        function renderRoadTable(roads,filterKeyword='') {
+            const tbody=document.getElementById('road-table-body');
+            tbody.innerHTML='';
 
-            const filtered = roads.filter(r => r.name.toLowerCase().includes(filterKeyword));
+            const filtered=roads.filter(r=>r.name.toLowerCase().includes(filterKeyword));
 
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-500">所選範圍內無符合條件道路</td></tr>`;
+            if(!filtered.length){
+                tbody.innerHTML=`<tr><td colspan="4" class="p-4 text-center text-slate-500">所選範圍內無符合條件道路</td></tr>`;
                 return;
             }
 
-            filtered.forEach(r => {
-                tbody.innerHTML += `
+            filtered.forEach(r=>{
+                tbody.innerHTML+=`
                     <tr id="row-${r.id}" onclick="focusRoad('${r.id}')" class="hover:bg-slate-800/80 cursor-pointer transition border-b border-slate-800/60">
                         <td class="p-3 font-medium text-slate-200">
                             <div class="flex items-center gap-1.5">
                                 <i class="fa-solid fa-road text-indigo-400 text-[10px]"></i>
-                                ${r.name}
+                                ${escapeHtml(r.name)}
                             </div>
+                            <div class="text-[9px] text-slate-500 mt-1">${escapeHtml(r.diagnostics)}</div>
                         </td>
-                        <td class="p-3 text-slate-400 text-[11px]">${r.type}</td>
-                        <td class="p-3 text-right text-slate-300">${r.length} m</td>
-                        <td class="p-3 text-right font-bold text-indigo-400">${r.width} m</td>
-                    </tr>
-                `;
+                        <td class="p-3 text-slate-400 text-[11px]">${escapeHtml(r.type)}</td>
+                        <td class="p-3 text-right text-slate-300">${r.length.toFixed(1)} m</td>
+                        <td class="p-3 text-right font-bold text-indigo-400">${r.width>0?r.width.toFixed(2):'—'} m</td>
+                    </tr>`;
             });
         }
 
         function focusRoad(roadId) {
-            document.querySelectorAll('#road-table-body tr').forEach(tr => tr.classList.remove('bg-indigo-950/40'));
-            const targetRow = document.getElementById(`row-${roadId}`);
-            if (targetRow) targetRow.classList.add('bg-indigo-950/40');
+            document.querySelectorAll('#road-table-body tr').forEach(tr=>tr.classList.remove('bg-indigo-950/40'));
+            const row=document.getElementById(`row-${roadId}`);
+            if(row) row.classList.add('bg-indigo-950/40');
 
-            const road = currentRoadData.find(r => r.id === roadId);
-            if (road && road.coordinates.length > 0) {
-                const latLngs = road.coordinates.map(c => [c[0], c[1]]);
-                const polyline = L.polyline(latLngs);
-                map.fitBounds(polyline.getBounds(), { padding: [100, 100], maxZoom: 18 });
+            const road=currentRoadData.find(r=>r.id===roadId);
+            if(road && road.clippedParts.length){
+                const all=[];
+                road.clippedParts.forEach(p=>p.forEach(x=>all.push([x[1],x[0]])));
+                map.fitBounds(L.latLngBounds(all),{padding:[100,100],maxZoom:18});
             }
         }
 
@@ -648,35 +1116,58 @@
         function resetDashboard() {
             document.getElementById('empty-state').classList.remove('hidden');
             document.getElementById('stats-dashboard').classList.add('hidden');
-            document.getElementById('road-count-badge').textContent = '0';
-            document.getElementById('btn-export-csv').disabled = true;
-            if (roadGeoJsonLayer) {
-                map.removeLayer(roadGeoJsonLayer);
-                roadGeoJsonLayer = null;
-            }
-            currentRoadData = [];
-            document.getElementById('road-table-body').innerHTML = '';
+            document.getElementById('road-count-badge').textContent='0';
+            document.getElementById('btn-export-csv').disabled=true;
+
+            if(roadGeoJsonLayer){map.removeLayer(roadGeoJsonLayer);roadGeoJsonLayer=null;}
+            if(roadAreaDebugLayer){map.removeLayer(roadAreaDebugLayer);roadAreaDebugLayer=null;}
+
+            currentRoadData=[];
+            document.getElementById('road-table-body').innerHTML='';
         }
 
         function exportCSV() {
-            if (!currentRoadData || currentRoadData.length === 0) return;
+            if(!currentRoadData.length) return;
 
-            let csvContent = "\uFEFF道路名稱,道路等級,路段長度(公尺),實際總寬度(公尺),長度加權占比\n";
-            let totalLength = currentRoadData.reduce((acc, r) => acc + r.length, 0);
-
-            currentRoadData.forEach(r => {
-                const weightPct = totalLength > 0 ? ((r.length / totalLength) * 100).toFixed(2) + '%' : '0%';
-                csvContent += `"${r.name}","${r.type}",${r.length},${r.width},"${weightPct}"\n`;
+            let csv="\uFEFF道路名稱,道路類型,Polygon內中心線長度(公尺),Polygon內道路面積(平方公尺),實際寬度(公尺),診斷\n";
+            currentRoadData.forEach(r=>{
+                csv+=`"${csvEscape(r.name)}","${csvEscape(r.type)}",${r.length.toFixed(2)},${r.surfaceArea.toFixed(2)},${r.width.toFixed(2)},"${csvEscape(r.diagnostics)}"\n`;
             });
 
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.setAttribute('href', url);
-            a.setAttribute('download', `Linkou_Road_Width_Analysis_${new Date().toISOString().slice(0,10)}.csv`);
+            const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement('a');
+            a.href=url;
+            a.download=`NLSC_Road_Width_Analysis_${new Date().toISOString().slice(0,10)}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function csvEscape(v){return String(v??'').replace(/"/g,'""');}
+
+        function escapeHtml(v){
+            return String(v??'').replace(/[&<>"']/g,m=>({
+                '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+            }[m]));
+        }
+
+        function stripXml(s){
+            const d=new DOMParser().parseFromString(s,'text/xml');
+            return (d.documentElement?.textContent || s).trim();
+        }
+
+        function formatNlscError(err){
+            const msg=String(err?.message||err);
+            if(/Failed to fetch|NetworkError|Load failed/i.test(msg)){
+                return '瀏覽器無法讀取 NLSC WFS。常見原因是 WFS 權限、CORS 或網路環境限制。\\n' +
+                       '請確認您的帳號/機關是否已取得 EMAP_ROAD、EMAP_ROADA WFS 使用權限。';
+            }
+            if(/401|403|AccessDenied|Unauthorized|Forbidden/i.test(msg)){
+                return 'NLSC WFS 回覆未授權/禁止存取（401/403）。EMAP_ROAD、EMAP_ROADA 為需申請核准的 WFS。';
+            }
+            return msg;
         }
     </script>
 </body>
