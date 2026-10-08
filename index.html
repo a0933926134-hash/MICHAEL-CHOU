@@ -15,6 +15,7 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
         body { font-family: 'Inter', sans-serif; }
         .leaflet-container { width: 100%; height: 100%; z-index: 10; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -23,17 +24,17 @@
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 h-full flex flex-col overflow-hidden">
+<body class="bg-slate-900 text-slate-100 flex flex-col h-screen w-screen overflow-hidden">
 
-    <header class="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between shadow-md z-20 shrink-0">
+    <header class="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between shadow-md z-25 shrink-0 h-16">
         <div class="flex items-center space-x-3">
             <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-inner">
                 <i class="fa-solid fa-road text-xl"></i>
             </div>
             <div>
-                <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                <h1 class="text-base md:text-lg font-bold tracking-tight text-white flex items-center gap-2">
                     真實道路寬度加權分析系統
-                    <span class="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-medium">Local Spatial Engine</span>
+                    <span class="hidden sm:inline-block text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-medium">Local Spatial Engine</span>
                 </h1>
                 <p class="text-xs text-slate-400">NLSC 底圖圖資 · 使用者自訂多邊形空間查詢 · 長度加權平均計算</p>
             </div>
@@ -45,10 +46,10 @@
         </div>
     </header>
 
-    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative w-full h-[calc(100vh-4rem)]">
         
         <!-- Left Panel: Map Container -->
-        <div class="flex-1 relative flex flex-col h-[55vh] lg:h-auto">
+        <div class="flex-1 relative flex flex-col h-[55vh] lg:h-full w-full">
             <!-- Map Toolbar Overlay -->
             <div class="absolute top-4 left-4 z-20 bg-slate-800/90 backdrop-blur-md border border-slate-700/80 p-2 rounded-xl shadow-xl flex items-center gap-2">
                 <span class="text-xs font-medium text-slate-300 px-2"><i class="fa-solid fa-layer-group text-indigo-400 mr-1.5"></i>底圖:</span>
@@ -68,20 +69,20 @@
             </div>
 
             <!-- Leaflet Map Element -->
-            <div id="map" class="w-full h-full"></div>
+            <div id="map" class="w-full flex-1"></div>
             
             <!-- Map Instruction Footer Bar -->
             <div class="bg-slate-800/90 backdrop-blur border-t border-slate-700 px-4 py-2 text-xs text-slate-300 flex items-center justify-between z-10 shrink-0">
-                <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-circle-info text-indigo-400"></i>
-                    <span>操作提示：請點擊地圖右上角繪製工具中的 <strong class="text-indigo-300">多邊形 (Polygon)</strong> 按鈕，框選您想分析的範圍。系統將嚴格計算框選範圍內的實際道路與總寬度。</span>
+                <div class="flex items-center gap-2 truncate">
+                    <i class="fa-solid fa-circle-info text-indigo-400 shrink-0"></i>
+                    <span class="truncate">操作提示：請點擊地圖右上角繪製工具中的 <strong class="text-indigo-300">多邊形 (Polygon)</strong> 按鈕框選範圍。</span>
                 </div>
-                <div id="polygon-status" class="text-slate-400 font-medium">尚未繪製框選區</div>
+                <div id="polygon-status" class="text-slate-400 font-medium shrink-0 ml-2">尚未繪製框選區</div>
             </div>
         </div>
 
         <!-- Right Panel: Analytics Dashboard & Diagnostics -->
-        <div class="w-full lg:w-[460px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 flex flex-col h-[45vh] lg:h-auto overflow-hidden shadow-2xl z-20">
+        <div class="w-full lg:w-[460px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 flex flex-col h-[45vh] lg:h-full overflow-hidden shadow-2xl z-20 shrink-0">
             
             <!-- Tabs Navigation -->
             <div class="flex border-b border-slate-700 bg-slate-800/60 shrink-0">
@@ -199,11 +200,11 @@
             <!-- Footer status inside panel -->
             <div class="p-3 bg-slate-800/80 border-t border-slate-700 text-[11px] text-slate-400 flex items-center justify-between shrink-0">
                 <span>座標系統: EPSG:4326 (WGS84)</span>
-                <span class="text-indigo-400 font-medium">Local Spatial Engine v2.3</span>
+                <span class="text-indigo-400 font-medium">Local Spatial Engine v2.4</span>
             </div>
         </div>
 
-    </div>
+    </main>
 
     <!-- Leaflet & Draw JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -307,6 +308,9 @@
             });
 
             document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
+
+            // Invalidate map size after load to ensure container fills correctly
+            setTimeout(() => { map.invalidateSize(); }, 200);
         };
 
         function switchTab(tabName) {
@@ -403,7 +407,6 @@
                         clippedSegments.push([...activeSegment]);
                     }
 
-                    // Fallback verification for boundary cases
                     let validSubSegments = clippedSegments;
                     if (validSubSegments.length === 0) {
                         const midPt = rawCoords[Math.floor(rawCoords.length / 2)];
