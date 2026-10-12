@@ -2029,114 +2029,174 @@ body.mobile-mode .about-link-btn {
         </div>
         
        <div class="sidebar-section">
-    <h3><span>🏢</span> 分析設施類型</h3>
+    
+<style>
+/* 分析設施類型：整體淡黃色底色 */
+.facility-category {
+    background: #FFFBE6;
+    border: 1px solid #F3D98B;
+    border-radius: 10px;
+    padding: 8px;
+}
 
-    <div class="facility-category">
+/* 分類標題 */
+.facility-category-header {
+    background: #FFF1B8;
+    color: #654D00;
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    transition: background 0.2s ease;
+}
 
-        <!-- ========================= -->
-        <!-- 🚗 交通運輸 -->
-        <!-- ========================= -->
-        <div class="facility-category-header"
-             onclick="toggleFacilityCategory('transport')">
-            <span class="category-arrow" id="arrow-transport">▶</span>
-            <span>🚗 交通運輸</span>
+/* 滑鼠移入效果 */
+.facility-category-header:hover {
+    background: #FFE58F;
+}
+
+/* 分類內容 */
+.facility-category-content {
+    background: #FFFBE6;
+    padding: 8px 10px;
+    border-radius: 6px;
+}
+
+/* Checkbox 項目 */
+.facility-category-content .checkbox-item {
+    background: transparent;
+    padding: 5px 2px;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+/* Checkbox 保持原本勾選功能 */
+.facility-category-content input[type="checkbox"] {
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+/* 標籤文字 */
+.facility-category-content label {
+    color: #333333;
+    cursor: pointer;
+    line-height: 1.5;
+}
+
+/* 分類箭頭 */
+.category-arrow {
+    font-size: 11px;
+    transition: transform 0.2s ease;
+}
+</style>
+
+<h3><span>🏢</span> 分析設施類型</h3>
+
+<div class="facility-category">
+
+    <!-- 🚗 交通運輸 -->
+    <div class="facility-category-header"
+         onclick="toggleFacilityCategory('transport')">
+        <span class="category-arrow" id="arrow-transport">▶</span>
+        <span>🚗 交通運輸</span>
+    </div>
+
+    <div class="facility-category-content"
+         id="facility-transport">
+
+        <div class="checkbox-item">
+            <input type="checkbox"
+                   id="chk-station"
+                   value="station">
+            <label for="chk-station">大型車站</label>
         </div>
 
-        <div class="facility-category-content"
-             id="facility-transport">
-
-            <div class="checkbox-item">
-                <input type="checkbox"
-                       id="chk-station"
-                       value="station">
-                <label for="chk-station">大型車站</label>
-            </div>
-
-            <div class="checkbox-item">
-                <input type="checkbox"
-                       id="chk-bus"
-                       value="bus_stop">
-                <label for="chk-bus">公車站牌</label>
-            </div>
-
-            <div class="checkbox-item">
-                <input type="checkbox"
-                       id="chk-junction"
-                       value="motorway_junction">
-                <label for="chk-junction">交流道</label>
-            </div>
-
+        <div class="checkbox-item">
+            <input type="checkbox"
+                   id="chk-bus"
+                   value="bus_stop">
+            <label for="chk-bus">公車站牌</label>
         </div>
 
-
-        <!-- ========================= -->
-        <!-- 🏢 公共建設 -->
-        <!-- ========================= -->
-        <div class="facility-category-header"
-             onclick="toggleFacilityCategory('public')">
-            <span class="category-arrow" id="arrow-public">▶</span>
-            <span>🏢 公共建設</span>
+        <div class="checkbox-item">
+            <input type="checkbox"
+                   id="chk-junction"
+                   value="motorway_junction">
+            <label for="chk-junction">交流道</label>
         </div>
 
-        <div class="facility-category-content"
-             id="facility-public">
+    </div>
 
-            <div class="checkbox-item">
-                <input type="checkbox"
-                       id="chk-school"
-                       value="school"
-                       checked>
-                <label for="chk-school">
-                    學校(國小、國中、高中、大專院校)
-                </label>
-            </div>
+    <!-- 🏢 公共建設 -->
+    <div class="facility-category-header"
+         onclick="toggleFacilityCategory('public')">
+        <span class="category-arrow" id="arrow-public">▶</span>
+        <span>🏢 公共建設</span>
+    </div>
 
-            <div class="checkbox-item">
-                <input type="checkbox"
-                       id="chk-market"
-                       value="marketplace">
-                <label for="chk-market">
-                    市場(傳統市場、超級市場、超大型購物中心)
-                </label>
-            </div>
+    <div class="facility-category-content"
+         id="facility-public">
 
-            <div class="checkbox-item">
-                <input type="checkbox"
-                       id="chk-park"
-                       value="park">
-                <label for="chk-park">
-                    公園(里鄰公園、一般公園)、廣場、徒步區
-                </label>
-            </div>
-
-            <div class="checkbox-item">
-                <input type="checkbox"
-                       id="chk-tourism"
-                       value="tourism">
-                <label for="chk-tourism">
-                    觀光遊憩設施
-                </label>
-            </div>
-
-            <div class="checkbox-item">
-                <input type="checkbox"
-                       id="chk-parking"
-                       value="parking">
-                <label for="chk-parking">
-                    停車場
-                </label>
-            </div>
-
-            <div class="checkbox-item">
-                <input type="checkbox"
-                       id="chk-bank"
-                       value="bank">
-                <label for="chk-bank">
-                    郵局/銀行/醫院/機關等設施
-                </label>
-            </div>
-
+        <div class="checkbox-item">
+            <input type="checkbox"
+                   id="chk-school"
+                   value="school"
+                   checked>
+            <label for="chk-school">
+                學校(國小、國中、高中、大專院校)
+            </label>
         </div>
+
+        <div class="checkbox-item">
+            <input type="checkbox"
+                   id="chk-market"
+                   value="marketplace">
+            <label for="chk-market">
+                市場(傳統市場、超級市場、超大型購物中心)
+            </label>
+        </div>
+
+        <div class="checkbox-item">
+            <input type="checkbox"
+                   id="chk-park"
+                   value="park">
+            <label for="chk-park">
+                公園(里鄰公園、一般公園)、廣場、徒步區
+            </label>
+        </div>
+
+        <div class="checkbox-item">
+            <input type="checkbox"
+                   id="chk-tourism"
+                   value="tourism">
+            <label for="chk-tourism">觀光遊憩設施</label>
+        </div>
+
+        <div class="checkbox-item">
+            <input type="checkbox"
+                   id="chk-parking"
+                   value="parking">
+            <label for="chk-parking">停車場</label>
+        </div>
+
+        <div class="checkbox-item">
+            <input type="checkbox"
+                   id="chk-bank"
+                   value="bank">
+            <label for="chk-bank">
+                郵局/銀行/醫院/機關等設施
+            </label>
+        </div>
+
+    </div>
+
+</div>
+
 
 
         <!-- ========================= -->
