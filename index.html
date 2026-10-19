@@ -2483,6 +2483,10 @@ function clearAllCustomWMS() {
 }
 
 // ========== 新北市都市計畫圖層定義（修正版）==========
+// 1. 第一步：先建立並宣告 map 變數（這行必須放在最上面！）
+const map = L.map('map').setView([24.99, 121.50], 12);
+
+// 2. 第二步：定義圖層物件
 const newTaipeiUrbanPlanLayers = {
     'tpc-basic': {
         name: '新北市都市計畫（基本圖）',
@@ -2496,10 +2500,16 @@ const newTaipeiUrbanPlanLayers = {
     },
     'tpc-cadastral': {
         name: '新北市都市計畫（地籍圖）',
-        url: 'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}',
+        url: 'https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/EPSG:3857/{z}/{y}/{x}',
         type: 'wmts'
     }
 };
+
+// 3. 第三步：才能呼叫 .addTo(map)
+L.tileLayer(newTaipeiUrbanPlanLayers['tpc-basic'].url, {
+    maxZoom: 19,
+    attribution: newTaipeiUrbanPlanLayers['tpc-basic'].name
+}).addTo(map);
   
   
 // GeoJSON 標籤搜尋相關變數
