@@ -4745,889 +4745,717 @@ function scoreEntrance(candidate) {
     return score;
 }
 
-/**
- * ============================================================================
- * 交流道入口解析函式 V7.0 - Google Maps 邏輯版本
- * ============================================================================
- * 核心改變：
- * 1. 主優化目標：行駛時間（時間權重 60%） > 距離（20%） > 路況（15%）
- * 2. 繞路判定：時間成本（extraTime > 300秒） 而非 距離倍率
- * 3. 入口識別：拓撲 + 進場角度（±45° 為理想）+ 路網質量
- * 4. 出口排除：oneway + 進場角度（> 135° 為出口）+ 目標可達性
- * 5. 交流道間距：< 3km 自動調整策略
- * ============================================================================
- */
-
-class GoogleMapsEntranceParser {
-    
-    constructor() {
-        // ✅ Google Maps 參數體系
-        this.SEARCH_RADIUS = 1500;              // 搜索範圍（Google 用 3-5km）
-        this.DEDUP_RADIUS = 30;                 // 去重半徑
-        this.TIME_BUDGET = 300;                 // 時間預算（秒）- 多花 > 5 分鐘認為過度繞路
-        this.IDEAL_APPROACH_ANGLE = 45;         // 理想進場角 ±45°
-        this.EXCESSIVE_TURN_ANGLE = 135;        // 過度轉彎（鈍角）> 135° = 出口
-        this.CLOSE_JUNCTION_DISTANCE = 3000;    // 相鄰交流道距離（米）
-        this.MIN_TRAFFIC_CONFIDENCE = 0.3;      // 最低路況信心度
-        
-        // 時間成本權重系統（模擬 Google）
-        this.TIME_WEIGHT = 0.60;                // 時間：60%
-        this.DISTANCE_WEIGHT = 0.20;            // 距離：20%
-        this.TRAFFIC_WEIGHT = 0.15;             // 路況：15%
-        this.NETWORK_WEIGHT = 0.05;             // 網路質量：5%
-        
-        // OSRM 參數
-        this.OSRM_TIMEOUT = 10000;              // 10 秒超時（Google 通常 < 5 秒）
-        this.OSRM_RETRIES = 2;
-    }
-    
-    /**
-     * ✅ 主函數：建築道入口候選識別（Google Maps Logic）
-     */
-    async buildEntranceCandidates(origin, junctionLocation, targetLocation) {
-        try {
-            // 1️⃣ 輸入驗證
-            this.validateInput(origin, junctionLocation, targetLocation);
-            
-            // 2️⃣ Overpass 查詢：獲取交流道拓撲
-            const junctionData = await this.queryJunctionTopology(junctionLocation);
-            if (!junctionData || junctionData.length === 0) {
-                return this.fallbackResult(origin, junctionLocation, 'NO_JUNCTION_DATA');
+// ============================================================================
+        // 交流道出口解析器 (Google Maps Logic V7.1)
+        // ============================================================================
+        class ExitPlanner {
+            constructor() {
+                this.SEARCH_RADIUS = 1500;
+                this.DEDUP_RADIUS = 30;
+                this.TIME_BUDGET = 300;  // 5 分鐘
+                this.IDEAL_APPROACH_ANGLE = 45;
+                this.EXCESSIVE_TURN_ANGLE = 135;
+                this.OSRM_TIMEOUT = 10000;
+                
+                // 權重
+                this.TIME_WEIGHT = 0.60;
+                this.DISTANCE_WEIGHT = 0.20;
+                this.TRAFFIC_WEIGHT = 0.15;
+                this.NETWORK_WEIGHT = 0.05;
             }
             
-            // 3️⃣ 識別所有可達入口
-            const allCandidates = await this.identifyAllEntrances(
-                origin,
-                junctionData,
-                junctionLocation,
-                targetLocation
-            );
-            
-            // 4️⃣ 評估每個候選的時間成本
-            const evaluatedCandidates = await this.evaluateCandidates(
-                origin,
-                allCandidates,
-                targetLocation
-            );
-            
-            // 5️⃣ 排序並返回
-            const rankedCandidates = this.rankByGoogleLogic(evaluatedCandidates);
-            
-            return {
-                status: 'success',
-                junction: junctionLocation,
-                totalCandidates: rankedCandidates.length,
-                candidates: rankedCandidates.slice(0, 10),  // Top 10
-                metadata: {
-                    searchRadius: this.SEARCH_RADIUS,
-                    timeBudget: this.TIME_BUDGET,
-                    optimizationTarget: 'TRAVEL_TIME',
-                    timestamp: new Date().toISOString()
+            /**
+             * 主函數：規劃至交流道出口
+             */
+            async planToExit(origin, junctionLocation, targetLocation) {
+                try {
+                    // 1. 查詢交流道數據
+                    const junctionData = await this.queryJunctionData(junctionLocation);
+                    if (!junctionData || junctionData.length === 0) {
+                        return this.fallbackResult(origin, junctionLocation, 'NO_JUNCTION_DATA');
+                    }
+                    
+                    // 2. 識別所有可達出口
+                    const allExits = await this.identifyExits(
+                        origin,
+                        junctionData,
+                        junctionLocation,
+                        targetLocation
+                    );
+                    
+                    if (allExits.length === 0) {
+                        return this.fallbackResult(origin, junctionLocation, 'NO_EXITS_FOUND');
+                    }
+                    
+                    // 3. 評估每個出口
+                    const evaluatedExits = await this.evaluateExits(
+                        origin,
+                        allExits,
+                        junctionLocation,
+                        targetLocation
+                    );
+                    
+                    // 4. 排序
+                    const rankedExits = this.rankExits(evaluatedExits);
+                    
+                    return {
+                        status: 'success',
+                        junction: junctionLocation,
+                        totalExits: rankedExits.length,
+                        exits: rankedExits.slice(0, 10),
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                } catch (error) {
+                    console.error('❌ Plan error:', error);
+                    return {
+                        status: 'error',
+                        message: error.message,
+                        exits: []
+                    };
                 }
-            };
-            
-        } catch (error) {
-            console.error('❌ buildEntranceCandidates error:', error);
-            return {
-                status: 'error',
-                message: error.message,
-                candidates: []
-            };
-        }
-    }
-    
-    /**
-     * ✅ 識別所有可達入口（Google 的做法）
-     * 不只是 link 終點，還包括「進場走廊」上的合理位置
-     */
-    async identifyAllEntrances(origin, junctionData, junctionLocation, targetLocation) {
-        const candidates = [];
-        const mainJunctionNode = junctionData[0];
-        
-        // 📍 方法 A：Direct Link 終點
-        for (const link of mainJunctionNode.links || []) {
-            // 檢查 link 是否為有效入口
-            if (this.isValidEntrance(link, mainJunctionNode, origin, junctionLocation)) {
-                candidates.push({
-                    type: 'DIRECT_LINK',
-                    wayId: link.id,
-                    wayName: link.tags?.name || 'Unnamed Link',
-                    endpoint: link.endpoint,
-                    linkData: link,
-                    confidence: 0.95,  // 高信心度
-                    reason: 'Direct link endpoint'
-                });
             }
-        }
-        
-        // 📍 方法 B：進場走廊（Google 特有）
-        // 從起點可到達「高速公路主幹道」上的任何位置，
-        // 該位置距交流道 < 500m 且能合理進入交流道
-        const approachCorridorCandidates = await this.findApproachCorridor(
-            origin,
-            junctionLocation,
-            mainJunctionNode
-        );
-        candidates.push(...approachCorridorCandidates);
-        
-        // 📍 方法 C：去重
-        const dedupedCandidates = this.deduplicateCandidates(candidates);
-        
-        return dedupedCandidates;
-    }
-    
-    /**
-     * ✅ 檢查是否為有效入口（Google 邏輯）
-     */
-    isValidEntrance(link, junctionNode, origin, junctionLocation) {
-        // ❌ 排除條件 1: oneway 反向
-        if (link.tags?.oneway === '-1' || link.tags?.oneway === 'reverse') {
-            return false;
-        }
-        
-        // ❌ 排除條件 2: 進場角度過大（> 135°）= 出口特徵
-        const linkBearing = this.calculateLinkBearing(link);
-        const junctionBearing = turf.bearing(
-            turf.point([origin[1], origin[0]]),
-            turf.point([junctionLocation[1], junctionLocation[0]])
-        );
-        
-        const angleDiff = this.angleDifference(linkBearing, junctionBearing);
-        if (Math.abs(angleDiff) > this.EXCESSIVE_TURN_ANGLE) {
-            return false;  // 鈍角 = 出口
-        }
-        
-        // ❌ 排除條件 3: 道路類型為明確的「出口」或「低等級」
-        const highwayType = link.tags?.highway;
-        const exitMarkers = ['motorway_link', 'trunk_link', 'primary_link'];
-        
-        // motorway_link 本身不排除，因為交流道就是 link
-        // 但要檢查流向
-        if (link.oneway_direction === 'INCOMING') {
-            return false;  // 流向指向起點 = 出口
-        }
-        
-        // ✅ 通過檢查
-        return true;
-    }
-    
-    /**
-     * ✅ 計算 Link 方向（使用端點座標）
-     */
-    calculateLinkBearing(link) {
-        if (!link.endpoint || !link.startpoint) return 0;
-        
-        const from = turf.point([link.startpoint[1], link.startpoint[0]]);
-        const to = turf.point([link.endpoint[1], link.endpoint[0]]);
-        
-        return turf.bearing(from, to);
-    }
-    
-    /**
-     * ✅ 計算方向差異（-180 to 180）
-     */
-    angleDifference(bearing1, bearing2) {
-        let diff = (bearing2 - bearing1 + 180) % 360 - 180;
-        return diff < -180 ? diff + 360 : diff;
-    }
-    
-    /**
-     * ✅ 尋找進場走廊（Google Maps 特有邏輯）
-     * 「從起點可合理到達的、距交流道 < 500m 的主幹道段」
-     */
-    async findApproachCorridor(origin, junctionLocation, junctionNode) {
-        const corridorCandidates = [];
-        
-        // 1. 查詢交流道周邊的主幹道（motorway/trunk/primary）
-        const nearbyMainWays = await this.queryNearbyMainWays(
-            junctionLocation,
-            500  // 500m 範圍
-        );
-        
-        for (const mainWay of nearbyMainWays) {
-            // 2. 檢查該主幹道上「距交流道最近的點」
-            const nearestPoint = turf.nearestPointOnLine(
-                mainWay.geometry,
-                turf.point([junctionLocation[1], junctionLocation[0]])
-            );
             
-            // 3. 計算距離
-            const distanceToJunction = nearestPoint.properties.dist * 1000;  // 轉為米
+            /**
+             * 識別出口 - 關鍵改變：只找「離開交流道」的 links
+             */
+            async identifyExits(origin, junctionData, junctionLocation, targetLocation) {
+                const exits = [];
+                const mainJunction = junctionData[0];
+                
+                for (const link of mainJunction.links || []) {
+                    // ✅ 出口條件：
+                    // 1. oneway 不是反向（'-1'、'reverse'）
+                    // 2. 進場角度合理（不是 > 135° 的鈍角）
+                    // 3. 目標可達
+                    
+                    if (this.isValidExit(link, mainJunction, origin, junctionLocation)) {
+                        exits.push({
+                            type: 'EXIT',
+                            wayId: link.id,
+                            wayName: link.tags?.name || 'Unnamed Exit',
+                            endpoint: link.endpoint,  // 出口終點
+                            linkData: link,
+                            confidence: 0.95
+                        });
+                    }
+                }
+                
+                return this.deduplicateCandidates(exits);
+            }
             
-            if (distanceToJunction < 500) {
-                // 4. 檢查進場角度
-                const approachAngle = this.calculateApproachAngle(
-                    origin,
-                    nearestPoint.geometry.coordinates,
-                    junctionLocation
+            /**
+             * 檢查是否為有效出口
+             */
+            isValidExit(link, junctionNode, origin, junctionLocation) {
+                // ❌ 排除：oneway 反向（這是入口）
+                if (link.tags?.oneway === '-1' || link.tags?.oneway === 'reverse') {
+                    return false;
+                }
+                
+                // ❌ 排除：進場角度過大（鈍角 > 135°）
+                const linkBearing = this.calculateLinkBearing(link);
+                const junctionBearing = turf.bearing(
+                    turf.point([origin[1], origin[0]]),
+                    turf.point([junctionLocation[1], junctionLocation[0]])
                 );
                 
-                if (Math.abs(approachAngle) <= this.IDEAL_APPROACH_ANGLE) {
-                    corridorCandidates.push({
-                        type: 'APPROACH_CORRIDOR',
-                        wayId: mainWay.id,
-                        wayName: mainWay.tags?.name || 'Main Way',
-                        endpoint: [nearestPoint.geometry.coordinates[1], nearestPoint.geometry.coordinates[0]],
-                        mainWayData: mainWay,
-                        confidence: 0.75,  // 較低信心度（不是明確的 link 終點）
-                        reason: `Main way nearest point, distance: ${distanceToJunction.toFixed(0)}m, angle: ${approachAngle.toFixed(1)}°`
+                const angleDiff = Math.abs(this.angleDifference(linkBearing, junctionBearing));
+                if (angleDiff > this.EXCESSIVE_TURN_ANGLE) {
+                    return false;
+                }
+                
+                // ✅ 有效出口
+                return true;
+            }
+            
+            /**
+             * 評估出口 - 核心路線計算
+             */
+            async evaluateExits(origin, exits, junctionLocation, targetLocation) {
+                const evaluated = [];
+                
+                for (const exit of exits) {
+                    try {
+                        // 🎯 三段路線：
+                        // 1. origin → 高速公路進入點
+                        // 2. 高速公路進入點 → 出口終點
+                        // 3. 出口終點 → target
+                        
+                        // 先找「進入高速公路的最佳點」
+                        const entryPoint = await this.findHighwayEntry(origin, junctionLocation);
+                        
+                        if (!entryPoint) {
+                            continue;
+                        }
+                        
+                        // 路線 A：經過此出口
+                        const routeViaExit = await this.fetchOSRMRoute([
+                            origin,
+                            entryPoint,
+                            exit.endpoint,
+                            targetLocation
+                        ]);
+                        
+                        if (!routeViaExit) {
+                            continue;
+                        }
+                        
+                        // 路線 B：直接路線（對照組）
+                        const directRoute = await this.fetchOSRMRoute([
+                            origin,
+                            targetLocation
+                        ]);
+                        
+                        // 計算指標
+                        const extraTime = routeViaExit.duration - directRoute.duration;
+                        const extraDistance = routeViaExit.distance - directRoute.distance;
+                        const timeRatio = routeViaExit.duration / directRoute.duration;
+                        const distanceRatio = routeViaExit.distance / directRoute.distance;
+                        
+                        // 綜合評分
+                        const effectiveScore = this.calculateScore(
+                            timeRatio,
+                            distanceRatio,
+                            exit.confidence
+                        );
+                        
+                        evaluated.push({
+                            ...exit,
+                            routing: {
+                                distance: routeViaExit.distance,
+                                duration: routeViaExit.duration
+                            },
+                            metrics: {
+                                extraTime,
+                                extraDistance,
+                                timeRatio,
+                                distanceRatio
+                            },
+                            evaluation: {
+                                viable: extraTime < 600 && distanceRatio < 2.0,
+                                effectiveScore
+                            }
+                        });
+                        
+                    } catch (error) {
+                        console.warn(`⚠️ Failed to evaluate exit ${exit.wayId}:`, error);
+                    }
+                }
+                
+                return evaluated;
+            }
+            
+            /**
+             * 尋找進入高速公路的最佳點
+             */
+            async findHighwayEntry(origin, junctionLocation) {
+                try {
+                    // Overpass 查詢周邊高速公路
+                    const highways = await this.queryNearbyHighways(junctionLocation);
+                    
+                    if (!highways || highways.length === 0) {
+                        return junctionLocation;  // 降級
+                    }
+                    
+                    // 找最近的點
+                    const mainWay = highways[0];
+                    const geometry = mainWay.geometry;
+                    
+                    if (!geometry || geometry.length === 0) {
+                        return junctionLocation;
+                    }
+                    
+                    // 轉換為 Turf 格式
+                    const lineString = turf.lineString(geometry.map(p => [p.lon, p.lat]));
+                    const originPoint = turf.point([origin[1], origin[0]]);
+                    
+                    const nearestPoint = turf.nearestPointOnLine(lineString, originPoint);
+                    
+                    return [nearestPoint.geometry.coordinates[1], nearestPoint.geometry.coordinates[0]];
+                    
+                } catch (error) {
+                    console.warn('⚠️ Failed to find highway entry:', error);
+                    return null;
+                }
+            }
+            
+            /**
+             * 計算綜合評分
+             */
+            calculateScore(timeRatio, distanceRatio, confidence) {
+                let baseScore = 1000;
+                
+                // 時間評分（60%）
+                let timeScore = Math.max(0, 100 - (timeRatio - 1) * 100);
+                
+                // 距離評分（20%）
+                let distanceScore = Math.max(0, 100 - (distanceRatio - 1) * 50);
+                
+                // 基礎分
+                let networkScore = 85;
+                
+                // 最終
+                const finalScore = (
+                    timeScore * this.TIME_WEIGHT +
+                    distanceScore * this.DISTANCE_WEIGHT +
+                    networkScore * 0.25 +
+                    confidence * 20
+                );
+                
+                return Math.round(finalScore);
+            }
+            
+            /**
+             * OSRM 路線查詢
+             */
+            async fetchOSRMRoute(coordinates) {
+                const coordString = coordinates
+                    .map(c => `${c[1]},${c[0]}`)
+                    .join(';');
+                
+                const url = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full`;
+                
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), this.OSRM_TIMEOUT);
+                    
+                    const response = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeout);
+                    
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    
+                    const data = await response.json();
+                    if (data.code !== 'Ok') throw new Error(`OSRM: ${data.code}`);
+                    
+                    const route = data.routes[0];
+                    return {
+                        distance: route.distance,
+                        duration: route.duration,
+                        geometry: route.geometry
+                    };
+                    
+                } catch (error) {
+                    console.error('❌ OSRM error:', error);
+                    return null;
+                }
+            }
+            
+            /**
+             * Overpass 查詢交流道數據
+             */
+            async queryJunctionData(junctionLocation) {
+                const [lat, lon] = junctionLocation;
+                
+                const query = `
+                    [bbox:${lat - 0.003},${lon - 0.003},${lat + 0.003},${lon + 0.003}];
+                    (
+                        node["highway"="motorway_junction"];
+                        node["highway"="trunk_junction"];
+                        node["highway"="primary_junction"];
+                    );
+                    out center;
+                `;
+                
+                try {
+                    const response = await fetch('https://overpass-api.de/api/interpreter', {
+                        method: 'POST',
+                        body: `data=${encodeURIComponent(query)}`
                     });
-                }
-            }
-        }
-        
-        return corridorCandidates;
-    }
-    
-    /**
-     * ✅ 計算進場角度
-     */
-    calculateApproachAngle(origin, approachPoint, junctionLocation) {
-        const toApproach = turf.bearing(
-            turf.point([origin[1], origin[0]]),
-            turf.point([approachPoint[0], approachPoint[1]])
-        );
-        
-        const toJunction = turf.bearing(
-            turf.point([approachPoint[0], approachPoint[1]]),
-            turf.point([junctionLocation[1], junctionLocation[0]])
-        );
-        
-        return this.angleDifference(toApproach, toJunction);
-    }
-    
-    /**
-     * ✅ 去重候選（相距 < DEDUP_RADIUS 認為重複）
-     */
-    deduplicateCandidates(candidates) {
-        const dedupedCandidates = [];
-        
-        for (const candidate of candidates) {
-            const isDuplicate = dedupedCandidates.some(existing =>
-                turf.distance(
-                    turf.point([candidate.endpoint[1], candidate.endpoint[0]]),
-                    turf.point([existing.endpoint[1], existing.endpoint[0]])
-                ) < (this.DEDUP_RADIUS / 1000)  // 轉為 km
-            );
-            
-            if (!isDuplicate) {
-                dedupedCandidates.push(candidate);
-            }
-        }
-        
-        return dedupedCandidates;
-    }
-    
-    /**
-     * ✅ 評估候選 - Google 的核心邏輯（時間優先）
-     */
-    async evaluateCandidates(origin, candidates, targetLocation) {
-        const evaluated = [];
-        
-        for (const candidate of candidates) {
-            try {
-                // 🎯 計算關鍵指標
-                
-                // 1️⃣ 路線 A：origin → entrance → target
-                const routeViaEntrance = await this.fetchOSRMRoute([
-                    origin,
-                    candidate.endpoint,
-                    targetLocation
-                ]);
-                
-                // 2️⃣ 路線 B：origin → target（對照組）
-                const directRoute = await this.fetchOSRMRoute([
-                    origin,
-                    targetLocation
-                ]);
-                
-                // 3️⃣ 計算時間成本
-                const extraTime = routeViaEntrance.duration - directRoute.duration;
-                const extraDistance = routeViaEntrance.distance - directRoute.distance;
-                const timeRatio = routeViaEntrance.duration / directRoute.duration;
-                const distanceRatio = routeViaEntrance.distance / directRoute.distance;
-                
-                // 4️⃣ 路況信心度（模擬 Google 的實時路況數據）
-                const trafficConfidence = await this.estimateTrafficConfidence(
-                    routeViaEntrance
-                );
-                
-                // 5️⃣ 路網質量評分（高速 > 快速 > 普通）
-                const networkQuality = this.analyzeNetworkQuality(
-                    routeViaEntrance.steps || []
-                );
-                
-                // 6️⃣ 合理性檢查
-                const reasonabilityCheck = this.checkReasonableness(
-                    extraTime,
-                    extraDistance,
-                    timeRatio,
-                    distanceRatio
-                );
-                
-                // 7️⃣ 目標可達性驗證
-                const targetReachable = await this.verifyTargetReachability(
-                    candidate.endpoint,
-                    targetLocation
-                );
-                
-                // 8️⃣ 綜合評分（Google 邏輯）
-                const effectiveScore = this.calculateEffectiveScore({
-                    timeRatio,
-                    distanceRatio,
-                    trafficConfidence,
-                    networkQuality,
-                    reasonabilityCheck,
-                    targetReachable,
-                    candidate
-                });
-                
-                // 9️⃣ U-turn 風險評估
-                const uTurnRisk = this.detectUTurnRisk(
-                    origin,
-                    candidate.endpoint,
-                    routeViaEntrance.steps || []
-                );
-                
-                evaluated.push({
-                    ...candidate,
-                    routing: {
-                        distance: routeViaEntrance.distance,
-                        duration: routeViaEntrance.duration,
-                        steps: routeViaEntrance.steps
-                    },
-                    metrics: {
-                        extraTime,           // 秒
-                        extraDistance,       // 米
-                        timeRatio,           // 百分比
-                        distanceRatio,       // 百分比
-                        trafficConfidence,   // 0-1
-                        networkQuality,      // 0-1
-                        uTurnRisk            // 0-1
-                    },
-                    evaluation: {
-                        viable: reasonabilityCheck.viable,
-                        targetReachable,
-                        viability: reasonabilityCheck,
-                        effectiveScore
+                    
+                    const data = await response.json();
+                    
+                    if (!data.elements || data.elements.length === 0) {
+                        return null;
                     }
-                });
-                
-            } catch (error) {
-                console.warn(`⚠️ Failed to evaluate candidate ${candidate.wayId}:`, error);
-                // 標記為不可評估
-                evaluated.push({
-                    ...candidate,
-                    evaluation: {
-                        viable: false,
-                        error: error.message,
-                        effectiveScore: -1000
+                    
+                    // 查詢連接的 links
+                    const junctions = [];
+                    for (const elem of data.elements) {
+                        const links = await this.queryLinksForJunction(elem);
+                        junctions.push({
+                            id: elem.id,
+                            lat: elem.lat,
+                            lon: elem.lon,
+                            links
+                        });
                     }
-                });
+                    
+                    return junctions;
+                    
+                } catch (error) {
+                    console.error('❌ Junction query failed:', error);
+                    return null;
+                }
             }
-        }
-        
-        return evaluated;
-    }
-    
-    /**
-     * ✅ 計算綜合評分（Google 邏輯）
-     * 時間 60% > 距離 20% > 路況 15% > 網路 5%
-     */
-    calculateEffectiveScore(params) {
-        const {
-            timeRatio,
-            distanceRatio,
-            trafficConfidence,
-            networkQuality,
-            reasonabilityCheck,
-            targetReachable,
-            candidate
-        } = params;
-        
-        // 基礎分：1000 分制
-        let baseScore = 1000;
-        
-        // ❌ 不可行直接返回低分
-        if (!reasonabilityCheck.viable || !targetReachable) {
-            return -1000;
-        }
-        
-        // 🎯 時間評分（60% 權重）
-        // timeRatio = 1.0 → 100 分
-        // timeRatio = 1.5 → 50 分（多花 50%）
-        // timeRatio > 2.0 → 0 分（多花一倍）
-        let timeScore = Math.max(0, 100 - (timeRatio - 1) * 100);
-        
-        // 🎯 距離評分（20% 權重）
-        let distanceScore = Math.max(0, 100 - (distanceRatio - 1) * 50);
-        
-        // 🎯 路況評分（15% 權重）
-        let trafficScore = trafficConfidence * 100;
-        
-        // 🎯 網路質量（5% 權重）
-        let networkScore = networkQuality * 100;
-        
-        // 信心度懲罰
-        let confidenceBonus = candidate.confidence * 20;
-        
-        // 最終評分
-        const finalScore = (
-            timeScore * this.TIME_WEIGHT +
-            distanceScore * this.DISTANCE_WEIGHT +
-            trafficScore * this.TRAFFIC_WEIGHT +
-            networkScore * this.NETWORK_WEIGHT +
-            confidenceBonus
-        );
-        
-        return Math.round(finalScore);
-    }
-    
-    /**
-     * ✅ 合理性檢查（替代舊的「繞路倍率」邏輯）
-     */
-    checkReasonableness(extraTime, extraDistance, timeRatio, distanceRatio) {
-        const checks = {
-            viable: true,
-            timeCost: 'ACCEPTABLE',
-            distanceCost: 'ACCEPTABLE',
-            overallReasoning: 'REASONABLE',
-            penalties: []
-        };
-        
-        // ❌ 時間成本過高（> 5 分鐘）
-        if (extraTime > this.TIME_BUDGET) {  // 300 秒
-            checks.timeCost = 'EXCESSIVE';
-            checks.penalties.push(`Excessive time cost: +${Math.round(extraTime / 60)} minutes`);
             
-            // 但如果距離節省顯著，仍可接受（Google 邏輯）
-            if (distanceRatio > 0.9) {
-                checks.viable = false;  // 時間多但距離沒少 = 不合理
+            /**
+             * 查詢交流道的 links
+             */
+            async queryLinksForJunction(junction) {
+                const [lat, lon] = [junction.lat, junction.lon];
+                
+                const query = `
+                    [bbox:${lat - 0.01},${lon - 0.01},${lat + 0.01},${lon + 0.01}];
+                    (
+                        way["highway"="motorway_link"];
+                        way["highway"="trunk_link"];
+                        way["highway"="primary_link"];
+                    );
+                    out geom;
+                `;
+                
+                try {
+                    const response = await fetch('https://overpass-api.de/api/interpreter', {
+                        method: 'POST',
+                        body: `data=${encodeURIComponent(query)}`
+                    });
+                    
+                    const data = await response.json();
+                    
+                    return (data.elements || []).map(way => ({
+                        id: way.id,
+                        tags: way.tags || {},
+                        geometry: way.geometry || [],
+                        endpoint: way.geometry && way.geometry.length > 0
+                            ? [way.geometry[way.geometry.length - 1].lat, way.geometry[way.geometry.length - 1].lon]
+                            : null,
+                        startpoint: way.geometry && way.geometry.length > 0
+                            ? [way.geometry[0].lat, way.geometry[0].lon]
+                            : null,
+                        oneway_direction: this.detectOneWayDirection(way)
+                    }));
+                    
+                } catch (error) {
+                    console.warn('⚠️ Link query failed:', error);
+                    return [];
+                }
             }
-        }
-        
-        // ⚠️ 距離倍率警告（但不硬性排除）
-        if (distanceRatio > 1.5) {
-            checks.distanceCost = 'HIGH';
-            checks.penalties.push(`High distance ratio: ${distanceRatio.toFixed(2)}x`);
-        }
-        
-        // ✅ 綜合判定
-        if (extraTime > 600 || distanceRatio > 2.0) {  // 極端情況
-            checks.viable = false;
-            checks.overallReasoning = 'UNREASONABLE_DETOUR';
-        } else if (checks.penalties.length > 0) {
-            checks.overallReasoning = 'SUBOPTIMAL_BUT_VIABLE';
-        }
-        
-        return checks;
-    }
-    
-    /**
-     * ✅ 路況信心度估計（模擬 Google 的數據品質）
-     */
-    async estimateTrafficConfidence(routeData) {
-        // 實際應連接 Google Maps Platform / HERE Maps API
-        // 此處為簡化模擬
-        
-        const factors = {
-            dataAge: 0.8,           // 路況數據新鮮度
-            sampleSize: 0.7,        // 樣本量
-            roadTypeReliability: 0.85  // 道路類型的預測可靠性
-        };
-        
-        // 加權平均
-        const confidence = (
-            factors.dataAge * 0.4 +
-            factors.sampleSize * 0.4 +
-            factors.roadTypeReliability * 0.2
-        );
-        
-        return Math.max(this.MIN_TRAFFIC_CONFIDENCE, confidence);
-    }
-    
-    /**
-     * ✅ 路網質量分析（道路等級評分）
-     */
-    analyzeNetworkQuality(steps) {
-        if (!steps || steps.length === 0) return 0.5;
-        
-        const roadWeights = {
-            motorway: 1.0,
-            trunk: 0.95,
-            primary: 0.85,
-            secondary: 0.70,
-            tertiary: 0.60,
-            residential: 0.50,
-            default: 0.40
-        };
-        
-        let totalQuality = 0;
-        let totalDistance = 0;
-        
-        for (const step of steps) {
-            const roadType = step.ref?.highway || 'default';
-            const weight = roadWeights[roadType] || roadWeights.default;
-            const distance = step.distance || 0;
             
-            totalQuality += weight * distance;
-            totalDistance += distance;
-        }
-        
-        return totalDistance > 0 ? totalQuality / totalDistance : 0.5;
-    }
-    
-    /**
-     * ✅ U-turn 風險檢測（滑動視窗法）
-     */
-    detectUTurnRisk(origin, entrance, steps) {
-        if (!steps || steps.length < 3) return 0;
-        
-        let maxTurnAngle = 0;
-        
-        // 滑動視窗（3 點法）
-        for (let i = 0; i < steps.length - 2; i++) {
-            const p1 = steps[i].maneuver?.location || [0, 0];
-            const p2 = steps[i + 1].maneuver?.location || [0, 0];
-            const p3 = steps[i + 2].maneuver?.location || [0, 0];
-            
-            if (p1[0] !== 0 && p2[0] !== 0 && p3[0] !== 0) {
-                const bearing1 = turf.bearing(
-                    turf.point(p1),
-                    turf.point(p2)
-                );
-                const bearing2 = turf.bearing(
-                    turf.point(p2),
-                    turf.point(p3)
-                );
-                
-                const turnAngle = Math.abs(this.angleDifference(bearing1, bearing2));
-                maxTurnAngle = Math.max(maxTurnAngle, turnAngle);
+            /**
+             * 檢測 oneway 方向
+             */
+            detectOneWayDirection(way) {
+                const oneway = way.tags?.oneway;
+                if (!oneway || oneway === 'no') return 'BOTH';
+                if (oneway === '-1' || oneway === 'reverse') return 'REVERSE';
+                return 'FORWARD';
             }
-        }
-        
-        // U-turn 風險評分（0-1）
-        // 155° 以上 = 高風險
-        return Math.min(1, (maxTurnAngle - 90) / 100);
-    }
-    
-    /**
-     * ✅ 目標可達性驗證
-     */
-    async verifyTargetReachability(entrance, target) {
-        try {
-            const route = await this.fetchOSRMRoute([entrance, target]);
-            return route && route.distance > 0;
-        } catch {
-            return false;
-        }
-    }
-    
-    /**
-     * ✅ OSRM 路線查詢（帶重試機制）
-     */
-    async fetchOSRMRoute(coordinates, retries = this.OSRM_RETRIES) {
-        const coordString = coordinates
-            .map(c => `${c[1]},${c[0]}`)
-            .join(';');
-        
-        const url = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&steps=true&geometries=geojson`;
-        
-        for (let attempt = 0; attempt <= retries; attempt++) {
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(
-                    () => controller.abort(),
-                    this.OSRM_TIMEOUT
-                );
+            
+            /**
+             * 查詢附近高速公路
+             */
+            async queryNearbyHighways(location) {
+                const [lat, lon] = location;
+                const bbox = 0.01;
                 
-                const response = await fetch(url, { signal: controller.signal });
-                clearTimeout(timeout);
+                const query = `
+                    [bbox:${lat - bbox},${lon - bbox},${lat + bbox},${lon + bbox}];
+                    (
+                        way["highway"="motorway"];
+                        way["highway"="trunk"];
+                        way["highway"="primary"];
+                    );
+                    out geom;
+                `;
                 
-                if (!response.ok) {
-                    throw new Error(`OSRM error: ${response.status}`);
+                try {
+                    const response = await fetch('https://overpass-api.de/api/interpreter', {
+                        method: 'POST',
+                        body: `data=${encodeURIComponent(query)}`
+                    });
+                    
+                    const data = await response.json();
+                    
+                    return (data.elements || []).map(way => ({
+                        id: way.id,
+                        tags: way.tags || {},
+                        geometry: way.geometry || []
+                    }));
+                    
+                } catch (error) {
+                    console.error('❌ Highway query failed:', error);
+                    return [];
+                }
+            }
+            
+            // ============================================================================
+            // 工具函數
+            // ============================================================================
+            
+            calculateLinkBearing(link) {
+                if (!link.endpoint || !link.startpoint) return 0;
+                const from = turf.point([link.startpoint[1], link.startpoint[0]]);
+                const to = turf.point([link.endpoint[1], link.endpoint[0]]);
+                return turf.bearing(from, to);
+            }
+            
+            angleDifference(bearing1, bearing2) {
+                let diff = (bearing2 - bearing1 + 180) % 360 - 180;
+                return diff < -180 ? diff + 360 : diff;
+            }
+            
+            deduplicateCandidates(candidates) {
+                const dedupedCandidates = [];
+                
+                for (const candidate of candidates) {
+                    const isDuplicate = dedupedCandidates.some(existing =>
+                        turf.distance(
+                            turf.point([candidate.endpoint[1], candidate.endpoint[0]]),
+                            turf.point([existing.endpoint[1], existing.endpoint[0]])
+                        ) < (this.DEDUP_RADIUS / 1000)
+                    );
+                    
+                    if (!isDuplicate) {
+                        dedupedCandidates.push(candidate);
+                    }
                 }
                 
-                const data = await response.json();
-                
-                if (data.code !== 'Ok') {
-                    throw new Error(`OSRM returned: ${data.code}`);
-                }
-                
-                // 返回第一條路線
-                const route = data.routes[0];
+                return dedupedCandidates;
+            }
+            
+            rankExits(exits) {
+                return exits
+                    .filter(e => e.evaluation?.viable !== false)
+                    .sort((a, b) => {
+                        const scoreA = a.evaluation?.effectiveScore || -1000;
+                        const scoreB = b.evaluation?.effectiveScore || -1000;
+                        if (scoreA !== scoreB) return scoreB - scoreA;
+                        
+                        const timeA = a.metrics?.timeRatio || Infinity;
+                        const timeB = b.metrics?.timeRatio || Infinity;
+                        return timeA - timeB;
+                    });
+            }
+            
+            fallbackResult(origin, junctionLocation, reason) {
                 return {
-                    distance: route.distance,
-                    duration: route.duration,
-                    geometry: route.geometry,
-                    steps: route.legs.flatMap(leg => leg.steps || [])
+                    status: 'fallback',
+                    reason,
+                    exits: [{
+                        type: 'FALLBACK',
+                        endpoint: junctionLocation,
+                        wayName: '交流道 (直達)',
+                        evaluation: { viable: true, effectiveScore: 500 }
+                    }]
                 };
-                
-            } catch (error) {
-                if (attempt === retries) {
-                    throw new Error(`OSRM fetch failed after ${retries + 1} attempts: ${error.message}`);
-                }
-                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
             }
         }
-    }
-    
-    /**
-     * ✅ 排序候選（Google 邏輯）
-     */
-    rankByGoogleLogic(candidates) {
-        // 篩選可行方案
-        const viable = candidates.filter(c => c.evaluation?.viable !== false);
         
-        // 按綜合評分排序
-        return viable.sort((a, b) => {
-            // 1️⃣ 綜合評分優先（effectiveScore）
-            const scoreA = a.evaluation?.effectiveScore || -1000;
-            const scoreB = b.evaluation?.effectiveScore || -1000;
-            if (scoreA !== scoreB) return scoreB - scoreA;
-            
-            // 2️⃣ 時間比例（timeRatio）
-            const timeA = a.metrics?.timeRatio || Infinity;
-            const timeB = b.metrics?.timeRatio || Infinity;
-            if (Math.abs(timeA - timeB) > 0.05) return timeA - timeB;
-            
-            // 3️⃣ 距離比例（distanceRatio）
-            const distA = a.metrics?.distanceRatio || Infinity;
-            const distB = b.metrics?.distanceRatio || Infinity;
-            return distA - distB;
-        });
-    }
-    
-    /**
-     * ✅ Overpass 查詢：獲取交流道拓撲
-     */
-    async queryJunctionTopology(junctionLocation) {
-        const [lat, lon] = junctionLocation;
-        const radius = 200;  // 200m 範圍
+        // ============================================================================
+        // UI 函數
+        // ============================================================================
         
-        const query = `
-            [bbox:${lat - 0.002},${lon - 0.002},${lat + 0.002},${lon + 0.002}];
-            (
-                node["highway"="motorway_junction"];
-                node["highway"="trunk_junction"];
-                node["highway"="primary_junction"];
-            );
-            out center;
-        `;
-        
-        try {
-            const response = await fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                body: `data=${encodeURIComponent(query)}`
-            });
+        async function analyzeExits() {
+            const originText = document.getElementById('originInput').value.trim();
+            const junctionText = document.getElementById('junctionInput').value.trim();
+            const targetText = document.getElementById('targetInput').value.trim();
             
-            const data = await response.json();
+            // 驗證輸入
+            const origin = parseCoordinates(originText);
+            const junction = parseCoordinates(junctionText);
+            const target = parseCoordinates(targetText);
             
-            if (!data.elements || data.elements.length === 0) {
-                return null;
+            if (!origin || !junction || !target) {
+                alert('❌ 座標格式錯誤，請使用「緯度, 經度」格式');
+                return;
             }
             
-            // 增強數據：附加 links 和拓撲
-            const junctions = data.elements.map(elem => ({
-                id: elem.id,
-                lat: elem.lat,
-                lon: elem.lon,
-                tags: elem.tags || {},
-                links: []  // 待填充
+            // 顯示加載
+            showLoading();
+            
+            try {
+                // 執行分析
+                const planner = new ExitPlanner();
+                const result = await planner.planToExit(origin, junction, target);
+                
+                currentResults = result;
+                
+                // 渲染結果
+                renderResults(result);
+                visualizeOnMap(result, origin, junction, target);
+                
+            } catch (error) {
+                alert(`❌ 錯誤: ${error.message}`);
+            }
+        }
+        
+        function renderResults(result) {
+            const container = document.getElementById('resultsContainer');
+            
+            if (result.status === 'error') {
+                container.innerHTML = `<div style="color: red; padding: 15px;">❌ ${result.message}</div>`;
+                return;
+            }
+            
+            let html = `
+                <div class="stats-box">
+                    <p>🚏 交流道: <strong>[${result.junction[0].toFixed(4)}, ${result.junction[1].toFixed(4)}]</strong></p>
+                    <p>📊 找到 <strong>${result.totalExits}</strong> 個出口</p>
+                    <p>⏰ 分析時間: ${new Date(result.timestamp).toLocaleTimeString()}</p>
+                </div>
+            `;
+            
+            for (let i = 0; i < result.exits.length && i < 5; i++) {
+                const exit = result.exits[i];
+                
+                html += `
+                    <div class="result-item exit">
+                        <span class="badge badge-exit">出口 #${i + 1}</span>
+                        <span class="badge badge-score">評分: ${exit.evaluation?.effectiveScore || 'N/A'}</span>
+                        <h4>🛣️ ${exit.wayName}</h4>
+                        <p><strong>WayID:</strong> ${exit.wayId}</p>
+                        <p><strong>類型:</strong> ${exit.type}</p>
+                        <p><strong>信心度:</strong> ${(exit.confidence * 100).toFixed(0)}%</p>
+                `;
+                
+                if (exit.routing) {
+                    html += `
+                        <p><strong>距離:</strong> ${(exit.routing.distance / 1000).toFixed(2)} km</p>
+                        <p><strong>時間:</strong> ${Math.round(exit.routing.duration / 60)} 分鐘</p>
+                    `;
+                }
+                
+                if (exit.metrics) {
+                    html += `
+                        <p><strong>額外時間:</strong> ${Math.round(exit.metrics.extraTime / 60)} 分鐘 (${(exit.metrics.timeRatio * 100).toFixed(0)}%)</p>
+                        <p><strong>額外距離:</strong> ${(exit.metrics.extraDistance / 1000).toFixed(2)} km (${(exit.metrics.distanceRatio * 100).toFixed(0)}%)</p>
+                    `;
+                }
+                
+                html += `</div>`;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function visualizeOnMap(result, origin, junction, target) {
+            // 清除舊標記
+            clearMap();
+            
+            // 起點
+            L.circleMarker(origin, {
+                radius: 8,
+                color: '#667eea',
+                fillColor: '#667eea',
+                fillOpacity: 1,
+                weight: 2
+            }).bindPopup('📍 起點').addTo(map);
+            
+            // 目標交流道
+            L.circleMarker(junction, {
+                radius: 10,
+                color: '#f59e0b',
+                fillColor: '#fbbf24',
+                fillOpacity: 1,
+                weight: 2
+            }).bindPopup('🚏 目標交流道').addTo(map);
+            
+            // 目的地
+            L.circleMarker(target, {
+                radius: 8,
+                color: '#ef4444',
+                fillColor: '#ef4444',
+                fillOpacity: 1,
+                weight: 2
+            }).bindPopup('🎯 目的地').addTo(map);
+            
+            // 出口
+            for (let i = 0; i < result.exits.length && i < 3; i++) {
+                const exit = result.exits[i];
+                const color = i === 0 ? '#10b981' : '#84cc16';
+                
+                L.circleMarker(exit.endpoint, {
+                    radius: 6,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.7,
+                    weight: 2
+                }).bindPopup(`
+                    <strong>${exit.wayName}</strong><br>
+                    評分: ${exit.evaluation?.effectiveScore}<br>
+                    距離: ${(exit.routing?.distance / 1000).toFixed(2)} km
+                `).addTo(map);
+            }
+            
+            // 自動縮放
+            const allPoints = [origin, junction, target, ...result.exits.slice(0, 3).map(e => e.endpoint)];
+            const bounds = L.latLngBounds(allPoints);
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+        
+        function clearMap() {
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker || layer instanceof L.CircleMarker || layer instanceof L.Polyline) {
+                    map.removeLayer(layer);
+                }
+            });
+        }
+        
+        function showLoading() {
+            document.getElementById('resultsContainer').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>分析中...</p>
+                </div>
+            `;
+        }
+        
+        function clearResults() {
+            document.getElementById('resultsContainer').innerHTML = `
+                <p style="color: #999; text-align: center; padding: 20px;">
+                    已清除
+                </p>
+            `;
+            clearMap();
+            currentResults = null;
+        }
+        
+        function exportResults() {
+            if (!currentResults || currentResults.exits.length === 0) {
+                alert('❌ 沒有結果可匯出');
+                return;
+            }
+            
+            const workbook = XLSX.utils.book_new();
+            
+            // 工作表 1：出口清單
+            const exitData = currentResults.exits.map((exit, index) => ({
+                '排名': index + 1,
+                '出口名稱': exit.wayName,
+                '出口ID': exit.wayId,
+                '緯度': exit.endpoint[0].toFixed(6),
+                '經度': exit.endpoint[1].toFixed(6),
+                '評分': exit.evaluation?.effectiveScore || 'N/A',
+                '距離(km)': exit.routing ? (exit.routing.distance / 1000).toFixed(2) : 'N/A',
+                '時間(分)': exit.routing ? Math.round(exit.routing.duration / 60) : 'N/A',
+                '額外時間(分)': exit.metrics ? Math.round(exit.metrics.extraTime / 60) : 'N/A',
+                '時間比例': exit.metrics ? (exit.metrics.timeRatio * 100).toFixed(1) + '%' : 'N/A',
+                '可行': exit.evaluation?.viable ? '✓' : '✗'
             }));
             
-            // 查詢連接到此交流道的 links
-            for (const junction of junctions) {
-                const links = await this.queryLinksForJunction(junction);
-                junction.links = links;
+            const ws1 = XLSX.utils.json_to_sheet(exitData);
+            XLSX.utils.book_append_sheet(workbook, ws1, '出口清單');
+            
+            // 下載
+            XLSX.writeFile(workbook, `交流道出口規劃_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        }
+        
+        function parseCoordinates(text) {
+            const parts = text.split(',').map(p => parseFloat(p.trim()));
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                return parts;
             }
-            
-            return junctions;
-            
-        } catch (error) {
-            console.error('❌ Overpass query failed:', error);
             return null;
         }
-    }
-    
-    /**
-     * ✅ Overpass 查詢：交流道相關的 links
-     */
-    async queryLinksForJunction(junction) {
-        const [lat, lon] = [junction.lat, junction.lon];
         
-        const query = `
-            [bbox:${lat - 0.01},${lon - 0.01},${lat + 0.01},${lon + 0.01}];
-            (
-                way["highway"="motorway_link"];
-                way["highway"="trunk_link"];
-                way["highway"="primary_link"];
-            );
-            out geom;
-        `;
+        // ============================================================================
+        // 初始化
+        // ============================================================================
         
-        try {
-            const response = await fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                body: `data=${encodeURIComponent(query)}`
-            });
-            
-            const data = await response.json();
-            
-            if (!data.elements) return [];
-            
-            return data.elements.map(way => ({
-                id: way.id,
-                tags: way.tags || {},
-                geometry: way.geometry || [],
-                endpoint: way.geometry && way.geometry.length > 0 
-                    ? [way.geometry[way.geometry.length - 1].lat, way.geometry[way.geometry.length - 1].lon]
-                    : null,
-                startpoint: way.geometry && way.geometry.length > 0
-                    ? [way.geometry[0].lat, way.geometry[0].lon]
-                    : null
-            }));
-            
-        } catch (error) {
-            console.error('❌ Link query failed:', error);
-            return [];
-        }
-    }
-    
-    /**
-     * ✅ 查詢附近主幹道（用於進場走廊識別）
-     */
-    async queryNearbyMainWays(junctionLocation, radius) {
-        const [lat, lon] = junctionLocation;
-        const bbox = radius / 111000;  // 轉為度數
-        
-        const query = `
-            [bbox:${lat - bbox},${lon - bbox},${lat + bbox},${lon + bbox}];
-            (
-                way["highway"="motorway"];
-                way["highway"="trunk"];
-                way["highway"="primary"];
-            );
-            out geom;
-        `;
-        
-        try {
-            const response = await fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                body: `data=${encodeURIComponent(query)}`
-            });
-            
-            const data = await response.json();
-            
-            if (!data.elements) return [];
-            
-            return data.elements.map(way => ({
-                id: way.id,
-                tags: way.tags || {},
-                geometry: {
-                    type: 'LineString',
-                    coordinates: (way.geometry || []).map(p => [p.lon, p.lat])
-                }
-            }));
-            
-        } catch (error) {
-            console.error('❌ Main ways query failed:', error);
-            return [];
-        }
-    }
-    
-    /**
-     * ✅ 輸入驗證
-     */
-    validateInput(origin, junctionLocation, targetLocation) {
-        const validateCoord = (coord, name) => {
-            if (!Array.isArray(coord) || coord.length !== 2) {
-                throw new Error(`Invalid ${name}: expected [lat, lon]`);
-            }
-            const [lat, lon] = coord;
-            if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-                throw new Error(`Invalid ${name} coordinates range`);
-            }
-        };
-        
-        validateCoord(origin, 'origin');
-        validateCoord(junctionLocation, 'junctionLocation');
-        validateCoord(targetLocation, 'targetLocation');
-    }
-    
-    /**
-     * ✅ 降級方案（當主查詢失敗時）
-     */
-    fallbackResult(origin, junctionLocation, reason) {
-        return {
-            status: 'fallback',
-            reason,
-            junction: junctionLocation,
-            candidates: [{
-                type: 'FALLBACK_DIRECT',
-                endpoint: junctionLocation,
-                confidence: 0.5,
-                reason: `Direct approach to junction due to: ${reason}`,
-                evaluation: {
-                    viable: true,
-                    effectiveScore: 500  // 中等分數
-                }
-            }],
-            metadata: {
-                optimizationTarget: 'FALLBACK_MODE'
-            }
-        };
-    }
-}
-
-// ============================================================================
-// 使用範例
-// ============================================================================
-
-async function exampleUsage() {
-    const parser = new GoogleMapsEntranceParser();
-    
-    // 定義起點、目標交流道、目的地
-    const origin = [25.0437, 121.5050];           // 台北市
-    const junctionLocation = [25.0500, 121.5150]; // 交流道位置
-    const targetLocation = [25.1000, 121.5500];   // 目的地
-    
-    try {
-        const result = await parser.buildEntranceCandidates(
-            origin,
-            junctionLocation,
-            targetLocation
-        );
-        
-        console.log('=== Google Maps Logic 交流道入口分析 ===');
-        console.log(`找到 ${result.totalCandidates} 個候選入口`);
-        console.log('\n排名結果（按綜合評分）：');
-        
-        result.candidates.forEach((candidate, index) => {
-            console.log(`\n${index + 1}. ${candidate.wayName} (WayID: ${candidate.wayId})`);
-            console.log(`   類型: ${candidate.type}`);
-            console.log(`   信心度: ${(candidate.confidence * 100).toFixed(0)}%`);
-            
-            if (candidate.metrics) {
-                console.log(`   ⏱️  時間: ${(candidate.metrics.timeRatio * 100).toFixed(0)}% (額外 ${Math.round(candidate.metrics.extraTime / 60)} 分鐘)`);
-                console.log(`   📏 距離: ${(candidate.metrics.distanceRatio * 100).toFixed(0)}% (額外 ${(candidate.metrics.extraDistance / 1000).toFixed(1)} km)`);
-                console.log(`   🚦 路況信心: ${(candidate.metrics.trafficConfidence * 100).toFixed(0)}%`);
-                console.log(`   🛣️  路網質量: ${(candidate.metrics.networkQuality * 100).toFixed(0)}%`);
-            }
-            
-            if (candidate.evaluation) {
-                console.log(`   ✅ 可行: ${candidate.evaluation.viable ? '是' : '否'}`);
-                console.log(`   📊 綜合評分: ${candidate.evaluation.effectiveScore}`);
-            }
+        window.addEventListener('DOMContentLoaded', () => {
+            initMap();
         });
-        
-    } catch (error) {
-        console.error('❌ Error:', error.message);
-    }
-}
-
-// 執行範例
-// exampleUsage();
 
 
 // ✅ 修正：優先使用門牌位置計算距離
