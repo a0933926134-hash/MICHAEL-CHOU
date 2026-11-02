@@ -4736,14 +4736,57 @@ function scoreEntrance(candidate) {
 
     if (tags.name) score += 3;
 
-    if (tags.destination || tags.name) {
-        const text = (tags.destination || "") + " " + (tags.name || "");
-        if (text.includes("出口") || text.includes("Exit") || text.includes("off-ramp") || tags.exit_to) score -= 80;
-        if (text.includes("國道") || text.includes("Freeway") || text.includes("高速公路") || text.includes("入口") || text.includes("Entrance") || text.includes("on-ramp")) score += 30;
-    }
+    // =====================================================
+// 交流道入口關鍵字評分
+// =====================================================
 
-    score = Math.max(0, Math.min(score, 100));
-    return score;
+const name = String(tags.name || "").toLowerCase();
+const destination = String(tags.destination || "").toLowerCase();
+
+const text = `${name} ${destination}`;
+
+const highway = String(tags.highway || "").toLowerCase();
+
+// 1. 明確出口特徵：直接排除
+if (
+    text.includes("出口") ||
+    text.includes("exit") ||
+    text.includes("off-ramp") ||
+    tags.exit_to
+) {
+    return 0;
+}
+
+// 2. 道路類型評分
+if (highway === "motorway_link") {
+    score += 40;
+}
+else if (highway === "trunk_link") {
+    score += 25;
+}
+
+// 3. 入口文字特徵
+if (
+    text.includes("入口") ||
+    text.includes("entrance") ||
+    text.includes("on-ramp")
+) {
+    score += 30;
+}
+
+// 4. 國道及高速公路目的地特徵
+if (
+    text.includes("國道") ||
+    text.includes("freeway") ||
+    text.includes("高速公路")
+) {
+    score += 15;
+}
+
+// 5. 分數限制
+score = Math.max(0, Math.min(score, 100));
+
+return score;
 }
 
 // ============================================================================
