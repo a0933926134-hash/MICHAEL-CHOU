@@ -4748,10 +4748,9 @@ function scoreEntrance(candidate) {
 }
 
 // ========================================================
-// ★ V7.5 交流道入口解析核心（加入方向向量過濾，徹底杜絕繞路與折返）
+// ★ V7.6 交流道入口解析核心（加入流向驗證、出口硬性排除、主線方位對齊）
 // ========================================================
 
-// 1. 計算兩點間的方位角 (Bearing) 0-360度
 function calculateBearing(lat1, lon1, lat2, lon2) {
     const toRad = deg => deg * Math.PI / 180;
     const toDeg = rad => rad * 180 / Math.PI;
@@ -4762,30 +4761,35 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
     return (brng + 360) % 360;
 }
 
-// 2. 升級版 BFS 尋找入口，增加方向夾角驗證
+// 1. 嚴格過濾的 BFS 入口搜尋（確保是「入口」而非「出口」）
 async function findSurfaceEntrancesByBFS(linkElements, highwayElements, destLat, destLon) {
     const candidates = [];
     const visited = new Set();
     const queue = [];
 
-    const motorwayLinks = linkElements.filter(e => e.tags?.highway === 'motorway_link');
+    // 只挑選 _link 結體的道路
+    const motorwayLinks = linkElements.filter(e => {
+        const h = e.tags?.highway || '';
+        return h.includes('_link');
+    });
     
     for (const link of motorwayLinks) {
-        const entrance = findLinkEntrance(link, highwayElements);
-        if (entrance) {
+        // ★ 核心檢查：必須是「正向進入」高速公路主線的匝道（排除出口）
+        const entranceInfo = validateAndGetLinkEntrance(link, highwayElements);
+        if (entranceInfo && entranceInfo.isEntrance) {
             queue.push({
                 wayId: link.id,
-                linkType: 'motorway_link',
-                currentLat: entrance.lat,
-                currentLon: entrance.lon,
+                linkType: link.tags.highway,
+                currentLat: entranceInfo.lat,
+                currentLon: entranceInfo.lon,
                 depth: 0,
                 path: [link.id]
             });
         }
     }
 
-    const maxDepth = 6; // 限制深度避免過度追溯
-    while (queue.length > 0 && candidates.length < 30) {
+    const maxDepth = 5;
+    while (queue.length > 0 && candidates.length < 25) {
         const current = queue.shift();
         const visitKey = `${current.wayId}-${current.depth}`;
 
@@ -4802,17 +4806,17 @@ async function findSurfaceEntrancesByBFS(linkElements, highwayElements, destLat,
                 surfaceEntranceLon: current.currentLon,
                 depth: current.depth,
                 path: current.path,
-                confidence: 0.95
+                confidence: 0.98
             });
         } else {
             for (const upLink of upstreamLinks) {
-                const upEntrance = findLinkEntrance(upLink, highwayElements);
-                if (upEntrance) {
+                const upInfo = validateAndGetLinkEntrance(upLink, highwayElements);
+                if (upInfo && upInfo.isEntrance) {
                     queue.push({
                         wayId: upLink.id,
                         linkType: upLink.tags.highway,
-                        currentLat: upEntrance.lat,
-                        currentLon: upEntrance.lon,
+                        currentLat: upInfo.lat,
+                        currentLon: upInfo.lon,
                         depth: current.depth + 1,
                         path: [...current.path, upLink.id]
                     });
@@ -4824,22 +4828,55 @@ async function findSurfaceEntrancesByBFS(linkElements, highwayElements, destLat,
     return candidates;
 }
 
-function findLinkEntrance(link, highwayElements) {
-    if (!link.geometry || link.geometry.length === 0) return null;
-    const endCoord = link.geometry[link.geometry.length - 1];
+// 2. 嚴格驗證該 Link 是否為「進入」主線的入口（非出口、非逆向）
+function validateAndGetLinkEntrance(link, highwayElements) {
+    if (!link.geometry || link.geometry.length < 2) return null;
+
+    // 檢查 OSM 標籤是否明確標示為出口 (oneway / slipway / exit)
+    const tags = link.tags || {};
+    if (tags.junction === 'exit' || tags.direction === 'outgoing') return null;
+
+    const startCoord = link.geometry[0]; // 平面端
+    const endCoord = link.geometry[link.geometry.length - 1]; // 高速公路連接端
 
     for (const highway of highwayElements) {
-        if (!highway.geometry || highway.geometry.length < 1) continue;
+        if (!highway.geometry || highway.geometry.length < 2) continue;
 
         // 排除高架主線 layer >= 2
-        if (highway.tags?.highway === 'trunk' || highway.tags?.highway === 'motorway') {
-            const layer = highway.tags?.layer;
-            if (layer && parseInt(layer) >= 2) continue;
-        }
+        const layer = parseInt(highway.tags?.layer || '0');
+        if (layer >= 2) continue;
 
-        for (const coord of highway.geometry) {
-            if (haversine(endCoord.lat, endCoord.lon, coord.lat, coord.lon) < 30) {
-                return { lat: endCoord.lat, lon: endCoord.lon };
+        for (let i = 0; i < highway.geometry.length; i++) {
+            const hwCoord = highway.geometry[i];
+            
+            // 如果匝道終端緊貼高速公路主線（35公尺內）
+            if (haversine(endCoord.lat, endCoord.lon, hwCoord.lat, hwCoord.lon) < 35) {
+                
+                // ★ 決定車流方向：計算匝道最後一段的方向，必須與主線在該處的延伸方向夾角小於 60 度（順向合併）
+                const linkPreEnd = link.geometry[link.geometry.length - 2];
+                const linkBearing = calculateBearing(linkPreEnd.lat, linkPreEnd.lon, endCoord.lat, endCoord.lon);
+
+                // 取得主線迎面方向
+                let hwBearing = 0;
+                if (i < highway.geometry.length - 1) {
+                    hwBearing = calculateBearing(hwCoord.lat, hwCoord.lon, highway.geometry[i+1].lat, highway.geometry[i+1].lon);
+                } else {
+                    hwBearing = calculateBearing(highway.geometry[i-1].lat, highway.geometry[i-1].lon, hwCoord.lat, hwCoord.lon);
+                }
+
+                let diff = Math.abs(linkBearing - hwBearing);
+                if (diff > 180) diff = 360 - diff;
+
+                // 如果夾角 > 90 度，代表車流方向相反（這是出口或是逆向匝道！），直接排除！
+                if (diff > 90) {
+                    return null; 
+                }
+
+                return {
+                    isEntrance: true,
+                    lat: startCoord.lat,
+                    lon: startCoord.lon
+                };
             }
         }
     }
@@ -4847,28 +4884,20 @@ function findLinkEntrance(link, highwayElements) {
 }
 
 function findUpstreamLinks(currentWayId, linkElements, currentType) {
-    const priorityMap = {
-        'motorway_link': ['trunk_link', 'primary_link', 'secondary_link'],
-        'trunk_link': ['primary_link', 'motorway_link', 'secondary_link'],
-        'primary_link': ['trunk_link', 'motorway_link', 'secondary_link']
-    };
-    const targetTypes = priorityMap[currentType] || [];
     const results = [];
-
     const currentLink = linkElements.find(l => l.id === currentWayId);
     if (!currentLink || !currentLink.geometry || currentLink.geometry.length === 0) return results;
 
     const startCoord = currentLink.geometry[0];
 
     for (const link of linkElements) {
-        if (!targetTypes.includes(link.tags?.highway)) continue;
+        if (link.id === currentWayId) continue;
         if (!link.geometry || link.geometry.length < 2) continue;
 
         const endCoord = link.geometry[link.geometry.length - 1];
         
-        // 距離吻合
+        // 點距離小於 40 公尺代表相連
         if (haversine(startCoord.lat, startCoord.lon, endCoord.lat, endCoord.lon) < 40) {
-            // ★ 方向向量校驗：確保上游聯絡道的尾端方向與下游首端方向夾角合理，嚴禁 180 度大迴轉
             const prevPt = link.geometry[link.geometry.length - 2];
             const nextPt = currentLink.geometry[1];
             
@@ -4878,7 +4907,7 @@ function findUpstreamLinks(currentWayId, linkElements, currentType) {
             let angleDiff = Math.abs(bearingIn - bearingOut);
             if (angleDiff > 180) angleDiff = 360 - angleDiff;
             
-            // 若轉向角度小於 110 度（允許正常彎道，排除大回轉）
+            // 嚴禁 110 度大迴轉
             if (angleDiff < 110) {
                 results.push(link);
             }
@@ -4887,12 +4916,10 @@ function findUpstreamLinks(currentWayId, linkElements, currentType) {
     return results;
 }
 
-// 3. 升級版 OSRM 驗證：嚴格檢查路徑是否發生繞路（直線距離 vs 實際路線距離比例檢查）
+// 3. 帶有嚴格繞路檢測的 OSRM 驗證
 async function verifyEntranceWithOSRMV74(candidate, destLat, destLon) {
     const lat = candidate.surfaceEntranceLat;
     const lon = candidate.surfaceEntranceLon;
-
-    // 平面後退 45 公尺
     const backoff = backoffCoordinate(lat, lon, 45);
 
     try {
@@ -4906,8 +4933,8 @@ async function verifyEntranceWithOSRMV74(candidate, destLat, destLon) {
             const route = data.routes[0];
             const directDist = haversine(backoff.lat, backoff.lon, destLat, destLon);
             
-            // ★ 繞路防護罩：如果實際路線距離超過直線距離的 3.5 倍，視為發生異常迴轉或繞去下一個交流道，直接判定無效！
-            if (route.distance > directDist * 3.5 && directDist > 2000) {
+            // 繞路防護：實際距離不可超過直線 3 倍
+            if (route.distance > directDist * 3.0 && directDist > 1500) {
                 return { valid: false, reason: 'Detour too high' };
             }
 
@@ -4922,9 +4949,7 @@ async function verifyEntranceWithOSRMV74(candidate, destLat, destLon) {
                 geometry: route.geometry
             };
         }
-    } catch (e) {
-        // 降級處理
-    }
+    } catch (e) {}
     return { valid: false };
 }
 
