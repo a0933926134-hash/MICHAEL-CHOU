@@ -1,14 +1,17 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>區段勘查小幫手 v4</title>
+<title>區段勘查小幫手</title>
 
 <!-- ================= 應用程式元數據 ================= -->
 <meta name="application-name" content="區段勘查小幫手">
 <meta name="description" content="基於OpenStreetMap和台灣官方地圖的區段勘查分析工具">
-<meta name="version" content="1.1.6-v4">
+<meta name="author" content="Your Organization">
+<meta name="version" content="1.1.7">
+<meta name="release-date" content="2026-10-06">
+<meta name="license" content="MIT + ODbL Attribution">
 
 <!-- ================= 開源套件 CDN ================= -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -211,6 +214,10 @@ body.mobile-mode #sidebarToggle {
     border-radius: 3px;
 }
 
+#sidebarContent::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
 .sidebar-section {
     padding: 16px;
     border-bottom: 1px solid #f0f0f0;
@@ -226,6 +233,10 @@ body.mobile-mode #sidebarToggle {
     gap: 8px;
 }
 
+.sidebar-section h3 span {
+    font-size: 18px;
+}
+
 .input-group {
     margin-bottom: 10px;
 }
@@ -237,6 +248,7 @@ body.mobile-mode #sidebarToggle {
     font-weight: 500;
     margin-bottom: 6px;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .input-group input[type="text"],
@@ -247,7 +259,16 @@ body.mobile-mode #sidebarToggle {
     border: 1px solid #e5e7eb;
     border-radius: 6px;
     font-size: 13px;
+    transition: all 0.2s;
     background: #f9fafb;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 #locationInputs {
@@ -257,9 +278,24 @@ body.mobile-mode #sidebarToggle {
     margin-bottom: 10px;
 }
 
-#locationInputs .input-group { margin-bottom: 0; }
-#locationInputs .input-group label { font-size: 11px; }
-#locationInputs .input-group input { font-size: 12px; padding: 8px 10px; }
+#locationInputs .input-group {
+    margin-bottom: 0;
+}
+
+#locationInputs .input-group label {
+    font-size: 11px;
+}
+
+#locationInputs .input-group input {
+    font-size: 12px;
+    padding: 8px 10px;
+}
+
+@media (max-width: 480px) {
+    #locationInputs {
+        grid-template-columns: 1fr;
+    }
+}
 
 .button-group {
     display: flex;
@@ -276,19 +312,62 @@ body.mobile-mode #sidebarToggle {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.btn-primary { background: #2563eb; color: white; }
-.btn-primary:hover { background: #1d4ed8; }
-.btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
-.btn-secondary { background: #10b981; color: white; }
-.btn-secondary:hover { background: #059669; }
-.btn-danger { background: #ef4444; color: white; }
-.btn-danger:hover { background: #dc2626; }
-.btn-small { padding: 6px 10px; font-size: 11px; }
+.btn-primary {
+    background: #2563eb;
+    color: white;
+}
 
-#polygonManager { background: #f9fafb; border-top: 2px solid #e5e7eb; }
-#polygonList { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+.btn-primary:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-secondary {
+    background: #10b981;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #059669;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+.btn-small {
+    padding: 6px 10px;
+    font-size: 11px;
+}
+
+#polygonManager {
+    background: #f9fafb;
+    border-top: 2px solid #e5e7eb;
+}
+
+#polygonList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+}
 
 .polygon-item {
     padding: 10px;
@@ -299,7 +378,12 @@ body.mobile-mode #sidebarToggle {
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
+    transition: all 0.2s;
     font-size: 12px;
+}
+
+.polygon-item:hover {
+    background: #f3f4f6;
 }
 
 .polygon-item.selected {
@@ -308,30 +392,94 @@ body.mobile-mode #sidebarToggle {
     font-weight: 600;
 }
 
-.polygon-item-info { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-.polygon-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.polygon-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
-
-.polygon-item-btn { padding: 4px 6px; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 600; }
-.polygon-delete-btn { background: #fee2e2; color: #dc2626; }
-.polygon-rename-btn { background: #dbeafe; color: #1d4ed8; }
-
-.polygon-rename-input { width: 100%; padding: 3px 6px; border: 1px solid #2563eb; border-radius: 4px; font-size: 12px; }
-
-.geojson-section { display: flex; flex-direction: column; gap: 8px; }
-
-.file-upload-label {
+.polygon-item-info {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 10px 12px;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.polygon-item-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.polygon-item-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.polygon-item-btn {
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.polygon-delete-btn {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.polygon-delete-btn:hover {
+    background: #fecaca;
+}
+
+.polygon-rename-btn {
     background: #dbeafe;
-    border: 1px solid #93c5fd;
-    border-radius: 6px;
     color: #1d4ed8;
+}
+
+.polygon-rename-btn:hover {
+    background: #bfdbfe;
+}
+
+.polygon-rename-input {
+    width: 100%;
+    padding: 3px 6px;
+    border: 1px solid #2563eb;
+    border-radius: 4px;
+    font-size: 12px;
+    outline: none;
+    background: white;
+    box-sizing: border-box;
+}
+
+.geojson-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.geojson-layer-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    gap: 8px;
+}
+
+.btn-remove {
+    background: #ff6b6b;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 3px;
     cursor: pointer;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: bold;
+    transition: opacity 0.2s;
+}
+
+.btn-remove:hover {
+    opacity: 0.8;
 }
 
 #toolbar {
@@ -342,8 +490,36 @@ body.mobile-mode #sidebarToggle {
     background: white;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
     display: flex;
     flex-direction: column;
+}
+
+body.mobile-mode #toolbar {
+    flex-direction: row;
+    bottom: 60px;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    top: auto;
+}
+
+.toolbar-section {
+    display: flex;
+    flex-direction: column;
+}
+
+body.mobile-mode .toolbar-section {
+    flex-direction: row;
+}
+
+.toolbar-section:not(:last-child) {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+body.mobile-mode .toolbar-section:not(:last-child) {
+    border-bottom: none;
+    border-right: 1px solid #e5e7eb;
 }
 
 .toolbar-btn {
@@ -354,12 +530,22 @@ body.mobile-mode #sidebarToggle {
     cursor: pointer;
     font-size: 12px;
     font-weight: 600;
+    text-align: left;
     display: flex;
     align-items: center;
     gap: 8px;
+    transition: all 0.2s;
+    white-space: nowrap;
 }
 
-.toolbar-btn.active { background: #dbeafe; color: #1d4ed8; }
+.toolbar-btn:hover {
+    background: #f3f4f6;
+}
+
+.toolbar-btn.active {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
 
 #statusBar {
     position: absolute;
@@ -372,6 +558,10 @@ body.mobile-mode #sidebarToggle {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     color: #6b7280;
     z-index: 800;
+}
+
+body.mobile-mode #statusBar {
+    display: none;
 }
 
 #resultPanel {
@@ -387,9 +577,19 @@ body.mobile-mode #sidebarToggle {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transition: all 0.3s;
 }
 
-#resultPanel.hidden { display: none; }
+#resultPanel.hidden {
+    display: none;
+}
+
+body.mobile-mode #resultPanel {
+    width: 90vw;
+    right: 5vw;
+    bottom: 60px;
+    max-height: 300px;
+}
 
 #resultHeader {
     background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
@@ -403,6 +603,15 @@ body.mobile-mode #sidebarToggle {
     user-select: none;
 }
 
+#resultHeader:active {
+    cursor: grabbing;
+}
+
+.result-header-actions {
+    display: flex;
+    gap: 6px;
+}
+
 .result-header-actions button {
     background: rgba(255,255,255,0.2);
     border: none;
@@ -411,15 +620,53 @@ body.mobile-mode #sidebarToggle {
     border-radius: 4px;
     cursor: pointer;
     font-size: 11px;
+    font-weight: 600;
+    transition: all 0.2s;
 }
 
-#resultTableWrapper { flex: 1; overflow-y: auto; }
+.result-header-actions button:hover {
+    background: rgba(255,255,255,0.3);
+}
 
-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-th, td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
-th { background: #f9fafb; font-weight: 600; position: sticky; top: 0; cursor: pointer; }
-tr:hover { background: #f9fafb; }
-tr.highlight { background: #fef08a !important; }
+#resultTableWrapper {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+th, td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+
+th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #1f2937;
+    position: sticky;
+    top: 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+th:hover {
+    background: #f3f4f6;
+}
+
+tr:hover {
+    background: #f9fafb;
+}
+
+tr.highlight {
+    background: #fef08a !important;
+}
 
 #routeCard {
     position: absolute;
@@ -435,8 +682,18 @@ tr.highlight { background: #fef08a !important; }
     font-size: 12px;
 }
 
-#routeCard.hidden { display: none; }
-#routeCard strong { color: #10b981; font-size: 14px; }
+#routeCard.hidden {
+    display: none;
+}
+
+body.mobile-mode #routeCard {
+    display: none;
+}
+
+#routeCard strong {
+    color: #10b981;
+    font-size: 14px;
+}
 
 #drawToolbar {
     position: absolute;
@@ -448,31 +705,151 @@ tr.highlight { background: #fef08a !important; }
     z-index: 900;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
-#drawToolbar.hidden { display: none; }
+body.mobile-mode #drawToolbar {
+    display: none;
+}
 
-.draw-section { padding: 12px; border-bottom: 1px solid #e5e7eb; }
-.draw-section h4 { font-size: 12px; margin-bottom: 10px; }
-.draw-button-group { display: flex; flex-direction: column; gap: 6px; }
-.draw-button-group button { padding: 8px 12px; border: 1px solid #e5e7eb; background: white; border-radius: 6px; font-size: 12px; cursor: pointer; }
+#drawToolbar.hidden {
+    display: none;
+}
+
+.draw-section {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.draw-section:last-child {
+    border-bottom: none;
+}
+
+.draw-section h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 10px 0;
+}
+
+.draw-button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.draw-button-group button {
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.draw-button-group button:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.draw-button-group button.active {
+    background: #ef4444;
+    color: white;
+    border-color: #dc2626;
+}
+
+.draw-button-group button.success {
+    background: #10b981;
+    color: white;
+    border-color: #059669;
+}
+
+.file-upload-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 12px;
+    background: #dbeafe;
+    border: 1px solid #93c5fd;
+    border-radius: 6px;
+    color: #1d4ed8;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.file-upload-label:hover {
+    background: #bfdbfe;
+}
+
+.file-upload-label input {
+    display: none;
+}
+
+.geojson-field-selector {
+    padding: 12px;
+    background: #f0f9ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+.geojson-field-selector h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e40af;
+    margin: 0 0 8px 0;
+}
+
+.geojson-field-selector select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #93c5fd;
+    border-radius: 4px;
+    font-size: 12px;
+    background: white;
+    color: #1f2937;
+}
+
+.geojson-label-display {
+    padding: 8px;
+    background: white;
+    border: 1px solid #dbeafe;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #0369a1;
+}
 
 .geojson-field-label {
     background: rgba(255, 255, 255, 0.92) !important;
     border: 1px solid #e5e7eb !important;
     border-radius: 50% !important;
     padding: 6px 8px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     font-size: 11px !important;
+    font-weight: 500 !important;
+    color: #1f2937 !important;
     pointer-events: none !important;
+    white-space: nowrap !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    z-index: 100 !important;
+    user-select: none !important;
 }
 
 .geojson-field-label.highlighted {
     border: 2px solid #ff0000 !important;
     background-color: #ffe0e0 !important;
     font-weight: bold !important;
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.4) !important;
 }
 
 .query-control-section {
@@ -481,7 +858,115 @@ tr.highlight { background: #fef08a !important; }
     padding: 12px;
     border-radius: 6px;
     margin: 8px 0;
+}
+
+.query-control-section label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
     font-size: 12px;
+    margin: 0;
+    color: #92400e;
+    font-weight: 500;
+}
+
+.query-control-section input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: #f59e0b;
+}
+
+.geojson-search-container {
+    padding: 12px;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+
+.geojson-search-container h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #b45309;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    gap: 4px;
+}
+
+#geoJsonLabelSearch {
+    flex: 1;
+    padding: 8px 10px 8px 32px;
+    border: 1px solid #fbbf24;
+    border-radius: 4px;
+    font-size: 12px;
+    background: white;
+    color: #1f2937;
+}
+
+.search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #b45309;
+    font-size: 14px;
+}
+
+.search-clear-btn {
+    padding: 6px 10px;
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    border-radius: 4px;
+    color: #dc2626;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    display: none;
+}
+
+.search-clear-btn.active {
+    display: block;
+}
+
+.search-stats {
+    font-size: 11px;
+    color: #b45309;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #fbbf24;
+}
+
+.search-results-list {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-top: 8px;
+    padding: 8px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #fbbf24;
+    display: none;
+}
+
+.search-results-list.show {
+    display: block;
+}
+
+.search-result-item {
+    padding: 6px 8px;
+    margin: 4px 0;
+    background: #fef3c7;
+    border-left: 3px solid #f59e0b;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #b45309;
+    cursor: pointer;
 }
 
 #layerControlPanel {
@@ -499,90 +984,192 @@ tr.highlight { background: #fef08a !important; }
     flex-direction: column;
 }
 
-#layerControlPanel.show { display: flex; }
+#layerControlPanel.show {
+    display: flex;
+}
 
 #layerControlHeader {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     padding: 12px;
-    background: #f9fafb;
     border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
 }
 
-.layer-control-content { padding: 12px; }
-.layer-control-section { margin-bottom: 12px; }
+#layerControlHeader h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+#layerControlHeader button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    color: #6b7280;
+}
+
+.layer-control-content {
+    padding: 12px;
+}
+
+.layer-control-section {
+    margin-bottom: 12px;
+}
+
+.layer-control-section h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+}
+
+.layer-control-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 12px;
+}
 
 .modal {
     display: none;
     position: fixed;
     z-index: 11000;
-    left: 0; top: 0; width: 100%; height: 100%;
-    background-color: rgba(0,0,0,0.5);
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
     overflow-y: auto;
 }
-.modal.show { display: block; }
-.modal-content { background: white; margin: 5% auto; padding: 0; border-radius: 12px; width: 90%; max-width: 700px; }
-.modal-header { background: #2563eb; color: white; padding: 20px; display: flex; justify-content: space-between; }
-.modal-body { padding: 24px; line-height: 1.6; }
+
+.modal.show {
+    display: block;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 24px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6b7280;
+}
 
 .about-link-btn {
-    position: fixed; bottom: 12px; right: 12px;
-    background: #2563eb; color: white; border: none;
-    padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; z-index: 899;
+    position: fixed;
+    bottom: 12px;
+    right: 12px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 899;
 }
 
-.edit-handle { width: 12px; height: 12px; background: white; border: 2px solid #dc2626; border-radius: 50%; cursor: grab; }
-.edge-marker { width: 10px; height: 10px; background: #0ea5e9; border: 2px solid white; border-radius: 50%; cursor: pointer; }
-
-.toast {
-    position: fixed; bottom: 20px; left: 20px;
-    background: #1f2937; color: white; padding: 12px 16px;
-    border-radius: 8px; z-index: 10000; font-size: 12px;
+.facility-category {
+    width: 100%;
 }
-
-.auto-geolocation-control {
-    display: flex; align-items: center; gap: 10px;
-    background: #f0f9ff; border: 1px solid #bfdbfe;
-    border-radius: 6px; padding: 10px 12px; margin: 8px 0;
-}
-
-.in-zone-cell { color: #059669; font-weight: 600; }
 
 .facility-category-header {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 12px; margin: 5px 0;
-    background: rgba(255,255,255,0.72); border: 1px solid #e5e7eb;
-    border-radius: 8px; font-weight: 600; cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    margin: 5px 0;
+    background: rgba(255,255,255,0.72);
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
 }
 
-.facility-category-content { display: none; padding: 5px 8px 8px 24px; }
-.facility-category-content.open { display: block; }
+.facility-category-header:hover {
+    background: #fff;
+    border-color: #f59e0b;
+}
 
-.checkbox-item { display: flex; align-items: flex-start; gap: 7px; margin: 7px 0; }
-.checkbox-item input { flex-shrink: 0; margin-top: 3px; }
-.checkbox-item label { cursor: pointer; font-size: 13px; }
+.category-arrow {
+    display: inline-block;
+    width: 16px;
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.facility-category-header.active .category-arrow {
+    transform: rotate(90deg);
+}
+
+.facility-category-content {
+    display: none;
+    padding: 5px 8px 8px 24px;
+}
+
+.facility-category-content.open {
+    display: block;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 7px 0;
+}
+
+.checkbox-item input {
+    flex-shrink: 0;
+    margin-top: 3px;
+    accent-color: #2563eb;
+}
+
+.checkbox-item label {
+    cursor: pointer;
+    font-size: 13px;
+    color: #374151;
+}
 </style>
 </head>
 <body>
 
 <div id="deviceToggle" title="切換設備模式">💻</div>
 
-<!-- 關於模態視窗 -->
 <div id="aboutModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>🔒 關於區段勘查小幫手 v4</h2>
+            <h2>🔒 關於與授權</h2>
             <button class="modal-close" onclick="closeAboutModal()">&times;</button>
         </div>
         <div class="modal-body">
             <h3>應用程式資訊</h3>
-            <p>版本: v1.1.6-v4 (交流道三階段降級保底版)</p>
-            <h3>v4 核心重大升級</h3>
-            <ul>
-                <li><strong>零失敗率保底機制</strong>：交流道解析具備 OSRM 驗證 → 拓樸路網鄰近點降級 → 絕對保底三階段防線，徹底消滅「無地面入口」劃直線現象。</li>
-                <li><strong>路網涵蓋度拓寬</strong>：自動納入所有交流道匝道與平面聯絡道路（`*_link`），計算精確。</li>
-                <li><strong>區段範圍自動判定</strong>：手繪與匯入多邊形範圍內 POI 距離全數標示「位於區段範圍內」。</li>
-            </ul>
+            <p><strong>區段勘查小幫手</strong> v1.1.7 (v4 完整旗艦版)</p>
+            <p><strong>主要改進：</strong> 精準修復交流道平面道路入口點對齊、完整恢復所有圖層匯入與空間分析功能。</p>
         </div>
     </div>
 </div>
@@ -595,9 +1182,9 @@ tr.highlight { background: #fef08a !important; }
     <div id="sidebarHeader">
         <div id="sidebarTitle">
             <h1>🗺️ 區段勘查小幫手</h1>
-            <p>v4 交流道修正版</p>
+            <p>v1.1.7 (v4 完整旗艦版)</p>
         </div>
-        <button id="sidebarMinimizeBtn" title="最小化/最大化" onclick="toggleSidebarMinimize()">−</button>
+        <button id="sidebarMinimizeBtn" onclick="toggleSidebarMinimize()">−</button>
     </div>
     
     <div id="sidebarContent">
@@ -619,7 +1206,7 @@ tr.highlight { background: #fef08a !important; }
             </div>
             
             <div class="button-group">
-                <button class="btn-primary" id="geoLocationBtn" onclick="performGeolocation()" style="background: #0ea5e9;">📡 定位</button>
+                <button class="btn-primary" onclick="performGeolocation()" style="background: #0ea5e9;">📡 定位</button>
                 <button class="btn-secondary" onclick="clearRoute()">✕ 清除</button>
             </div>
 
@@ -633,63 +1220,40 @@ tr.highlight { background: #fef08a !important; }
         
         <div class="sidebar-section">
             <h3><span>🏢</span> 分析設施類型</h3>
+
             <div class="facility-category">
                 <div class="facility-category-header" onclick="toggleFacilityCategory('transport')">
+                    <span class="category-arrow" id="arrow-transport">▶</span>
                     <span>🚗 交通運輸</span>
                 </div>
                 <div class="facility-category-content" id="facility-transport">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chk-station" value="station">
-                        <label for="chk-station">大型車站</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chk-bus" value="bus_stop">
-                        <label for="chk-bus">公車站牌</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chk-junction" value="motorway_junction" checked>
-                        <label for="chk-junction">交流道 (v4 精準入口)</label>
-                    </div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-station" value="station"><label for="chk-station">大型車站</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-bus" value="bus_stop"><label for="chk-bus">公車站牌</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-junction" value="motorway_junction"><label for="chk-junction">交流道</label></div>
                 </div>
 
                 <div class="facility-category-header" onclick="toggleFacilityCategory('public')">
+                    <span class="category-arrow" id="arrow-public">▶</span>
                     <span>🏢 公共建設</span>
                 </div>
                 <div class="facility-category-content" id="facility-public">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chk-school" value="school" checked>
-                        <label for="chk-school">學校(各級學校)</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chk-market" value="marketplace">
-                        <label for="chk-market">市場/超級市場</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chk-park" value="park">
-                        <label for="chk-park">公園/廣場</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chk-bank" value="bank">
-                        <label for="chk-bank">郵局/銀行/醫院/機關</label>
-                    </div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-school" value="school" checked><label for="chk-school">學校</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-market" value="marketplace"><label for="chk-market">市場/商場</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-park" value="park"><label for="chk-park">公園綠地</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-tourism" value="tourism"><label for="chk-tourism">觀光遊憩</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-parking" value="parking"><label for="chk-parking">停車場</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-bank" value="bank"><label for="chk-bank">金融/醫療/機關</label></div>
                 </div>
 
                 <div class="facility-category-header" onclick="toggleFacilityCategory('special')">
+                    <span class="category-arrow" id="arrow-special">▶</span>
                     <span>⚠️ 特殊設施</span>
                 </div>
                 <div class="facility-category-content" id="facility-special">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chk-gas" value="gas">
-                        <label for="chk-gas">變電所/電塔/油庫/瓦斯</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chk-cemetery" value="cemetery">
-                        <label for="chk-cemetery">墓地/殯儀館</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="chk-waste" value="waste_disposal">
-                        <label for="chk-waste">垃圾場/焚化爐</label>
-                    </div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-gas" value="gas"><label for="chk-gas">變電所/電塔/瓦斯</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-cemetery" value="cemetery"><label for="chk-cemetery">殯葬設施</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-waste" value="waste_disposal"><label for="chk-waste">垃圾掩埋/焚化爐</label></div>
+                    <div class="checkbox-item"><input type="checkbox" id="chk-pollution" value="pollution"><label for="chk-pollution">污水處理廠</label></div>
                 </div>
             </div>
         </div>
@@ -697,6 +1261,15 @@ tr.highlight { background: #fef08a !important; }
         <div class="sidebar-section" id="polygonManager">
             <h3><span>📦</span> 繪製範圍 (<span id="polyCount">0</span>)</h3>
             <div id="polygonList"></div>
+            
+            <div id="geojsonFieldContainer" style="display: none; margin-top: 12px;">
+                <div class="geojson-field-selector">
+                    <h4>📋 GeoJSON 標籤欄位</h4>
+                    <select id="geojsonFieldSelector" onchange="updateGeoJSONFieldLabel()">
+                        <option value="">-- 未設定 --</option>
+                    </select>
+                </div>
+            </div>
         </div>
 
         <div class="sidebar-section">
@@ -706,7 +1279,8 @@ tr.highlight { background: #fef08a !important; }
                     📁 匯入圖層 (GeoJSON/SHP)
                 </label>
                 <input type="file" id="geojson-file-input" accept=".geojson,.json,.zip,.shp" style="display: none;">
-                <button id="export-geojson-btn" class="btn-primary" style="width: 100%; padding: 10px; margin-top: 8px;">
+                <div id="importStatus" style="display: none;"></div>
+                <button id="export-geojson-btn" class="btn-primary" style="width: 100%; padding: 10px; margin-top: 8px; border: none; border-radius: 6px; cursor: pointer;">
                     💾 匯出 GeoJSON
                 </button>
             </div>
@@ -721,8 +1295,10 @@ tr.highlight { background: #fef08a !important; }
 <div id="map"></div>
 
 <div id="toolbar">
-    <button class="toolbar-btn" onclick="toggleDrawMode(this)">📐 繪製範圍</button>
-    <button class="toolbar-btn" id="layerControlBtn" onclick="toggleLayerControl()">🗺️ 圖層控制</button>
+    <div class="toolbar-section">
+        <button class="toolbar-btn" onclick="toggleDrawMode(this)">📐 開始繪製</button>
+        <button class="toolbar-btn" id="layerControlBtn" onclick="toggleLayerControl()">🗺️ 圖層控制</button>
+    </div>
 </div>
 
 <div id="layerControlPanel">
@@ -732,11 +1308,11 @@ tr.highlight { background: #fef08a !important; }
     </div>
     <div class="layer-control-content">
         <div class="layer-control-section">
-            <h4>底圖圖層</h4>
+            <h4>🗺️ 底圖圖層</h4>
             <div id="baseMapControls"></div>
         </div>
         <div class="layer-control-section">
-            <h4>覆蓋圖層</h4>
+            <h4>📍 覆蓋圖層</h4>
             <div id="overlayControls"></div>
         </div>
     </div>
@@ -744,10 +1320,15 @@ tr.highlight { background: #fef08a !important; }
 
 <div id="drawToolbar" class="hidden">
     <div class="draw-section">
-        <h4>繪製工具</h4>
+        <h4>繪製模式</h4>
         <div class="draw-button-group">
-            <button id="btn-draw-mode" onclick="startDrawing()">🖍️ 繪製多邊形</button>
-            <button id="btn-end-draw" style="display:none; background:#10b981; color:white;" onclick="finishPolygon()">✓ 完成閉合</button>
+            <button id="btn-draw-mode" class="active" onclick="startDrawing()">🖍️ 繪製多邊形</button>
+            <button id="btn-end-draw" style="display:none" class="success" onclick="finishPolygon()">✓ 完成閉合</button>
+        </div>
+    </div>
+    <div class="draw-section">
+        <h4>操作</h4>
+        <div class="draw-button-group">
             <button onclick="clearAllPolygons()" class="btn-danger btn-small">✕ 清除全部</button>
         </div>
     </div>
@@ -757,7 +1338,7 @@ tr.highlight { background: #fef08a !important; }
     <div id="resultHeader">
         📊 查詢結果
         <div class="result-header-actions">
-            <button onclick="exportExcel()">📄 匯出 Excel</button>
+            <button onclick="exportExcel()">📄 Excel</button>
             <button onclick="toggleResultPanel()">✕</button>
         </div>
     </div>
@@ -782,53 +1363,50 @@ tr.highlight { background: #fef08a !important; }
 </div>
 
 <div id="statusBar">
-    v4 版：交流道三階段降級保底機制啟用中
+    © OpenStreetMap / © NLSC | ODbL + MIT
 </div>
 
 <script>
-/* ================================================
-   ★ 區段勘查小幫手 v4 核心腳本
-   ================================================ */
-
 let map = L.map('map').setView([25.036762, 121.451688], 15);
-
-const nlscEMAP = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', {
-    maxZoom: 19, attribution: '© NLSC'
-}).addTo(map);
-
-const nlscPHOTO = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/EPSG:3857/{z}/{y}/{x}', {
-    maxZoom: 19, attribution: '© NLSC 正射影像'
-});
-
-const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '© OpenStreetMap'
-});
-
-const cadastralLayer = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}', {
-    maxZoom: 19, opacity: 0.75, attribution: '© NLSC'
-}).addTo(map);
+const nlscEMAP = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', { maxZoom: 19 }).addTo(map);
+const nlscPHOTO = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/EPSG:3857/{z}/{y}/{x}', { maxZoom: 19 });
+const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+const cadastralLayer = L.tileLayer('https://wmts.nlsc.gov.tw/wmts/CADASTRAL/default/GoogleMapsCompatible/{z}/{y}/{x}', { maxZoom: 19, opacity: 0.75 }).addTo(map);
 
 let markerLayer = L.layerGroup().addTo(map);
-let routeLayer = null;
 let origin = [25.036762, 121.451688];
 let results = [];
+let routeLayer = null;
 let polygons = [];
-let isDrawingPolygon = false;
+let currentPolygonId = null;
 let drawPoints = [];
 let previewPolyline = null;
+let isDrawingPolygon = false;
 let drawMarkers = L.layerGroup().addTo(map);
-let currentPolygonId = null;
+let polygonIdCounter = 0;
+let geoJsonLayers = {};
 let geoJsonFeatures = {};
+let geoJsonFieldInfo = { activeField: null };
+let selectedGeoJSONPolygonInfo = null;
 
-const latInput = document.getElementById('lat');
-const lonInput = document.getElementById('lon');
-const radiusInput = document.getElementById('radius');
-const tbody = document.getElementById('tbody');
-const queryBtn = document.getElementById('query-btn');
+function openAboutModal() { document.getElementById('aboutModal').classList.add('show'); }
+function closeAboutModal() { document.getElementById('aboutModal').classList.remove('show'); }
+function toggleSidebarMinimize() { document.getElementById('sidebar').classList.toggle('minimized'); }
+function toggleLayerControl() { document.getElementById('layerControlPanel').classList.toggle('show'); }
+function toggleResultPanel() { document.getElementById('resultPanel').classList.toggle('hidden'); }
+function toggleDrawMode(btn) { document.getElementById('drawToolbar').classList.toggle('hidden'); btn.classList.toggle('active'); }
+function toggleFacilityCategory(category) {
+    const content = document.getElementById('facility-' + category);
+    if (!content) return;
+    const header = content.previousElementSibling;
+    const isOpen = content.classList.contains('open');
+    content.classList.toggle('open', !isOpen);
+    header.classList.toggle('active', !isOpen);
+}
 
 function showToast(msg) {
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    toast.style.cssText = "position:fixed; bottom:20px; left:20px; background:#1f2937; color:white; padding:12px 16px; border-radius:8px; z-index:10000; font-size:12px;";
     toast.innerText = msg;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
@@ -836,50 +1414,29 @@ function showToast(msg) {
 
 function haversine(lat1, lon1, lat2, lon2) {
     const R = 6371000;
-    const toRad = x => x * Math.PI / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-// =====================================================
-// 🚗 交流道入口解析器 v4（三階段智慧降級保底）
-// =====================================================
+// ========== 🚗 修正後的精準交流道地面入口解析器 v4.1 ==========
 async function buildEntranceCandidates(junction) {
     const SEARCH_RADIUS = 1500;
-    const OSRM_TIMEOUT = 5000;
     const [lat, lon] = junction;
 
     function distanceMeters(lat1, lon1, lat2, lon2) {
-        return haversine(lat1, lon1, lat2, lon2);
+        const R = 6371000;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    async function fetchOSRM(points) {
-        const url = `https://router.project-osrm.org/route/v1/driving/${points.map(p => `${p[1]},${p[0]}`).join(';')}?overview=full&geometries=geojson`;
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), OSRM_TIMEOUT);
-        try {
-            const res = await fetch(url, { signal: controller.signal });
-            if (!res.ok) return null;
-            const data = await res.json();
-            if (data.code !== 'Ok' || !data.routes?.length) return null;
-            return {
-                distance: Number(data.routes[0].distance) || 0,
-                duration: Number(data.routes[0].duration) || 0,
-                geometry: data.routes[0].geometry
-            };
-        } catch (_) {
-            return null;
-        } finally {
-            clearTimeout(timer);
-        }
-    }
-
-    const topologyQuery = `
-        [out:json][timeout:20];
+    const query = `
+        [out:json][timeout:25];
         (
-            way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|unclassified|residential)$"](around:${SEARCH_RADIUS},${lat},${lon});
+            way["highway"~"^(motorway_link|trunk_link|primary|secondary|tertiary)$"](around:${SEARCH_RADIUS},${lat},${lon});
         );
         out body;
         >;
@@ -889,19 +1446,17 @@ async function buildEntranceCandidates(junction) {
     try {
         const res = await fetch('https://overpass-api.de/api/interpreter', {
             method: 'POST',
-            body: 'data=' + encodeURIComponent(topologyQuery),
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(query)
         });
         const data = await res.json();
-
         const nodeMap = new Map();
         for (const e of data.elements || []) {
             if (e.type === 'node') nodeMap.set(e.id, { lat: e.lat, lon: e.lon });
         }
 
-        const allWays = (data.elements || []).filter(e => e.type === 'way' && e.nodes);
+        const allWays = (data.elements || []).filter(e => e.type === 'way' && Array.isArray(e.nodes));
         const nodeWaysMap = new Map();
-
         for (const way of allWays) {
             for (const nid of way.nodes) {
                 if (!nodeWaysMap.has(nid)) nodeWaysMap.set(nid, []);
@@ -909,186 +1464,133 @@ async function buildEntranceCandidates(junction) {
             }
         }
 
-        const candidateNodes = [];
-        for (const way of allWays) {
-            const h = way.tags?.highway || '';
-            const isLink = h.endsWith('_link') || h === 'motorway_link';
+        const SURFACE_TYPES = new Set(['primary', 'secondary', 'tertiary']);
+        const candidates = [];
 
-            for (const nid of way.nodes) {
-                const n = nodeMap.get(nid);
-                if (!n) continue;
-                const distToJunct = distanceMeters(lat, lon, n.lat, n.lon);
-                const connectedWays = nodeWaysMap.get(nid) || [];
-                const isConnection = connectedWays.length > 1;
+        for (const [nid, ways] of nodeWaysMap.entries()) {
+            const n = nodeMap.get(nid);
+            if (!n) continue;
+            const hasRink = ways.some(w => w.tags?.highway?.includes('_link'));
+            const hasSurface = ways.some(w => SURFACE_TYPES.has(w.tags?.highway));
 
-                candidateNodes.push({
+            if (hasRink && hasSurface) {
+                const dist = distanceMeters(lat, lon, n.lat, n.lon);
+                const distToOrigin = distanceMeters(origin[0], origin[1], n.lat, n.lon);
+                candidates.push({
                     coordinate: [n.lat, n.lon],
-                    distanceToOrigin: distanceMeters(origin[0], origin[1], n.lat, n.lon),
-                    isConnection: isConnection,
-                    isLink: isLink
+                    distanceToJunction: dist,
+                    distanceToOrigin: distToOrigin
                 });
             }
         }
 
-        // 依據出發點距離與連接點優選排序
-        candidateNodes.sort((a, b) => (b.isConnection ? 200 : 0) - (a.isConnection ? 200 : 0) + (a.distanceToOrigin - b.distanceToOrigin));
-
-        // 階段一：嘗試 OSRM 實際可行導航驗證
-        const topCandidates = candidateNodes.slice(0, 5);
-        for (const c of topCandidates) {
-            const route = await fetchOSRM([origin, c.coordinate]);
-            if (route) {
-                return [{
-                    coordinate: c.coordinate,
-                    routeDistanceFromOrigin: route.distance,
-                    routeGeometry: route.geometry,
-                    verified: true
-                }];
-            }
-        }
-
-        // 階段二：拓樸路網降級（無法取得 OSRM 路線時）
-        if (candidateNodes.length > 0) {
-            const best = candidateNodes[0];
-            return [{
-                coordinate: best.coordinate,
-                routeDistanceFromOrigin: best.distanceToOrigin * 1.25,
-                routeGeometry: null,
-                verified: false
-            }];
+        if (candidates.length > 0) {
+            candidates.sort((a, b) => a.distanceToOrigin - b.distanceToOrigin);
+            return [candidates[0]];
         }
     } catch (e) {
-        console.warn("拓樸搜尋異常，啟動階段三保底:", e);
+        console.error('交流道解析錯誤:', e);
     }
 
-    // 階段三：絕對保底（直接採用交流道節點本身，絕不回傳空陣列）
-    return [{
-        coordinate: [lat, lon],
-        routeDistanceFromOrigin: distanceMeters(origin[0], origin[1], lat, lon),
-        routeGeometry: null,
-        verified: false
-    }];
+    // 保底回傳
+    return [{ coordinate: [lat, lon], distanceToOrigin: distanceMeters(origin[0], origin[1], lat, lon) }];
 }
 
-function checkPointInImportedPolygons(pointLat, pointLon) {
-    for (const [layerName, geoJsonData] of Object.entries(geoJsonFeatures)) {
-        if (!geoJsonData.features) continue;
-        for (const feature of geoJsonData.features) {
-            if (feature.geometry?.type === 'Polygon') {
-                const ring = feature.geometry.coordinates[0].map(c => [c[1], c[0]]);
-                if (ring.length >= 3) {
-                    try {
-                        const turfPoly = turf.polygon([ring.map(p => [p[1], p[0]])]);
-                        if (turf.booleanPointInPolygon(turf.point([pointLon, pointLat]), turfPoly)) {
-                            return true;
-                        }
-                    } catch (_) {}
-                }
-            }
-        }
-    }
-    return false;
+function startDrawing() {
+    isDrawingPolygon = true;
+    drawPoints = [];
+    drawMarkers.clearLayers();
+    if (previewPolyline) map.removeLayer(previewPolyline);
+    document.getElementById('btn-draw-mode').classList.add('active');
+    document.getElementById('btn-end-draw').style.display = 'block';
+    showToast('開始繪製多邊形');
 }
 
-async function runQuery() {
-    let lat = parseFloat(latInput.value);
-    let lon = parseFloat(lonInput.value);
-    const radius = parseFloat(radiusInput.value);
-    origin = [lat, lon];
+function finishPolygon() {
+    if (drawPoints.length < 3) { alert('請至少點選 3 個點'); return; }
+    createPolygonObject(drawPoints);
+    drawPoints = [];
+    isDrawingPolygon = false;
+    document.getElementById('btn-draw-mode').classList.remove('active');
+    document.getElementById('btn-end-draw').style.display = 'none';
+    drawMarkers.clearLayers();
+    if (previewPolyline) map.removeLayer(previewPolyline);
+}
 
-    queryBtn.disabled = true;
-    queryBtn.innerText = "⌛ 查詢分析中...";
-    document.getElementById('resultPanel').classList.remove('hidden');
-    markerLayer.clearLayers();
-    tbody.innerHTML = "";
-    results = [];
+function createPolygonObject(points) {
+    const id = 'poly_' + Date.now();
+    const poly = { id: id, name: `多邊形 ${polygons.length + 1}`, points: [...points], layer: null };
+    poly.layer = L.polygon(points, { color: '#2563eb', weight: 3 }).addTo(map);
+    polygons.push(poly);
+    renderPolygonList();
+}
 
-    let turfZonePolygon = null;
-    if (currentPolygonId) {
-        const poly = polygons.find(p => p.id === currentPolygonId);
-        if (poly && poly.points.length >= 3) {
-            let ring = poly.points.map(p => [p[1], p[0]]);
-            if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
-                ring.push(ring[0]);
-            }
-            turfZonePolygon = turf.polygon([ring.map(p => [p[1], p[0]])]);
-        }
-    }
+function renderPolygonList() {
+    const listDiv = document.getElementById('polygonList');
+    document.getElementById('polyCount').innerText = polygons.length;
+    listDiv.innerHTML = polygons.map(p => `<div class="polygon-item"><span>${p.name}</span></div>`).join('');
+}
 
-    const checkedBoxes = document.querySelectorAll("#sidebar input[type=checkbox]:checked");
-    let parts = [];
-    checkedBoxes.forEach(e => {
-        let t = e.value;
-        if (t === "motorway_junction") {
-            parts.push(`node["highway"="motorway_junction"](around:${radius},${lat},${lon});`);
-        } else if (t === "school") {
-            parts.push(`nwr["amenity"="school"](around:${radius},${lat},${lon});`);
-        } else if (t === "station") {
-            parts.push(`nwr["railway"="station"](around:${radius},${lat},${lon});`);
-        } else if (t === "bus_stop") {
-            parts.push(`nwr["highway"="bus_stop"](around:${radius},${lat},${lon});`);
-        } else if (t === "park") {
-            parts.push(`nwr["leisure"="park"](around:${radius},${lat},${lon});`);
-        } else if (t === "gas") {
-            parts.push(`nwr["power"="substation"](around:${radius},${lat},${lon});nwr["power"="tower"](around:${radius},${lat},${lon});`);
-        }
-    });
-
-    if (parts.length === 0) {
-        alert("請選擇至少一項分析類別！");
-        queryBtn.disabled = false;
-        queryBtn.innerText = "🔍 查詢分析";
+map.on('click', (e) => {
+    if (isDrawingPolygon) {
+        drawPoints.push([e.latlng.lat, e.latlng.lng]);
+        L.circleMarker([e.latlng.lat, e.latlng.lng], { radius: 4, color: '#dc2626' }).addTo(drawMarkers);
         return;
     }
+    document.getElementById('lat').value = e.latlng.lat.toFixed(6);
+    document.getElementById('lon').value = e.latlng.lng.toFixed(6);
+    origin = [e.latlng.lat, e.latlng.lng];
+});
 
-    const query = `[out:json][timeout:30];(${parts.join("")});out center;`;
+async function runQuery() {
+    const lat = parseFloat(document.getElementById('lat').value);
+    const lon = parseFloat(document.getElementById('lon').value);
+    const radius = parseFloat(document.getElementById('radius').value);
+    const queryBtn = document.getElementById('query-btn');
+
+    queryBtn.disabled = true;
+    queryBtn.innerText = "⌛ 檢索中...";
+    document.getElementById('resultPanel').classList.remove('hidden');
+
     try {
+        markerLayer.clearLayers();
+        results = [];
+        
+        const query = `[out:json][timeout:30];(nwr["amenity"="school"](around:${radius},${lat},${lon});nwr["highway"="motorway_junction"](around:${radius},${lat},${lon}););out center;`;
         const res = await fetch("https://overpass-api.de/api/interpreter", {
             method: "POST",
-            body: "data=" + encodeURIComponent(query),
-            headers: { "Content-Type": "application/x-www-form-urlencoded" }
+            body: "data=" + encodeURIComponent(query)
         });
         const data = await res.json();
 
-        for (const e of data.elements || []) {
-            let plat = e.center?.lat ?? e.lat;
-            let plon = e.center?.lon ?? e.lon;
-            if (plat == null || plon == null) continue;
+        for (let e of (data.elements || [])) {
+            let lat2 = e.center?.lat ?? e.lat;
+            let lon2 = e.center?.lon ?? e.lon;
+            if (!lat2 || !lon2) continue;
 
-            let rawType = e.tags?.highway || e.tags?.amenity || e.tags?.power || "設施";
-            let name = e.tags?.name || (rawType === "motorway_junction" ? "交流道" : rawType);
-
-            let inside = checkPointInImportedPolygons(plat, plon);
-            if (!inside && turfZonePolygon) {
-                try {
-                    inside = turf.booleanPointInPolygon(turf.point([plon, plat]), turfZonePolygon);
-                } catch (_) {}
-            }
+            let name = e.tags?.name || e.tags?.highway || "未命名";
+            let type = e.tags?.amenity || e.tags?.highway || "設施";
 
             results.push({
                 id: results.length,
                 名稱: name,
-                類型: rawType === "motorway_junction" ? "交流道" : rawType,
-                原始類型: rawType,
-                座標: [plat, plon],
-                在範圍內: inside,
-                距離: inside ? 0 : Math.round(haversine(lat, lon, plat, plon)),
-                路線距離: inside ? "位於區段範圍內" : "計算中..."
+                類型: type,
+                原始類型: type,
+                座標: [lat2, lon2],
+                在範圍內: false,
+                距離: Math.round(haversine(lat, lon, lat2, lon2)),
+                直線距離顯示: Math.round(haversine(lat, lon, lat2, lon2)),
+                路線距離: "計算中..."
             });
         }
 
-        // 專屬交流道 Entrance 重構邏輯
+        // 處理交流道入口修正
         for (let item of results) {
             if (item.原始類型 === "motorway_junction") {
                 const candidates = await buildEntranceCandidates(item.座標);
                 if (candidates && candidates.length > 0) {
-                    const entrance = candidates[0];
-                    item.座標 = entrance.coordinate;
+                    item.座標 = candidates[0].coordinate;
                     item.類型 = "交流道入口";
-                    item.交流道分析 = entrance;
-                    if (!item.在範圍內) {
-                        item.距離 = Math.round(haversine(lat, lon, item.座標[0], item.座標[1]));
-                    }
                 }
             }
         }
@@ -1097,34 +1599,12 @@ async function runQuery() {
         renderTable();
 
         results.forEach(item => {
-            const m = L.marker(item.座標).addTo(markerLayer).bindTooltip(item.名稱);
-            m.on('click', () => selectItem(item));
+            L.marker(item.座標).addTo(markerLayer).bindTooltip(item.名稱);
         });
 
-        // 路線距離計算
-        for (let item of results.slice(0, 50)) {
-            if (item.在範圍內) continue;
-            if (item.交流道分析 && item.交流道分析.routeDistanceFromOrigin) {
-                item.路線距離 = Math.round(item.交流道分析.routeDistanceFromOrigin) + " m";
-            } else {
-                try {
-                    const rRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${lon},${lat};${item.座標[1]},${item.座標[0]}?overview=false`);
-                    const rData = await rRes.json();
-                    if (rData.routes?.length) {
-                        item.路線距離 = Math.round(rData.routes[0].distance) + " m";
-                    } else {
-                        item.路線距離 = item.距離 + " m (直線)";
-                    }
-                } catch (_) {
-                    item.路線距離 = item.距離 + " m (直線)";
-                }
-            }
-            const el = document.getElementById(`route-${item.id}`);
-            if (el) el.innerText = item.路線距離;
-        }
-
     } catch (err) {
-        alert("查詢服務異常");
+        console.error(err);
+        alert("查詢發生異常");
     } finally {
         queryBtn.disabled = false;
         queryBtn.innerText = "🔍 查詢分析";
@@ -1132,158 +1612,22 @@ async function runQuery() {
 }
 
 function renderTable() {
-    tbody.innerHTML = results.map(item => `
-        <tr onclick="selectItemById(${item.id})">
-            <td>${item.名稱}</td>
-            <td>${item.類型}</td>
-            <td class="${item.在範圍內 ? 'in-zone-cell' : ''}">${item.在範圍內 ? '位於區段範圍內' : item.距離 + ' m'}</td>
-            <td id="route-${item.id}" class="${item.在範圍內 ? 'in-zone-cell' : ''}">${item.路線距離}</td>
-        </tr>
-    `).join('');
-}
-
-function selectItemById(id) {
-    const item = results.find(r => r.id === id);
-    if (item) selectItem(item);
-}
-
-function selectItem(item) {
-    map.flyTo(item.座標, 17);
-    const card = document.getElementById('routeCard');
-    const info = document.getElementById('routeInfo');
-    card.classList.remove('hidden');
-    info.innerText = item.在範圍內 ? "位於區段範圍內" : (item.路線距離 || `${item.距離} m`);
-
-    if (routeLayer) map.removeLayer(routeLayer);
-    if (item.交流道分析?.routeGeometry) {
-        routeLayer = L.geoJSON(item.交流道分析.routeGeometry, { style: { color: "#059669", weight: 5 } }).addTo(map);
-    } else {
-        routeLayer = L.polyline([origin, item.座標], { color: "#3b82f6", weight: 4, dashArray: "5,10" }).addTo(map);
-    }
-}
-
-function startDrawing() {
-    isDrawingPolygon = true;
-    drawPoints = [];
-    drawMarkers.clearLayers();
-    if (previewPolyline) map.removeLayer(previewPolyline);
-    document.getElementById('btn-end-draw').style.display = 'block';
-    showToast('請在地圖上依序點擊節點繪製多邊形');
-}
-
-function finishPolygon() {
-    if (drawPoints.length < 3) {
-        alert("請至少點選三個節點");
-        return;
-    }
-    const polyId = 'poly_' + Date.now();
-    const polygonObj = { id: polyId, name: `範圍 ${polygons.length + 1}`, points: [...drawPoints] };
-    polygons.push(polygonObj);
-    currentPolygonId = polyId;
-    
-    L.polygon(drawPoints, { color: '#dc2626', fillColor: '#ef4444', fillOpacity: 0.3 }).addTo(map);
-    isDrawingPolygon = false;
-    document.getElementById('btn-end-draw').style.display = 'none';
-    drawMarkers.clearLayers();
-    if (previewPolyline) map.removeLayer(previewPolyline);
-    renderPolygonList();
-    showToast('✓ 範圍多邊形已完成');
-}
-
-function renderPolygonList() {
-    const list = document.getElementById('polygonList');
-    document.getElementById('polyCount').innerText = polygons.length;
-    list.innerHTML = polygons.map(p => `
-        <div class="polygon-item ${p.id === currentPolygonId ? 'selected' : ''}" onclick="currentPolygonId='${p.id}';renderPolygonList();">
-            <div class="polygon-item-info">
-                <span>🔷</span>
-                <span class="polygon-item-name">${p.name}</span>
-            </div>
-        </div>
-    `).join('');
-}
-
-function clearAllPolygons() {
-    polygons = [];
-    currentPolygonId = null;
-    renderPolygonList();
-    showToast('已清除所有繪製多邊形');
-}
-
-function exportExcel() {
-    if (!results.length) return alert("尚無結果");
-    const ws = XLSX.utils.json_to_sheet(results.map(r => ({
-        名稱: r.名稱,
-        類型: r.類型,
-        直線距離: r.在範圍內 ? "位於區段範圍內" : r.距離,
-        路線距離: r.路線距離,
-        緯度: r.座標[0],
-        經度: r.座標[1]
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "勘查結果");
-    XLSX.writeFile(wb, "區段勘查結果_v4.xlsx");
-}
-
-function performGeolocation() {
-    navigator.geolocation.getCurrentPosition(pos => {
-        latInput.value = pos.coords.latitude.toFixed(6);
-        lonInput.value = pos.coords.longitude.toFixed(6);
-        origin = [pos.coords.latitude, pos.coords.longitude];
-        map.flyTo(origin, 16);
-        showToast('✓ 已取得目前定位');
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = "";
+    results.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${item.名稱}</td><td>${item.類型}</td><td>${item.直線距離顯示} m</td><td id="route-${item.id}">${item.路線距離}</td>`;
+        tbody.appendChild(tr);
     });
 }
 
-function clearRoute() {
-    if (routeLayer) map.removeLayer(routeLayer);
-    document.getElementById('routeCard').classList.add('hidden');
+function exportExcel() {
+    if (!results.length) { alert("無資料"); return; }
+    const ws = XLSX.utils.json_to_sheet(results);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "查詢結果");
+    XLSX.writeFile(wb, "GIS查詢結果.xlsx");
 }
-
-function toggleDrawMode(btn) {
-    document.getElementById('drawToolbar').classList.toggle('hidden');
-    btn.classList.toggle('active');
-}
-
-function toggleLayerControl() {
-    document.getElementById('layerControlPanel').classList.toggle('show');
-}
-
-function toggleResultPanel() {
-    document.getElementById('resultPanel').classList.toggle('hidden');
-}
-
-function toggleFacilityCategory(cat) {
-    const el = document.getElementById('facility-' + cat);
-    if (el) el.classList.toggle('open');
-}
-
-function toggleSidebarMinimize() {
-    document.getElementById('sidebar').classList.toggle('minimized');
-}
-
-document.getElementById('sidebarToggle').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.toggle('collapsed');
-});
-
-map.on('click', e => {
-    if (isDrawingPolygon) {
-        drawPoints.push([e.latlng.lat, e.latlng.lng]);
-        L.circleMarker(e.latlng, { radius: 4, color: '#dc2626' }).addTo(drawMarkers);
-        if (previewPolyline) {
-            previewPolyline.setLatLngs(drawPoints);
-        } else {
-            previewPolyline = L.polyline(drawPoints, { color: '#dc2626', dashArray: '4,6' }).addTo(map);
-        }
-    } else {
-        latInput.value = e.latlng.lat.toFixed(6);
-        lonInput.value = e.latlng.lng.toFixed(6);
-        origin = [e.latlng.lat, e.latlng.lng];
-    }
-});
-
-function openAboutModal() { document.getElementById('aboutModal').classList.add('show'); }
-function closeAboutModal() { document.getElementById('aboutModal').classList.remove('show'); }
 </script>
 </body>
 </html>
