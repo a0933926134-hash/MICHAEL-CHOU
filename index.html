@@ -4746,65 +4746,7 @@ function scoreEntrance(candidate) {
     score = Math.max(0, Math.min(score, 100));
     return score;
 }
-async function getNearestRoadAccessPoint(lat, lon) {
 
-    const query = `
-    [out:json][timeout:20];
-    (
-      way
-      ["highway"~"primary|secondary|tertiary|unclassified|residential|service"]
-      (around:100,${lat},${lon});
-    );
-    out geom;
-    `;
-
-    try {
-
-        const res = await fetch(
-            "https://overpass-api.de/api/interpreter",
-            {
-                method:"POST",
-                headers:{
-                    "Content-Type":"application/x-www-form-urlencoded"
-                },
-                body:"data="+encodeURIComponent(query)
-            }
-        );
-
-        const data = await res.json();
-
-        let nearest = null;
-        let minDist = Infinity;
-
-        for(const way of data.elements || []){
-
-            if(!way.geometry) continue;
-
-            for(const node of way.geometry){
-
-                const d = haversine(
-                    lat,
-                    lon,
-                    node.lat,
-                    node.lon
-                );
-
-                if(d < minDist){
-                    minDist = d;
-                    nearest = [
-                        node.lat,
-                        node.lon
-                    ];
-                }
-            }
-        }
-
-        return nearest;
-
-    } catch(err){
-        return null;
-    }
-}
 async function buildEntranceCandidates(junction) {
     // =====================================================
     // 🚗 交流道入口解析器（嚴謹拓樸與路網可達性驗證）
@@ -4995,7 +4937,11 @@ async function buildEntranceCandidates(junction) {
             // 拓樸檢查 1：確認入口端點是否連接一般平面道路
             // -----------------------------------------------------
             const connectedWays = nodeWaysMap.get(ep.nodeId) || [];
-            cconst connectsSurfaceRoad = connectedWays.some(w
+            const connectsSurfaceRoad = connectedWays.some(w => {
+                if (w.id === way.id) return false;
+                const h = w.tags?.highway;
+                return surfaceRoadTypes.has(h);
+            });
 
             if (!connectsSurfaceRoad) continue; // 未連接一般道路則淘汰
 
@@ -5012,6 +4958,9 @@ async function buildEntranceCandidates(junction) {
             if (!connectsHighSpeedRoad) continue; // 未連接高速/主線道路則淘汰
 
             candidates.push({
+                wayId: way.id,
+                nodeId: ep.nodeId,
+                coordinate: ep.coord,
                 highwayType: tags.highway,
                 distanceToJunction: distToJunction,
                 tags: tags,
@@ -5138,11 +5087,8 @@ async function drawRoute(to, item) {
 
         let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
         // 交流道已由選定入口並取得實際路線時，沿用同一路線，避免顯示路線與計算距離不一致。
-        iif (
-    isJunction &&
-    item.交流道入口分析?.routeGeometry &&
-    item.交流道入口分析?.coordinate
-)
+        if (isJunction && item.交流道入口分析?.routeGeometry) {
+            const route = item.交流道入口分析.routeGeometry;
             const routeDist = Math.round(item.交流道入口分析.routeDistanceFromOrigin || 0);
             routeInfo.innerText = routeDist + " m (至交流道入口)";
             routeCard.classList.remove('hidden');
