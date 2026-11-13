@@ -4747,217 +4747,681 @@ function scoreEntrance(candidate) {
     return score;
 }
 
-// ========================================================
-// ★ V7.6 交流道入口解析核心（加入流向驗證、出口硬性排除、主線方位對齊）
-// ========================================================
+async function buildEntranceCandidates(junction) {
+    // =====================================================
+    // 🚗 交流道入口解析器｜有向道路拓樸驗證版
+    //
+    // 僅修改本函式，其餘 UI、地圖、查詢與路線流程維持原樣。
+    // 核心原則：
+    // 1. 入口必須具備「一般道路 → 匝道 → 主線」的連續可行駛方向。
+    // 2. 不再把未標註 oneway 的匝道直接視為雙向。
+    // 3. 驗證一般道路可否駛抵匝道起點。
+    // 4. 驗證匝道有向路徑及主線允許行駛方向。
+    // 5. 最後才以 OSRM 驗證 Origin → 入口的實際可達性。
+    // 6. 方向不明、拓樸不完整或 OSRM 吸附偏移過大的候選直接排除。
+    // =====================================================
 
-function calculateBearing(lat1, lon1, lat2, lon2) {
-    const toRad = deg => deg * Math.PI / 180;
-    const toDeg = rad => rad * 180 / Math.PI;
-    const dLon = toRad(lon2 - lon1);
-    const y = Math.sin(dLon) * Math.cos(toRad(lat2));
-    const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
-    let brng = toDeg(Math.atan2(y, x));
-    return (brng + 360) % 360;
-}
+    const SEARCH_RADIUS = 1400;
+    const DEDUP_RADIUS = 25;
+    const OSRM_TIMEOUT = 15000;
+    const OVERPASS_TIMEOUT = 30000;
+    const OSRM_CONCURRENCY = 3;
+    const MAX_RAMP_PATH_METERS = 2500;
+    const MAX_RAMP_PATH_EDGES = 300;
+    const MAX_OSRM_SNAP_METERS = 80;
 
-// 1. 嚴格過濾的 BFS 入口搜尋（確保是「入口」而非「出口」）
-async function findSurfaceEntrancesByBFS(linkElements, highwayElements, destLat, destLon) {
-    const candidates = [];
-    const visited = new Set();
-    const queue = [];
-
-    // 只挑選 _link 結體的道路
-    const motorwayLinks = linkElements.filter(e => {
-        const h = e.tags?.highway || '';
-        return h.includes('_link');
-    });
-    
-    for (const link of motorwayLinks) {
-        // ★ 核心檢查：必須是「正向進入」高速公路主線的匝道（排除出口）
-        const entranceInfo = validateAndGetLinkEntrance(link, highwayElements);
-        if (entranceInfo && entranceInfo.isEntrance) {
-            queue.push({
-                wayId: link.id,
-                linkType: link.tags.highway,
-                currentLat: entranceInfo.lat,
-                currentLon: entranceInfo.lon,
-                depth: 0,
-                path: [link.id]
-            });
-        }
+    if (!Array.isArray(junction) || junction.length < 2 ||
+        !Number.isFinite(Number(junction[0])) ||
+        !Number.isFinite(Number(junction[1])) ||
+        !Array.isArray(origin) || origin.length < 2 ||
+        !Number.isFinite(Number(origin[0])) ||
+        !Number.isFinite(Number(origin[1]))) {
+        console.warn("交流道入口分析：junction 或 origin 座標無效。");
+        return [];
     }
 
-    const maxDepth = 5;
-    while (queue.length > 0 && candidates.length < 25) {
-        const current = queue.shift();
-        const visitKey = `${current.wayId}-${current.depth}`;
+    const [lat, lon] = junction.map(Number);
 
-        if (visited.has(visitKey) || current.depth > maxDepth) continue;
-        visited.add(visitKey);
+    const LINK_TYPES = new Set([
+        "motorway_link", "trunk_link", "primary_link"
+    ]);
 
-        const upstreamLinks = findUpstreamLinks(current.wayId, linkElements, current.linkType);
+    const MAINLINE_TYPES = new Set([
+        "motorway", "trunk", "primary"
+    ]);
 
-        if (upstreamLinks.length === 0) {
-            candidates.push({
-                wayId: current.wayId,
-                linkType: current.linkType,
-                surfaceEntranceLat: current.currentLat,
-                surfaceEntranceLon: current.currentLon,
-                depth: current.depth,
-                path: current.path,
-                confidence: 0.98
-            });
-        } else {
-            for (const upLink of upstreamLinks) {
-                const upInfo = validateAndGetLinkEntrance(upLink, highwayElements);
-                if (upInfo && upInfo.isEntrance) {
-                    queue.push({
-                        wayId: upLink.id,
-                        linkType: upLink.tags.highway,
-                        currentLat: upInfo.lat,
-                        currentLon: upInfo.lon,
-                        depth: current.depth + 1,
-                        path: [...current.path, upLink.id]
+    // trunk 可作為一般道路側的接入道路；但 motorway 不可。
+    const LOCAL_ROAD_TYPES = new Set([
+        "trunk", "primary", "secondary", "tertiary",
+        "unclassified", "residential", "living_street",
+        "service", "road", "track", "busway",
+        "primary_link", "secondary_link", "tertiary_link"
+    ]);
+
+    const EXCLUDED_ROAD_TYPES = new Set([
+        "footway", "path", "cycleway", "steps", "pedestrian",
+        "bridleway", "construction", "proposed", "platform",
+        "raceway", "bus_guideway"
+    ]);
+
+    const OVERPASS_SERVERS = [
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter"
+    ];
+
+    function distanceMeters(a, b) {
+        const R = 6371000;
+        const rad = Math.PI / 180;
+        const dLat = (b[0] - a[0]) * rad;
+        const dLon = (b[1] - a[1]) * rad;
+        const x = Math.sin(dLat / 2) ** 2 +
+            Math.cos(a[0] * rad) * Math.cos(b[0] * rad) *
+            Math.sin(dLon / 2) ** 2;
+        return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    }
+
+    function nodeKey(id) {
+        return String(id);
+    }
+
+    function isRestricted(tags) {
+        const denied = new Set(["no", "private"]);
+        return denied.has(String(tags?.access || "").toLowerCase()) ||
+            denied.has(String(tags?.motor_vehicle || "").toLowerCase()) ||
+            denied.has(String(tags?.motorcar || "").toLowerCase());
+    }
+
+    /*
+     * 回傳方向語意：
+     * forward = OSM way 節點順序方向
+     * reverse = OSM way 節點反向
+     * both = 雙向
+     * unknown = 資訊不足，不得擅自當成雙向
+     *
+     * 對一般道路，未標註 oneway 通常依雙向道路處理；
+     * 對 link 匝道，未標註方向則採保守原則，直接視為 unknown。
+     * motorway 主線依 OSM 慣例，未標註時視為單向。
+     */
+    function getWayDirection(way, role) {
+        const tags = way?.tags || {};
+        const highway = String(tags.highway || "").toLowerCase();
+
+        if (tags["oneway:conditional"] && !tags["oneway:motor_vehicle"]) {
+            return "unknown";
+        }
+
+        let raw = tags["oneway:motor_vehicle"];
+        if (raw == null || raw === "") raw = tags.oneway;
+
+        if (raw != null && raw !== "") {
+            raw = String(raw).toLowerCase().trim();
+            if (["yes", "1", "true"].includes(raw)) return "forward";
+            if (raw === "-1") return "reverse";
+            if (["no", "0", "false"].includes(raw)) return "both";
+            return "unknown";
+        }
+
+        if (String(tags.junction || "").toLowerCase() === "roundabout") {
+            return "forward";
+        }
+
+        if (role === "mainline" && highway === "motorway") {
+            return "forward";
+        }
+
+        if (role === "link") {
+            return "unknown";
+        }
+
+        if (role === "mainline" && highway === "motorway") {
+            return "forward";
+        }
+
+        return "both";
+    }
+
+    function isLocalRoad(way) {
+        const tags = way?.tags || {};
+        const highway = String(tags.highway || "").toLowerCase();
+
+        if (!LOCAL_ROAD_TYPES.has(highway) ||
+            EXCLUDED_ROAD_TYPES.has(highway) ||
+            LINK_TYPES.has(highway) ||
+            highway === "motorway") {
+            return false;
+        }
+
+        if (isRestricted(tags)) return false;
+        if (tags.area === "yes") return false;
+        return true;
+    }
+
+    function isMainlineCompatible(linkType, mainlineType) {
+        if (linkType === "motorway_link") {
+            return mainlineType === "motorway";
+        }
+        if (linkType === "trunk_link") {
+            return ["motorway", "trunk"].includes(mainlineType);
+        }
+        if (linkType === "primary_link") {
+            return ["motorway", "trunk", "primary"].includes(mainlineType);
+        }
+        return false;
+    }
+
+    function findNodeIndex(way, nodeId) {
+        return way.nodes.findIndex(id => nodeKey(id) === nodeKey(nodeId));
+    }
+
+    // 判斷車輛能否沿一般道路行駛到指定節點。
+    function canArriveAtNode(way, nodeId) {
+        const index = findNodeIndex(way, nodeId);
+        if (index < 0) return false;
+
+        const direction = getWayDirection(way, "local");
+        const last = way.nodes.length - 1;
+
+        if (direction === "both") return true;
+        if (direction === "forward") return index > 0;
+        if (direction === "reverse") return index < last;
+        return false;
+    }
+
+    // 判斷車輛抵達主線接點後，能否沿主線合法駛離接點。
+    function canDepartIntoMainline(way, nodeId) {
+        const index = findNodeIndex(way, nodeId);
+        if (index < 0) return false;
+
+        const direction = getWayDirection(way, "mainline");
+        const last = way.nodes.length - 1;
+
+        if (direction === "both") return index > 0 || index < last;
+        if (direction === "forward") return index < last;
+        if (direction === "reverse") return index > 0;
+        return false;
+    }
+
+    async function queryOverpass(query) {
+        let lastError = null;
+
+        for (let retry = 0; retry < 2; retry++) {
+            for (const server of OVERPASS_SERVERS) {
+                const controller = new AbortController();
+                const timer = setTimeout(
+                    () => controller.abort(),
+                    OVERPASS_TIMEOUT
+                );
+
+                try {
+                    const response = await fetch(server, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded"
+                        },
+                        body: "data=" + encodeURIComponent(query),
+                        signal: controller.signal
                     });
+
+                    if (!response.ok) {
+                        throw new Error(`Overpass HTTP Error: ${response.status}`);
+                    }
+
+                    const json = await response.json();
+                    if (!Array.isArray(json?.elements)) {
+                        throw new Error("Overpass 回傳資料格式異常");
+                    }
+                    return json;
+                } catch (error) {
+                    lastError = error;
+                    console.warn(`Overpass 查詢失敗：${server}`, error);
+                } finally {
+                    clearTimeout(timer);
                 }
             }
-        }
-    }
 
-    return candidates;
-}
-
-// 2. 嚴格驗證該 Link 是否為「進入」主線的入口（非出口、非逆向）
-function validateAndGetLinkEntrance(link, highwayElements) {
-    if (!link.geometry || link.geometry.length < 2) return null;
-
-    // 檢查 OSM 標籤是否明確標示為出口 (oneway / slipway / exit)
-    const tags = link.tags || {};
-    if (tags.junction === 'exit' || tags.direction === 'outgoing') return null;
-
-    const startCoord = link.geometry[0]; // 平面端
-    const endCoord = link.geometry[link.geometry.length - 1]; // 高速公路連接端
-
-    for (const highway of highwayElements) {
-        if (!highway.geometry || highway.geometry.length < 2) continue;
-
-        // 排除高架主線 layer >= 2
-        const layer = parseInt(highway.tags?.layer || '0');
-        if (layer >= 2) continue;
-
-        for (let i = 0; i < highway.geometry.length; i++) {
-            const hwCoord = highway.geometry[i];
-            
-            // 如果匝道終端緊貼高速公路主線（35公尺內）
-            if (haversine(endCoord.lat, endCoord.lon, hwCoord.lat, hwCoord.lon) < 35) {
-                
-                // ★ 決定車流方向：計算匝道最後一段的方向，必須與主線在該處的延伸方向夾角小於 60 度（順向合併）
-                const linkPreEnd = link.geometry[link.geometry.length - 2];
-                const linkBearing = calculateBearing(linkPreEnd.lat, linkPreEnd.lon, endCoord.lat, endCoord.lon);
-
-                // 取得主線迎面方向
-                let hwBearing = 0;
-                if (i < highway.geometry.length - 1) {
-                    hwBearing = calculateBearing(hwCoord.lat, hwCoord.lon, highway.geometry[i+1].lat, highway.geometry[i+1].lon);
-                } else {
-                    hwBearing = calculateBearing(highway.geometry[i-1].lat, highway.geometry[i-1].lon, hwCoord.lat, hwCoord.lon);
-                }
-
-                let diff = Math.abs(linkBearing - hwBearing);
-                if (diff > 180) diff = 360 - diff;
-
-                // 如果夾角 > 90 度，代表車流方向相反（這是出口或是逆向匝道！），直接排除！
-                if (diff > 90) {
-                    return null; 
-                }
-
-                return {
-                    isEntrance: true,
-                    lat: startCoord.lat,
-                    lon: startCoord.lon
-                };
+            if (retry === 0) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
+
+        throw lastError || new Error("Overpass 查詢失敗");
     }
-    return null;
-}
 
-function findUpstreamLinks(currentWayId, linkElements, currentType) {
-    const results = [];
-    const currentLink = linkElements.find(l => l.id === currentWayId);
-    if (!currentLink || !currentLink.geometry || currentLink.geometry.length === 0) return results;
+    async function fetchOSRMToEntrance(point) {
+        const url =
+            `https://router.project-osrm.org/route/v1/driving/` +
+            `${origin[1]},${origin[0]};${point[1]},${point[0]}` +
+            `?overview=full&geometries=geojson&steps=false&alternatives=false`;
 
-    const startCoord = currentLink.geometry[0];
+        const controller = new AbortController();
+        const timer = setTimeout(
+            () => controller.abort(),
+            OSRM_TIMEOUT
+        );
 
-    for (const link of linkElements) {
-        if (link.id === currentWayId) continue;
-        if (!link.geometry || link.geometry.length < 2) continue;
+        try {
+            const response = await fetch(url, {
+                signal: controller.signal
+            });
 
-        const endCoord = link.geometry[link.geometry.length - 1];
-        
-        // 點距離小於 40 公尺代表相連
-        if (haversine(startCoord.lat, startCoord.lon, endCoord.lat, endCoord.lon) < 40) {
-            const prevPt = link.geometry[link.geometry.length - 2];
-            const nextPt = currentLink.geometry[1];
-            
-            const bearingIn = calculateBearing(prevPt.lat, prevPt.lon, endCoord.lat, endCoord.lon);
-            const bearingOut = calculateBearing(startCoord.lat, startCoord.lon, nextPt.lat, nextPt.lon);
-            
-            let angleDiff = Math.abs(bearingIn - bearingOut);
-            if (angleDiff > 180) angleDiff = 360 - angleDiff;
-            
-            // 嚴禁 110 度大迴轉
-            if (angleDiff < 110) {
-                results.push(link);
-            }
-        }
-    }
-    return results;
-}
-
-// 3. 帶有嚴格繞路檢測的 OSRM 驗證
-async function verifyEntranceWithOSRMV74(candidate, destLat, destLon) {
-    const lat = candidate.surfaceEntranceLat;
-    const lon = candidate.surfaceEntranceLon;
-    const backoff = backoffCoordinate(lat, lon, 45);
-
-    try {
-        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${backoff.lon},${backoff.lat};${destLon},${destLat}?overview=full`, {
-            signal: AbortSignal.timeout(6000)
-        });
-        if (!res.ok) throw new Error('OSRM 失敗');
-        const data = await res.json();
-
-        if (data.routes && data.routes.length > 0) {
-            const route = data.routes[0];
-            const directDist = haversine(backoff.lat, backoff.lon, destLat, destLon);
-            
-            // 繞路防護：實際距離不可超過直線 3 倍
-            if (route.distance > directDist * 3.0 && directDist > 1500) {
-                return { valid: false, reason: 'Detour too high' };
+            if (!response.ok) {
+                throw new Error(`OSRM HTTP Error: ${response.status}`);
             }
 
-            const effectiveScore = (route.duration / 60) + (candidate.depth * 0.1);
+            const json = await response.json();
+            if (json.code !== "Ok" || !json.routes?.length) {
+                return null;
+            }
+
+            const route = json.routes[0];
+            const endpoint = json.waypoints?.[1];
+            const snapped = endpoint?.location
+                ? [endpoint.location[1], endpoint.location[0]]
+                : null;
+
+            const snapDistance = snapped
+                ? distanceMeters(point, snapped)
+                : Infinity;
+
             return {
-                valid: true,
-                distance: route.distance,
-                duration: route.duration,
-                effectiveScore: effectiveScore,
-                entranceLat: backoff.lat,
-                entranceLon: backoff.lon,
-                geometry: route.geometry
+                distance: Number(route.distance) || 0,
+                duration: Number(route.duration) || 0,
+                geometry: route.geometry,
+                snappedCoordinate: snapped,
+                snapDistance
             };
+        } finally {
+            clearTimeout(timer);
         }
-    } catch (e) {}
-    return { valid: false };
-}
+    }
 
-function backoffCoordinate(lat, lon, meters) {
-    const offset = meters / 111000;
-    return { lat: lat - offset, lon: lon };
-}
+    const topologyQuery = `
+        [out:json][timeout:30];
+        (
+            way["highway"](around:${SEARCH_RADIUS},${lat},${lon});
+        );
+        out body;
+        >;
+        out skel qt;
+    `;
 
+    let data;
+    try {
+        data = await queryOverpass(topologyQuery);
+    } catch (error) {
+        console.error("交流道入口拓樸查詢失敗：", error);
+        return [];
+    }
+
+    const nodeMap = new Map();
+    const allWays = [];
+
+    for (const element of data.elements || []) {
+        if (element.type === "node" &&
+            Number.isFinite(element.lat) &&
+            Number.isFinite(element.lon)) {
+            nodeMap.set(nodeKey(element.id), {
+                id: element.id,
+                lat: Number(element.lat),
+                lon: Number(element.lon)
+            });
+        } else if (
+            element.type === "way" &&
+            Array.isArray(element.nodes) &&
+            element.nodes.length >= 2
+        ) {
+            allWays.push(element);
+        }
+    }
+
+    // 建立每個 OSM 節點連接的道路清單。
+    const nodeWaysMap = new Map();
+    for (const way of allWays) {
+        for (const id of way.nodes) {
+            const key = nodeKey(id);
+            if (!nodeWaysMap.has(key)) nodeWaysMap.set(key, []);
+            nodeWaysMap.get(key).push(way);
+        }
+    }
+
+    const linkWays = allWays.filter(way =>
+        LINK_TYPES.has(String(way.tags?.highway || "").toLowerCase()) &&
+        !isRestricted(way.tags || {}) &&
+        way.tags?.area !== "yes"
+    );
+
+    if (!linkWays.length) {
+        console.info("交流道入口分析：搜尋範圍內沒有 link 匝道。");
+        return [];
+    }
+
+    /*
+     * 建立匝道「有向圖」。
+     * 未標註 oneway 的 link 不建立任何通行邊，避免出口匝道
+     * 因被誤當成雙向道路而反向成為入口。
+     */
+    const linkGraph = new Map();
+
+    function addDirectedEdge(fromId, toId, way) {
+        const key = nodeKey(fromId);
+        if (!linkGraph.has(key)) linkGraph.set(key, []);
+        linkGraph.get(key).push({
+            to: nodeKey(toId),
+            way,
+            wayId: way.id,
+            highway: way.tags?.highway || ""
+        });
+    }
+
+    let unknownDirectionWays = 0;
+
+    for (const way of linkWays) {
+        const direction = getWayDirection(way, "link");
+
+        if (direction === "unknown") {
+            unknownDirectionWays++;
+            continue;
+        }
+
+        for (let i = 1; i < way.nodes.length; i++) {
+            const previous = way.nodes[i - 1];
+            const current = way.nodes[i];
+
+            if (direction === "forward" || direction === "both") {
+                addDirectedEdge(previous, current, way);
+            }
+            if (direction === "reverse" || direction === "both") {
+                addDirectedEdge(current, previous, way);
+            }
+        }
+    }
+
+    // 一般道路必須允許車輛「駛抵」匝道起點。
+    function getUsableLocalRoads(nodeId) {
+        return (nodeWaysMap.get(nodeKey(nodeId)) || []).filter(way =>
+            isLocalRoad(way) && canArriveAtNode(way, nodeId)
+        );
+    }
+
+    // 主線必須允許車輛從匝道接點「駛入主線」。
+    function getUsableMainlines(nodeId, incomingLinkType) {
+        return (nodeWaysMap.get(nodeKey(nodeId)) || []).filter(way => {
+            const highway = String(way.tags?.highway || "").toLowerCase();
+            return MAINLINE_TYPES.has(highway) &&
+                isMainlineCompatible(incomingLinkType, highway) &&
+                !isRestricted(way.tags || {}) &&
+                canDepartIntoMainline(way, nodeId);
+        });
+    }
+
+    /*
+     * 從一般道路接入點出發，沿匝道有向圖搜尋主線。
+     * 支援匝道由多條 OSM way 串接的情形，不再假設單一 way
+     * 的另一端必然就是高速公路主線。
+     */
+    function findDirectedRampPath(startNodeId) {
+        const queue = [{
+            nodeId: nodeKey(startNodeId),
+            distance: 0,
+            edgeCount: 0,
+            wayIds: [],
+            lastLinkType: null
+        }];
+
+        const bestDistance = new Map([
+            [nodeKey(startNodeId), 0]
+        ]);
+
+        while (queue.length) {
+            queue.sort((a, b) => a.distance - b.distance);
+            const current = queue.shift();
+
+            if (current.edgeCount > 0 && current.lastLinkType) {
+                const mainlines = getUsableMainlines(
+                    current.nodeId,
+                    current.lastLinkType
+                );
+
+                if (mainlines.length) {
+                    return {
+                        connected: true,
+                        mergeNodeId: current.nodeId,
+                        rampDistance: current.distance,
+                        rampWayIds: [...new Set(current.wayIds)],
+                        mainlineWayIds: mainlines.map(w => w.id),
+                        mainlineTypes: [...new Set(
+                            mainlines.map(w => w.tags?.highway || "")
+                        )]
+                    };
+                }
+            }
+
+            if (current.edgeCount >= MAX_RAMP_PATH_EDGES ||
+                current.distance > MAX_RAMP_PATH_METERS) {
+                continue;
+            }
+
+            for (const edge of linkGraph.get(current.nodeId) || []) {
+                const fromNode = nodeMap.get(current.nodeId);
+                const toNode = nodeMap.get(edge.to);
+                if (!fromNode || !toNode) continue;
+
+                const edgeDistance = distanceMeters(
+                    [fromNode.lat, fromNode.lon],
+                    [toNode.lat, toNode.lon]
+                );
+                const nextDistance = current.distance + edgeDistance;
+
+                if (nextDistance > MAX_RAMP_PATH_METERS) continue;
+
+                const previousBest = bestDistance.get(edge.to);
+                if (previousBest != null && previousBest <= nextDistance) {
+                    continue;
+                }
+
+                bestDistance.set(edge.to, nextDistance);
+                queue.push({
+                    nodeId: edge.to,
+                    distance: nextDistance,
+                    edgeCount: current.edgeCount + 1,
+                    wayIds: [...current.wayIds, edge.wayId],
+                    lastLinkType: edge.highway
+                });
+            }
+        }
+
+        return { connected: false };
+    }
+
+    const candidatesByNode = new Map();
+
+    // 每個有一般道路連接的匝道節點，都可能是入口起點；
+    // 但必須同時通過「道路可抵達」及「匝道可順向接主線」兩項檢查。
+    for (const way of linkWays) {
+        for (const nodeId of way.nodes) {
+            const key = nodeKey(nodeId);
+            const node = nodeMap.get(key);
+            if (!node) continue;
+
+            const localRoads = getUsableLocalRoads(nodeId);
+            if (!localRoads.length) continue;
+
+            const path = findDirectedRampPath(nodeId);
+            if (!path.connected) continue;
+
+            const coordinate = [node.lat, node.lon];
+            const distanceToJunction = distanceMeters(
+                [lat, lon],
+                coordinate
+            );
+
+            if (distanceToJunction > SEARCH_RADIUS) continue;
+
+            // 排除明確標示出口的匝道；名稱僅作輔助，不取代方向拓樸判斷。
+            const relatedLinkWays = path.rampWayIds
+                .map(id => linkWays.find(w => String(w.id) === String(id)))
+                .filter(Boolean);
+
+            const exitLabel = relatedLinkWays.some(ramp => {
+                const tags = ramp.tags || {};
+                const label = [
+                    tags.name || "",
+                    tags.destination || "",
+                    tags.ref || ""
+                ].join(" ").toLowerCase();
+
+                return /出口|exit|off[\s-]?ramp/.test(label) ||
+                    Boolean(tags.exit_to);
+            });
+
+            if (exitLabel) continue;
+
+            const candidate = {
+                wayId: relatedLinkWays[0]?.id ?? way.id,
+                nodeId: nodeId,
+                coordinate,
+                highwayType: relatedLinkWays[0]?.tags?.highway || way.tags?.highway,
+                distanceToJunction,
+                tags: relatedLinkWays[0]?.tags || way.tags || {},
+                topologyValid: true,
+                topologyStatus: "CONFIRMED_ENTRY",
+                topologyDirectionVerified: true,
+                localRoadNames: localRoads.map(w =>
+                    w.tags?.name || w.tags?.ref || w.tags?.highway || "未命名道路"
+                ),
+                localRoadWayIds: localRoads.map(w => w.id),
+                rampWayIds: path.rampWayIds,
+                mainlineWayIds: path.mainlineWayIds,
+                mainlineTypes: path.mainlineTypes,
+                mergeNodeId: path.mergeNodeId,
+                rampDistance: path.rampDistance
+            };
+
+            const existing = candidatesByNode.get(key);
+            if (!existing || candidate.rampDistance < existing.rampDistance) {
+                candidatesByNode.set(key, candidate);
+            }
+        }
+    }
+
+    const dedupedCandidates = [];
+    for (const candidate of candidatesByNode.values()) {
+        const duplicate = dedupedCandidates.some(existing =>
+            distanceMeters(candidate.coordinate, existing.coordinate) <= DEDUP_RADIUS
+        );
+        if (!duplicate) dedupedCandidates.push(candidate);
+    }
+
+    if (!dedupedCandidates.length) {
+        console.warn(
+            "交流道入口分析：沒有找到方向完整的入口候選。",
+            { linkWays: linkWays.length, unknownDirectionWays }
+        );
+        return [];
+    }
+
+    /*
+     * 對所有通過有向拓樸驗證的候選執行 OSRM。
+     * 不再只取幾何距離前幾名，避免真正入口被前段候選擠掉。
+     */
+    let cursor = 0;
+    const verifiedCandidates = [];
+
+    const workers = Array.from(
+        { length: Math.min(OSRM_CONCURRENCY, dedupedCandidates.length) },
+        async () => {
+            while (cursor < dedupedCandidates.length) {
+                const index = cursor++;
+                const candidate = dedupedCandidates[index];
+
+                try {
+                    const route = await fetchOSRMToEntrance(candidate.coordinate);
+
+                    if (!route || !route.geometry?.coordinates?.length) {
+                        candidate.osrmVerified = false;
+                        candidate.rejectReason = "OSRM 無法建立 Origin 至入口路線";
+                        continue;
+                    }
+
+                    if (!Number.isFinite(route.snapDistance) ||
+                        route.snapDistance > MAX_OSRM_SNAP_METERS) {
+                        candidate.osrmVerified = false;
+                        candidate.rejectReason =
+                            `OSRM 吸附偏移 ${Math.round(route.snapDistance)}m，超過容許值`;
+                        continue;
+                    }
+
+                    candidate.routeDistanceFromOrigin = route.distance;
+                    candidate.routeDurationFromOrigin = route.duration;
+                    candidate.routeGeometry = route.geometry;
+                    candidate.osrmSnapDistance = route.snapDistance;
+                    candidate.osrmSnappedCoordinate = route.snappedCoordinate;
+                    candidate.osrmVerified = true;
+                    candidate.routeReachable = true;
+
+                    const straightDistance = distanceMeters(
+                        [Number(origin[0]), Number(origin[1])],
+                        candidate.coordinate
+                    );
+                    candidate.routeStretchRatio = straightDistance > 1
+                        ? route.distance / straightDistance
+                        : 1;
+
+                    verifiedCandidates.push(candidate);
+                } catch (error) {
+                    candidate.osrmVerified = false;
+                    candidate.rejectReason = error?.message || "OSRM 分析失敗";
+                    console.warn("OSRM 入口驗證失敗：", candidate, error);
+                }
+            }
+        }
+    );
+
+    await Promise.all(workers);
+
+    // 僅保留方向已確認且 OSRM 可實際抵達的入口。
+    verifiedCandidates.sort((a, b) => {
+        if (a.routeDistanceFromOrigin !== b.routeDistanceFromOrigin) {
+            return a.routeDistanceFromOrigin - b.routeDistanceFromOrigin;
+        }
+        if (a.rampDistance !== b.rampDistance) {
+            return a.rampDistance - b.rampDistance;
+        }
+        return a.distanceToJunction - b.distanceToJunction;
+    });
+
+    console.group("🚗 交流道入口分析｜有向道路拓樸驗證");
+    console.log("交流道中心：", junction);
+    console.log("Origin：", origin);
+    console.log("匝道 ways：", linkWays.length);
+    console.log("方向未標註／不明的匝道 ways（不納入入口）：", unknownDirectionWays);
+    console.log("通過入口方向拓樸：", dedupedCandidates.length);
+    console.log("通過 OSRM 可達性：", verifiedCandidates.length);
+
+    console.table(dedupedCandidates.map(c => ({
+        nodeId: c.nodeId,
+        wayId: c.wayId,
+        rampWayIds: c.rampWayIds?.join(","),
+        localRoad: c.localRoadNames?.join("、"),
+        mainline: c.mainlineTypes?.join(","),
+        rampDistance_m: Math.round(c.rampDistance || 0),
+        distanceToJunction_m: Math.round(c.distanceToJunction || 0),
+        OSRM_m: Number.isFinite(c.routeDistanceFromOrigin)
+            ? Math.round(c.routeDistanceFromOrigin)
+            : "未通過",
+        snapOffset_m: Number.isFinite(c.osrmSnapDistance)
+            ? Math.round(c.osrmSnapDistance)
+            : "-",
+        result: c.osrmVerified ? "CONFIRMED_ENTRY" : (c.rejectReason || "待驗證")
+    })));
+
+    if (verifiedCandidates.length) {
+        console.log("★ 最終選定入口：", verifiedCandidates[0]);
+    }
+    console.groupEnd();
+
+    return verifiedCandidates;
+}
 
 // ========== 修正：優先使用門牌位置計算距離 ==========
 function extractLocationFromProperties(properties, defaultLat, defaultLon) {
