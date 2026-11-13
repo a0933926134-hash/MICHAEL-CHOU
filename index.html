@@ -4768,7 +4768,7 @@ async function buildEntranceCandidates(junction) {
     const OSRM_CONCURRENCY = 3;
     const MAX_RAMP_PATH_METERS = 2500;
     const MAX_RAMP_PATH_EDGES = 300;
-    const MAX_OSRM_SNAP_METERS = 80;
+    const MAX_OSRM_SNAP_METERS = 18;
 
     if (!Array.isArray(junction) || junction.length < 2 ||
         !Number.isFinite(Number(junction[0])) ||
@@ -5159,41 +5159,71 @@ async function buildEntranceCandidates(junction) {
      * 支援匝道由多條 OSM way 串接的情形，不再假設單一 way
      * 的另一端必然就是高速公路主線。
      */
-    function findDirectedRampPath(startNodeId) {
-        const queue = [{
-            nodeId: nodeKey(startNodeId),
-            distance: 0,
-            edgeCount: 0,
-            wayIds: [],
-            lastLinkType: null
-        }];
+    function findDirectedRampPath(startNodeId, initialWayId) {
+        const startKey = nodeKey(startNodeId);
+        const initialEdges = (linkGraph.get(startKey) || []).filter(
+            edge => String(edge.wayId) === String(initialWayId)
+        );
 
-        const bestDistance = new Map([
-            [nodeKey(startNodeId), 0]
-        ]);
+        // 候選必須由「本條匝道」的合法行車起點出發。
+        // 不允許從同一節點的其他匝道分支借道，避免出口匝道
+        // 因與入口匝道共用節點而被誤認為入口。
+        if (!initialEdges.length) return { connected: false };
+
+        const queue = [];
+        for (const edge of initialEdges) {
+            const fromNode = nodeMap.get(startKey);
+            const toNode = nodeMap.get(edge.to);
+            if (!fromNode || !toNode) continue;
+
+            const firstDistance = distanceMeters(
+                [fromNode.lat, fromNode.lon],
+                [toNode.lat, toNode.lon]
+            );
+
+            if (firstDistance > MAX_RAMP_PATH_METERS) continue;
+
+            queue.push({
+                nodeId: edge.to,
+                previousNodeId: startKey,
+                distance: firstDistance,
+                edgeCount: 1,
+                wayIds: [edge.wayId],
+                lastLinkType: edge.highway
+            });
+        }
+
+        if (!queue.length) return { connected: false };
+
+        const bestDistance = new Map();
 
         while (queue.length) {
             queue.sort((a, b) => a.distance - b.distance);
             const current = queue.shift();
+            const currentKey = nodeKey(current.nodeId);
 
-            if (current.edgeCount > 0 && current.lastLinkType) {
-                const mainlines = getUsableMainlines(
-                    current.nodeId,
-                    current.lastLinkType
-                );
+            const stateKey = `${currentKey}|${current.lastLinkType}`;
+            const priorBest = bestDistance.get(stateKey);
+            if (priorBest != null && priorBest <= current.distance) continue;
+            bestDistance.set(stateKey, current.distance);
 
-                if (mainlines.length) {
-                    return {
-                        connected: true,
-                        mergeNodeId: current.nodeId,
-                        rampDistance: current.distance,
-                        rampWayIds: [...new Set(current.wayIds)],
-                        mainlineWayIds: mainlines.map(w => w.id),
-                        mainlineTypes: [...new Set(
-                            mainlines.map(w => w.tags?.highway || "")
-                        )]
-                    };
-                }
+            // 只有匝道有向路徑真正抵達主線，才算完成入口拓樸。
+            const mainlines = getUsableMainlines(
+                current.nodeId,
+                current.lastLinkType
+            );
+
+            if (mainlines.length) {
+                return {
+                    connected: true,
+                    mergeNodeId: current.nodeId,
+                    rampDistance: current.distance,
+                    rampWayIds: [...new Set(current.wayIds)],
+                    mainlineWayIds: mainlines.map(w => w.id),
+                    mainlineTypes: [...new Set(
+                        mainlines.map(w => w.tags?.highway || "")
+                    )]
+                };
             }
 
             if (current.edgeCount >= MAX_RAMP_PATH_EDGES ||
@@ -5201,8 +5231,26 @@ async function buildEntranceCandidates(junction) {
                 continue;
             }
 
-            for (const edge of linkGraph.get(current.nodeId) || []) {
-                const fromNode = nodeMap.get(current.nodeId);
+            // 匝道中段若又接到一般道路，代表此處可能是平面交叉、
+            // 出口匯入點或複合匝道節點；不能把它當作單純入口路徑。
+            if (getUsableLocalRoads(current.nodeId).length) {
+                continue;
+            }
+
+            const outgoing = (linkGraph.get(currentKey) || []).filter(
+                edge => edge.to !== current.previousNodeId
+            );
+
+            // 若同一節點存在多條不同匝道分支，單靠 OSM 節點連通
+            // 無法判斷實際轉向，採保守排除，不任意跨接另一條匝道。
+            const distinctNextWays = [...new Set(
+                outgoing.map(edge => String(edge.wayId))
+            )];
+
+            if (distinctNextWays.length !== 1) continue;
+
+            for (const edge of outgoing) {
+                const fromNode = nodeMap.get(currentKey);
                 const toNode = nodeMap.get(edge.to);
                 if (!fromNode || !toNode) continue;
 
@@ -5214,14 +5262,9 @@ async function buildEntranceCandidates(junction) {
 
                 if (nextDistance > MAX_RAMP_PATH_METERS) continue;
 
-                const previousBest = bestDistance.get(edge.to);
-                if (previousBest != null && previousBest <= nextDistance) {
-                    continue;
-                }
-
-                bestDistance.set(edge.to, nextDistance);
                 queue.push({
                     nodeId: edge.to,
+                    previousNodeId: currentKey,
                     distance: nextDistance,
                     edgeCount: current.edgeCount + 1,
                     wayIds: [...current.wayIds, edge.wayId],
@@ -5235,10 +5278,25 @@ async function buildEntranceCandidates(junction) {
 
     const candidatesByNode = new Map();
 
-    // 每個有一般道路連接的匝道節點，都可能是入口起點；
-    // 但必須同時通過「道路可抵達」及「匝道可順向接主線」兩項檢查。
+    // 入口只能從匝道「允許行駛方向的起始端點」進入。
+    // 不再逐一檢查匝道中段節點，避免把南下出口匝道中途的
+    // 平面道路連接點，透過另一條匝道的分支誤判成北上入口。
     for (const way of linkWays) {
-        for (const nodeId of way.nodes) {
+        const direction = getWayDirection(way, "link");
+        if (direction === "unknown") continue;
+
+        const lastIndex = way.nodes.length - 1;
+        let entryEndpoints = [];
+
+        if (direction === "forward") {
+            entryEndpoints = [way.nodes[0]];
+        } else if (direction === "reverse") {
+            entryEndpoints = [way.nodes[lastIndex]];
+        } else if (direction === "both") {
+            entryEndpoints = [way.nodes[0], way.nodes[lastIndex]];
+        }
+
+        for (const nodeId of entryEndpoints) {
             const key = nodeKey(nodeId);
             const node = nodeMap.get(key);
             if (!node) continue;
@@ -5246,7 +5304,7 @@ async function buildEntranceCandidates(junction) {
             const localRoads = getUsableLocalRoads(nodeId);
             if (!localRoads.length) continue;
 
-            const path = findDirectedRampPath(nodeId);
+            const path = findDirectedRampPath(nodeId, way.id);
             if (!path.connected) continue;
 
             const coordinate = [node.lat, node.lon];
@@ -5257,7 +5315,6 @@ async function buildEntranceCandidates(junction) {
 
             if (distanceToJunction > SEARCH_RADIUS) continue;
 
-            // 排除明確標示出口的匝道；名稱僅作輔助，不取代方向拓樸判斷。
             const relatedLinkWays = path.rampWayIds
                 .map(id => linkWays.find(w => String(w.id) === String(id)))
                 .filter(Boolean);
@@ -5266,26 +5323,31 @@ async function buildEntranceCandidates(junction) {
                 const tags = ramp.tags || {};
                 const label = [
                     tags.name || "",
+                    tags.alt_name || "",
                     tags.destination || "",
-                    tags.ref || ""
+                    tags["destination:ref"] || "",
+                    tags.ref || "",
+                    tags.description || ""
                 ].join(" ").toLowerCase();
 
-                return /出口|exit|off[\s-]?ramp/.test(label) ||
+                return /出口|exit|off[\s-]?ramp|southbound\s*exit|南下\s*出口|南向\s*出口/.test(label) ||
                     Boolean(tags.exit_to);
             });
 
             if (exitLabel) continue;
 
             const candidate = {
-                wayId: relatedLinkWays[0]?.id ?? way.id,
+                wayId: way.id,
                 nodeId: nodeId,
                 coordinate,
-                highwayType: relatedLinkWays[0]?.tags?.highway || way.tags?.highway,
+                highwayType: way.tags?.highway || "",
                 distanceToJunction,
-                tags: relatedLinkWays[0]?.tags || way.tags || {},
+                tags: way.tags || {},
                 topologyValid: true,
                 topologyStatus: "CONFIRMED_ENTRY",
                 topologyDirectionVerified: true,
+                entryEndpoint: direction === "reverse" ? "way-last" :
+                    direction === "forward" ? "way-first" : "bidirectional-endpoint",
                 localRoadNames: localRoads.map(w =>
                     w.tags?.name || w.tags?.ref || w.tags?.highway || "未命名道路"
                 ),
@@ -5402,6 +5464,7 @@ async function buildEntranceCandidates(junction) {
         nodeId: c.nodeId,
         wayId: c.wayId,
         rampWayIds: c.rampWayIds?.join(","),
+        entryEndpoint: c.entryEndpoint || "-",
         localRoad: c.localRoadNames?.join("、"),
         mainline: c.mainlineTypes?.join(","),
         rampDistance_m: Math.round(c.rampDistance || 0),
