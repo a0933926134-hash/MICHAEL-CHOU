@@ -6094,13 +6094,7 @@ parts.push(`
         });
 
         const query = `[out:json][timeout:60];(${parts.join("\n")});out center;`;
-        const res = await fetch("https://overpass-api.de/api/interpreter", {
-            method: "POST",
-            body: "data=" + encodeURIComponent(query),
-            headers: { "Content-Type": "application/x-www-form-urlencoded" }
-        });
-        const data = await res.json();
-
+        const data = await queryOverpass(query);
         if (!data.elements) {
             queryBtn.disabled = false;
             queryBtn.innerText = "🔍 查詢分析";
@@ -6280,12 +6274,19 @@ results.forEach(item => {
         }
 
     } catch (err) {
-        console.error(err);
-        alert("查詢發生異常");
-    } finally {
-        queryBtn.disabled = false;
-        queryBtn.innerText = "🔍 查詢分析";
-    }
+    console.error("❌ 查詢發生異常：", err);
+    console.error("錯誤訊息：", err?.message);
+    console.error("錯誤堆疊：", err?.stack);
+
+    alert(
+        "查詢發生異常：\n" +
+        (err?.message || "未知錯誤") +
+        "\n請按 F12 開啟 Console 查看詳細資訊。"
+    );
+} finally {
+    queryBtn.disabled = false;
+    queryBtn.innerText = "🔍 查詢分析";
+}
 }
 
 function sortResults(type) {
