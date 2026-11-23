@@ -1865,6 +1865,66 @@ body.mobile-mode .about-link-btn {
             cursor: pointer;
             line-height: 1.4;
         }
+
+/* =========================================
+   可愛定位點圖示 V2
+   防止圖示被其他圖層遮蔽
+========================================= */
+
+/* 定位圖示容器 */
+.cute-marker-icon {
+    background: transparent !important;
+    border: none !important;
+    overflow: visible !important;
+}
+
+/* 定位圖釘外觀 */
+.cute-marker-pin {
+    width: 36px;
+    height: 36px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: linear-gradient(135deg, #fff0f5, #ffb6c9);
+    border: 3px solid #ffffff;
+    border-radius: 50% 50% 50% 8px;
+
+    transform: rotate(-45deg);
+    box-shadow:
+        0 3px 8px rgba(0,0,0,0.28),
+        0 0 0 2px rgba(255,255,255,0.5);
+}
+
+/* 圖示內部表情 */
+.cute-marker-pin span {
+    display: block;
+    font-size: 19px;
+    line-height: 1;
+    transform: rotate(45deg);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.12);
+}
+
+/* 目前位置：藍色系 */
+.cute-marker-pin.my-location {
+    background: linear-gradient(135deg, #dbeafe, #60a5fa);
+}
+
+/* 查詢結果：粉紅色系 */
+.cute-marker-pin.poi-location {
+    background: linear-gradient(135deg, #fff0f5, #fb91b9);
+}
+
+/* 滑鼠移過時稍微放大 */
+.leaflet-marker-icon.cute-marker-icon {
+    transition: transform 0.2s ease;
+}
+
+.leaflet-marker-icon.cute-marker-icon:hover {
+    filter: brightness(1.08);
+    z-index: 9999 !important;
+}
     
 </style>
 </head>
@@ -3139,6 +3199,28 @@ let geoJsonFieldInfo = {
 let geoJsonSelection = {};
 
 let map = L.map('map').setView([25.036762, 121.451688], 15);
+
+// =========================================
+// 專用定位圖層：確保定位圖示顯示在其他圖層上方
+// =========================================
+map.createPane('cuteMarkerPane');
+map.getPane('cuteMarkerPane').style.zIndex = 660;
+map.getPane('cuteMarkerPane').style.pointerEvents = 'auto';
+
+// 可愛定位圖示產生器
+function createCuteMarkerIcon(emoji, type = 'poi-location') {
+    return L.divIcon({
+        className: 'cute-marker-icon',
+        html: `
+            <div class="cute-marker-pin ${type}">
+                <span>${emoji}</span>
+            </div>
+        `,
+        iconSize: [42, 48],
+        iconAnchor: [21, 44],
+        popupAnchor: [0, -44]
+    });
+}
 
 const nlscEMAP = L.tileLayer(
     'https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}',
@@ -4653,15 +4735,15 @@ function performGeolocation() {
                 map.removeLayer(locationMarker);
             }
             
-            locationMarker = L.marker([lat, lon], {
-                icon: L.icon({
-                    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDMyIDQwIj48cGF0aCBmaWxsPSIjZWY0NDQ0IiBkPSJNMTYgMEM5LjQgMCA0IDUuNCA0IDE2YzAgOC44IDEyIDI0IDI0IDI0XSExMi0xNS4yIDEyLTI0YzAtMTAuNi01LjQtMTYtMTItMTZ6Ii8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iNCIgZmlsbD0iI2ZmZiIvPjwvc3ZnPg==',
-                    iconSize: [32, 40],
-                    iconAnchor: [16, 40],
-                    popupAnchor: [0, -40]
-                }),
-                title: '目前位置'
-            }).addTo(map);
+            
+locationMarker = L.marker([lat, lon], {
+    icon: createCuteMarkerIcon('🧸', 'my-location'),
+    pane: 'cuteMarkerPane',
+    zIndexOffset: 2000,
+    riseOnHover: true,
+    title: '目前位置'
+}).addTo(map);
+
             
             locationMarker.bindPopup(`目前位置<br/>緯度: ${lat.toFixed(6)}<br/>經度: ${lon.toFixed(6)}`);
             
@@ -6145,15 +6227,34 @@ parts.push(`
         results.sort((a, b) => a.距離 - b.距離);
         renderTable();
 
-        results.forEach(item => {
-            const m = L.marker(item.座標).addTo(markerLayer).bindTooltip(item.名稱, { direction: "top" });
-            m.on("click", () => {
-                isUpdatingView = true;
-                map.flyTo(item.座標, 17, { duration: 0.8 });
-                setTimeout(() => { isUpdatingView = false; }, 1000);
-                selectItem(item);
-            });
-        });
+        
+results.forEach(item => {
+
+    // 可愛粉紅色定位圖示
+    const m = L.marker(item.座標, {
+        icon: createCuteMarkerIcon('🐻', 'poi-location'),
+        pane: 'cuteMarkerPane',
+        zIndexOffset: 1000,
+        riseOnHover: true,
+        title: item.名稱
+    })
+    .addTo(markerLayer)
+    .bindTooltip(item.名稱, {
+        direction: "top",
+        offset: [0, -35]
+    });
+
+    m.on("click", () => {
+        isUpdatingView = true;
+        map.flyTo(item.座標, 17, { duration: 0.8 });
+        setTimeout(() => {
+            isUpdatingView = false;
+        }, 1000);
+
+        selectItem(item);
+    });
+});
+
 
         queryBtn.innerText = "🚗 計算路線中...";
 
