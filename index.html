@@ -5852,6 +5852,113 @@ async function runQuery() {
                 parts.push(`nwr["amenity"="marketplace"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});
                 nwr["shop"="supermarket"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
+                // =========================================
+// 🏬 工商活動
+// =========================================
+
+// 百貨公司
+else if (t === "business_department_store") {
+    parts.push(`
+        nwr["shop"="department_store"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+
+        nwr["shop"="mall"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+
+        nwr["name"~"百貨|購物中心|大型商場",i](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+    `);
+}
+
+// 金融機構
+else if (t === "business_financial") {
+    parts.push(`
+        nwr["amenity"="bank"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+
+        nwr["amenity"="credit_union"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+
+        nwr["office"="financial"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+    `);
+}
+
+// 娛樂設施
+else if (t === "business_entertainment") {
+    parts.push(`
+        nwr["amenity"~"cinema|theatre|casino|nightclub|arts_centre"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+
+        nwr["leisure"~"bowling_alley|amusement_arcade|amusement_park"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+
+        nwr["tourism"="theme_park"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+    `);
+}
+
+// 大型展示中心或觀光飯店
+else if (t === "business_exhibition_hotel") {
+    parts.push(`
+        nwr["amenity"="exhibition_centre"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+
+        nwr["amenity"="conference_centre"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+
+        nwr["building"="exhibition_hall"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+
+        nwr["tourism"~"hotel|motel|resort"](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+
+        nwr["name"~"展覽館|展示中心|會展中心|國際會議中心",i](
+            around:${radius},
+            ${centroidForQuery[0]},
+            ${centroidForQuery[1]}
+        );
+    `);
+}
             else if (t === "waste_disposal") {
 
     const lat = centroidForQuery[0];
