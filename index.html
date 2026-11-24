@@ -22,12 +22,11 @@
 <script src="https://unpkg.com/geotiff/dist-browser/geotiff.js"></script>    
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
-<link rel="stylesheet" href="https://unpkg.com"/>
-<script src="https://unpkg.com"></script>
+<!-- Leaflet Routing Machine CSS -->
+<link rel="stylesheet"
+      href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"/>
 
-<!-- ✨ 新增：Leaflet Routing Machine (支援滑鼠拖曳重算路線) -->
-<link rel="stylesheet" href="https://unpkg.com" />
-<script src="https://unpkg.com"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -5751,8 +5750,8 @@ async function drawRoute(to, item) {
                 L.latLng(to[0], to[1])
             ],
             router: L.Routing.osrmv1({
-                serviceUrl: 'https://project-osrm.org'
-            }),
+    serviceUrl: 'https://router.project-osrm.org/route/v1'
+}),
             routeWhileDragging: true, // ✨ 允許滑鼠拖曳路線時即時重算
             addWaypoints: true,       // ✨ 允許在線上點擊拖出新的中途點
             draggableWaypoints: true, // ✨ 允許拖曳起終點與中途點
@@ -5768,10 +5767,11 @@ async function drawRoute(to, item) {
                 return L.marker(wp.latLng, {
                     draggable: true,
                     icon: L.divIcon({
-                        className: 'edit-handle',
-                        iconSize:,
-                        iconAnchor: [7, 7]
-                    })
+    className: 'edit-handle',
+    html: '<div class="edit-handle"></div>',
+    iconSize: [14, 14],
+    iconAnchor: [7, 7]
+})
                 });
             }
         }).addTo(map);
