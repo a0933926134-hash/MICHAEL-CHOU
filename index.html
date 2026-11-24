@@ -22,7 +22,12 @@
 <script src="https://unpkg.com/geotiff/dist-browser/geotiff.js"></script>    
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+<link rel="stylesheet" href="https://unpkg.com"/>
+<script src="https://unpkg.com"></script>
 
+<!-- ✨ 新增：Leaflet Routing Machine (支援滑鼠拖曳重算路線) -->
+<link rel="stylesheet" href="https://unpkg.com" />
+<script src="https://unpkg.com"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -949,7 +954,10 @@ body.mobile-mode #drawToolbar {
     -webkit-user-select: none !important;
     cursor: auto !important;
 }
-
+/* ✨ 新增：隱藏 Leaflet Routing Machine 預設的文字導航面板，保留地圖拖曳線段即可 */
+.leaflet-routing-container {
+    display: none !important;
+}
 .geojson-field-label.highlighted {
     border: 2px solid #ff0000 !important;
     background-color: #ffe0e0 !important;
@@ -4837,7 +4845,10 @@ locationMarker = L.marker([lat, lon], {
 }
 
 function clearRoute() {
-    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+    if (routeLayer) { 
+        map.removeControl(routeLayer); // ✨ 改用 removeControl 移除路線控制器
+        routeLayer = null; 
+    }
     routeInfo.innerText = '尚未計算';
     routeCard.classList.add('hidden');
 }
@@ -5714,47 +5725,85 @@ async function getRouteDistance(to, straightDist, isJunction = false, isInZone =
 async function drawRoute(to, item) {
     try {
         if (!origin) return;
+        
+        // 先清除舊路線
+        if (routeLayer) {
+            map.removeControl(routeLayer);
+            routeLayer = null;
+        }
+
         if (item.在範圍內) {
             routeInfo.innerText = "位於區段範圍內";
             routeCard.classList.remove('hidden');
-            if (routeLayer) map.removeLayer(routeLayer);
             return;
         }
 
         let isJunction = item.原始類型 === "motorway_junction" || item.原始類型 === "ramp";
-        // 交流道已由選定入口並取得實際路線時，沿用同一路線，避免顯示路線與計算距離不一致。
-        if (isJunction && item.交流道入口分析?.routeGeometry) {
-            const route = item.交流道入口分析.routeGeometry;
-            const routeDist = Math.round(item.交流道入口分析.routeDistanceFromOrigin || 0);
-            routeInfo.innerText = routeDist + " m (至交流道入口)";
-            routeCard.classList.remove('hidden');
-            if (routeLayer) map.removeLayer(routeLayer);
-            routeLayer = L.geoJSON(route, { style: { color: "#059669", weight: 5 } }).addTo(map);
-            return;
-        }
-        let url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const lineColor = isJunction ? "#059669" : "#3b82f6";
 
-        if (!data.routes?.length) {
-            routeInfo.innerText = item.距離 + " m (直線示意)";
-            routeCard.classList.remove('hidden');
-            if (routeLayer) map.removeLayer(routeLayer);
-            routeLayer = L.polyline([origin, to], { color: "#ef4444", weight: 3, dashArray: "5,10" }).addTo(map);
-            return;
-        }
-
-        const route = data.routes[0];
-        let routeDist = Math.round(route.distance);
-        routeInfo.innerText = routeDist + " m" + (isJunction ? " (至交流道入口)" : "");
+        routeInfo.innerText = "路線規劃中（可拖曳路線微調）...";
         routeCard.classList.remove('hidden');
 
-        if (routeLayer) map.removeLayer(routeLayer);
-        routeLayer = L.geoJSON(route.geometry, { style: { color: isJunction ? "#059669" : "#3b82f6", weight: 5 } }).addTo(map);
+        // ✨ 建立可透過滑鼠拖曳編輯的路線控制器
+        routeLayer = L.Routing.control({
+            waypoints: [
+                L.latLng(origin[0], origin[1]),
+                L.latLng(to[0], to[1])
+            ],
+            router: L.Routing.osrmv1({
+                serviceUrl: 'https://project-osrm.org'
+            }),
+            routeWhileDragging: true, // ✨ 允許滑鼠拖曳路線時即時重算
+            addWaypoints: true,       // ✨ 允許在線上點擊拖出新的中途點
+            draggableWaypoints: true, // ✨ 允許拖曳起終點與中途點
+            fitSelectedRoutes: false, // 避免每次拖曳都強制縮放地圖視角
+            show: false,              // 隱藏預設導航文字框
+            lineOptions: {
+                styles: [{ color: lineColor, opacity: 0.85, weight: 6 }]
+            },
+            // 自訂拖曳節點的外觀（避免與原本的可愛圖示衝突）
+            createMarker: function(i, wp, nWps) {
+                // 起點(0)與終點(nWps-1)不重複畫大圖示，只為中間拖曳出來的「中途點」畫小白點
+                if (i === 0 || i === nWps - 1) return null;
+                return L.marker(wp.latLng, {
+                    draggable: true,
+                    icon: L.divIcon({
+                        className: 'edit-handle',
+                        iconSize:,
+                        iconAnchor: [7, 7]
+                    })
+                });
+            }
+        }).addTo(map);
+
+        // ✨ 監聽路線計算完成事件（包含初次規劃，以及「滑鼠拖曳修改後」的自動重算）
+        routeLayer.on('routesfound', function(e) {
+            const routes = e.routes;
+            if (routes && routes.length > 0) {
+                const summary = routes[0].summary;
+                const newDist = Math.round(summary.totalDistance); // 取得最新總距離（公尺）
+
+                // 1. 更新右上角路線卡片的文字
+                routeInfo.innerText = newDist + " m" + (isJunction ? " (至交流道入口)" : "") + " ✏️";
+
+                // 2. 同步更新資料陣列與查詢結果表格中的「路線距離」
+                item.路線距離數值 = newDist;
+                item.路線距離 = newDist + " m";
+                const cell = document.getElementById(`route-${item.id}`);
+                if (cell) {
+                    cell.innerText = item.路線距離;
+                }
+            }
+        });
+
+        // 若 OSRM 連線失敗的備援機制（畫直線）
+        routeLayer.on('routingerror', function() {
+            routeInfo.innerText = item.距離 + " m (直線示意)";
+        });
+
     } catch (err) {
+        console.error("路線規劃異常:", err);
         routeInfo.innerText = "路線服務異常";
-        if (routeLayer) map.removeLayer(routeLayer);
-        routeLayer = L.polyline([origin, to], { color: "#ef4444", weight: 3, dashArray: "5,10" }).addTo(map);
     }
 }
 
