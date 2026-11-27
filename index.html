@@ -3808,12 +3808,54 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+// =====================================================
+// 新北市都市計畫使用分區 SLD 樣式
+// 原始 SLD 使用 ZONE_NAME；本次匯入的 SHP 實際欄位為 ZONE，
+// 因此以 ZONE 欄位套用相同的文字篩選規則。
+// 填色透明度依使用者指定設為 65%。
+// =====================================================
+const urbanPlanningSLDStyles = [
+    { test: v => v.includes('住宅'), fill: '#FFFF00', title: '住宅區' },
+    { test: v => v.includes('商業'), fill: '#FF003F', title: '商業區' },
+    { test: v => v.includes('工業'), fill: '#7F3F00', title: '工業區' },
+    { test: v => v.includes('行政') || v.includes('機關'), fill: '#007FFF', title: '行政區與機關用地' },
+    { test: v => ['文教', '學校', '文大', '文中', '文小'].some(k => v.includes(k)), fill: '#BF7FFF', title: '文教區與學校用地' },
+    { test: v => ['公園', '綠地', '廣場', '體育'].some(k => v.includes(k)), fill: '#00FF00', title: '公園綠地與廣場' },
+    { test: v => v.includes('農業') || v.includes('保護'), fill: '#7FFF00', title: '農業區與保護區' },
+    { test: v => v.includes('河川') || v.includes('水岸'), fill: '#7FFFFF', title: '河川與水岸發展區' },
+    { test: v => v.includes('道路'), fill: '#E0E0E0', title: '道路用地' }
+];
+
+function getUrbanPlanningSLDStyle(properties) {
+    if (!properties) return null;
+    // SHP DBF 欄位是 ZONE；同時兼容其他來源使用的 ZONE_NAME。
+    const zoneValue = properties.ZONE ?? properties.ZONE_NAME ?? properties.zone ?? properties.zone_name;
+    if (zoneValue == null || String(zoneValue).trim() === '') return null;
+    const zoneText = String(zoneValue).trim();
+    const matched = urbanPlanningSLDStyles.find(rule => rule.test(zoneText));
+    if (!matched) return null;
+    return {
+        stroke: true,
+        color: '#666666',
+        weight: 0.5,
+        opacity: 1,
+        fill: true,
+        fillColor: matched.fill,
+        fillOpacity: 0.65,
+        dashArray: null
+    };
+}
+
 function extractStyleFromProperties(properties) {
     const style = { ...defaultStyles };
     
     if (!properties || Object.keys(properties).length === 0) {
         return style;
     }
+
+    // 優先套用都市計畫 SLD 分類色；其他圖層仍沿用原本屬性取色邏輯。
+    const urbanPlanningStyle = getUrbanPlanningSLDStyle(properties);
+    if (urbanPlanningStyle) return urbanPlanningStyle;
     
     if (properties.styleConfig && typeof properties.styleConfig === 'object') {
         try {
@@ -4072,10 +4114,10 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
             return {
                 color: extractedStyle.color,
                 fillColor: extractedStyle.fillColor,
-                weight: 2,
-                opacity: 0.8,
-                fillOpacity: 0.08,
-                dashArray: null
+                weight: extractedStyle.weight,
+                opacity: extractedStyle.opacity,
+                fillOpacity: extractedStyle.fillOpacity,
+                dashArray: extractedStyle.dashArray
             };
         },
         onEachFeature: (feature, layer) => {
@@ -4083,8 +4125,8 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
 
             layer._extractedStyle = {
                 ...extractedStyle,
-                fillOpacity: 0.08,
-                dashArray: null
+                fillOpacity: extractedStyle.fillOpacity,
+                dashArray: extractedStyle.dashArray
             };
             layer._layerName = layerName;
             layer._featureId = `${layerName}_${featureCounter++}`;
@@ -4100,7 +4142,7 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                         fillColor: extractedStyle.fillColor,
                         weight: 3,
                         opacity: 1,
-                        fillOpacity: 0.25
+                        fillOpacity: extractedStyle.fillOpacity === 0.65 ? 0.78 : 0.25
                     };
                     this.setStyle(highlightStyle);
                     this.bringToFront();
@@ -4131,7 +4173,7 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
                 color: extractedStyle.color,
                 weight: extractedStyle.weight,
                 opacity: extractedStyle.opacity,
-                fillOpacity: 0.08,
+                fillOpacity: extractedStyle.fillOpacity,
                 interactive: true
             });
         }
