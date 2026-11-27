@@ -662,7 +662,7 @@ body.mobile-mode #statusBar {
     position: absolute;
     bottom: 20px;
     right: 20px;
-    width: 660px;
+    width: 600px;
     max-height: 400px;
     background: white;
     border-radius: 12px;
@@ -1688,7 +1688,7 @@ body.mobile-mode .about-link-btn {
     }
     
     #resultPanel {
-        width: 560px;
+        width: 500px;
         max-height: 350px;
     }
     
@@ -2733,7 +2733,6 @@ body.mobile-mode .about-link-btn {
                     <th>類型</th>
                     <th onclick="sortResults('distance')">直線距離 ↕</th>
                     <th onclick="sortResults('route')">路線距離 ↕</th>
-                    <th onclick="sortResults('walk')">步行距離 ↕</th>
                 </tr>
             </thead>
             <tbody id="tbody"></tbody>
@@ -2767,7 +2766,6 @@ body.mobile-mode .about-link-btn {
    4. 檢查地標是否在匯入多邊形範圍內（新增功能）
    5. 重寫交流道入口解析器：拓樸連接驗證 + OSRM 實際可達性
    6. 新增獨立規劃圖層管理功能（顯示、順序、註記、編輯、選取）
-   7. 新增步行距離計算功能（結果表格欄位、排序與 Excel 匯出）
    
    授權: MIT License + ODbL Attribution
 ================================================ */
@@ -4032,7 +4030,7 @@ let markerLayer = L.layerGroup().addTo(map);
 let origin = [25.036762, 121.451688];
 let results = [];
 let routeLayer = null;
-let sortState = { distance: true, route: true, walk: true };
+let sortState = { distance: true, route: true };
 
 let polygons = [];
 let currentPolygonId = null;
@@ -5642,8 +5640,6 @@ function performGeolocation() {
                 map.removeLayer(locationMarker);
             }
             
-            
-
             
 locationMarker = L.marker([lat, lon], {
     icon: createCuteMarkerIcon('🧸', 'my-location'),
