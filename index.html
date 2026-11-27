@@ -773,7 +773,7 @@ tr.highlight {
 
 #routeCard {
     position: absolute;
-    top: 160px;
+    top: 205px;
     right: 12px;
     background: white;
     border-left: 4px solid #10b981;
@@ -1280,6 +1280,199 @@ body.mobile-mode #drawToolbar {
     cursor: pointer;
     flex: 1;
     margin: 0;
+}
+
+/* ========== 獨立規劃圖層管理視窗樣式 ========== */
+#planningLayerManagerModal {
+    position: fixed;
+    top: 80px;
+    left: 410px;
+    width: 620px;
+    max-width: 94vw;
+    max-height: 75vh;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+    border: 1px solid #e5e7eb;
+    z-index: 960;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#planningLayerManagerModal.show {
+    display: flex;
+    animation: slideDown 0.25s ease;
+}
+
+body.mobile-mode #planningLayerManagerModal {
+    left: 3vw;
+    top: 60px;
+    width: 94vw;
+}
+
+#planningLayerManagerHeader {
+    background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+    color: white;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: grab;
+    user-select: none;
+}
+
+#planningLayerManagerHeader:active {
+    cursor: grabbing;
+}
+
+#planningLayerManagerHeader h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#planningLayerManagerHeader button {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+#planningLayerManagerHeader button:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.plm-toolbar {
+    padding: 8px 14px;
+    background: #f0fdfa;
+    border-bottom: 1px solid #ccfbf1;
+    font-size: 11px;
+    color: #115e59;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.plm-table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.plm-table-wrapper::-webkit-scrollbar {
+    width: 6px;
+}
+
+.plm-table-wrapper::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.plm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.plm-table th {
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 600;
+    padding: 9px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    cursor: default;
+}
+
+.plm-table th:nth-child(2) {
+    text-align: left;
+}
+
+.plm-table td {
+    padding: 8px;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.plm-table td:nth-child(2) {
+    text-align: left;
+}
+
+.plm-table tr:hover {
+    background: #f8fafc;
+}
+
+.plm-layer-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    color: #475569;
+    margin-right: 6px;
+    font-weight: 600;
+}
+
+.plm-layer-badge.type-basemap { background: #dbeafe; color: #1e40af; }
+.plm-layer-badge.type-overlay { background: #fef3c7; color: #92400e; }
+.plm-layer-badge.type-geojson { background: #dcfce7; color: #166534; }
+.plm-layer-badge.type-polygon { background: #fee2e2; color: #991b1b; }
+.plm-layer-badge.type-wms { background: #f3e8ff; color: #6b21a8; }
+
+.plm-order-btns {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.plm-order-btn {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.plm-order-btn:hover:not(:disabled) {
+    background: #0f766e;
+    color: white;
+    border-color: #0f766e;
+}
+
+.plm-order-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.plm-checkbox {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: #0f766e;
+}
+
+.plm-na {
+    color: #cbd5e1;
+    font-size: 11px;
 }
 
 /* ========== 套疊圖層下拉選單樣式 ========== */
@@ -2413,6 +2606,35 @@ body.mobile-mode .about-link-btn {
         <button class="toolbar-btn" id="layerControlBtn" onclick="toggleLayerControl()">
             🗺️ 圖層控制
         </button>
+        <button class="toolbar-btn" id="planningLayerManagerBtn" onclick="togglePlanningLayerManager()">
+            📑 圖層管理
+        </button>
+    </div>
+</div>
+
+<!-- ✨ 獨立規劃圖層管理視窗 ✨ -->
+<div id="planningLayerManagerModal">
+    <div id="planningLayerManagerHeader">
+        <h3>📑 規劃圖層管理</h3>
+        <button onclick="togglePlanningLayerManager()" title="關閉視窗">✕</button>
+    </div>
+    <div class="plm-toolbar">
+        <span>💡 越靠上的圖層顯示越上層；支援切換顯示、順序、註記、編輯及選取鎖定</span>
+    </div>
+    <div class="plm-table-wrapper">
+        <table class="plm-table">
+            <thead>
+                <tr>
+                    <th style="width: 72px;">順序</th>
+                    <th>圖層名稱</th>
+                    <th style="width: 52px;">顯示</th>
+                    <th style="width: 52px;">註記</th>
+                    <th style="width: 52px;">可編輯</th>
+                    <th style="width: 52px;">可選取</th>
+                </tr>
+            </thead>
+            <tbody id="planningLayerManagerBody"></tbody>
+        </table>
     </div>
 </div>
 
@@ -2543,9 +2765,453 @@ body.mobile-mode .about-link-btn {
    3. 新增自訂 WMS 圖層功能，解決都市計畫圖層顯示問題
    4. 檢查地標是否在匯入多邊形範圍內（新增功能）
    5. 重寫交流道入口解析器：拓樸連接驗證 + OSRM 實際可達性
+   6. 新增獨立規劃圖層管理功能（顯示、順序、註記、編輯、選取）
    
    授權: MIT License + ODbL Attribution
 ================================================ */
+
+// ========== 規劃圖層管理狀態與方法 ==========
+let planningLayersRegistry = []; // 順序由上而下代表地圖圖層由上層到下層
+
+function togglePlanningLayerManager() {
+    const modal = document.getElementById('planningLayerManagerModal');
+    const btn = document.getElementById('planningLayerManagerBtn');
+    modal.classList.toggle('show');
+    btn.classList.toggle('active');
+    if (modal.classList.contains('show')) {
+        syncPlanningLayersRegistry();
+        renderPlanningLayerManager();
+    }
+}
+
+function getActiveBaseMapId() {
+    if (currentBaseMapLayer === nlscEMAP) return 'nlsc-emap';
+    if (currentBaseMapLayer === nlscPHOTO) return 'nlsc-photo';
+    if (currentBaseMapLayer === osmLayer) return 'osm';
+    return 'nlsc-emap';
+}
+
+function getBaseMapDisplayName(id) {
+    const mapNames = {
+        'nlsc-emap': 'NLSC 電子地圖',
+        'nlsc-photo': 'NLSC 正射影像',
+        'osm': 'OpenStreetMap'
+    };
+    return mapNames[id] || id;
+}
+
+function syncPlanningLayersRegistry() {
+    const validMap = new Map();
+
+    // 1. 繪製多邊形圖層
+    polygons.forEach(poly => {
+        const key = `polygon:${poly.id}`;
+        validMap.set(key, {
+            key,
+            id: poly.id,
+            category: 'polygon',
+            badgeText: '繪製範圍',
+            badgeClass: 'type-polygon',
+            name: poly.name,
+            visible: poly.visible !== false,
+            showLabel: null,
+            editable: poly.editable !== false,
+            selectable: poly.selectable !== false
+        });
+    });
+
+    // 2. 匯入 GeoJSON / SHP 圖層
+    Object.keys(geoJsonLayers).forEach(layerName => {
+        const key = `geojson:${layerName}`;
+        const fg = geoJsonLayers[layerName];
+        const existing = planningLayersRegistry.find(item => item.key === key);
+        const visible = existing ? existing.visible : map.hasLayer(fg);
+        const showLabel = existing ? existing.showLabel : true;
+        const selectable = existing ? existing.selectable : true;
+
+        validMap.set(key, {
+            key,
+            id: layerName,
+            category: 'geojson',
+            badgeText: '匯入圖層',
+            badgeClass: 'type-geojson',
+            name: layerName,
+            visible,
+            showLabel,
+            editable: null,
+            selectable
+        });
+    });
+
+    // 3. 自訂 WMS 圖層
+    customWMSLayers.forEach(wms => {
+        const key = `custom-wms:${wms.id}`;
+        const existing = planningLayersRegistry.find(item => item.key === key);
+        const visible = existing ? existing.visible : (wms.tileLayer ? map.hasLayer(wms.tileLayer) : false);
+        validMap.set(key, {
+            key,
+            id: wms.id,
+            category: 'custom-wms',
+            badgeText: '自訂WMS',
+            badgeClass: 'type-wms',
+            name: wms.displayName,
+            visible,
+            showLabel: null,
+            editable: null,
+            selectable: null
+        });
+    });
+
+    // 4. 套疊圖層 (新北市都市計畫圖)
+    {
+        const key = 'overlay:tpc';
+        const existing = planningLayersRegistry.find(item => item.key === key);
+        const visible = existing ? existing.visible : Boolean(activeOverlayLayers['tpc']);
+        validMap.set(key, {
+            key,
+            id: 'tpc',
+            category: 'overlay',
+            badgeText: '套疊圖層',
+            badgeClass: 'type-overlay',
+            name: '新北市都市計畫圖',
+            visible,
+            showLabel: null,
+            editable: null,
+            selectable: null
+        });
+    }
+
+    // 5. 覆蓋圖層 (地籍圖)
+    {
+        const key = 'overlay:cadastral';
+        const existing = planningLayersRegistry.find(item => item.key === key);
+        const visible = existing ? existing.visible : map.hasLayer(cadastralLayer);
+        validMap.set(key, {
+            key,
+            id: 'cadastral',
+            category: 'overlay',
+            badgeText: '覆蓋圖層',
+            badgeClass: 'type-overlay',
+            name: '地籍圖',
+            visible,
+            showLabel: null,
+            editable: null,
+            selectable: null
+        });
+    }
+
+    // 6. 目前底圖圖層
+    {
+        const activeBaseId = getActiveBaseMapId();
+        const key = 'basemap:active';
+        const existing = planningLayersRegistry.find(item => item.key === key);
+        const visible = existing ? existing.visible : (currentBaseMapLayer ? map.hasLayer(currentBaseMapLayer) : true);
+        validMap.set(key, {
+            key,
+            id: activeBaseId,
+            category: 'basemap',
+            badgeText: '底圖',
+            badgeClass: 'type-basemap',
+            name: getBaseMapDisplayName(activeBaseId),
+            visible,
+            showLabel: null,
+            editable: null,
+            selectable: null
+        });
+    }
+
+    // 保留既有順序並加入新項目
+    const nextRegistry = [];
+    planningLayersRegistry.forEach(oldItem => {
+        if (validMap.has(oldItem.key)) {
+            nextRegistry.push(validMap.get(oldItem.key));
+            validMap.delete(oldItem.key);
+        }
+    });
+
+    // 新加入的圖層預設插入在底圖/覆蓋圖層之上（最頂端）
+    const newItems = Array.from(validMap.values());
+    planningLayersRegistry = [...newItems, ...nextRegistry];
+}
+
+function applyPlanningLayerZOrder() {
+    const total = planningLayersRegistry.length;
+    // 從最底層到最頂層依序套用堆疊順序
+    for (let i = total - 1; i >= 0; i--) {
+        const item = planningLayersRegistry[i];
+        const zIndex = (total - i) * 10;
+
+        if (item.category === 'basemap') {
+            if (currentBaseMapLayer && typeof currentBaseMapLayer.setZIndex === 'function') {
+                currentBaseMapLayer.setZIndex(zIndex);
+            }
+        } else if (item.category === 'overlay') {
+            if (item.id === 'cadastral' && typeof cadastralLayer.setZIndex === 'function') {
+                cadastralLayer.setZIndex(zIndex);
+            } else if (item.id === 'tpc' && activeOverlayLayers['tpc'] && typeof activeOverlayLayers['tpc'].setZIndex === 'function') {
+                activeOverlayLayers['tpc'].setZIndex(zIndex);
+            }
+        } else if (item.category === 'custom-wms') {
+            const wms = customWMSLayers.find(w => w.id === item.id);
+            if (wms && wms.tileLayer && typeof wms.tileLayer.setZIndex === 'function') {
+                wms.tileLayer.setZIndex(zIndex);
+            }
+        } else if (item.category === 'geojson') {
+            const fg = geoJsonLayers[item.id];
+            if (fg && map.hasLayer(fg) && typeof fg.bringToFront === 'function') {
+                fg.bringToFront();
+            }
+        } else if (item.category === 'polygon') {
+            const poly = polygons.find(p => p.id === item.id);
+            if (poly && poly.layer && map.hasLayer(poly.layer) && typeof poly.layer.bringToFront === 'function') {
+                poly.layer.bringToFront();
+            }
+        }
+    }
+}
+
+function movePlanningLayerOrder(index, direction) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= planningLayersRegistry.length) return;
+
+    const temp = planningLayersRegistry[index];
+    planningLayersRegistry[index] = planningLayersRegistry[targetIndex];
+    planningLayersRegistry[targetIndex] = temp;
+
+    applyPlanningLayerZOrder();
+    renderPlanningLayerManager();
+    showToast('✓ 已更新圖層先後順序');
+}
+
+function togglePlanningLayerVisibility(key, checked) {
+    const item = planningLayersRegistry.find(i => i.key === key);
+    if (!item) return;
+    item.visible = checked;
+
+    if (item.category === 'basemap') {
+        if (currentBaseMapLayer) {
+            if (checked) {
+                currentBaseMapLayer.addTo(map);
+            } else {
+                map.removeLayer(currentBaseMapLayer);
+            }
+        }
+    } else if (item.category === 'overlay') {
+        if (item.id === 'cadastral') {
+            const cb = document.getElementById('layer-cadastral');
+            if (cb) cb.checked = checked;
+            if (checked) cadastralLayer.addTo(map);
+            else map.removeLayer(cadastralLayer);
+        } else if (item.id === 'tpc') {
+            const cb = document.getElementById('overlay-check-tpc');
+            if (cb) cb.checked = checked;
+            if (checked) addOverlayLayer('tpc');
+            else removeOverlayLayer('tpc');
+        }
+    } else if (item.category === 'custom-wms') {
+        const wms = customWMSLayers.find(w => w.id === item.id);
+        if (wms) {
+            if (checked) {
+                if (!wms.tileLayer) {
+                    wms.tileLayer = L.tileLayer.wms(wms.url, {
+                        layers: wms.layerName,
+                        format: 'image/png',
+                        transparent: true,
+                        opacity: 0.75
+                    });
+                }
+                wms.tileLayer.addTo(map);
+            } else if (wms.tileLayer && map.hasLayer(wms.tileLayer)) {
+                map.removeLayer(wms.tileLayer);
+            }
+        }
+    } else if (item.category === 'geojson') {
+        const fg = geoJsonLayers[item.id];
+        const cb = document.getElementById(`layer-geojson-${item.id}`);
+        if (cb) cb.checked = checked;
+        if (fg) {
+            if (checked) {
+                map.addLayer(fg);
+                if (item.showLabel && geoJsonFieldInfo.activeField && geoJsonLabelLayers[item.id]) {
+                    map.addLayer(geoJsonLabelLayers[item.id]);
+                }
+            } else {
+                map.removeLayer(fg);
+                if (geoJsonLabelLayers[item.id] && map.hasLayer(geoJsonLabelLayers[item.id])) {
+                    map.removeLayer(geoJsonLabelLayers[item.id]);
+                }
+            }
+        }
+    } else if (item.category === 'polygon') {
+        const poly = polygons.find(p => p.id === item.id);
+        if (poly) {
+            poly.visible = checked;
+            if (checked) {
+                renderPolygonLayer(poly);
+            } else {
+                if (poly.layer) map.removeLayer(poly.layer);
+                if (poly.markers) poly.markers.clearLayers();
+            }
+        }
+    }
+
+    applyPlanningLayerZOrder();
+    renderPlanningLayerManager();
+}
+
+function togglePlanningLayerLabel(key, checked) {
+    const item = planningLayersRegistry.find(i => i.key === key);
+    if (!item || item.category !== 'geojson') return;
+    item.showLabel = checked;
+
+    const layerName = item.id;
+    if (!checked) {
+        if (geoJsonLabelLayers[layerName] && map.hasLayer(geoJsonLabelLayers[layerName])) {
+            map.removeLayer(geoJsonLabelLayers[layerName]);
+        }
+        showToast(`✓ 已隱藏「${layerName}」註記`);
+    } else {
+        if (!geoJsonFieldInfo.activeField) {
+            showToast('⚠️ 請先在側邊欄設定「GeoJSON 標籤欄位」以顯示註記');
+        } else if (item.visible) {
+            const data = geoJsonFeatures[layerName];
+            if (data) {
+                const deduplicatedData = deduplicateGeoJSONLabels(data, layerName, origin[0], origin[1]);
+                renderGeoJSONLabels(deduplicatedData, layerName, map);
+            }
+            showToast(`✓ 已顯示「${layerName}」註記`);
+        }
+    }
+    renderPlanningLayerManager();
+}
+
+function togglePlanningLayerEditable(key, checked) {
+    const item = planningLayersRegistry.find(i => i.key === key);
+    if (!item || item.category !== 'polygon') return;
+    item.editable = checked;
+
+    const poly = polygons.find(p => p.id === item.id);
+    if (poly) {
+        poly.editable = checked;
+        if (!checked && poly.markers) {
+            poly.markers.clearLayers();
+        } else if (checked && poly.isSelected && poly.visible !== false) {
+            renderEditHandles(poly);
+        }
+    }
+    renderPlanningLayerManager();
+    showToast(checked ? `✓ 已允許編輯「${item.name}」` : `🔒 已鎖定「${item.name}」編輯`);
+}
+
+function togglePlanningLayerSelectable(key, checked) {
+    const item = planningLayersRegistry.find(i => i.key === key);
+    if (!item) return;
+    item.selectable = checked;
+
+    if (item.category === 'geojson') {
+        const layerName = item.id;
+        if (!checked && geoJsonSelection[layerName]) {
+            const prevLayer = geoJsonSelection[layerName];
+            delete geoJsonSelection[layerName];
+            applyGeoJSONFeatureStyle(prevLayer);
+            selectedGeoJSONPolygonInfo = null;
+            clearGeoJSONLabelHighlight();
+        }
+    } else if (item.category === 'polygon') {
+        const poly = polygons.find(p => p.id === item.id);
+        if (poly) {
+            poly.selectable = checked;
+            if (!checked && poly.isSelected) {
+                poly.isSelected = false;
+                if (currentPolygonId === poly.id) currentPolygonId = null;
+                if (editingPolygonId === poly.id) editingPolygonId = null;
+                renderPolygonLayer(poly);
+                renderPolygonList();
+            }
+        }
+    }
+    renderPlanningLayerManager();
+    showToast(checked ? `✓ 已允許選取「${item.name}」` : `🔒 已鎖定「${item.name}」選取`);
+}
+
+function renderPlanningLayerManager() {
+    const tbodyEl = document.getElementById('planningLayerManagerBody');
+    if (!tbodyEl) return;
+
+    if (planningLayersRegistry.length === 0) {
+        tbodyEl.innerHTML = '<tr><td colspan="6" style="padding:16px;color:#94a3b8;">目前無可管理的圖層</td></tr>';
+        return;
+    }
+
+    tbodyEl.innerHTML = planningLayersRegistry.map((item, idx) => {
+        const isFirst = idx === 0;
+        const isLast = idx === planningLayersRegistry.length - 1;
+
+        const labelCell = item.showLabel === null
+            ? '<span class="plm-na">—</span>'
+            : `<input type="checkbox" class="plm-checkbox" ${item.showLabel ? 'checked' : ''} onchange="togglePlanningLayerLabel('${escapeHtml(item.key)}', this.checked)">`;
+
+        const editCell = item.editable === null
+            ? '<span class="plm-na">—</span>'
+            : `<input type="checkbox" class="plm-checkbox" ${item.editable ? 'checked' : ''} onchange="togglePlanningLayerEditable('${escapeHtml(item.key)}', this.checked)">`;
+
+        const selectCell = item.selectable === null
+            ? '<span class="plm-na">—</span>'
+            : `<input type="checkbox" class="plm-checkbox" ${item.selectable ? 'checked' : ''} onchange="togglePlanningLayerSelectable('${escapeHtml(item.key)}', this.checked)">`;
+
+        return `
+            <tr>
+                <td>
+                    <div class="plm-order-btns">
+                        <button class="plm-order-btn" onclick="movePlanningLayerOrder(${idx}, -1)" ${isFirst ? 'disabled' : ''} title="上移一層">▲</button>
+                        <button class="plm-order-btn" onclick="movePlanningLayerOrder(${idx}, 1)" ${isLast ? 'disabled' : ''} title="下移一層">▼</button>
+                    </div>
+                </td>
+                <td>
+                    <span class="plm-layer-badge ${item.badgeClass}">${item.badgeText}</span>
+                    <strong>${escapeHtml(item.name)}</strong>
+                </td>
+                <td>
+                    <input type="checkbox" class="plm-checkbox" ${item.visible ? 'checked' : ''} onchange="togglePlanningLayerVisibility('${escapeHtml(item.key)}', this.checked)">
+                </td>
+                <td>${labelCell}</td>
+                <td>${editCell}</td>
+                <td>${selectCell}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 讓規劃圖層管理視窗標題列支援拖曳移動
+(function initPlanningLayerManagerDrag() {
+    let isDraggingPlm = false;
+    let plmOffsetX = 0;
+    let plmOffsetY = 0;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const header = document.getElementById('planningLayerManagerHeader');
+        const modal = document.getElementById('planningLayerManagerModal');
+        if (!header || !modal) return;
+
+        header.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            isDraggingPlm = true;
+            const rect = modal.getBoundingClientRect();
+            plmOffsetX = e.clientX - rect.left;
+            plmOffsetY = e.clientY - rect.top;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDraggingPlm) return;
+            modal.style.left = (e.clientX - plmOffsetX) + 'px';
+            modal.style.top = (e.clientY - plmOffsetY) + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDraggingPlm = false;
+        });
+    });
+})();
 
 // ========== 自訂 WMS 圖層管理 ==========
 let customWMSLayers = [];
@@ -2576,7 +3242,9 @@ function addCustomWMSLayer() {
     document.getElementById('customWMSDisplayName').value = '';
 
     updateCustomWMSLayersList();
-    showToast(`✓ 已新增自訂 WMS 圖層：${displayName}`);
+    syncPlanningLayersRegistry();
+    renderPlanningLayerManager();
+    showToast(`✓ 已新增自訂 WMS 圖層：${displayName || layerName}`);
 }
 
 function updateCustomWMSLayersList() {
@@ -2607,6 +3275,8 @@ function removeCustomWMSLayer(id) {
         }
         customWMSLayers.splice(index, 1);
         updateCustomWMSLayersList();
+        syncPlanningLayersRegistry();
+        renderPlanningLayerManager();
         showToast('✓ 自訂圖層已移除');
     }
 }
@@ -2619,6 +3289,8 @@ function clearAllCustomWMS() {
     });
     customWMSLayers = [];
     updateCustomWMSLayersList();
+    syncPlanningLayersRegistry();
+    renderPlanningLayerManager();
     showToast('✓ 所有自訂圖層已清除');
 }
 
@@ -3024,6 +3696,15 @@ function switchBaseMap(mapId) {
         'nlsc-photo': 'NLSC 正射影像',
         'osm': 'OpenStreetMap'
     };
+
+    syncPlanningLayersRegistry();
+    const baseItem = planningLayersRegistry.find(i => i.key === 'basemap:active');
+    if (baseItem) {
+        baseItem.visible = true;
+        baseItem.name = mapNames[mapId] || mapId;
+    }
+    applyPlanningLayerZOrder();
+    renderPlanningLayerManager();
     
     console.log(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
     showToast(`✓ 已切換底圖：${mapNames[mapId] || mapId}`);
@@ -3070,6 +3751,12 @@ function addOverlayLayer(layerId) {
         opacitySlider.disabled = false;
     }
 
+    syncPlanningLayersRegistry();
+    const item = planningLayersRegistry.find(i => i.key === `overlay:${layerId}`);
+    if (item) item.visible = true;
+    applyPlanningLayerZOrder();
+    renderPlanningLayerManager();
+
     console.log(`✓ 已新增套疊圖層：${layerId}`);
     showToast(`✓ 已新增：新北市都市計畫圖層`);
 
@@ -3090,6 +3777,11 @@ function removeOverlayLayer(layerId) {
     if (checkbox) {
         checkbox.checked = false;
     }
+
+    syncPlanningLayersRegistry();
+    const item = planningLayersRegistry.find(i => i.key === `overlay:${layerId}`);
+    if (item) item.visible = false;
+    renderPlanningLayerManager();
 
     console.log(`✓ 已移除套疊圖層：${layerId}`);
     showToast('✓ 已移除套疊圖層');
@@ -3164,6 +3856,11 @@ function initLayerControls() {
             } else {
                 map.removeLayer(overlay.layer);
             }
+            syncPlanningLayersRegistry();
+            const regItem = planningLayersRegistry.find(i => i.key === `overlay:${overlay.id}`);
+            if (regItem) regItem.visible = e.target.checked;
+            applyPlanningLayerZOrder();
+            renderPlanningLayerManager();
             
             setTimeout(() => {
                 document.getElementById('layerControlPanel').classList.remove('show');
@@ -3358,7 +4055,7 @@ const selectedGeoJSONStyle = {
 
 const polygonColors = [
     '#dc2626', '#f97316', '#eab308', '#22c55e', '#06b6d4',
-    '#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#6366f1'
+    '#3b82f6', '#8b5cf6', '#ec2699', '#f43f5e', '#6366f1'
 ];
 
 const defaultStyles = {
@@ -3519,6 +4216,9 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
 
     if (!geoJsonFieldInfo.activeField) return;
 
+    const regItem = planningLayersRegistry.find(i => i.key === `geojson:${layerName}`);
+    if (regItem && regItem.showLabel === false) return;
+
     const labelGroup = L.featureGroup();
 
     const geoJsonLayer = L.geoJSON(explodedData, {
@@ -3562,7 +4262,9 @@ function renderGeoJSONLabels(explodedData, layerName, mapObj) {
         }
     });
 
-    geoJsonLayer.addTo(mapObj);
+    if (!regItem || regItem.visible !== false) {
+        geoJsonLayer.addTo(mapObj);
+    }
     geoJsonLayer.addTo(labelGroup);
     
     geoJsonLabelLayers[layerName] = labelGroup;
@@ -4043,6 +4745,12 @@ function clearGeoJSONLabelHighlight() {
 }
 
 function toggleGeoJSONFeatureSelection(layerName, layer, feature) {
+    const regItem = planningLayersRegistry.find(i => i.key === `geojson:${layerName}`);
+    if (regItem && regItem.selectable === false) {
+        showToast(`🔒 圖層「${layerName}」已設定為不可選取`);
+        return;
+    }
+
     const current = geoJsonSelection[layerName];
 
     if (current === layer) {
@@ -4136,6 +4844,8 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
             layer.bindPopup(popupContent);
             
             layer.on('mouseover', function () {
+                const regItem = planningLayersRegistry.find(i => i.key === `geojson:${layerName}`);
+                if (regItem && regItem.selectable === false) return;
                 if (this.setStyle && typeof this.setStyle === 'function') {
                     const highlightStyle = {
                         color: extractedStyle.color,
@@ -4155,6 +4865,8 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
             });
 
             layer.on('click', function (e) {
+                const regItem = planningLayersRegistry.find(i => i.key === `geojson:${layerName}`);
+                if (regItem && regItem.selectable === false) return;
                 if (e && e.originalEvent) {
                     e.originalEvent.stopPropagation();
                 }
@@ -4188,6 +4900,10 @@ function optimizeAddGeoJSONToMap(geoJsonData, layerName, mapObj) {
     
     geoJsonLayers[layerName] = featureGroup;
     addGeoJSONLayerControl(layerName, featureGroup, mapObj);
+
+    syncPlanningLayersRegistry();
+    applyPlanningLayerZOrder();
+    renderPlanningLayerManager();
 
     console.log(`✓ GeoJSON 圖層已新增：${layerName}`);
 }
@@ -4282,6 +4998,11 @@ function addGeoJSONLayerControl(layerName, featureGroup, mapObj) {
         } else {
             mapObj.removeLayer(featureGroup);
         }
+        syncPlanningLayersRegistry();
+        const regItem = planningLayersRegistry.find(i => i.key === `geojson:${layerName}`);
+        if (regItem) regItem.visible = e.target.checked;
+        applyPlanningLayerZOrder();
+        renderPlanningLayerManager();
     });
     
     const removeBtn = layerItem.querySelector('.btn-remove');
@@ -4313,6 +5034,8 @@ function removeGeoJSONLayer(layerName, mapObj) {
     if (geoJsonSelection[layerName]) {
         delete geoJsonSelection[layerName];
     }
+    syncPlanningLayersRegistry();
+    renderPlanningLayerManager();
     showToast(`✓ 已移除圖層：${layerName}`);
 }
 
@@ -4514,7 +5237,10 @@ function createPolygonObject(points, customName) {
         centroid: null,
         isSelected: false,
         color: color,
-        originalProperties: {}
+        originalProperties: {},
+        visible: true,
+        editable: true,
+        selectable: true
     };
     
     updatePolygonCentroid(polygonObj);
@@ -4523,6 +5249,9 @@ function createPolygonObject(points, customName) {
     polygons.push(polygonObj);
     selectPolygon(id);
     renderPolygonList();
+    syncPlanningLayersRegistry();
+    applyPlanningLayerZOrder();
+    renderPlanningLayerManager();
     return polygonObj;
 }
 
@@ -4540,6 +5269,7 @@ function updatePolygonCentroid(polygonObj) {
 
 function renderEditHandles(polygonObj) {
     polygonObj.markers.clearLayers();
+    if (polygonObj.editable === false || polygonObj.visible === false) return;
     
     polygonObj.points.forEach((pt, index) => {
         let marker = L.marker(pt, {
@@ -4600,7 +5330,7 @@ function renderEditHandles(polygonObj) {
 }
 
 function handleEdgeDoubleClick(polygonObj, edgeIndex, clickLatLng) {
-    if (!clickLatLng) return;
+    if (!clickLatLng || polygonObj.editable === false) return;
     
     const newPoint = [clickLatLng.lat, clickLatLng.lng];
     const insertIndex = edgeIndex + 1;
@@ -4613,6 +5343,7 @@ function handleEdgeDoubleClick(polygonObj, edgeIndex, clickLatLng) {
 }
 
 function handleNodeRightClick(polygonObj, nodeIndex) {
+    if (polygonObj.editable === false) return;
     if (polygonObj.points.length <= 3) {
         showToast('❌ 多邊形至少需要 3 個節點');
         return;
@@ -4636,6 +5367,11 @@ function updatePolygonAfterEdit(polygonObj) {
 
 function renderPolygonLayer(polygonObj) {
     if (polygonObj.layer) map.removeLayer(polygonObj.layer);
+    if (polygonObj.visible === false) {
+        polygonObj.markers.clearLayers();
+        return;
+    }
+
     const style = {
         color: polygonObj.color,
         weight: polygonObj.isSelected ? 4 : 3,
@@ -4648,10 +5384,14 @@ function renderPolygonLayer(polygonObj) {
     polygonObj.layer.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         if (isDrawingPolygon) return;
+        if (polygonObj.selectable === false) {
+            showToast(`🔒 「${polygonObj.name}」已設定為不可選取`);
+            return;
+        }
         selectPolygon(polygonObj.id);
     });
     
-    if (polygonObj.isSelected) {
+    if (polygonObj.isSelected && polygonObj.editable !== false) {
         renderEditHandles(polygonObj);
     } else {
         polygonObj.markers.clearLayers();
@@ -4659,6 +5399,12 @@ function renderPolygonLayer(polygonObj) {
 }
 
 function selectPolygon(id) {
+    const targetPoly = polygons.find(p => p.id === id);
+    if (targetPoly && targetPoly.selectable === false) {
+        showToast(`🔒 「${targetPoly.name}」已設定為不可選取`);
+        return;
+    }
+
     polygons.forEach(p => {
         const wasSelected = p.isSelected;
         p.isSelected = (p.id === id);
@@ -4667,15 +5413,14 @@ function selectPolygon(id) {
         }
     });
 
-    const polygon = polygons.find(p => p.id === id);
-    if (!polygon) return;
+    if (!targetPoly) return;
 
     currentPolygonId = id;
     editingPolygonId = id;
-    renderPolygonLayer(polygon);
-    renderEditHandles(polygon);
+    renderPolygonLayer(targetPoly);
+    renderEditHandles(targetPoly);
     renderPolygonList();
-    updateLatLonInputs(polygon);
+    updateLatLonInputs(targetPoly);
 }
 
 function deletePolygon(id) {
@@ -4690,6 +5435,8 @@ function deletePolygon(id) {
     if (currentPolygonId === id) currentPolygonId = null;
     
     renderPolygonList();
+    syncPlanningLayersRegistry();
+    renderPlanningLayerManager();
     showToast('多邊形已刪除');
 }
 
@@ -4703,6 +5450,8 @@ function clearAllPolygons() {
     currentPolygonId = null;
     editingPolygonId = null;
     renderPolygonList();
+    syncPlanningLayersRegistry();
+    renderPlanningLayerManager();
     showToast('✕ 所有多邊形已清除');
 }
 
@@ -4753,6 +5502,8 @@ function finishRenamePolygon(id, newValue) {
     const trimmed = (newValue || '').trim();
     if (trimmed) {
         poly.name = trimmed;
+        syncPlanningLayersRegistry();
+        renderPlanningLayerManager();
         showToast('✓ 名稱已更新');
     }
     renderPolygonList();
@@ -4954,19 +5705,6 @@ function scoreEntrance(candidate) {
 }
 
 async function buildEntranceCandidates(junction) {
-    // =====================================================
-    // 🚗 交流道入口解析器｜有向道路拓樸驗證版
-    //
-    // 僅修改本函式，其餘 UI、地圖、查詢與路線流程維持原樣。
-    // 核心原則：
-    // 1. 入口必須具備「一般道路 → 匝道 → 主線」的連續可行駛方向。
-    // 2. 不再把未標註 oneway 的匝道直接視為雙向。
-    // 3. 驗證一般道路可否駛抵匝道起點。
-    // 4. 驗證匝道有向路徑及主線允許行駛方向。
-    // 5. 最後才以 OSRM 驗證 Origin → 入口的實際可達性。
-    // 6. 方向不明、拓樸不完整或 OSRM 吸附偏移過大的候選直接排除。
-    // =====================================================
-
     const SEARCH_RADIUS = 1400;
     const DEDUP_RADIUS = 25;
     const OSRM_TIMEOUT = 15000;
@@ -4996,7 +5734,6 @@ async function buildEntranceCandidates(junction) {
         "motorway", "trunk", "primary"
     ]);
 
-    // trunk 可作為一般道路側的接入道路；但 motorway 不可。
     const LOCAL_ROAD_TYPES = new Set([
         "trunk", "primary", "secondary", "tertiary",
         "unclassified", "residential", "living_street",
@@ -5037,17 +5774,6 @@ async function buildEntranceCandidates(junction) {
             denied.has(String(tags?.motorcar || "").toLowerCase());
     }
 
-    /*
-     * 回傳方向語意：
-     * forward = OSM way 節點順序方向
-     * reverse = OSM way 節點反向
-     * both = 雙向
-     * unknown = 資訊不足，不得擅自當成雙向
-     *
-     * 對一般道路，未標註 oneway 通常依雙向道路處理；
-     * 對 link 匝道，未標註方向則採保守原則，直接視為 unknown。
-     * motorway 主線依 OSM 慣例，未標註時視為單向。
-     */
     function getWayDirection(way, role) {
         const tags = way?.tags || {};
         const highway = String(tags.highway || "").toLowerCase();
@@ -5119,7 +5845,6 @@ async function buildEntranceCandidates(junction) {
         return way.nodes.findIndex(id => nodeKey(id) === nodeKey(nodeId));
     }
 
-    // 判斷車輛能否沿一般道路行駛到指定節點。
     function canArriveAtNode(way, nodeId) {
         const index = findNodeIndex(way, nodeId);
         if (index < 0) return false;
@@ -5133,7 +5858,6 @@ async function buildEntranceCandidates(junction) {
         return false;
     }
 
-    // 判斷車輛抵達主線接點後，能否沿主線合法駛離接點。
     function canDepartIntoMainline(way, nodeId) {
         const index = findNodeIndex(way, nodeId);
         if (index < 0) return false;
@@ -5280,7 +6004,6 @@ async function buildEntranceCandidates(junction) {
         }
     }
 
-    // 建立每個 OSM 節點連接的道路清單。
     const nodeWaysMap = new Map();
     for (const way of allWays) {
         for (const id of way.nodes) {
@@ -5301,11 +6024,6 @@ async function buildEntranceCandidates(junction) {
         return [];
     }
 
-    /*
-     * 建立匝道「有向圖」。
-     * 未標註 oneway 的 link 不建立任何通行邊，避免出口匝道
-     * 因被誤當成雙向道路而反向成為入口。
-     */
     const linkGraph = new Map();
 
     function addDirectedEdge(fromId, toId, way) {
@@ -5342,14 +6060,12 @@ async function buildEntranceCandidates(junction) {
         }
     }
 
-    // 一般道路必須允許車輛「駛抵」匝道起點。
     function getUsableLocalRoads(nodeId) {
         return (nodeWaysMap.get(nodeKey(nodeId)) || []).filter(way =>
             isLocalRoad(way) && canArriveAtNode(way, nodeId)
         );
     }
 
-    // 主線必須允許車輛從匝道接點「駛入主線」。
     function getUsableMainlines(nodeId, incomingLinkType) {
         return (nodeWaysMap.get(nodeKey(nodeId)) || []).filter(way => {
             const highway = String(way.tags?.highway || "").toLowerCase();
@@ -5360,20 +6076,12 @@ async function buildEntranceCandidates(junction) {
         });
     }
 
-    /*
-     * 從一般道路接入點出發，沿匝道有向圖搜尋主線。
-     * 支援匝道由多條 OSM way 串接的情形，不再假設單一 way
-     * 的另一端必然就是高速公路主線。
-     */
     function findDirectedRampPath(startNodeId, initialWayId) {
         const startKey = nodeKey(startNodeId);
         const initialEdges = (linkGraph.get(startKey) || []).filter(
             edge => String(edge.wayId) === String(initialWayId)
         );
 
-        // 候選必須由「本條匝道」的合法行車起點出發。
-        // 不允許從同一節點的其他匝道分支借道，避免出口匝道
-        // 因與入口匝道共用節點而被誤認為入口。
         if (!initialEdges.length) return { connected: false };
 
         const queue = [];
@@ -5413,7 +6121,6 @@ async function buildEntranceCandidates(junction) {
             if (priorBest != null && priorBest <= current.distance) continue;
             bestDistance.set(stateKey, current.distance);
 
-            // 只有匝道有向路徑真正抵達主線，才算完成入口拓樸。
             const mainlines = getUsableMainlines(
                 current.nodeId,
                 current.lastLinkType
@@ -5437,8 +6144,6 @@ async function buildEntranceCandidates(junction) {
                 continue;
             }
 
-            // 匝道中段若又接到一般道路，代表此處可能是平面交叉、
-            // 出口匯入點或複合匝道節點；不能把它當作單純入口路徑。
             if (getUsableLocalRoads(current.nodeId).length) {
                 continue;
             }
@@ -5447,8 +6152,6 @@ async function buildEntranceCandidates(junction) {
                 edge => edge.to !== current.previousNodeId
             );
 
-            // 若同一節點存在多條不同匝道分支，單靠 OSM 節點連通
-            // 無法判斷實際轉向，採保守排除，不任意跨接另一條匝道。
             const distinctNextWays = [...new Set(
                 outgoing.map(edge => String(edge.wayId))
             )];
@@ -5484,9 +6187,6 @@ async function buildEntranceCandidates(junction) {
 
     const candidatesByNode = new Map();
 
-    // 入口只能從匝道「允許行駛方向的起始端點」進入。
-    // 不再逐一檢查匝道中段節點，避免把南下出口匝道中途的
-    // 平面道路連接點，透過另一條匝道的分支誤判成北上入口。
     for (const way of linkWays) {
         const direction = getWayDirection(way, "link");
         if (direction === "unknown") continue;
@@ -5588,10 +6288,6 @@ async function buildEntranceCandidates(junction) {
         return [];
     }
 
-    /*
-     * 對所有通過有向拓樸驗證的候選執行 OSRM。
-     * 不再只取幾何距離前幾名，避免真正入口被前段候選擠掉。
-     */
     let cursor = 0;
     const verifiedCandidates = [];
 
@@ -5647,7 +6343,6 @@ async function buildEntranceCandidates(junction) {
 
     await Promise.all(workers);
 
-    // 僅保留方向已確認且 OSRM 可實際抵達的入口。
     verifiedCandidates.sort((a, b) => {
         if (a.routeDistanceFromOrigin !== b.routeDistanceFromOrigin) {
             return a.routeDistanceFromOrigin - b.routeDistanceFromOrigin;
@@ -5713,7 +6408,6 @@ function extractLocationFromProperties(properties, defaultLat, defaultLon) {
 
 // ========== ✨ 新增：檢查點是否在匯入的多邊形範圍內 ✨ ==========
 function checkPointInImportedPolygons(pointLat, pointLon) {
-    // 檢查所有匯入的 GeoJSON 圖層
     for (const [layerName, geoJsonData] of Object.entries(geoJsonFeatures)) {
         if (!geoJsonData.features) continue;
         
@@ -5721,7 +6415,6 @@ function checkPointInImportedPolygons(pointLat, pointLon) {
             if (feature.geometry && feature.geometry.type === 'Polygon') {
                 const ring = feature.geometry.coordinates[0].map(c => [c[1], c[0]]);
                 
-                // 確保多邊形閉合
                 if (ring.length > 2 && 
                     (ring[0][0] !== ring[ring.length-1][0] || 
                      ring[0][1] !== ring[ring.length-1][1])) {
@@ -5767,7 +6460,6 @@ async function drawRoute(to, item) {
     try {
         if (!origin) return;
         
-        // 先清除舊路線
         if (routeLayer) {
             map.removeControl(routeLayer);
             routeLayer = null;
@@ -5785,7 +6477,6 @@ async function drawRoute(to, item) {
         routeInfo.innerText = "路線規劃中（可拖曳路線微調）...";
         routeCard.classList.remove('hidden');
 
-        // ✨ 建立可透過滑鼠拖曳編輯的路線控制器
         routeLayer = L.Routing.control({
             waypoints: [
                 L.latLng(origin[0], origin[1]),
@@ -5794,17 +6485,15 @@ async function drawRoute(to, item) {
             router: L.Routing.osrmv1({
     serviceUrl: 'https://router.project-osrm.org/route/v1'
 }),
-            routeWhileDragging: true, // ✨ 允許滑鼠拖曳路線時即時重算
-            addWaypoints: true,       // ✨ 允許在線上點擊拖出新的中途點
-            draggableWaypoints: true, // ✨ 允許拖曳起終點與中途點
-            fitSelectedRoutes: false, // 避免每次拖曳都強制縮放地圖視角
-            show: false,              // 隱藏預設導航文字框
+            routeWhileDragging: true,
+            addWaypoints: true,
+            draggableWaypoints: true,
+            fitSelectedRoutes: false,
+            show: false,
             lineOptions: {
                 styles: [{ color: lineColor, opacity: 0.85, weight: 6 }]
             },
-            // 自訂拖曳節點的外觀（避免與原本的可愛圖示衝突）
             createMarker: function(i, wp, nWps) {
-                // 起點(0)與終點(nWps-1)不重複畫大圖示，只為中間拖曳出來的「中途點」畫小白點
                 if (i === 0 || i === nWps - 1) return null;
                 return L.marker(wp.latLng, {
                     draggable: true,
@@ -5818,17 +6507,14 @@ async function drawRoute(to, item) {
             }
         }).addTo(map);
 
-        // ✨ 監聽路線計算完成事件（包含初次規劃，以及「滑鼠拖曳修改後」的自動重算）
         routeLayer.on('routesfound', function(e) {
             const routes = e.routes;
             if (routes && routes.length > 0) {
                 const summary = routes[0].summary;
-                const newDist = Math.round(summary.totalDistance); // 取得最新總距離（公尺）
+                const newDist = Math.round(summary.totalDistance);
 
-                // 1. 更新右上角路線卡片的文字
                 routeInfo.innerText = newDist + " m" + (isJunction ? " (至交流道入口)" : "") + " ✏️";
 
-                // 2. 同步更新資料陣列與查詢結果表格中的「路線距離」
                 item.路線距離數值 = newDist;
                 item.路線距離 = newDist + " m";
                 const cell = document.getElementById(`route-${item.id}`);
@@ -5838,7 +6524,6 @@ async function drawRoute(to, item) {
             }
         });
 
-        // 若 OSRM 連線失敗的備援機制（畫直線）
         routeLayer.on('routingerror', function() {
             routeInfo.innerText = item.距離 + " m (直線示意)";
         });
@@ -5912,7 +6597,7 @@ async function runQuery() {
             }
         }
 
-        const checkedBoxes = document.querySelectorAll("input[type=checkbox]:checked");
+        const checkedBoxes = document.querySelectorAll("#sidebarContent .facility-category input[type=checkbox]:checked");
         if (checkedBoxes.length === 0) {
             alert("請至少勾選一個分析類型！");
             queryBtn.disabled = false;
@@ -5942,11 +6627,6 @@ async function runQuery() {
                 parts.push(`nwr["amenity"="marketplace"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});
                 nwr["shop"="supermarket"](around:${radius},${centroidForQuery[0]},${centroidForQuery[1]});`);
             }
-                // =========================================
-// 🏬 工商活動
-// =========================================
-
-// 百貨公司
 else if (t === "business_department_store") {
     parts.push(`
         nwr["shop"="department_store"](
@@ -5968,8 +6648,6 @@ else if (t === "business_department_store") {
         );
     `);
 }
-
-// 金融機構
 else if (t === "business_financial") {
     parts.push(`
         nwr["amenity"="bank"](
@@ -5991,8 +6669,6 @@ else if (t === "business_financial") {
         );
     `);
 }
-
-// 娛樂設施
 else if (t === "business_entertainment") {
     parts.push(`
         nwr["amenity"~"cinema|theatre|casino|nightclub|arts_centre"](
@@ -6014,8 +6690,6 @@ else if (t === "business_entertainment") {
         );
     `);
 }
-
-// 大型展示中心或觀光飯店
 else if (t === "business_exhibition_hotel") {
     parts.push(`
         nwr["amenity"="exhibition_centre"](
@@ -6054,9 +6728,6 @@ else if (t === "business_exhibition_hotel") {
     const lat = centroidForQuery[0];
     const lon = centroidForQuery[1];
 
-    // =====================================================
-    // 1. 廢棄物轉運站
-    // =====================================================
     parts.push(`
         nwr["amenity"="waste_transfer_station"](
             around:${radius},
@@ -6065,9 +6736,6 @@ else if (t === "business_exhibition_hotel") {
         );
     `);
 
-    // =====================================================
-    // 2. 廢棄物處理設施
-    // =====================================================
     parts.push(`
         nwr["amenity"="waste_disposal"](
             around:${radius},
@@ -6076,9 +6744,6 @@ else if (t === "business_exhibition_hotel") {
         );
     `);
 
-    // =====================================================
-    // 3. 垃圾處理／焚化相關設施名稱補強
-    // =====================================================
     parts.push(`
         nwr["name"~"垃圾處理|垃圾焚化|焚化廠|焚化爐|廢棄物處理|廢棄物清除|廢棄物轉運|垃圾轉運|垃圾掩埋",i](
             around:${radius},
@@ -6087,9 +6752,6 @@ else if (t === "business_exhibition_hotel") {
         );
     `);
 
-    // =====================================================
-    // 4. 資源回收設施（名稱明確者）
-    // =====================================================
     parts.push(`
         nwr["name"~"資源回收場|資源回收中心|資源回收廠",i](
             around:${radius},
@@ -6108,66 +6770,44 @@ else if (t === "business_exhibition_hotel") {
     const lon = centroidForQuery[1];
 
     parts.push(`
-        // 1. 觀光與自然遊憩據點 + 2. 休閒娛樂與文化設施 (旅遊與歷史類)
         nwr["tourism"~"attraction|museum|zoo|theme_park|viewpoint|aquarium"](around:${radius}, ${lat}, ${lon});
         nwr["historic"~"monument|castle|heritage"](around:${radius}, ${lat}, ${lon});
-        
-        // 3. 大型運動與體育休閒場地 / 休閒園區 (休閒與運動類)
         nwr["leisure"~"sports_centre|stadium|water_park|golf_course|nature_reserve"](around:${radius}, ${lat}, ${lon});
     `);
 }
             else if (t === "bank") {
 
     parts.push(`
-        /* =========================
-           銀行
-        ========================= */
         nwr["amenity"="bank"](
             around:${radius},
             ${centroidForQuery[0]},
             ${centroidForQuery[1]}
         );
-
-        /* =========================
-           郵局
-        ========================= */
         nwr["amenity"="post_office"](
             around:${radius},
             ${centroidForQuery[0]},
             ${centroidForQuery[1]}
         );
-
-        /* =========================
-           醫院
-        ========================= */
         nwr["amenity"="hospital"](
             around:${radius},
             ${centroidForQuery[0]},
             ${centroidForQuery[1]}
         );
-
-        /* =========================
-           政府機關
-        ========================= */
-
         nwr["office"="government"](
             around:${radius},
             ${centroidForQuery[0]},
             ${centroidForQuery[1]}
         );
-
         nwr["government"](
             around:${radius},
             ${centroidForQuery[0]},
             ${centroidForQuery[1]}
         );
-
         nwr["amenity"="townhall"](
             around:${radius},
             ${centroidForQuery[0]},
             ${centroidForQuery[1]}
         );
-
         nwr["amenity"="public_building"](
             around:${radius},
             ${centroidForQuery[0]},
@@ -6190,9 +6830,6 @@ else if (t === "business_exhibition_hotel") {
             }
             else if (t === "gas") {
 
-    // =====================================================
-    // 高壓電塔
-    // =====================================================
     parts.push(`
         nwr["power"="tower"](
             around:${radius},
@@ -6201,9 +6838,6 @@ else if (t === "business_exhibition_hotel") {
         );
     `);
 
-    // =====================================================
-    // 變電所
-    // =====================================================
     parts.push(`
         nwr["power"="substation"](
             around:${radius},
@@ -6212,9 +6846,6 @@ else if (t === "business_exhibition_hotel") {
         );
     `);
 
-    // =====================================================
-    // 發電廠
-    // =====================================================
     parts.push(`
         nwr["power"="plant"](
             around:${radius},
@@ -6223,9 +6854,6 @@ else if (t === "business_exhibition_hotel") {
         );
     `);
 
-    // =====================================================
-    // 發電機組／發電設施
-    // =====================================================
     parts.push(`
         nwr["power"="plant"](
             around:${radius},
@@ -6234,9 +6862,6 @@ else if (t === "business_exhibition_hotel") {
         );
     `);
 
-    // =====================================================
-    // 高壓電力設施名稱補強
-    // =====================================================
     parts.push(`
         nwr["name"~"高壓電塔|高壓電線塔|電塔|變電所|變電站|電所",i](
             around:${radius},
@@ -6245,9 +6870,6 @@ else if (t === "business_exhibition_hotel") {
         );
     `);
 
-    // =====================================================
-    // 發電廠名稱補強
-    // =====================================================
     parts.push(`
         nwr["name"~"發電廠|發電所|電廠|電力廠|火力發電|水力發電|風力發電|太陽能發電",i](
             around:${radius},
@@ -6256,13 +6878,6 @@ else if (t === "business_exhibition_hotel") {
         );
     `);
 
-    // =====================================================
-// 🛢️ 瓦斯／石油／油庫等能源相關工業設施
-// =====================================================
-
-// -----------------------------------------------------
-// ① OSM 標準：瓦斯工業
-// -----------------------------------------------------
 parts.push(`
     nwr["industrial"="gas"](
         around:${radius},
@@ -6271,10 +6886,6 @@ parts.push(`
     );
 `);
 
-// -----------------------------------------------------
-// ② OSM 工業設施 + 瓦斯／油氣相關名稱
-//    五股中油油庫就是這一類：landuse=industrial
-// -----------------------------------------------------
 parts.push(`
     nwr[
         "landuse"="industrial"
@@ -6288,9 +6899,6 @@ parts.push(`
     );
 `);
 
-// -----------------------------------------------------
-// ③ man_made=works + 油氣相關
-// -----------------------------------------------------
 parts.push(`
     nwr[
         "man_made"="works"
@@ -6304,10 +6912,6 @@ parts.push(`
     );
 `);
 
-// -----------------------------------------------------
-// ④ 名稱直接辨識
-//    避免 OSM 沒有 landuse / industrial 標籤
-// -----------------------------------------------------
 parts.push(`
     nwr[
         "name"~"油庫|儲油|石油|中油|油槽|油品|油料|瓦斯分裝|瓦斯儲存|液化石油氣|液化瓦斯|LPG",
@@ -6325,9 +6929,6 @@ parts.push(`
     const lat = centroidForQuery[0];
     const lon = centroidForQuery[1];
 
-    // =====================================================
-    // 🚰 污水處理廠
-    // =====================================================
     parts.push(`
         nwr["man_made"="wastewater_treatment_plant"](
             around:${radius},
@@ -6336,9 +6937,6 @@ parts.push(`
         );
     `);
 
-    // =====================================================
-    // 🚰 污水處理設施
-    // =====================================================
     parts.push(`
         nwr["man_made"="wastewater_plant"](
             around:${radius},
@@ -6347,10 +6945,6 @@ parts.push(`
         );
     `);
 
-    // =====================================================
-    // 🏭 污水相關工業／公共處理設施
-    // 名稱補強
-    // =====================================================
     parts.push(`
         nwr["name"~"污水處理廠|污水處理中心|水資源回收中心|水資源回收廠|污水廠",i](
             around:${radius},
@@ -6409,7 +7003,6 @@ parts.push(`
                 let typeName = rawType;
                 if (rawType === "motorway_junction") typeName = "交流道";
                 
-                // ✨ 修正：同時檢查手繪多邊形和匯入多邊形
                 let insideHandDrawn = false;
                 let insideImported = checkPointInImportedPolygons(finalLat, finalLon);
                 
@@ -6438,7 +7031,6 @@ parts.push(`
         rawSchools.forEach(sch => {
             const [finalLat, finalLon] = extractLocationFromProperties(sch, sch.lat, sch.lon);
 
-            // ✨ 修正：同時檢查手繪多邊形和匯入多邊形
             let insideHandDrawn = false;
             let insideImported = checkPointInImportedPolygons(finalLat, finalLon);
             
@@ -6474,7 +7066,6 @@ parts.push(`
                         item.座標 = bestEntrance.coordinate;
                         item.類型 = "交流道入口";
                         
-                        // ✨ 修正：更新後也需要重新檢查範圍
                         let insideHandDrawn = false;
                         let insideImported = checkPointInImportedPolygons(item.座標[0], item.座標[1]);
                         
@@ -6499,7 +7090,6 @@ parts.push(`
         
 results.forEach(item => {
 
-    // 可愛粉紅色定位圖示
     const m = L.marker(item.座標, {
         icon: createCuteMarkerIcon('🏙️', 'poi-location'),
         pane: 'cuteMarkerPane',
@@ -6531,8 +7121,6 @@ results.forEach(item => {
             if (item.在範圍內) continue;
             let isJunc = item.原始類型 === "motorway_junction";
             let routeRes;
-            // 已在入口解析階段完成 Origin → Entrance 的實際 OSRM 路線，
-            // 直接沿用，避免再次選到另一條路線。
             if (isJunc && item.交流道入口分析 && Number.isFinite(item.交流道入口分析.routeDistanceFromOrigin)) {
                 routeRes = {
                     value: Math.round(item.交流道入口分析.routeDistanceFromOrigin),
@@ -6572,7 +7160,6 @@ function sortResults(type) {
     renderTable();
 }
 
-// ✨ 修正：直線距離及路線距離欄位同時顯示「位於區段範圍內」
 function renderTable() {
     tbody.innerHTML = "";
     results.forEach(item => {
@@ -6580,7 +7167,6 @@ function renderTable() {
         tr.dataset.id = item.id;
         tr.onclick = () => selectItemById(item.id);
         
-        // ✨ 修正：範圍內同時處理直線距離和路線距離
         let distanceDisplay = item.在範圍內 ? '位於區段範圍內' : item.直線距離顯示;
         let routeDisplay = item.在範圍內 ? '位於區段範圍內' : (item.路線距離 || '');
         
@@ -6606,11 +7192,9 @@ function exportExcel() {
 
     const exportData = results.map(r => {
 
-        // r.座標格式：[緯度, 經度]
         const lat = r.座標[0];
         const lng = r.座標[1];
 
-        // WGS84 → TWD97
         const twd97 = latLngToTWD97(lat, lng);
 
         return {
@@ -6625,15 +7209,9 @@ function exportExcel() {
                 ? "位於區段範圍內"
                 : (r.路線距離 || ""),
 
-            // =============================
-            // WGS84 經緯度
-            // =============================
             緯度_WGS84: lat,
             經度_WGS84: lng,
 
-            // =============================
-            // TWD97 TM2
-            // =============================
             TWD97_X: twd97[0],
             TWD97_Y: twd97[1]
         };
@@ -6722,11 +7300,7 @@ function exportPolygonsToGeoJSON() {
 function isTWD97Coordinate(x, y) {
     return x > 100000 && x < 400000 && y > 2000000 && y < 2900000;
 }
-// =====================================================
-// WGS84 (EPSG:4326) → TWD97 / TM2 zone 121 (EPSG:3826)
-// 台灣本島適用
-// 回傳：[X, Y]
-// =====================================================
+
 function latLngToTWD97(lat, lng) {
 
     const a = 6378137.0;
@@ -6773,6 +7347,7 @@ function latLngToTWD97(lat, lng) {
         Math.round(y * 100) / 100
     ];
 }
+
 function twd97ToWGS84(x, y) {
     const a = 6378137.0;
     const f = 1 / 298.257222101;
@@ -6794,209 +7369,183 @@ function twd97ToWGS84(x, y) {
     const fp = mu + J1*Math.sin(2*mu) + J2*Math.sin(4*mu) + J3*Math.sin(6*mu) + J4*Math.sin(8*mu);
 
     const e2p = e2 / (1 - e2);
-    const C1 = e2p * Math.pow(Math.cos(fp), 2);
-    const T1 = Math.pow(Math.tan(fp), 2);
-    const R1 = a * (1 - e2) / Math.pow(1 - e2*Math.pow(Math.sin(fp),2), 1.5);
-    const N1 = a / Math.sqrt(1 - e2*Math.pow(Math.sin(fp),2));
+    const C1 = e2p * Math.cos(fp) * Math.cos(fp);
+    const T1 = Math.tan(fp) * Math.tan(fp);
+    const R1 = a * (1 - e2) / Math.pow(1 - e2*Math.sin(fp)*Math.sin(fp), 1.5);
+    const N1 = a / Math.sqrt(1 - e2*Math.sin(fp)*Math.sin(fp));
     const D = (x - dx) / (N1 * k0);
 
-    const lat = fp - (N1*Math.tan(fp)/R1) * (
-        D*D/2 -
-        (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2p) * Math.pow(D,4)/24 +
-        (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*e2p - 3*C1*C1) * Math.pow(D,6)/720
-    );
+    const Q1 = N1 * Math.tan(fp) / R1;
+    const Q2 = (D*D / 2);
+    const Q3 = (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*e2p) * Math.pow(D, 4) / 24;
+    const Q4 = (61 + 90*T1 + 298*C1 + 45*T1*T1 - 3*C1*C1 - 252*e2p) * Math.pow(D, 6) / 720;
+    const lat = fp - Q1*(Q2 - Q3 + Q4);
 
-    const lon = lon0 + (
-        D - (1 + 2*T1 + C1) * Math.pow(D,3)/6 +
-        (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2p + 24*T1*T1) * Math.pow(D,5)/120
-    ) / Math.cos(fp);
+    const Q5 = D;
+    const Q6 = (1 + 2*T1 + C1) * Math.pow(D, 3) / 6;
+    const Q7 = (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*e2p + 24*T1*T1) * Math.pow(D, 5) / 120;
+    const lon = lon0 + (Q5 - Q6 + Q7) / Math.cos(fp);
 
     return [lon * 180 / Math.PI, lat * 180 / Math.PI];
 }
 
-function convertRingIfNeeded(ring) {
-    const sample = ring[0];
-    if (isTWD97Coordinate(sample[0], sample[1])) {
-        return ring.map(coord => twd97ToWGS84(coord[0], coord[1]));
-    }
-    return ring;
-}
-
-function processImportedPolygons(geojson) {
-    let data = geojson;
-
-    let guard = 0;
-    while (data && data.features && !Array.isArray(data.features) &&
-           data.features.type === "FeatureCollection" && guard < 5) {
-        data = data.features;
-        guard++;
+function getImportedPolygonName(properties, fallbackIndex) {
+    if (!properties || typeof properties !== 'object') {
+        return `匯入多邊形 ${fallbackIndex}`;
     }
 
-    let features = [];
-    if (data.type === "FeatureCollection" && Array.isArray(data.features)) {
-        features = data.features;
-    } else if (data.type === "Feature") {
-        features = [data];
-    } else if (data.geometry) {
-        features = [{
-            type: "Feature",
-            geometry: data.geometry,
-            properties: data.properties || {}
-        }];
-    } else {
-        showToast("❌ 無效的 GeoJSON 格式");
-        return;
-    }
+    const candidateKeys = [
+        'name', 'NAME', 'Name',
+        '名稱', '地段名稱', '區段名稱', '範圍名稱', '圖層名稱', '標題',
+        'title', 'TITLE', 'Title',
+        'label', 'LABEL', 'Label',
+        'id', 'ID', 'Id',
+        '編號', '代碼', 'code', 'CODE'
+    ];
 
-    let importedCount = 0;
-    let skippedCount = 0;
-    let convertedCount = 0;
-
-    features.forEach((feature, featureIdx) => {
-        if (!feature.geometry) {
-            skippedCount++;
-            return;
+    for (const key of candidateKeys) {
+        if (properties[key] != null && String(properties[key]).trim() !== '') {
+            return String(properties[key]).trim();
         }
+    }
 
-        const geomType = feature.geometry.type;
-        let polygonsCoords = [];
-        
-        if (geomType === "Polygon") {
-            if (feature.geometry.coordinates && feature.geometry.coordinates[0]) {
-                polygonsCoords.push({
-                    ring: feature.geometry.coordinates[0],
-                    multiIndex: 0,
-                    totalPolygons: 1
-                });
-            }
-        } else if (geomType === "MultiPolygon") {
-            feature.geometry.coordinates.forEach((polygonCoords, polyIdx) => {
-                if (polygonCoords && polygonCoords[0]) {
-                    polygonsCoords.push({
-                        ring: polygonCoords[0],
-                        multiIndex: polyIdx,
-                        totalPolygons: feature.geometry.coordinates.length
-                    });
-                }
-            });
-        } else {
-            skippedCount++;
-            return;
+    for (const [key, val] of Object.entries(properties)) {
+        if (val != null &&
+            (typeof val === 'string' || typeof val === 'number') &&
+            String(val).trim() !== '' &&
+            !key.toLowerCase().includes('color') &&
+            !key.toLowerCase().includes('opacity') &&
+            !key.toLowerCase().includes('width') &&
+            !key.toLowerCase().includes('style') &&
+            key !== 'styleConfig') {
+            return String(val).trim();
         }
+    }
 
-        const props = feature.properties || {};
-        const baseName = props.name || props.Name || props.NAME ||
-                          props['名稱'] || props.PolyName || null;
-
-        polygonsCoords.forEach((coordData) => {
-            const rings = coordData.ring;
-            const multiIndex = coordData.multiIndex;
-            const totalPolygons = coordData.totalPolygons;
-
-            if (!rings || rings.length < 3) {
-                skippedCount++;
-                return;
-            }
-
-            const beforeSample = rings[0];
-            const wasTWD97 = isTWD97Coordinate(beforeSample[0], beforeSample[1]);
-            let convertedRings = rings;
-            if (wasTWD97) {
-                convertedRings = convertRingIfNeeded(rings);
-                convertedCount++;
-            }
-
-            const invalidCoord = convertedRings.some(coord =>
-                Math.abs(coord[1]) > 90 || Math.abs(coord[0]) > 180
-            );
-            if (invalidCoord) {
-                showToast("⚠️ 部分座標超出有效範圍，已自動跳過");
-                skippedCount++;
-                return;
-            }
-
-            if (convertedRings.length > 1 &&
-                convertedRings[0][0] === convertedRings[convertedRings.length - 1][0] &&
-                convertedRings[0][1] === convertedRings[convertedRings.length - 1][1]) {
-                convertedRings.pop();
-            }
-
-            const points = convertedRings.map(coord => [coord[1], coord[0]]);
-
-            let finalName = null;
-            if (baseName) {
-                finalName = totalPolygons > 1 
-                    ? `${baseName}_${multiIndex + 1}` 
-                    : baseName;
-            }
-
-            const polygonObj = createPolygonObject(points, finalName);
-            if (polygonObj) {
-                polygonObj.originalProperties = { ...props };
-            }
-
-            importedCount++;
-        });
-    });
-
-    let msg = `✅ 成功匯入 ${importedCount} 個多邊形`;
-    if (convertedCount > 0) msg += `（已自動轉換 ${convertedCount} 個 TWD97 座標）`;
-    if (skippedCount > 0) msg += `，跳過 ${skippedCount} 筆異常資料`;
-    showToast(msg);
+    return `匯入多邊形 ${fallbackIndex}`;
 }
 
 function importPolygonsFromSHP(event) {
     const file = event.target.files[0];
     if (!file) return;
 
+    const fileName = file.name.toLowerCase();
     const reader = new FileReader();
-    if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
-        reader.onload = (e) => {
-            try {
-                const rawGeoJSON = JSON.parse(e.target.result);
-                const normalizedGeoJSON = normalizeGeoJSON(rawGeoJSON);
-                processImportedPolygons(normalizedGeoJSON);
-            } catch (err) {
-                console.error('❌ GeoJSON 解析失敗:', err);
-                showToast(`❌ 解析失敗：${err.message}`);
+
+    reader.onload = async (e) => {
+        try {
+            let rawGeojson = null;
+
+            if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+                rawGeojson = JSON.parse(e.target.result);
+            } else if (fileName.endsWith('.zip')) {
+                rawGeojson = await shp(e.target.result);
+            } else if (fileName.endsWith('.shp')) {
+                showToast('⚠️ 建議使用包含 .shp、.shx、.dbf 的 .zip 壓縮包');
+                return;
+            } else {
+                showToast('❌ 不支援的檔案格式，請選擇 .zip 或 .geojson 檔案');
+                return;
             }
-        };
-        reader.readAsText(file);
-    } else if (file.name.endsWith('.zip') || file.name.endsWith('.shp')) {
-        reader.onload = async (e) => {
-            try {
-                const arrayBuffer = e.target.result;
-                const geojson = await shp(arrayBuffer);
-                const normalizedGeoJSON = normalizeGeoJSON(geojson);
-                processImportedPolygons(normalizedGeoJSON);
-            } catch (err) {
-                console.error('❌ SHP 解析失敗:', err);
-                showToast(`❌ SHP 解析失敗：${err.message}`);
+
+            const normalizedData = normalizeGeoJSON(rawGeojson);
+            const conversionResult = convertGeoJSONToWGS84IfNeeded(normalizedData);
+            const geojson = conversionResult.data;
+
+            if (!geojson || !geojson.features || geojson.features.length === 0) {
+                showToast('❌ 檔案中找不到有效的多邊形資料');
+                return;
             }
-        };
+
+            let importedCount = 0;
+            const importedPolygons = [];
+
+            geojson.features.forEach((feature) => {
+                if (!feature.geometry) return;
+
+                const props = feature.properties || {};
+                const geom = feature.geometry;
+
+                if (geom.type === 'Polygon') {
+                    const ring = geom.coordinates[0].map(c => [c[1], c[0]]);
+                    if (ring.length > 2 &&
+                        ring[0][0] === ring[ring.length - 1][0] &&
+                        ring[0][1] === ring[ring.length - 1][1]) {
+                        ring.pop();
+                    }
+                    if (ring.length >= 3) {
+                        const polyName = getImportedPolygonName(props, polygons.length + 1);
+                        const polyObj = createPolygonObject(ring, polyName);
+                        polyObj.originalProperties = { ...props };
+                        importedPolygons.push(polyObj);
+                        importedCount++;
+                    }
+                } else if (geom.type === 'MultiPolygon') {
+                    geom.coordinates.forEach((polygonRings, partIdx) => {
+                        const ring = polygonRings[0].map(c => [c[1], c[0]]);
+                        if (ring.length > 2 &&
+                            ring[0][0] === ring[ring.length - 1][0] &&
+                            ring[0][1] === ring[ring.length - 1][1]) {
+                            ring.pop();
+                        }
+                        if (ring.length >= 3) {
+                            const baseName = getImportedPolygonName(props, polygons.length + 1);
+                            const polyName = geom.coordinates.length > 1
+                                ? `${baseName} (${partIdx + 1})`
+                                : baseName;
+                            const polyObj = createPolygonObject(ring, polyName);
+                            polyObj.originalProperties = { ...props };
+                            importedPolygons.push(polyObj);
+                            importedCount++;
+                        }
+                    });
+                }
+            });
+
+            if (importedCount > 0) {
+                const group = L.featureGroup(importedPolygons.map(p => p.layer));
+                if (group.getBounds().isValid()) {
+                    map.fitBounds(group.getBounds(), { padding: [50, 50] });
+                }
+
+                let msg = `✓ 成功匯入 ${importedCount} 個多邊形`;
+                if (conversionResult.converted) {
+                    msg += `（已自動轉換 TWD97 → WGS84 座標）`;
+                }
+                showToast(msg);
+            } else {
+                showToast('❌ 檔案中沒有 Polygon 或 MultiPolygon 幾何資料');
+            }
+
+        } catch (err) {
+            console.error('❌ 匯入多邊形失敗:', err);
+            showToast('❌ 匯入失敗：' + err.message);
+        } finally {
+            event.target.value = '';
+        }
+    };
+
+    reader.onerror = () => {
+        showToast('❌ 檔案讀取失敗');
+        event.target.value = '';
+    };
+
+    if (fileName.endsWith('.zip') || fileName.endsWith('.shp')) {
         reader.readAsArrayBuffer(file);
     } else {
-        showToast('❌ 不支援的檔案格式（只支援 .geojson、.json 或 .zip）');
+        reader.readAsText(file);
     }
-    document.getElementById('shp-file-input').value = '';
 }
 
 let isDragging = false;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 
-const resultHeader = document.getElementById('resultHeader');
-if (resultHeader) {
-    resultHeader.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'BUTTON') return;
-        isDragging = true;
-        const rect = resultPanel.getBoundingClientRect();
-        dragOffsetX = e.clientX - rect.left;
-        dragOffsetY = e.clientY - rect.top;
-        resultPanel.style.position = 'fixed';
-        resultPanel.style.zIndex = 10000;
-    });
-}
+document.getElementById('resultHeader').addEventListener('mousedown', (e) => {
+    isDragging = true;
+    dragOffsetX = e.clientX - resultPanel.offsetLeft;
+    dragOffsetY = e.clientY - resultPanel.offsetTop;
+});
 
 document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
@@ -7009,54 +7558,48 @@ document.addEventListener('mouseup', () => {
 });
 
 window.addEventListener('resize', () => {
-    const width = window.innerWidth;
-    const newMode = width <= 768 ? 'mobile' : 'desktop';
-    if (newMode !== deviceMode) {
-        deviceMode = newMode;
-        if (newMode === 'mobile') {
-            document.body.classList.add('mobile-mode');
-            document.getElementById('deviceToggle').textContent = '📱';
-        } else {
-            document.body.classList.remove('mobile-mode');
-            document.getElementById('deviceToggle').textContent = '💻';
-        }
-        setTimeout(() => {
-            map.invalidateSize();
-        }, 300);
-    }
+    initDeviceMode();
+    map.invalidateSize();
 });
 
 document.addEventListener('DOMContentLoaded', () => {
     initDeviceMode();
     initLayerControls();
     initGeoJSONEvents(map);
-    console.log('✅ v1.1.6 修正版 (2026-08-12) 初始化完成');
-    console.log('✅ 修正：直線距離及路線距離在區段範圍內時同時顯示「位於區段範圍內」');
-    console.log('✅ 著作權合規：MIT License + ODbL Attribution');
+    renderPolygonList();
+    updateCustomWMSLayersList();
+    syncPlanningLayersRegistry();
+    renderPlanningLayerManager();
+    
+    console.log('✓ 區段勘查小幫手 v1.1.6 (修正版) 已完全加載');
 });
-// =========================================
-// 分析設施類型－分類展開 / 收合
-// =========================================
+
+/* =========================================
+   分析設施類型分類開合切換
+   預設全部收合，點擊分類標題才展開
+   ========================================= */
 function toggleFacilityCategory(category) {
 
-    const content = document.getElementById(
-        'facility-' + category
-    );
+    const content = document.getElementById("facility-" + category);
+    const arrow = document.getElementById("arrow-" + category);
 
     if (!content) return;
 
     const header = content.previousElementSibling;
-
-    const isOpen = content.classList.contains('open');
+    const isOpen = content.classList.contains("open");
 
     if (isOpen) {
-        content.classList.remove('open');
-        header.classList.remove('active');
+        content.classList.remove("open");
+        if (header) header.classList.remove("active");
+        if (arrow) arrow.textContent = "▶";
     } else {
-        content.classList.add('open');
-        header.classList.add('active');
+        content.classList.add("open");
+        if (header) header.classList.add("active");
+        if (arrow) arrow.textContent = "▼";
     }
-}    
+
+}
 </script>
+
 </body>
 </html>
